@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { invitationDb, userDb, teamMemberDb, teamDb } from '@/lib/db';
-import { supabase } from '@/lib/supabase';
 
 export async function POST(request: NextRequest) {
   try {
@@ -58,21 +57,10 @@ export async function POST(request: NextRequest) {
         );
       } else {
         // User exists but has no organization - update their organization
-        const { error: updateError } = await supabase
-          .from('users')
-          .update({ 
-            organization_id: invitation.organization_id,
-            role: invitation.role || 'member'
-          })
-          .eq('id', existingUser.id);
-
-        if (updateError) {
-          console.error('Error updating user organization:', updateError);
-          return NextResponse.json(
-            { success: false, error: 'Failed to join organization' },
-            { status: 500 }
-          );
-        }
+        await userDb.update(existingUser.id, {
+          organization_id: invitation.organization_id,
+          role: invitation.role || 'member',
+        });
 
         // Add to team
         if (invitation.team_id) {
@@ -98,25 +86,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Create new user in the organization
-    const { data: newUser, error: userError } = await supabase
-      .from('users')
-      .insert({
-        email: session.user.email,
-        name: session.user.name || session.user.email.split('@')[0],
-        avatar_url: (session.user as any).image || null,
-        organization_id: invitation.organization_id,
-        role: 'member',
-      })
-      .select()
-      .single();
-
-    if (userError) {
-      console.error('Error creating user:', userError);
-      return NextResponse.json(
-        { success: false, error: 'Failed to create user' },
-        { status: 500 }
-      );
-    }
+    const newUser = await userDb.create({
+      email: session.user.email,
+      name: session.user.name || session.user.email.split('@')[0],
+      avatar_url: (session.user as any).image || null,
+      organization_id: invitation.organization_id,
+      role: invitation.role || 'member',
+    });
 
     // If invitation has a team_id, add user to that team
     if (invitation.team_id) {
