@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
 import { TaskCard } from '@/components/TaskCard';
 import { useTaskContext, type TaskStatus } from '@/components/TaskContext';
@@ -16,6 +16,15 @@ import { resolveTaskBoardColumnId, isTerminalBoardColumn, FALLBACK_BOARD_COLUMNS
 import { CreateProjectModal } from '@/components/CreateProjectModal';
 
 export function TaskBoard() {
+  const [isMobileBoard, setIsMobileBoard] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)');
+    const sync = () => setIsMobileBoard(mq.matches);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
+
   const {
     tasks,
     updateTask,
@@ -273,7 +282,9 @@ export function TaskBoard() {
           {/* Mobile: horizontal scroll across all columns (snap); drag between columns is unreliable on touch — use ⋮ → Statü değiştir */}
           <div className="md:hidden">
             <p className="mb-2 px-0.5 text-xs text-muted-foreground">
-              Sütunlar arasında yatay kaydırın. Taşımak için sürükleyebilir veya kart menüsünden statü seçebilirsiniz.
+              Sütunlar arasında yatay kaydırın. Mobilde sütunlar arası taşıma için kartın sağ üstündeki ⋮ menüsünden
+              <span className="font-medium text-foreground"> Statü değiştir</span> kullanın (kaydırma ile sürükleme
+              çakışmasın diye sürükle-bırak kapalı).
             </p>
             <div className="-mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-3 pt-0.5 overscroll-x-contain [scrollbar-width:thin] [-webkit-overflow-scrolling:touch]">
               {boardColumns.map((column) => {
@@ -302,7 +313,12 @@ export function TaskBoard() {
                           )}
                         >
                           {columnTasks.map((task, index) => (
-                            <Draggable key={task.id} draggableId={task.id} index={index}>
+                            <Draggable
+                              key={task.id}
+                              draggableId={task.id}
+                              index={index}
+                              isDragDisabled={isMobileBoard}
+                            >
                               {(provided) => (
                                 <div
                                   ref={provided.innerRef}
@@ -311,7 +327,7 @@ export function TaskBoard() {
                                 >
                                   <TaskCard
                                     task={task}
-                                    dragHandleProps={provided.dragHandleProps}
+                                    dragHandleProps={isMobileBoard ? undefined : provided.dragHandleProps}
                                     onTaskClick={(t) => openTaskEditor(t.id)}
                                   />
                                 </div>

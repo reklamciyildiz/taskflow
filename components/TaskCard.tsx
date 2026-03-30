@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -43,6 +43,8 @@ const priorityColors = {
 
 export function TaskCard({ task, dragHandleProps, onTaskClick }: TaskCardProps) {
   const { currentTeam, updateTask, deleteTask, canEditTask, canDeleteTask, boardColumns, canCompleteTask } = useTaskContext();
+  /** After ⋮ → Statü değiştir, menü kapanırken mobilde hayalet tık kart onClick'ine düşebilir; kısa süre modal açılmasın. */
+  const blockCardOpenUntilRef = useRef(0);
   
   // Check permissions for this task
   const canEdit = canEditTask(task.createdBy, task.assigneeId);
@@ -62,6 +64,11 @@ export function TaskCard({ task, dragHandleProps, onTaskClick }: TaskCardProps) 
   const isDueSoon = task.dueDate && isPast(task.dueDate) && task.status !== 'done';
 
   const handleCardClick = (e: React.MouseEvent) => {
+    if (Date.now() < blockCardOpenUntilRef.current) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
     // Don't open modal if clicking on dropdown menu or drag handle
     const target = e.target as HTMLElement;
     if (target.closest('[role="button"]') || target.closest('[data-drag-handle]')) {
@@ -122,7 +129,10 @@ export function TaskCard({ task, dragHandleProps, onTaskClick }: TaskCardProps) 
                         <DropdownMenuItem
                           key={col.id}
                           disabled={isCurrent || blocked}
-                          onClick={() => updateTask(task.id, { status: col.id })}
+                          onSelect={() => {
+                            blockCardOpenUntilRef.current = Date.now() + 550;
+                            void updateTask(task.id, { status: col.id });
+                          }}
                         >
                           {col.title}
                           {isCurrent ? <span className="ml-auto text-xs text-muted-foreground">Şu an</span> : null}
@@ -134,14 +144,14 @@ export function TaskCard({ task, dragHandleProps, onTaskClick }: TaskCardProps) 
                   </>
                 )}
                 {canEdit && (
-                  <DropdownMenuItem onClick={() => onTaskClick?.(task)}>
+                  <DropdownMenuItem onSelect={() => onTaskClick?.(task)}>
                     Edit Task
                   </DropdownMenuItem>
                 )}
                 {canDelete && (
                   <DropdownMenuItem 
                     className="text-red-600 focus:text-red-600"
-                    onClick={() => deleteTask(task.id)}
+                    onSelect={() => void deleteTask(task.id)}
                   >
                     Delete Task
                   </DropdownMenuItem>

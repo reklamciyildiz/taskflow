@@ -56,6 +56,8 @@ export function FocusDashboard() {
   const [pendingProjectId, setPendingProjectId] = useState<string | null>(null);
   const [savedProjectId, setSavedProjectId] = useState<string | null>(null);
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Which project card has the "varsayılan günlük task" combobox open (controlled close on select). */
+  const [loggingTaskPickerProjectId, setLoggingTaskPickerProjectId] = useState<string | null>(null);
 
   useEffect(() => {
     setPinnedProjectIds(safeParseStringArray(localStorage.getItem(PINNED_PROJECTS_KEY)));
@@ -290,7 +292,13 @@ export function FocusDashboard() {
                 {stats.recentTaskIds.length > 0 && (
                   <div className="space-y-1">
                     <p className="text-[11px] font-medium text-muted-foreground">Varsayılan günlük task</p>
-                    <Popover>
+                    <Popover
+                      open={loggingTaskPickerProjectId === p.id}
+                      onOpenChange={(open) => {
+                        if (open) setLoggingTaskPickerProjectId(p.id);
+                        else setLoggingTaskPickerProjectId((cur) => (cur === p.id ? null : cur));
+                      }}
+                    >
                       <PopoverTrigger asChild>
                         <Button
                           type="button"
@@ -316,7 +324,10 @@ export function FocusDashboard() {
                             <CommandGroup>
                               <CommandItem
                                 value="__auto__"
-                                onSelect={() => setPinnedLoggingTask(p.id, '__auto__')}
+                                onSelect={() => {
+                                  setPinnedLoggingTask(p.id, '__auto__');
+                                  setLoggingTaskPickerProjectId(null);
+                                }}
                               >
                                 <Check
                                   className={cn(
@@ -334,7 +345,10 @@ export function FocusDashboard() {
                                   <CommandItem
                                     key={tid}
                                     value={t.title}
-                                    onSelect={() => setPinnedLoggingTask(p.id, tid)}
+                                    onSelect={() => {
+                                      setPinnedLoggingTask(p.id, tid);
+                                      setLoggingTaskPickerProjectId(null);
+                                    }}
                                   >
                                     <Check
                                       className={cn(

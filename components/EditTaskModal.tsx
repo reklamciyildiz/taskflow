@@ -10,7 +10,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Task, TaskStatus, TaskPriority, useTaskContext } from '@/components/TaskContext';
 import type { JournalLogEntry } from '@/lib/types';
 import { TaskProcessJournal } from '@/components/task/TaskProcessJournal';
-import { Loader2 } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { ClipboardList, Loader2 } from 'lucide-react';
 
 interface EditTaskModalProps {
   task: Task | null;
@@ -35,10 +37,12 @@ export function EditTaskModal({ task, open, onClose }: EditTaskModalProps) {
   const [learnings, setLearnings] = useState('');
   const lastPersistedLearnings = useRef('');
   const learningsDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [activeTab, setActiveTab] = useState<'details' | 'notes'>('details');
 
   // Only sync when opening or switching task — not on every `tasks` update (avoids wiping in-progress edits / journal flow)
   useEffect(() => {
     if (!open || !task) return;
+    setActiveTab('details');
     const src = tasks.find((t) => t.id === task.id) ?? task;
     setTitle(src.title);
     setDescription(src.description || '');
@@ -149,149 +153,180 @@ export function EditTaskModal({ task, open, onClose }: EditTaskModalProps) {
           <DialogTitle>{canEdit ? 'Edit Task' : 'View Task'}</DialogTitle>
           <DialogDescription>
             {canEdit
-              ? 'Görev ayrıntıları, süreç günlüğü ve öğrenme notlarını buradan güncelleyin.'
+              ? 'Önce görev detaylarını düzenleyin; günlük ve öğrenme notları için Notlar sekmesine geçin.'
               : 'Bu görevi görüntülüyorsunuz; düzenleme yetkiniz yok.'}
           </DialogDescription>
         </DialogHeader>
 
         <form
           onSubmit={handleSubmit}
-          className="min-h-0 min-w-0 flex-1 space-y-4 overflow-y-auto overflow-x-hidden pr-1 [scrollbar-gutter:stable]"
+          className="flex min-h-0 min-w-0 flex-1 flex-col gap-0 overflow-hidden"
         >
-          <div className="space-y-2">
-            <Label htmlFor="title">Title</Label>
-            <Input
-              id="title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Task title"
-              required
-              disabled={!canEdit}
-              className="min-w-0 max-w-full bg-white dark:bg-gray-800"
-            />
-          </div>
+          <Tabs
+            value={activeTab}
+            onValueChange={(v) => setActiveTab(v as 'details' | 'notes')}
+            className="flex min-h-0 flex-1 flex-col gap-0"
+          >
+            <TabsList className="h-auto w-full shrink-0 flex-wrap justify-start gap-1 bg-muted/80 p-1 sm:flex-nowrap">
+              <TabsTrigger value="details" className="flex-1 sm:flex-none">
+                Görev
+              </TabsTrigger>
+              <TabsTrigger value="notes" className="relative flex-1 gap-1.5 sm:flex-none">
+                <ClipboardList className="h-3.5 w-3.5 opacity-70" aria-hidden />
+                Notlar
+                {(journalLogs.length > 0 || (learnings?.trim()?.length ?? 0) > 0) && (
+                  <Badge variant="secondary" className="h-5 min-w-5 px-1.5 text-[10px] font-normal tabular-nums">
+                    {journalLogs.length + (learnings.trim() ? 1 : 0)}
+                  </Badge>
+                )}
+              </TabsTrigger>
+            </TabsList>
 
-          <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Task description (optional)"
-              rows={3}
-              disabled={!canEdit}
-              className="min-h-[80px] w-full min-w-0 max-w-full break-words bg-white dark:bg-gray-800"
-            />
-          </div>
+            <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden py-3 pr-1 [scrollbar-gutter:stable]">
+              <TabsContent value="details" className="m-0 space-y-4 focus-visible:ring-0 focus-visible:ring-offset-0">
+                <div className="space-y-2">
+                  <Label htmlFor="title">Title</Label>
+                  <Input
+                    id="title"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="Task title"
+                    required
+                    disabled={!canEdit}
+                    className="min-w-0 max-w-full bg-white dark:bg-gray-800"
+                  />
+                </div>
 
-          <TaskProcessJournal
-            logs={journalLogs}
-            canEdit={canEdit}
-            disabled={loading}
-            onAppend={handleJournalAppend}
-            onUpdate={handleJournalUpdate}
-          />
+                <div className="space-y-2">
+                  <Label htmlFor="description">Description</Label>
+                  <Textarea
+                    id="description"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Task description (optional)"
+                    rows={3}
+                    disabled={!canEdit}
+                    className="min-h-[80px] w-full min-w-0 max-w-full break-words bg-white dark:bg-gray-800"
+                  />
+                </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Status</Label>
-              <Select value={status} onValueChange={(v) => setStatus(v as TaskStatus)} disabled={!canEdit}>
-                <SelectTrigger className="bg-white dark:bg-gray-800">
-                  <SelectValue placeholder="Durum" />
-                </SelectTrigger>
-                <SelectContent>
-                  {statusSelectOptions.map((col) => (
-                    <SelectItem key={col.id} value={col.id}>
-                      {col.title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="min-w-0 space-y-2">
+                    <Label>Status</Label>
+                    <Select value={status} onValueChange={(v) => setStatus(v as TaskStatus)} disabled={!canEdit}>
+                      <SelectTrigger className="bg-white dark:bg-gray-800">
+                        <SelectValue placeholder="Durum" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {statusSelectOptions.map((col) => (
+                          <SelectItem key={col.id} value={col.id}>
+                            {col.title}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="min-w-0 space-y-2">
+                    <Label>Priority</Label>
+                    <Select value={priority} onValueChange={(v) => setPriority(v as TaskPriority)} disabled={!canEdit}>
+                      <SelectTrigger className="bg-white dark:bg-gray-800">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="low">Low</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="high">High</SelectItem>
+                        <SelectItem value="urgent">Urgent</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="min-w-0 space-y-2">
+                    <Label>Assignee</Label>
+                    <Select value={assigneeId} onValueChange={setAssigneeId} disabled={!canEdit}>
+                      <SelectTrigger className="bg-white dark:bg-gray-800">
+                        <SelectValue placeholder="Unassigned" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="unassigned">Unassigned</SelectItem>
+                        {currentTeam?.members.map((member) => (
+                          <SelectItem key={member.id} value={member.id}>
+                            {member.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="min-w-0 space-y-2">
+                    <Label htmlFor="dueDate">Due Date</Label>
+                    <Input
+                      id="dueDate"
+                      type="date"
+                      value={dueDate}
+                      onChange={(e) => setDueDate(e.target.value)}
+                      disabled={!canEdit}
+                      className="bg-white dark:bg-gray-800"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Customer</Label>
+                  <Select value={customerId} onValueChange={setCustomerId} disabled={!canEdit}>
+                    <SelectTrigger className="bg-white dark:bg-gray-800">
+                      <SelectValue placeholder="No Customer" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No Customer</SelectItem>
+                      {customers.map((customer) => (
+                        <SelectItem key={customer.id} value={customer.id}>
+                          {customer.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="notes" className="m-0 space-y-4 focus-visible:ring-0 focus-visible:ring-offset-0">
+                <p className="text-xs text-muted-foreground">
+                  Süreç günlüğü kısa teknik notlar için; "Neler öğrendim?" uzun öğrenmeler ve özetler için Bilgi
+                  Merkezi'nde de görünür.
+                </p>
+                <TaskProcessJournal
+                  logs={journalLogs}
+                  canEdit={canEdit}
+                  disabled={loading}
+                  onAppend={handleJournalAppend}
+                  onUpdate={handleJournalUpdate}
+                />
+
+                <div className="min-w-0 space-y-2">
+                  <Label htmlFor="learnings">Neler öğrendim?</Label>
+                  <Textarea
+                    id="learnings"
+                    value={learnings}
+                    onChange={(e) => setLearnings(e.target.value)}
+                    placeholder="Kapanınca veya süreçte kalmak istediğin bilgiler (mülakat cevabı, bug çözümü, kısayol…)"
+                    rows={4}
+                    disabled={!canEdit}
+                    className="max-h-[40vh] min-h-[100px] w-full min-w-0 max-w-full resize-y break-words bg-white dark:bg-gray-800 sm:max-h-[min(40vh,320px)]"
+                  />
+                  {canEdit && (
+                    <p className="text-xs text-muted-foreground">
+                      Yazmayı bıraktıktan ~1,5 sn sonra otomatik kaydedilir.
+                    </p>
+                  )}
+                </div>
+              </TabsContent>
             </div>
+          </Tabs>
 
-            <div className="min-w-0 space-y-2">
-              <Label>Priority</Label>
-              <Select value={priority} onValueChange={(v) => setPriority(v as TaskPriority)} disabled={!canEdit}>
-                <SelectTrigger className="bg-white dark:bg-gray-800">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="urgent">Urgent</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="min-w-0 space-y-2">
-              <Label>Assignee</Label>
-              <Select value={assigneeId} onValueChange={setAssigneeId} disabled={!canEdit}>
-                <SelectTrigger className="bg-white dark:bg-gray-800">
-                  <SelectValue placeholder="Unassigned" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="unassigned">Unassigned</SelectItem>
-                  {currentTeam?.members.map((member) => (
-                    <SelectItem key={member.id} value={member.id}>
-                      {member.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="dueDate">Due Date</Label>
-              <Input
-                id="dueDate"
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                disabled={!canEdit}
-                className="bg-white dark:bg-gray-800"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Customer</Label>
-            <Select value={customerId} onValueChange={setCustomerId} disabled={!canEdit}>
-              <SelectTrigger className="bg-white dark:bg-gray-800">
-                <SelectValue placeholder="No Customer" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">No Customer</SelectItem>
-                {customers.map((customer) => (
-                  <SelectItem key={customer.id} value={customer.id}>
-                    {customer.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="min-w-0 space-y-2">
-            <Label htmlFor="learnings">Neler öğrendim?</Label>
-            <Textarea
-              id="learnings"
-              value={learnings}
-              onChange={(e) => setLearnings(e.target.value)}
-              placeholder="Kapanınca veya süreçte kalmak istediğin bilgiler (mülakat cevabı, bug çözümü, kısayol…)"
-              rows={4}
-              disabled={!canEdit}
-              className="max-h-[40vh] min-h-[100px] w-full min-w-0 max-w-full resize-y break-words bg-white dark:bg-gray-800 sm:max-h-[min(40vh,320px)]"
-            />
-            {canEdit && (
-              <p className="text-xs text-muted-foreground">
-                Yazmayı bıraktıktan ~1,5 sn sonra otomatik kaydedilir.
-              </p>
-            )}
-          </div>
-
-          <div className="flex flex-col-reverse justify-end gap-2 pt-4 sm:flex-row">
+          <div className="flex shrink-0 flex-col-reverse justify-end gap-2 border-t border-border/60 bg-background pt-3 sm:flex-row sm:pt-4">
             <Button type="button" variant="outline" onClick={onClose}>
               {canEdit ? 'Cancel' : 'Close'}
             </Button>
