@@ -40,7 +40,6 @@ export function TaskBoard() {
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<TaskStatus | null>(null);
-  const [mobileColumnId, setMobileColumnId] = useState<string | null>(null);
 
   const projectsForTeam = useMemo(() => {
     if (!currentTeam) return projects;
@@ -92,11 +91,6 @@ export function TaskBoard() {
       updateTask(draggableId, { status: destination.droppableId });
     }
   };
-
-  const visibleMobileColumnId = useMemo(() => {
-    if (mobileColumnId && boardColumns.some((c) => c.id === mobileColumnId)) return mobileColumnId;
-    return boardColumns[0]?.id ?? null;
-  }, [mobileColumnId, boardColumns]);
 
   const handleCreateTask = () => {
     setIsCreateModalOpen(true);
@@ -155,15 +149,15 @@ export function TaskBoard() {
         </div>
       )}
 
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-3">
           <h2 className="text-2xl font-bold">Task Board</h2>
           {projectsForTeam.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
               <select
                 value={currentProject?.id ?? ''}
                 onChange={(e) => setCurrentProjectId(e.target.value || null)}
-                className="h-10 min-w-[200px] px-3 py-2 text-sm border rounded-md bg-background"
+                className="h-10 w-full sm:w-auto sm:min-w-[200px] px-3 py-2 text-sm border rounded-md bg-background"
                 aria-label="Active process / project"
               >
                 <option value="">All tasks (no process)</option>
@@ -219,7 +213,7 @@ export function TaskBoard() {
             </Badge>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {customers.length > 0 && (
             <select
               value={customerFilter || ''}
@@ -252,10 +246,12 @@ export function TaskBoard() {
         </div>
       </div>
       
-      <div className="flex space-x-2 mb-4">
+      <div className="-mx-1 mb-4 flex gap-2 overflow-x-auto px-1 pb-1 overscroll-x-contain [scrollbar-width:thin]">
         <Button 
           variant={!statusFilter ? 'default' : 'outline'}
           onClick={() => setStatusFilter(null)}
+          size="sm"
+          className="shrink-0"
         >
           All
         </Button>
@@ -264,6 +260,8 @@ export function TaskBoard() {
             key={column.id}
             variant={statusFilter === column.id ? 'default' : 'outline'}
             onClick={() => setStatusFilter(column.id)}
+            size="sm"
+            className="shrink-0"
           >
             {column.title}
           </Button>
@@ -272,33 +270,26 @@ export function TaskBoard() {
 
       <DragDropContext onDragEnd={onDragEnd}>
         <>
-          {/* Mobile: horizontal swipe columns */}
+          {/* Mobile: horizontal scroll across all columns (snap); drag between columns is unreliable on touch — use ⋮ → Statü değiştir */}
           <div className="md:hidden">
-            <div className="flex gap-2 overflow-x-auto pb-2 mb-3">
-              {boardColumns.map((c) => (
-                <Button
-                  key={c.id}
-                  variant={visibleMobileColumnId === c.id ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setMobileColumnId(c.id)}
-                  className="shrink-0"
-                >
-                  {c.title}
-                </Button>
-              ))}
-            </div>
-
-            {visibleMobileColumnId && (
-              (() => {
-                const column = boardColumns.find((c) => c.id === visibleMobileColumnId)!;
+            <p className="mb-2 px-0.5 text-xs text-muted-foreground">
+              Sütunlar arasında yatay kaydırın. Taşımak için sürükleyebilir veya kart menüsünden statü seçebilirsiniz.
+            </p>
+            <div className="-mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-3 pt-0.5 overscroll-x-contain [scrollbar-width:thin] [-webkit-overflow-scrolling:touch]">
+              {boardColumns.map((column) => {
                 const columnTasks = filteredTasks.filter(
                   (task) => resolveTaskBoardColumnId(task.status, boardColumns) === column.id
                 );
                 return (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-medium">{column.title}</h3>
-                      <Badge variant="secondary">{columnTasks.length}</Badge>
+                  <div
+                    key={column.id}
+                    className="w-[min(88vw,300px)] max-w-[min(88vw,300px)] shrink-0 snap-center snap-always flex flex-col gap-2"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="min-w-0 truncate font-medium">{column.title}</h3>
+                      <Badge variant="secondary" className="shrink-0">
+                        {columnTasks.length}
+                      </Badge>
                     </div>
                     <Droppable droppableId={column.id}>
                       {(provided) => (
@@ -306,7 +297,7 @@ export function TaskBoard() {
                           ref={provided.innerRef}
                           {...provided.droppableProps}
                           className={cn(
-                            'p-4 rounded-lg min-h-[200px] transition-colors',
+                            'max-h-[min(58dvh,520px)] min-h-[200px] overflow-y-auto rounded-lg p-3 transition-colors touch-pan-y',
                             column.color ?? 'bg-muted/40'
                           )}
                         >
@@ -333,8 +324,8 @@ export function TaskBoard() {
                     </Droppable>
                   </div>
                 );
-              })()
-            )}
+              })}
+            </div>
           </div>
 
           {/* Desktop: grid columns */}

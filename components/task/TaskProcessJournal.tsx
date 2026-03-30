@@ -123,7 +123,7 @@ export function TaskProcessJournal({
   };
 
   return (
-    <div className="space-y-3 rounded-lg border border-amber-200/60 bg-amber-50/40 dark:border-amber-900/40 dark:bg-amber-950/20 p-4">
+    <div className="min-w-0 space-y-3 overflow-hidden rounded-lg border border-amber-200/60 bg-amber-50/40 p-4 dark:border-amber-900/40 dark:bg-amber-950/20">
       <div className="flex items-center gap-2 text-amber-900 dark:text-amber-100/90">
         <StickyNote className="h-4 w-4 shrink-0 opacity-80" />
         <Label className="text-base font-semibold">Süreç günlüğü</Label>
@@ -133,14 +133,14 @@ export function TaskProcessJournal({
       </p>
 
       {canEdit && (
-        <div className="flex gap-2">
+        <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
           <Input
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={onKeyDown}
             placeholder="Örn. Slippage 0.5 yapıldı…"
             disabled={disabled || pending}
-            className="bg-white dark:bg-gray-900"
+            className="min-w-0 flex-1 bg-white dark:bg-gray-900"
             aria-label="Yeni günlük notu"
           />
           <Button
@@ -148,7 +148,7 @@ export function TaskProcessJournal({
             variant="secondary"
             onClick={() => void submit()}
             disabled={disabled || pending || !draft.trim()}
-            className="shrink-0"
+            className="w-full shrink-0 sm:w-auto"
           >
             {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Ekle'}
           </Button>
@@ -189,10 +189,10 @@ export function TaskProcessJournal({
                       onChange={(e) => setEditingDraft(e.target.value)}
                       onKeyDown={onEditKeyDown}
                       disabled={disabled || pendingEdit}
-                      className="bg-white dark:bg-gray-900 resize-y min-h-[80px]"
+                      className="min-h-[80px] w-full min-w-0 max-w-full resize-y break-words bg-white dark:bg-gray-900"
                       aria-label="Günlük notunu düzenle"
                     />
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                       <Button
                         type="button"
                         size="sm"
@@ -217,14 +217,16 @@ export function TaskProcessJournal({
                         <X className="h-4 w-4" />
                         İptal
                       </Button>
-                      <p className="text-[11px] text-muted-foreground ml-auto">
+                      <p className="text-[11px] text-muted-foreground sm:ml-auto">
                         Kaydet: Ctrl/⌘ + Enter · İptal: Esc
                       </p>
                     </div>
                   </div>
                 ) : (
-                  <div className="group flex items-start justify-between gap-2">
-                    <p className="text-foreground whitespace-pre-wrap break-words flex-1">{entry.text}</p>
+                  <div className="group flex min-w-0 items-start justify-between gap-2">
+                    <p className="min-w-0 flex-1 whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-foreground">
+                      {entry.text}
+                    </p>
                     {canEdit && (
                       <Button
                         type="button"

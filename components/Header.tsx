@@ -49,7 +49,7 @@ export function Header({ onSidebarToggle }: HeaderProps) {
 
   return (
     <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-40">
-      <div className="flex h-16 items-center px-6 gap-4">
+      <div className="flex h-16 items-center px-4 sm:px-6 gap-3 sm:gap-4">
         {/* Mobile sidebar toggle */}
         <Button
           variant="ghost"

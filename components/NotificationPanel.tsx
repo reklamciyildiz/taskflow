@@ -91,7 +91,7 @@ export function NotificationPanel({ onClose }: NotificationPanelProps) {
   const unreadCount = mockNotifications.filter(n => n.unread).length;
 
   return (
-    <div className="absolute top-full right-0 mt-2 w-80 bg-card border rounded-lg shadow-lg z-50">
+    <div className="absolute top-full right-0 mt-2 w-[min(20rem,calc(100vw-1.5rem))] bg-card border rounded-lg shadow-lg z-50">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">

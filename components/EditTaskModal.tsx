@@ -144,8 +144,8 @@ export function EditTaskModal({ task, open, onClose }: EditTaskModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[90dvh] w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] flex-col gap-0 overflow-hidden p-4 sm:max-w-2xl sm:p-6">
+        <DialogHeader className="shrink-0 space-y-1 pr-8 text-left">
           <DialogTitle>{canEdit ? 'Edit Task' : 'View Task'}</DialogTitle>
           <DialogDescription>
             {canEdit
@@ -154,7 +154,10 @@ export function EditTaskModal({ task, open, onClose }: EditTaskModalProps) {
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form
+          onSubmit={handleSubmit}
+          className="min-h-0 min-w-0 flex-1 space-y-4 overflow-y-auto overflow-x-hidden pr-1 [scrollbar-gutter:stable]"
+        >
           <div className="space-y-2">
             <Label htmlFor="title">Title</Label>
             <Input
@@ -164,7 +167,7 @@ export function EditTaskModal({ task, open, onClose }: EditTaskModalProps) {
               placeholder="Task title"
               required
               disabled={!canEdit}
-              className="bg-white dark:bg-gray-800"
+              className="min-w-0 max-w-full bg-white dark:bg-gray-800"
             />
           </div>
 
@@ -177,7 +180,7 @@ export function EditTaskModal({ task, open, onClose }: EditTaskModalProps) {
               placeholder="Task description (optional)"
               rows={3}
               disabled={!canEdit}
-              className="bg-white dark:bg-gray-800"
+              className="min-h-[80px] w-full min-w-0 max-w-full break-words bg-white dark:bg-gray-800"
             />
           </div>
 
@@ -206,7 +209,7 @@ export function EditTaskModal({ task, open, onClose }: EditTaskModalProps) {
               </Select>
             </div>
 
-            <div className="space-y-2">
+            <div className="min-w-0 space-y-2">
               <Label>Priority</Label>
               <Select value={priority} onValueChange={(v) => setPriority(v as TaskPriority)} disabled={!canEdit}>
                 <SelectTrigger className="bg-white dark:bg-gray-800">
@@ -222,8 +225,8 @@ export function EditTaskModal({ task, open, onClose }: EditTaskModalProps) {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="min-w-0 space-y-2">
               <Label>Assignee</Label>
               <Select value={assigneeId} onValueChange={setAssigneeId} disabled={!canEdit}>
                 <SelectTrigger className="bg-white dark:bg-gray-800">
@@ -270,7 +273,7 @@ export function EditTaskModal({ task, open, onClose }: EditTaskModalProps) {
             </Select>
           </div>
 
-          <div className="space-y-2">
+          <div className="min-w-0 space-y-2">
             <Label htmlFor="learnings">Neler öğrendim?</Label>
             <Textarea
               id="learnings"
@@ -279,7 +282,7 @@ export function EditTaskModal({ task, open, onClose }: EditTaskModalProps) {
               placeholder="Kapanınca veya süreçte kalmak istediğin bilgiler (mülakat cevabı, bug çözümü, kısayol…)"
               rows={4}
               disabled={!canEdit}
-              className="bg-white dark:bg-gray-800 resize-y min-h-[100px]"
+              className="max-h-[40vh] min-h-[100px] w-full min-w-0 max-w-full resize-y break-words bg-white dark:bg-gray-800 sm:max-h-[min(40vh,320px)]"
             />
             {canEdit && (
               <p className="text-xs text-muted-foreground">
@@ -288,7 +291,7 @@ export function EditTaskModal({ task, open, onClose }: EditTaskModalProps) {
             )}
           </div>
 
-          <div className="flex justify-end gap-2 pt-4">
+          <div className="flex flex-col-reverse justify-end gap-2 pt-4 sm:flex-row">
             <Button type="button" variant="outline" onClick={onClose}>
               {canEdit ? 'Cancel' : 'Close'}
             </Button>
