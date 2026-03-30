@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { useTaskContext, TaskStatus, TaskPriority } from '@/components/TaskContext';
-import { Task } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -29,13 +28,12 @@ import {
 import { cn } from '@/lib/utils';
 import { format, isToday, isPast } from 'date-fns';
 import { Card } from '@/components/ui/card';
-import { EditTaskModal } from '@/components/EditTaskModal';
 
-const statusConfig = {
+const statusConfig: Record<string, { label: string; color: string }> = {
   todo: { label: 'To Do', color: 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300' },
   progress: { label: 'In Progress', color: 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400' },
   review: { label: 'Review', color: 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400' },
-  done: { label: 'Done', color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400' }
+  done: { label: 'Done', color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400' },
 };
 
 const priorityConfig = {
@@ -46,12 +44,11 @@ const priorityConfig = {
 };
 
 export function TaskList() {
-  const { tasks, currentTeam, updateTask, deleteTask, canCompleteTask, canEditTask, canDeleteTask } = useTaskContext();
+  const { tasks, currentTeam, updateTask, deleteTask, canCompleteTask, canEditTask, canDeleteTask, openTaskEditor } = useTaskContext();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<TaskStatus | 'all'>('all');
   const [filterPriority, setFilterPriority] = useState<TaskPriority | 'all'>('all');
   const [sortBy, setSortBy] = useState<'dueDate' | 'priority' | 'created'>('dueDate');
-  const [editingTask, setEditingTask] = useState<Task | null>(null);
 
   const filteredTasks = tasks
     .filter(task => task.teamId === currentTeam?.id)
@@ -112,7 +109,7 @@ export function TaskList() {
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="gap-2">
                 <Filter className="h-4 w-4" />
-                Status: {filterStatus === 'all' ? 'All' : statusConfig[filterStatus as TaskStatus].label}
+                Status: {filterStatus === 'all' ? 'All' : (statusConfig[filterStatus] ?? { label: filterStatus }).label}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
@@ -194,7 +191,7 @@ export function TaskList() {
                 "p-4 hover:shadow-md transition-all duration-200 group cursor-pointer",
                 task.status === 'done' && "opacity-75"
               )}
-              onClick={() => setEditingTask(task)}
+              onClick={() => openTaskEditor(task.id)}
             >
               <div className="flex items-center gap-4">
                 {/* Checkbox */}
@@ -228,9 +225,12 @@ export function TaskList() {
                         {/* Status */}
                         <Badge 
                           variant="secondary" 
-                          className={cn("text-xs px-2 py-0.5", statusConfig[task.status].color)}
+                          className={cn(
+                            'text-xs px-2 py-0.5',
+                            (statusConfig[task.status] ?? { label: task.status, color: 'bg-muted' }).color
+                          )}
                         >
-                          {statusConfig[task.status].label}
+                          {(statusConfig[task.status] ?? { label: task.status, color: '' }).label}
                         </Badge>
 
                         {/* Priority */}
@@ -308,7 +308,7 @@ export function TaskList() {
                           {canEditTask(task.createdBy, task.assigneeId) && (
                             <DropdownMenuItem onClick={(e) => {
                               e.stopPropagation();
-                              setEditingTask(task);
+                              openTaskEditor(task.id);
                             }}>
                               Edit Task
                             </DropdownMenuItem>
@@ -346,11 +346,6 @@ export function TaskList() {
         )}
       </div>
 
-      <EditTaskModal 
-        task={editingTask} 
-        open={!!editingTask} 
-        onClose={() => setEditingTask(null)} 
-      />
     </div>
   );
 }

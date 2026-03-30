@@ -12,18 +12,21 @@ import {
   MoreVertical,
   AlertTriangle,
   Calendar,
-  GripVertical
+  GripVertical,
+  ArrowRightLeft
 } from 'lucide-react';
-import { Task } from '@/lib/types';
-import { useTaskContext } from '@/components/TaskContext';
+import { useTaskContext, type Task } from '@/components/TaskContext';
 import { cn } from '@/lib/utils';
 import { format, isToday, isTomorrow, isPast } from 'date-fns';
 import { 
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { isTerminalBoardColumn, type ProjectColumnConfig } from '@/lib/types';
 
 interface TaskCardProps {
   task: Task;
@@ -39,11 +42,12 @@ const priorityColors = {
 };
 
 export function TaskCard({ task, dragHandleProps, onTaskClick }: TaskCardProps) {
-  const { currentTeam, updateTask, deleteTask, canEditTask, canDeleteTask } = useTaskContext();
+  const { currentTeam, updateTask, deleteTask, canEditTask, canDeleteTask, boardColumns, canCompleteTask } = useTaskContext();
   
   // Check permissions for this task
   const canEdit = canEditTask(task.createdBy, task.assigneeId);
   const canDelete = canDeleteTask(task.createdBy);
+  const canComplete = canCompleteTask(task.assigneeId);
   
   const assignee = currentTeam?.members.find(m => m.id === task.assigneeId);
   
@@ -94,16 +98,40 @@ export function TaskCard({ task, dragHandleProps, onTaskClick }: TaskCardProps) 
                 <Button 
                   variant="ghost" 
                   size="sm" 
-                  className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                  className={cn(
+                    'h-6 w-6 p-0 transition-opacity',
+                    // Mobile: always visible. Desktop: show on hover.
+                    'opacity-100 md:opacity-0 md:group-hover:opacity-100'
+                  )}
                 >
                   <MoreVertical className="h-3 w-3" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-40">
+              <DropdownMenuContent align="end" className="w-56">
                 {canEdit && (
-                  <DropdownMenuItem onClick={() => updateTask(task.id, { status: 'done' })}>
-                    Mark as Done
-                  </DropdownMenuItem>
+                  <>
+                    <DropdownMenuLabel className="flex items-center gap-2">
+                      <ArrowRightLeft className="h-4 w-4" />
+                      Statü değiştir
+                    </DropdownMenuLabel>
+                    {boardColumns.map((col: ProjectColumnConfig) => {
+                      const isCurrent = col.id === task.status;
+                      const isTerminal = isTerminalBoardColumn(col.id, boardColumns);
+                      const blocked = isTerminal && !canComplete;
+                      return (
+                        <DropdownMenuItem
+                          key={col.id}
+                          disabled={isCurrent || blocked}
+                          onClick={() => updateTask(task.id, { status: col.id })}
+                        >
+                          {col.title}
+                          {isCurrent ? <span className="ml-auto text-xs text-muted-foreground">Şu an</span> : null}
+                          {blocked ? <span className="ml-auto text-xs text-muted-foreground">Yetki</span> : null}
+                        </DropdownMenuItem>
+                      );
+                    })}
+                    <DropdownMenuSeparator />
+                  </>
                 )}
                 {canEdit && (
                   <DropdownMenuItem onClick={() => onTaskClick?.(task)}>

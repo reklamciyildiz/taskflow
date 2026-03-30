@@ -22,7 +22,8 @@ import {
   Settings as SettingsIcon,
   Trash2,
   Edit,
-  UserPlus
+  UserPlus,
+  Layers
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
@@ -35,7 +36,16 @@ import { EditTeamModal } from '@/components/EditTeamModal';
 import { DeleteTeamModal } from '@/components/DeleteTeamModal';
 
 export function Settings() {
-  const { currentTeam, currentUser, removeMember, organizationName, updateOrganization, teams, createTeam, updateTeam } = useTaskContext();
+  const {
+    currentTeam,
+    currentUser,
+    removeMember,
+    organizationName,
+    updateOrganization,
+    teams,
+    createTeam,
+    updateTeam,
+  } = useTaskContext();
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
@@ -60,6 +70,7 @@ export function Settings() {
   const [pushNotifications, setPushNotifications] = useState(true);
   const [teamActivity, setTeamActivity] = useState(false);
   const [compactView, setCompactView] = useState(false);
+  // Processes are managed in Process Center (/dashboard/processes)
 
   // Load settings from API and localStorage on mount
   useEffect(() => {
@@ -297,6 +308,37 @@ export function Settings() {
             </Card>
           )}
 
+          {/* Process Center — Admin Only */}
+          {isAdmin && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Layers className="h-5 w-5" />
+                  Süreç Merkezi
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="rounded-xl border border-dashed p-4 bg-muted/30 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium text-foreground">Süreçleri artık ayrı bir merkezden yönet</p>
+                    <p className="text-xs text-muted-foreground">
+                      Oluşturma, düzenleme, silme ve kolon yapılandırmaları için Süreç Merkezi’ni kullan.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => (window.location.href = '/dashboard/processes')}
+                    className="gap-2"
+                  >
+                    <Layers className="h-4 w-4" />
+                    Süreç Merkezi’ne git
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Team Management */}
           <Card>
             <CardHeader>
@@ -529,7 +571,7 @@ export function Settings() {
         onClose={() => setShowActiveSessions(false)}
       />
 
-      {/* Teams Management Modals */}
+      {/* Teams / Projects Management Modals */}
       <CreateTeamModal 
         open={showCreateTeam} 
         onClose={() => setShowCreateTeam(false)} 

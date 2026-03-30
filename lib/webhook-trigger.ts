@@ -85,7 +85,10 @@ async function sendWebhook(
     });
 
     if (!success) {
-      console.error(`Webhook delivery failed for ${webhook.url}:`, response.status);
+      console.error(`Webhook delivery failed for ${webhook.url}: ${response.status}`, {
+        event: payload.event,
+        responseBody: responseBody?.substring(0, 200),
+      });
     }
   } catch (error: any) {
     console.error(`Webhook delivery error for ${webhook.url}:`, error.message);

@@ -10,6 +10,7 @@ export async function middleware(request: NextRequest) {
     '/auth/signin',
     '/auth/signup',
     '/auth/error',
+    '/manifest.webmanifest',
     '/api/auth',
     '/onboarding',
     '/invite',
@@ -68,6 +69,6 @@ export const config = {
      * - favicon.ico (favicon file)
      * - public folder
      */
-    '/((?!_next/static|_next/image|favicon.ico|public).*)',
+    '/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|public).*)',
   ],
 };

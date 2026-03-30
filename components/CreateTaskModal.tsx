@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useMemo, useState } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -20,6 +20,7 @@ import { CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTaskContext, TaskStatus, TaskPriority } from '@/components/TaskContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { DescriptionGeneratorButton } from '@/components/ai/DescriptionGeneratorButton';
 
 interface CreateTaskModalProps {
   open: boolean;
@@ -28,7 +29,7 @@ interface CreateTaskModalProps {
 }
 
 export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModalProps) {
-  const { addTask, currentTeam, currentUser, customers } = useTaskContext();
+  const { addTask, currentTeam, currentUser, customers, projects, currentProject } = useTaskContext();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState<TaskStatus>(defaultStatus || 'todo');
@@ -36,6 +37,18 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
   const [dueDate, setDueDate] = useState<Date>();
   const [assigneeId, setAssigneeId] = useState<string>("unassigned");
   const [customerId, setCustomerId] = useState<string>("none");
+  const [projectId, setProjectId] = useState<string>('__auto__');
+
+  const projectsForTeam = useMemo(() => {
+    if (!currentTeam) return projects;
+    return projects.filter((p) => !p.teamId || p.teamId === currentTeam.id);
+  }, [projects, currentTeam?.id]);
+
+  const resolvedProjectId = useMemo(() => {
+    if (projectId === '__none__') return null;
+    if (projectId === '__auto__') return currentProject?.id ?? null;
+    return projectId;
+  }, [projectId, currentProject?.id]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,6 +64,7 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
       assigneeId: assigneeId === "unassigned" ? null : assigneeId,
       customerId: customerId === "none" ? null : customerId,
       teamId: currentTeam.id,
+      projectId: resolvedProjectId,
       createdBy: currentUser?.id || ''
     });
 
@@ -62,6 +76,7 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
     setDueDate(undefined);
     setAssigneeId("unassigned");
     setCustomerId("none");
+    setProjectId('__auto__');
     onClose();
   };
 
@@ -70,6 +85,10 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Create New Task</DialogTitle>
+          <DialogDescription>
+            Başlık ve isteğe bağlı alanları doldurup kaydedin. Panoda üstten bir süreç seçtiysen yeni görev o sürece
+            bağlanır; &quot;All tasks&quot; seçiliyse süreç atanmaz.
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
@@ -84,7 +103,17 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="description">Description (Optional)</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="description">Description (Optional)</Label>
+              {title.trim() && (
+                <DescriptionGeneratorButton
+                  taskTitle={title}
+                  existingDescription={description}
+                  priority={priority}
+                  onDescriptionGenerated={(desc) => setDescription(desc)}
+                />
+              )}
+            </div>
             <Textarea
               id="description"
               placeholder="Add task description..."
@@ -169,6 +198,29 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Süreç (Project)</Label>
+            <Select value={projectId} onValueChange={setProjectId}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__auto__">
+                  Otomatik (panoda seçili: {currentProject?.name ?? 'yok'})
+                </SelectItem>
+                <SelectItem value="__none__">Süreç yok</SelectItem>
+                {projectsForTeam.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Otomatik seçersen panoda hangi süreç seçiliyse görev oraya bağlanır.
+            </p>
           </div>
 
           <div className="space-y-2">

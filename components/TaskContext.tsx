@@ -1,81 +1,43 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSession } from 'next-auth/react';
-import { taskApi, teamApi, memberApi } from '@/lib/api';
+import { useRouter, usePathname } from 'next/navigation';
+import { taskApi, teamApi, memberApi, projectApi } from '@/lib/api';
 import { getPermissions, canEditTask, canDeleteTask, canCompleteTask, Permission, Role } from '@/lib/permissions';
+import {
+  type Task,
+  type TaskStatus,
+  type TaskPriority,
+  type Customer,
+  type Comment,
+  type TeamMember,
+  type Team,
+  type Project,
+  type ProjectColumnConfig,
+  type UpdateTaskRequest,
+  FALLBACK_BOARD_COLUMNS,
+  parseColumnConfigFromJson,
+} from '@/lib/types';
 
-export type TaskStatus = 'todo' | 'progress' | 'review' | 'done';
-export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent';
+export type { Task, TaskStatus, TaskPriority, Customer, Comment, TeamMember, Team, Project, ProjectColumnConfig };
+
+/** Team roles in a team (not org owner) */
 export type UserRole = 'admin' | 'member' | 'viewer';
 
-export interface Task {
-  id: string;
-  title: string;
-  description: string;
-  status: TaskStatus;
-  priority: TaskPriority;
-  dueDate?: Date;
-  assigneeId?: string | null;
-  customerId?: string | null;
-  customerName?: string;
-  teamId: string;
-  createdBy: string;
-  createdAt: Date;
-  updatedAt: Date;
-  attachments: string[];
-  comments: Comment[];
-}
-
-export interface Customer {
-  id: string;
-  name: string;
-  email?: string;
-  phone?: string;
-  address?: string;
-  notes?: string;
-  organizationId: string;
-  createdAt: Date;
-  updatedAt: Date;
-  taskStats?: {
-    total: number;
-    completed: number;
-  };
-}
-
-export interface Comment {
-  id: string;
-  text: string;
-  authorId: string;
-  createdAt: Date;
-}
-
-export interface TeamMember {
-  id: string;
-  name: string;
-  email: string;
-  role: UserRole;
-  avatar: string;
-  isOnline: boolean;
-}
-
-export interface Team {
-  id: string;
-  name: string;
-  description: string;
-  members: TeamMember[];
-  createdAt: Date;
-}
-
-interface MemberFormData extends Omit<TeamMember, 'id' | 'isOnline'> {}
+interface MemberFormData extends Omit<TeamMember, 'id' | 'isOnline' | 'joinedAt'> {}
 
 export type FilterType = 'dueToday' | 'highPriority' | 'assignedToMe' | null;
 
 interface TaskContextType {
   tasks: Task[];
   teams: Team[];
+  projects: Project[];
   customers: Customer[];
   currentTeam: Team | null;
+  currentProject: Project | null;
+  /** Resolved columns for TaskBoard (project config or FALLBACK_BOARD_COLUMNS) */
+  boardColumns: ProjectColumnConfig[];
   currentUser: TeamMember | null;
   currentUserRole: Role;
   permissions: Permission;
@@ -87,8 +49,9 @@ interface TaskContextType {
   customerFilter: string | null;
   setFilter: (filter: FilterType) => void;
   setCustomerFilter: (customerId: string | null) => void;
+  setCurrentProjectId: (projectId: string | null) => void;
   addTask: (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'attachments' | 'comments'>) => Promise<void>;
-  updateTask: (id: string, updates: Partial<Task>) => Promise<void>;
+  updateTask: (id: string, updates: Partial<Task>) => Promise<boolean>;
   deleteTask: (id: string) => Promise<void>;
   setCurrentTeam: (teamId: string) => void;
   addTeam: (team: Omit<Team, 'id' | 'createdAt'>) => Promise<void>;
@@ -111,9 +74,28 @@ interface TaskContextType {
   canEditTask: (taskCreatorId?: string | null, taskAssigneeId?: string | null) => boolean;
   canDeleteTask: (taskCreatorId?: string | null) => boolean;
   canCompleteTask: (taskAssigneeId?: string | null) => boolean;
+  /** Global task editor (Board, List, Knowledge Hub) */
+  editingTaskId: string | null;
+  openTaskEditor: (taskId: string) => void;
+  closeTaskEditor: () => void;
 }
 
 const TaskContext = createContext<TaskContextType | undefined>(undefined);
+
+function mapJournalLogs(raw: unknown): Task['journalLogs'] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((item: Record<string, unknown>, i: number) => {
+    const updatedRaw = item.updated_at ?? item.updatedAt;
+    return {
+      id: String(item.id ?? `jl-${i}`),
+      text: String(item.text ?? ''),
+      createdAt: String(item.created_at ?? item.createdAt ?? new Date().toISOString()),
+      ...(typeof updatedRaw === 'string' && updatedRaw
+        ? { updatedAt: updatedRaw }
+        : {}),
+    };
+  });
+}
 
 // Helper to transform API data to frontend format
 function transformTask(apiTask: any): Task {
@@ -121,13 +103,16 @@ function transformTask(apiTask: any): Task {
     id: apiTask.id,
     title: apiTask.title,
     description: apiTask.description || '',
-    status: apiTask.status as TaskStatus,
+    status: String(apiTask.status ?? 'todo'),
     priority: apiTask.priority as TaskPriority,
     dueDate: apiTask.due_date ? new Date(apiTask.due_date) : undefined,
     assigneeId: apiTask.assignee_id,
     customerId: apiTask.customer_id,
     customerName: apiTask.customer?.name,
     teamId: apiTask.team_id,
+    projectId: apiTask.project_id ?? null,
+    journalLogs: mapJournalLogs(apiTask.journal_logs),
+    learnings: apiTask.learnings ?? null,
     createdBy: apiTask.created_by || apiTask.createdBy || apiTask.user_id,
     createdAt: new Date(apiTask.created_at),
     updatedAt: new Date(apiTask.updated_at),
@@ -146,6 +131,9 @@ function transformTeam(apiTeam: any): Team {
     id: apiTeam.id,
     name: apiTeam.name,
     description: apiTeam.description || '',
+    createdBy: apiTeam.created_by || '',
+    createdAt: new Date(apiTeam.created_at),
+    updatedAt: new Date(apiTeam.updated_at || apiTeam.created_at),
     members: (apiTeam.team_members || []).map((tm: any) => ({
       id: tm.user?.id || tm.user_id,
       name: tm.user?.name || 'Unknown',
@@ -153,33 +141,111 @@ function transformTeam(apiTeam: any): Team {
       role: tm.role as UserRole,
       avatar: tm.user?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(tm.user?.name || 'U')}`,
       isOnline: tm.user?.is_online || false,
+      joinedAt: new Date(tm.joined_at || apiTeam.created_at),
     })),
-    createdAt: new Date(apiTeam.created_at),
+  };
+}
+
+function transformProject(row: any): Project {
+  return {
+    id: row.id,
+    name: row.name,
+    organizationId: row.organization_id,
+    teamId: row.team_id ?? null,
+    columnConfig: parseColumnConfigFromJson(row.column_config),
+    createdAt: new Date(row.created_at),
   };
 }
 
 export function TaskProvider({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession();
+  const router = useRouter();
+  const pathname = usePathname();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [currentTeam, setCurrentTeamState] = useState<Team | null>(null);
+  const [currentProject, setCurrentProjectState] = useState<Project | null>(null);
   const [currentUser, setCurrentUser] = useState<TeamMember | null>(null);
   const [organizationName, setOrganizationName] = useState<string>('My Organization');
   const [organizationId, setOrganizationId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  /** After first successful load, background refreshes (e.g. session refetch on tab focus) avoid clearing the UI. */
+  const hasLoadedWorkspaceRef = useRef(false);
+  const sessionRef = useRef(session);
+  sessionRef.current = session;
   const [filter, setFilter] = useState<FilterType>(null);
   const [customerFilter, setCustomerFilter] = useState<string | null>(null);
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
 
-  // Fetch data from API
+  const openTaskEditor = useCallback((taskId: string) => {
+    setEditingTaskId(taskId);
+  }, []);
+
+  const closeTaskEditor = useCallback(() => {
+    setEditingTaskId(null);
+  }, []);
+
+  const boardColumns = useMemo((): ProjectColumnConfig[] => {
+    const cfg = currentProject?.columnConfig;
+    if (cfg && cfg.length > 0) return cfg;
+    return FALLBACK_BOARD_COLUMNS;
+  }, [currentProject]);
+
+  const replaceProjectQuery = useCallback(
+    (projectId: string | null) => {
+      const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+      if (projectId) params.set('project', projectId);
+      else params.delete('project');
+      const q = params.toString();
+      const target = q ? `${pathname}?${q}` : pathname;
+      router.replace(target, { scroll: false });
+    },
+    [pathname, router]
+  );
+
+  const setCurrentProjectId = useCallback(
+    (projectId: string | null) => {
+      if (!projectId) {
+        setCurrentProjectState(null);
+        replaceProjectQuery(null);
+        return;
+      }
+      const p = projects.find((x) => x.id === projectId);
+      if (p) {
+        setCurrentProjectState(p);
+        replaceProjectQuery(projectId);
+        try {
+          if (typeof window !== 'undefined') {
+            const raw = window.localStorage.getItem('taskflow:recentProjectIds');
+            const arr = raw ? (JSON.parse(raw) as unknown) : [];
+            const prev = Array.isArray(arr) ? arr.filter((x): x is string => typeof x === 'string') : [];
+            const next = [projectId, ...prev.filter((x) => x !== projectId)].slice(0, 10);
+            window.localStorage.setItem('taskflow:recentProjectIds', JSON.stringify(next));
+          }
+        } catch {
+          // ignore
+        }
+      }
+    },
+    [projects, replaceProjectQuery]
+  );
+
+  // Fetch data from API (reads latest session from sessionRef so the callback stays stable across session object churn)
   const refreshData = useCallback(async () => {
+    const session = sessionRef.current;
     if (!session?.user) {
+      hasLoadedWorkspaceRef.current = false;
       setLoading(false);
       return;
     }
 
-    setLoading(true);
+    const showBlockingLoader = !hasLoadedWorkspaceRef.current;
+    if (showBlockingLoader) {
+      setLoading(true);
+    }
     setError(null);
 
     try {
@@ -188,11 +254,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       if (teamsResponse.success && teamsResponse.data) {
         const transformedTeams = teamsResponse.data.map(transformTeam);
         setTeams(transformedTeams);
-        
-        // Set current team to first team if not set
-        if (transformedTeams.length > 0 && !currentTeam) {
-          setCurrentTeamState(transformedTeams[0]);
-        }
+        setCurrentTeamState((prev) => prev ?? transformedTeams[0] ?? null);
       }
 
       // Fetch tasks
@@ -215,19 +277,33 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
               role: userData.data.role || 'member',
               avatar: userData.data.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(userData.data.name || 'U')}`,
               isOnline: true,
+              joinedAt: new Date(),
             });
             
             // Fetch organization name
             if (userData.data.organization_id) {
-              setOrganizationId(userData.data.organization_id);
+              const oid = userData.data.organization_id;
+              setOrganizationId(oid);
               try {
-                const orgResponse = await fetch(`/api/organizations/${userData.data.organization_id}`);
+                const orgResponse = await fetch(`/api/organizations/${oid}`);
                 const orgData = await orgResponse.json();
                 if (orgData.success && orgData.data) {
                   setOrganizationName(orgData.data.name);
                 }
               } catch (err) {
                 console.error('Failed to fetch organization:', err);
+              }
+
+              try {
+                const projRes = await projectApi.getAll(oid);
+                if (projRes.success && projRes.data) {
+                  setProjects(projRes.data.map(transformProject));
+                } else {
+                  setProjects([]);
+                }
+              } catch (err) {
+                console.error('Failed to fetch projects:', err);
+                setProjects([]);
               }
             }
           } else {
@@ -239,6 +315,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
               role: (session.user as any).role || 'member',
               avatar: session.user.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(session.user.name || 'U')}`,
               isOnline: true,
+              joinedAt: new Date(),
             });
           }
         } catch {
@@ -250,22 +327,41 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
             role: (session.user as any).role || 'member',
             avatar: session.user.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(session.user.name || 'U')}`,
             isOnline: true,
+            joinedAt: new Date(),
           });
         }
       }
+
+      hasLoadedWorkspaceRef.current = true;
     } catch (err) {
       console.error('Error fetching data:', err);
       setError('Failed to load data');
     } finally {
-      setLoading(false);
+      if (showBlockingLoader) {
+        setLoading(false);
+      }
     }
-  }, [session, currentTeam]);
+  }, []);
 
-  // Initial data fetch
+  // Sync current project from ?project= when projects load or URL changes
   useEffect(() => {
-    refreshData();
-    fetchCustomers();
-  }, [session]);
+    if (projects.length === 0) {
+      setCurrentProjectState(null);
+      return;
+    }
+    const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+    const pid = params.get('project');
+    if (pid) {
+      const match = projects.find((x) => x.id === pid);
+      if (match) {
+        setCurrentProjectState(match);
+        return;
+      }
+    }
+    setCurrentProjectState((prev) =>
+      prev && projects.some((x) => x.id === prev.id) ? prev : null
+    );
+  }, [projects]);
 
   // Fetch customers from API
   const fetchCustomers = useCallback(async () => {
@@ -291,6 +387,23 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       console.error('Error fetching customers:', err);
     }
   }, []);
+
+  // Load workspace when the signed-in user changes (not when the session object is recreated on tab focus).
+  useEffect(() => {
+    void refreshData();
+    void fetchCustomers();
+  }, [session?.user?.email, refreshData, fetchCustomers]);
+
+  // Soft refresh when the tab becomes visible again (silent after first load — no global loading flash).
+  useEffect(() => {
+    if (!session?.user?.email) return;
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      void refreshData();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [session?.user?.email, refreshData]);
 
   // Add customer
   const addCustomer = useCallback(async (customerData: { name: string; email?: string; phone?: string; address?: string; notes?: string }) => {
@@ -356,12 +469,13 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       const response = await taskApi.create({
         title: taskData.title,
         description: taskData.description,
-        status: taskData.status,
+        status: taskData.status ?? 'todo',
         priority: taskData.priority,
         dueDate: taskData.dueDate?.toISOString(),
         assigneeId: taskData.assigneeId,
         customerId: taskData.customerId,
         teamId: taskData.teamId,
+        projectId: taskData.projectId ?? currentProject?.id ?? null,
       });
 
       if (response.success && response.data) {
@@ -375,20 +489,20 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       console.error('Error creating task:', err);
     }
-  }, [fetchCustomers]);
+  }, [fetchCustomers, currentProject?.id]);
 
-  // Update task via API with optimistic update
-  const updateTask = useCallback(async (id: string, updates: Partial<Task>) => {
-    // Store previous state for rollback
+  // Update task via API with optimistic update — returns false if rolled back
+  const updateTask = useCallback(async (id: string, updates: Partial<Task>): Promise<boolean> => {
     const previousTasks = tasks;
-    
-    // Optimistic update - update UI immediately
-    setTasks(prev => prev.map(task => 
-      task.id === id ? { ...task, ...updates, updatedAt: new Date() } : task
-    ));
+
+    setTasks((prev) =>
+      prev.map((task) =>
+        task.id === id ? { ...task, ...updates, updatedAt: new Date() } : task
+      )
+    );
 
     try {
-      const apiUpdates: any = {};
+      const apiUpdates: Record<string, unknown> = {};
       if (updates.title !== undefined) apiUpdates.title = updates.title;
       if (updates.description !== undefined) apiUpdates.description = updates.description;
       if (updates.status !== undefined) apiUpdates.status = updates.status;
@@ -396,19 +510,22 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       if (updates.dueDate !== undefined) apiUpdates.dueDate = updates.dueDate?.toISOString();
       if (updates.assigneeId !== undefined) apiUpdates.assigneeId = updates.assigneeId;
       if (updates.customerId !== undefined) apiUpdates.customerId = updates.customerId;
+      if (updates.projectId !== undefined) apiUpdates.projectId = updates.projectId;
+      if (updates.learnings !== undefined) apiUpdates.learnings = updates.learnings;
+      if (updates.journalLogs !== undefined) apiUpdates.journalLogs = updates.journalLogs;
 
-      const response = await taskApi.update(id, apiUpdates);
+      const response = await taskApi.update(id, apiUpdates as UpdateTaskRequest);
 
       if (!response.success) {
-        // Rollback on failure
         console.error('Failed to update task:', response.error);
         setTasks(previousTasks);
+        return false;
       }
-      // Don't update state again on success - optimistic update already done
+      return true;
     } catch (err) {
       console.error('Error updating task:', err);
-      // Rollback on error
       setTasks(previousTasks);
+      return false;
     }
   }, [tasks]);
 
@@ -692,8 +809,11 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     <TaskContext.Provider value={{
       tasks,
       teams,
+      projects,
       customers,
       currentTeam,
+      currentProject,
+      boardColumns,
       currentUser,
       currentUserRole,
       permissions,
@@ -705,6 +825,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       customerFilter,
       setFilter,
       setCustomerFilter,
+      setCurrentProjectId,
       addTask,
       updateTask,
       deleteTask,
@@ -729,6 +850,9 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       canEditTask: checkCanEditTask,
       canDeleteTask: checkCanDeleteTask,
       canCompleteTask: checkCanCompleteTask,
+      editingTaskId,
+      openTaskEditor,
+      closeTaskEditor,
     }}>
       {children}
     </TaskContext.Provider>

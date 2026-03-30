@@ -1,6 +1,18 @@
 // API Client for frontend-backend communication
 
-import { Task, Team, TeamMember, ApiResponse, CreateTaskRequest, UpdateTaskRequest, CreateTeamRequest, UpdateTeamRequest, AddMemberRequest, UpdateMemberRequest } from './types';
+import {
+  Task,
+  Team,
+  TeamMember,
+  Project,
+  ApiResponse,
+  CreateTaskRequest,
+  UpdateTaskRequest,
+  CreateTeamRequest,
+  UpdateTeamRequest,
+  AddMemberRequest,
+  UpdateMemberRequest,
+} from './types';
 
 const API_BASE = '/api';
 
@@ -93,6 +105,14 @@ export const teamApi = {
     fetchApi<null>(`/teams/${id}`, {
       method: 'DELETE',
     }),
+};
+
+// Projects (pipelines / süreçler)
+export const projectApi = {
+  getAll: (organizationId?: string) =>
+    fetchApi<Project[]>(
+      organizationId ? `/projects?organizationId=${encodeURIComponent(organizationId)}` : '/projects'
+    ),
 };
 
 // Member API

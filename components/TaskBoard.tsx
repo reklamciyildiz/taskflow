@@ -1,31 +1,70 @@
 'use client';
 
-import React from 'react';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
 import { TaskCard } from '@/components/TaskCard';
-import { useTaskContext, TaskStatus } from '@/components/TaskContext';
-import { Task } from '@/lib/types';
+import { useTaskContext, type TaskStatus } from '@/components/TaskContext';
 import { Badge } from '@/components/ui/badge';
-import { Plus, X } from 'lucide-react';
+import { Plus, X, Layers, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CreateTaskModal } from '@/components/CreateTaskModal';
-import { EditTaskModal } from '@/components/EditTaskModal';
+import { Progress } from '@/components/ui/progress';
+import { VoiceToTaskButton } from '@/components/ai/VoiceToTaskButton';
 import { cn } from '@/lib/utils';
 import { isToday } from 'date-fns';
-
-const columns: { id: TaskStatus; title: string; color: string }[] = [
-  { id: 'todo', title: 'To Do', color: 'bg-slate-100 dark:bg-slate-800' },
-  { id: 'progress', title: 'In Progress', color: 'bg-blue-50 dark:bg-blue-500/10' },
-  { id: 'review', title: 'Review', color: 'bg-amber-50 dark:bg-amber-500/10' },
-  { id: 'done', title: 'Done', color: 'bg-emerald-50 dark:bg-emerald-500/10' }
-];
+import { resolveTaskBoardColumnId, isTerminalBoardColumn, FALLBACK_BOARD_COLUMNS } from '@/lib/types';
+import { CreateProjectModal } from '@/components/CreateProjectModal';
 
 export function TaskBoard() {
-  const { tasks, updateTask, filter, setFilter, currentUser, currentTeam, permissions, canCompleteTask, canEditTask, customers, customerFilter, setCustomerFilter } = useTaskContext();
+  const {
+    tasks,
+    updateTask,
+    filter,
+    setFilter,
+    currentUser,
+    currentTeam,
+    currentProject,
+    boardColumns,
+    projects,
+    setCurrentProjectId,
+    permissions,
+    canCompleteTask,
+    canEditTask,
+    customers,
+    customerFilter,
+    setCustomerFilter,
+    openTaskEditor,
+    currentUserRole,
+  } = useTaskContext();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<TaskStatus | null>(null);
+  const [mobileColumnId, setMobileColumnId] = useState<string | null>(null);
+
+  const projectsForTeam = useMemo(() => {
+    if (!currentTeam) return projects;
+    return projects.filter((p) => !p.teamId || p.teamId === currentTeam.id);
+  }, [projects, currentTeam?.id]);
+
+  const projectProgressColumns = useMemo(() => {
+    if (!currentProject) return null;
+    const cfg = currentProject.columnConfig;
+    return cfg?.length ? cfg : FALLBACK_BOARD_COLUMNS;
+  }, [currentProject]);
+
+  const projectProgressStats = useMemo(() => {
+    if (!currentProject || !projectProgressColumns) return null;
+    const pt = tasks.filter(
+      (t) => t.teamId === currentTeam?.id && t.projectId === currentProject.id
+    );
+    const total = pt.length;
+    const done = pt.filter((t) =>
+      isTerminalBoardColumn(t.status, projectProgressColumns)
+    ).length;
+    const pct = total === 0 ? 0 : Math.round((done / total) * 100);
+    return { total, done, pct };
+  }, [tasks, currentTeam?.id, currentProject, projectProgressColumns]);
 
   const onDragEnd = (result: DropResult) => {
     const { destination, source, draggableId } = result;
@@ -39,10 +78,9 @@ export function TaskBoard() {
       
       if (!task) return;
       
-      // Check permission for completing task (moving to done)
-      if (destination.droppableId === 'done') {
+      if (isTerminalBoardColumn(destination.droppableId, boardColumns)) {
         if (!canCompleteTask(task.assigneeId)) {
-          return; // User doesn't have permission to complete this task
+          return;
         }
       }
       
@@ -51,18 +89,26 @@ export function TaskBoard() {
         return; // User doesn't have permission to edit this task
       }
       
-      updateTask(draggableId, { status: destination.droppableId as TaskStatus });
+      updateTask(draggableId, { status: destination.droppableId });
     }
   };
+
+  const visibleMobileColumnId = useMemo(() => {
+    if (mobileColumnId && boardColumns.some((c) => c.id === mobileColumnId)) return mobileColumnId;
+    return boardColumns[0]?.id ?? null;
+  }, [mobileColumnId, boardColumns]);
 
   const handleCreateTask = () => {
     setIsCreateModalOpen(true);
   };
 
   // Apply quick filters from sidebar
-  const filteredTasks = React.useMemo(() => {
-    // First filter by current team
-    let result = tasks.filter(task => task.teamId === currentTeam?.id);
+  const filteredTasks = useMemo(() => {
+    let result = tasks.filter((task) => task.teamId === currentTeam?.id);
+
+    if (currentProject) {
+      result = result.filter((task) => task.projectId === currentProject.id);
+    }
     
     // Apply quick filter from sidebar
     if (filter === 'dueToday') {
@@ -84,7 +130,7 @@ export function TaskBoard() {
     }
     
     return result;
-  }, [tasks, statusFilter, filter, customerFilter, currentUser?.id, currentTeam?.id]);
+  }, [tasks, statusFilter, filter, customerFilter, currentUser?.id, currentTeam?.id, currentProject?.id]);
 
   const getFilterLabel = () => {
     if (filter === 'dueToday') return 'Due Today';
@@ -95,9 +141,67 @@ export function TaskBoard() {
 
   return (
     <div className="space-y-6">
+      {currentProject && projectProgressStats && (
+        <div className="rounded-lg border bg-muted/30 px-4 py-3 space-y-2">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+            <span className="font-medium">
+              İlerleme: <span className="text-foreground">{currentProject.name}</span>
+            </span>
+            <span className="text-muted-foreground tabular-nums">
+              {projectProgressStats.done} / {projectProgressStats.total} tamamlandı ({projectProgressStats.pct}%)
+            </span>
+          </div>
+          <Progress value={projectProgressStats.pct} className="h-2.5" />
+        </div>
+      )}
+
       <div className="flex justify-between items-center">
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <h2 className="text-2xl font-bold">Task Board</h2>
+          {projectsForTeam.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={currentProject?.id ?? ''}
+                onChange={(e) => setCurrentProjectId(e.target.value || null)}
+                className="h-10 min-w-[200px] px-3 py-2 text-sm border rounded-md bg-background"
+                aria-label="Active process / project"
+              >
+                <option value="">All tasks (no process)</option>
+                {projectsForTeam.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+              {currentUserRole === 'admin' && (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-10 gap-2"
+                    onClick={() => setIsCreateProjectOpen(true)}
+                    title="Yeni süreç (proje) oluştur"
+                  >
+                    <Layers className="h-4 w-4" />
+                    Yeni süreç
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-10 w-10"
+                    onClick={() => setEditingProjectId(currentProject?.id ?? null)}
+                    disabled={!currentProject}
+                    title="Seçili süreci düzenle"
+                    aria-label="Seçili süreci düzenle"
+                  >
+                    <Settings2 className="h-4 w-4" />
+                  </Button>
+                </>
+              )}
+            </div>
+          )}
           {filter && (
             <Badge variant="secondary" className="flex items-center gap-1 px-3 py-1">
               {getFilterLabel()}
@@ -131,10 +235,19 @@ export function TaskBoard() {
             </select>
           )}
           {permissions.canCreateTask && (
-            <Button onClick={handleCreateTask}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Task
-            </Button>
+            <>
+              <VoiceToTaskButton 
+                onTaskCreated={(task) => {
+                  // Open create modal with pre-filled data from AI
+                  setIsCreateModalOpen(true);
+                  // You can pass the AI-generated data to the modal if needed
+                }}
+              />
+              <Button onClick={handleCreateTask}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Task
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -146,7 +259,7 @@ export function TaskBoard() {
         >
           All
         </Button>
-        {columns.map(column => (
+        {boardColumns.map((column) => (
           <Button 
             key={column.id}
             variant={statusFilter === column.id ? 'default' : 'outline'}
@@ -158,63 +271,142 @@ export function TaskBoard() {
       </div>
 
       <DragDropContext onDragEnd={onDragEnd}>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {columns.map(column => {
-            const columnTasks = filteredTasks.filter(task => task.status === column.id);
-            
-            return (
-              <div key={column.id} className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-medium">{column.title}</h3>
-                  <Badge variant="secondary">{columnTasks.length}</Badge>
-                </div>
-                <Droppable droppableId={column.id}>
-                  {(provided) => (
-                    <div
-                      ref={provided.innerRef}
-                      {...provided.droppableProps}
-                      className={cn(
-                        'p-4 rounded-lg min-h-[200px] transition-colors',
-                        column.color
-                      )}
-                    >
-                      {columnTasks.map((task, index) => (
-                        <Draggable key={task.id} draggableId={task.id} index={index}>
-                          {(provided) => (
-                            <div
-                              ref={provided.innerRef}
-                              {...provided.draggableProps}
-                              className="mb-2"
-                            >
-                              <TaskCard 
-                                task={task} 
-                                dragHandleProps={provided.dragHandleProps}
-                                onTaskClick={setEditingTask}
-                              />
-                            </div>
-                          )}
-                        </Draggable>
-                      ))}
-                      {provided.placeholder}
+        <>
+          {/* Mobile: horizontal swipe columns */}
+          <div className="md:hidden">
+            <div className="flex gap-2 overflow-x-auto pb-2 mb-3">
+              {boardColumns.map((c) => (
+                <Button
+                  key={c.id}
+                  variant={visibleMobileColumnId === c.id ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setMobileColumnId(c.id)}
+                  className="shrink-0"
+                >
+                  {c.title}
+                </Button>
+              ))}
+            </div>
+
+            {visibleMobileColumnId && (
+              (() => {
+                const column = boardColumns.find((c) => c.id === visibleMobileColumnId)!;
+                const columnTasks = filteredTasks.filter(
+                  (task) => resolveTaskBoardColumnId(task.status, boardColumns) === column.id
+                );
+                return (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-medium">{column.title}</h3>
+                      <Badge variant="secondary">{columnTasks.length}</Badge>
                     </div>
-                  )}
-                </Droppable>
-              </div>
-            );
-          })}
-        </div>
+                    <Droppable droppableId={column.id}>
+                      {(provided) => (
+                        <div
+                          ref={provided.innerRef}
+                          {...provided.droppableProps}
+                          className={cn(
+                            'p-4 rounded-lg min-h-[200px] transition-colors',
+                            column.color ?? 'bg-muted/40'
+                          )}
+                        >
+                          {columnTasks.map((task, index) => (
+                            <Draggable key={task.id} draggableId={task.id} index={index}>
+                              {(provided) => (
+                                <div
+                                  ref={provided.innerRef}
+                                  {...provided.draggableProps}
+                                  className="mb-2"
+                                >
+                                  <TaskCard
+                                    task={task}
+                                    dragHandleProps={provided.dragHandleProps}
+                                    onTaskClick={(t) => openTaskEditor(t.id)}
+                                  />
+                                </div>
+                              )}
+                            </Draggable>
+                          ))}
+                          {provided.placeholder}
+                        </div>
+                      )}
+                    </Droppable>
+                  </div>
+                );
+              })()
+            )}
+          </div>
+
+          {/* Desktop: grid columns */}
+          <div
+            className="hidden md:grid gap-4"
+            style={{
+              gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))',
+            }}
+          >
+            {boardColumns.map((column) => {
+              const columnTasks = filteredTasks.filter(
+                (task) => resolveTaskBoardColumnId(task.status, boardColumns) === column.id
+              );
+
+              return (
+                <div key={column.id} className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-medium">{column.title}</h3>
+                    <Badge variant="secondary">{columnTasks.length}</Badge>
+                  </div>
+                  <Droppable droppableId={column.id}>
+                    {(provided) => (
+                      <div
+                        ref={provided.innerRef}
+                        {...provided.droppableProps}
+                        className={cn(
+                          'p-4 rounded-lg min-h-[200px] transition-colors',
+                          column.color ?? 'bg-muted/40'
+                        )}
+                      >
+                        {columnTasks.map((task, index) => (
+                          <Draggable key={task.id} draggableId={task.id} index={index}>
+                            {(provided) => (
+                              <div
+                                ref={provided.innerRef}
+                                {...provided.draggableProps}
+                                className="mb-2"
+                              >
+                                <TaskCard
+                                  task={task}
+                                  dragHandleProps={provided.dragHandleProps}
+                                  onTaskClick={(t) => openTaskEditor(t.id)}
+                                />
+                              </div>
+                            )}
+                          </Draggable>
+                        ))}
+                        {provided.placeholder}
+                      </div>
+                    )}
+                  </Droppable>
+                </div>
+              );
+            })}
+          </div>
+        </>
       </DragDropContext>
 
       <CreateTaskModal 
         open={isCreateModalOpen} 
         onClose={() => setIsCreateModalOpen(false)} 
       />
+      <CreateProjectModal open={isCreateProjectOpen} onClose={() => setIsCreateProjectOpen(false)} />
+      {editingProjectId && (
+        <CreateProjectModal
+          open={!!editingProjectId}
+          onClose={() => setEditingProjectId(null)}
+          mode="edit"
+          projectId={editingProjectId}
+        />
+      )}
 
-      <EditTaskModal 
-        task={editingTask} 
-        open={!!editingTask} 
-        onClose={() => setEditingTask(null)} 
-      />
     </div>
   );
 }

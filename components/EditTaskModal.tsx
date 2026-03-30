@@ -1,13 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useState, useEffect, useMemo, useRef, type FormEvent } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Task, TaskStatus, TaskPriority, useTaskContext } from '@/components/TaskContext';
+import type { JournalLogEntry } from '@/lib/types';
+import { TaskProcessJournal } from '@/components/task/TaskProcessJournal';
 import { Loader2 } from 'lucide-react';
 
 interface EditTaskModalProps {
@@ -17,12 +19,11 @@ interface EditTaskModalProps {
 }
 
 export function EditTaskModal({ task, open, onClose }: EditTaskModalProps) {
-  const { updateTask, currentTeam, canEditTask, customers } = useTaskContext();
+  const { updateTask, currentTeam, canEditTask, customers, boardColumns, tasks } = useTaskContext();
   const [loading, setLoading] = useState(false);
-  
-  // Check if user can edit this task
+
   const canEdit = task ? canEditTask(task.createdBy, task.assigneeId) : false;
-  
+
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState<TaskStatus>('todo');
@@ -30,26 +31,96 @@ export function EditTaskModal({ task, open, onClose }: EditTaskModalProps) {
   const [assigneeId, setAssigneeId] = useState<string>('unassigned');
   const [customerId, setCustomerId] = useState<string>('none');
   const [dueDate, setDueDate] = useState('');
+  const [journalLogs, setJournalLogs] = useState<JournalLogEntry[]>([]);
+  const [learnings, setLearnings] = useState('');
+  const lastPersistedLearnings = useRef('');
+  const learningsDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Only sync when opening or switching task — not on every `tasks` update (avoids wiping in-progress edits / journal flow)
+  useEffect(() => {
+    if (!open || !task) return;
+    const src = tasks.find((t) => t.id === task.id) ?? task;
+    setTitle(src.title);
+    setDescription(src.description || '');
+    setStatus(src.status);
+    setPriority(src.priority);
+    setAssigneeId(src.assigneeId || 'unassigned');
+    setCustomerId(src.customerId || 'none');
+    setDueDate(src.dueDate ? src.dueDate.toISOString().split('T')[0] : '');
+    setJournalLogs([...(src.journalLogs ?? [])]);
+    const learningsVal = src.learnings ?? '';
+    setLearnings(learningsVal);
+    lastPersistedLearnings.current = learningsVal.trim();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: read `tasks` only on open / task id change
+  }, [open, task?.id]);
 
   useEffect(() => {
-    if (task) {
-      setTitle(task.title);
-      setDescription(task.description || '');
-      setStatus(task.status);
-      setPriority(task.priority);
-      setAssigneeId(task.assigneeId || 'unassigned');
-      setCustomerId(task.customerId || 'none');
-      setDueDate(task.dueDate ? task.dueDate.toISOString().split('T')[0] : '');
-    }
-  }, [task]);
+    if (!open || !task || !canEdit) return;
+    if (learningsDebounceRef.current) clearTimeout(learningsDebounceRef.current);
+    learningsDebounceRef.current = setTimeout(() => {
+      const normalized = learnings.trim();
+      if (normalized === lastPersistedLearnings.current) return;
+      void (async () => {
+        const ok = await updateTask(task.id, { learnings: normalized || null });
+        if (ok) lastPersistedLearnings.current = normalized;
+      })();
+    }, 1500);
+    return () => {
+      if (learningsDebounceRef.current) clearTimeout(learningsDebounceRef.current);
+    };
+  }, [learnings, open, task?.id, canEdit, task, updateTask]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const statusSelectOptions = useMemo(() => {
+    const base = boardColumns;
+    if (status && !base.some((c) => c.id === status)) {
+      return [{ id: status, title: status }, ...base];
+    }
+    return base;
+  }, [boardColumns, status]);
+
+  const handleJournalAppend = async (text: string): Promise<boolean> => {
+    if (!task || !canEdit) return false;
+    const entry: JournalLogEntry = {
+      id:
+        typeof crypto !== 'undefined' && 'randomUUID' in crypto
+          ? crypto.randomUUID()
+          : `jl-${Date.now()}`,
+      text: text.trim(),
+      createdAt: new Date().toISOString(),
+    };
+    const previous = journalLogs;
+    const next = [...journalLogs, entry];
+    setJournalLogs(next);
+    const ok = await updateTask(task.id, { journalLogs: next });
+    if (!ok) setJournalLogs(previous);
+    return ok;
+  };
+
+  const handleJournalUpdate = async (entryId: string, text: string): Promise<boolean> => {
+    if (!task || !canEdit) return false;
+    const nextText = text.trim();
+    if (!nextText) return false;
+    const idx = journalLogs.findIndex((x) => x.id === entryId);
+    if (idx === -1) return false;
+
+    const previous = journalLogs;
+    const now = new Date().toISOString();
+    const next = journalLogs.map((x) =>
+      x.id === entryId ? { ...x, text: nextText, updatedAt: now } : x
+    );
+    setJournalLogs(next);
+    const ok = await updateTask(task.id, { journalLogs: next });
+    if (!ok) setJournalLogs(previous);
+    return ok;
+  };
+
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!task) return;
 
     setLoading(true);
     try {
-      await updateTask(task.id, {
+      const ok = await updateTask(task.id, {
         title,
         description,
         status,
@@ -57,8 +128,13 @@ export function EditTaskModal({ task, open, onClose }: EditTaskModalProps) {
         assigneeId: assigneeId === 'unassigned' ? null : assigneeId,
         customerId: customerId === 'none' ? null : customerId,
         dueDate: dueDate ? new Date(dueDate) : undefined,
+        learnings: learnings.trim() || null,
+        journalLogs,
       });
-      onClose();
+      if (ok) {
+        lastPersistedLearnings.current = learnings.trim();
+        onClose();
+      }
     } catch (error) {
       console.error('Failed to update task:', error);
     } finally {
@@ -68,11 +144,16 @@ export function EditTaskModal({ task, open, onClose }: EditTaskModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{canEdit ? 'Edit Task' : 'View Task'}</DialogTitle>
+          <DialogDescription>
+            {canEdit
+              ? 'Görev ayrıntıları, süreç günlüğü ve öğrenme notlarını buradan güncelleyin.'
+              : 'Bu görevi görüntülüyorsunuz; düzenleme yetkiniz yok.'}
+          </DialogDescription>
         </DialogHeader>
-        
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="title">Title</Label>
@@ -100,18 +181,27 @@ export function EditTaskModal({ task, open, onClose }: EditTaskModalProps) {
             />
           </div>
 
+          <TaskProcessJournal
+            logs={journalLogs}
+            canEdit={canEdit}
+            disabled={loading}
+            onAppend={handleJournalAppend}
+            onUpdate={handleJournalUpdate}
+          />
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Status</Label>
               <Select value={status} onValueChange={(v) => setStatus(v as TaskStatus)} disabled={!canEdit}>
                 <SelectTrigger className="bg-white dark:bg-gray-800">
-                  <SelectValue />
+                  <SelectValue placeholder="Durum" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="todo">To Do</SelectItem>
-                  <SelectItem value="progress">In Progress</SelectItem>
-                  <SelectItem value="review">Review</SelectItem>
-                  <SelectItem value="done">Done</SelectItem>
+                  {statusSelectOptions.map((col) => (
+                    <SelectItem key={col.id} value={col.id}>
+                      {col.title}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -178,6 +268,24 @@ export function EditTaskModal({ task, open, onClose }: EditTaskModalProps) {
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="learnings">Neler öğrendim?</Label>
+            <Textarea
+              id="learnings"
+              value={learnings}
+              onChange={(e) => setLearnings(e.target.value)}
+              placeholder="Kapanınca veya süreçte kalmak istediğin bilgiler (mülakat cevabı, bug çözümü, kısayol…)"
+              rows={4}
+              disabled={!canEdit}
+              className="bg-white dark:bg-gray-800 resize-y min-h-[100px]"
+            />
+            {canEdit && (
+              <p className="text-xs text-muted-foreground">
+                Yazmayı bıraktıktan ~1,5 sn sonra otomatik kaydedilir.
+              </p>
+            )}
           </div>
 
           <div className="flex justify-end gap-2 pt-4">

@@ -1,12 +1,15 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { 
   LayoutDashboard, 
-  List, 
+  Columns3,
+  Library,
+  List,
   BarChart3, 
   Settings, 
   Users, 
@@ -18,10 +21,11 @@ import {
   Pencil,
   Trophy,
   Building2,
-  Webhook
+  Webhook,
+  Brain,
 } from 'lucide-react';
 import { useTaskContext, Team } from '@/components/TaskContext';
-import { ViewType } from '@/components/ViewContext';
+import { useView, ViewType } from '@/components/ViewContext';
 import { CreateTeamModal } from '@/components/CreateTeamModal';
 import { EditTeamModal } from '@/components/EditTeamModal';
 import { isToday } from 'date-fns';
@@ -33,14 +37,48 @@ interface MenuItem {
   count?: number;
 }
 
+const VIEW_ROUTES: Partial<Record<ViewType, string>> = {
+  'knowledge-hub': '/dashboard/knowledge-hub',
+  processes: '/dashboard/processes',
+  settings: '/settings',
+  profile: '/profile',
+  dashboard: '/',
+  board: '/board',
+  list: '/list',
+  customers: '/customers',
+  integrations: '/integrations',
+  analytics: '/analytics',
+  achievements: '/achievements',
+  team: '/team',
+};
+
+function pathMatchesRoute(pathname: string | null, route: string): boolean {
+  if (!pathname) return false;
+  if (route === '/') return pathname === '/';
+  return pathname === route || pathname.startsWith(`${route}/`);
+}
+
+/** URL’e göre vurgula (yenilemede doğru kalsın); gerekirse view context’e düş. */
+function isNavItemActive(itemId: ViewType, pathname: string | null, currentView: ViewType): boolean {
+  if (itemId === 'knowledge-hub') {
+    return Boolean(pathname?.startsWith('/dashboard/knowledge-hub')) || currentView === 'knowledge-hub';
+  }
+  const route = VIEW_ROUTES[itemId];
+  if (route !== undefined) {
+    return pathMatchesRoute(pathname, route) || currentView === itemId;
+  }
+  return currentView === itemId;
+}
+
 interface SidebarProps {
-  currentView: ViewType;
-  onViewChange: (view: ViewType) => void;
   isOpen: boolean;
   onCloseSidebar: () => void;
 }
 
-export function Sidebar({ currentView, onViewChange, isOpen, onCloseSidebar }: SidebarProps) {
+export function Sidebar({ isOpen, onCloseSidebar }: SidebarProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const { currentView, setCurrentView } = useView();
   const { tasks, currentTeam, teams, setCurrentTeam, currentUser, setFilter, filter, updateTeam, organizationName } = useTaskContext();
   const [showCreateTeam, setShowCreateTeam] = useState(false);
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
@@ -60,18 +98,33 @@ export function Sidebar({ currentView, onViewChange, isOpen, onCloseSidebar }: S
   const highPriorityCount = teamTasks.filter(t => (t.priority === 'high' || t.priority === 'urgent') && t.status !== 'done').length;
   const assignedToMeCount = teamTasks.filter(t => t.assigneeId === currentUser?.id && t.status !== 'done').length;
 
+  const navigateToView = (view: ViewType) => {
+    setCurrentView(view);
+    const explicit = VIEW_ROUTES[view];
+    if (explicit) {
+      router.push(explicit);
+      return;
+    }
+    if (pathname !== '/') {
+      router.push('/');
+    }
+  };
+
   const handleFilterClick = (filterType: 'dueToday' | 'highPriority' | 'assignedToMe' | null) => {
     if (filter === filterType) {
       setFilter(null);
     } else {
       setFilter(filterType);
     }
-    onViewChange('board');
+    navigateToView('board');
   };
 
   const menuItems: MenuItem[] = [
-    { id: 'board', label: 'Task Board', icon: LayoutDashboard, count: teamTasks.length },
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'board', label: 'Projects / Board', icon: Columns3, count: teamTasks.length },
     { id: 'list', label: 'List View', icon: List, count: teamTasks.length },
+    { id: 'processes', label: 'Süreç Merkezi', icon: Library },
+    { id: 'knowledge-hub', label: 'Knowledge Hub', icon: Brain },
     { id: 'customers', label: 'Customers', icon: Building2 },
     { id: 'integrations', label: 'Integrations', icon: Webhook },
     { id: 'analytics', label: 'Analytics', icon: BarChart3 },
@@ -165,15 +218,19 @@ export function Sidebar({ currentView, onViewChange, isOpen, onCloseSidebar }: S
 
           {/* Navigation */}
           <nav className="flex-1 p-4 space-y-2">
-            {menuItems.map((item) => (
+            {menuItems.map((item) => {
+              const isActive = isNavItemActive(item.id, pathname, currentView);
+              return (
               <Button
                 key={item.id}
-                variant={currentView === item.id ? 'secondary' : 'ghost'}
+                variant={isActive ? 'secondary' : 'ghost'}
                 className={cn(
-                  "w-full justify-start gap-3 h-11 px-3",
-                  currentView === item.id && "bg-secondary text-secondary-foreground font-medium"
+                  "w-full justify-start gap-3 h-11 px-3 relative",
+                  isActive && "bg-secondary text-secondary-foreground font-medium ring-1 ring-primary/25",
+                  // Stronger cue for top-level mode switches
+                  (item.id === 'dashboard' || item.id === 'board') && isActive && "before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-1 before:rounded-r before:bg-primary"
                 )}
-                onClick={() => onViewChange(item.id)}
+                onClick={() => navigateToView(item.id)}
               >
                 <item.icon className="h-4 w-4" />
                 <span className="flex-1 text-left">{item.label}</span>
@@ -183,7 +240,8 @@ export function Sidebar({ currentView, onViewChange, isOpen, onCloseSidebar }: S
                   </Badge>
                 )}
               </Button>
-            ))}
+            );
+            })}
 
             {/* Quick filters */}
             <div className="pt-4">

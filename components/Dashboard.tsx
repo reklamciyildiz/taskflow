@@ -1,33 +1,39 @@
 'use client';
 
-import { useState } from 'react';
-import { Sidebar } from '@/components/Sidebar';
 import { TaskBoard } from '@/components/TaskBoard';
 import { TaskList } from '@/components/TaskList';
 import { Customers } from '@/components/Customers';
 import { Analytics } from '@/components/Analytics';
 import { Settings } from '@/components/Settings';
-import { Header } from '@/components/Header';
 import { Profile } from '@/components/Profile';
 import { TeamMembers } from '@/components/TeamMembers';
 import { Achievements } from '@/components/Achievements';
+import { KnowledgeHubView } from '@/components/KnowledgeHubView';
+import { DashboardInsights } from '@/components/DashboardInsights';
+import { DashboardShell } from '@/components/DashboardShell';
+import { FocusDashboard } from '@/components/FocusDashboard';
 import dynamic from 'next/dynamic';
 
-const Integrations = dynamic(() => import('@/app/(dashboard)/integrations/page'), { ssr: false });
+const Integrations = dynamic(() => import('@/app/(shell)/integrations/page'), { ssr: false });
 
 import { useView, ViewType } from '@/components/ViewContext';
 
 export function Dashboard() {
-  const { currentView, setCurrentView } = useView();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { currentView } = useView();
 
   const renderView = () => {
     const view = currentView as ViewType;
     switch (view) {
       case 'board':
-        return <TaskBoard />;
+        return (
+          <>
+            <TaskBoard />
+          </>
+        );
       case 'list':
         return <TaskList />;
+      case 'knowledge-hub':
+        return <KnowledgeHubView />;
       case 'customers':
         return <Customers />;
       case 'integrations':
@@ -47,20 +53,5 @@ export function Dashboard() {
     }
   };
 
-  return (
-    <div className="flex h-screen bg-background">
-      <Sidebar 
-        currentView={currentView as ViewType}
-        onViewChange={(view) => setCurrentView(view)}
-        isOpen={sidebarOpen}
-        onCloseSidebar={() => setSidebarOpen(!sidebarOpen)}
-      />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <Header onSidebarToggle={() => setSidebarOpen(!sidebarOpen)} />
-        <main className="flex-1 overflow-auto p-6">
-          {renderView()}
-        </main>
-      </div>
-    </div>
-  );
+  return <DashboardShell>{renderView()}</DashboardShell>;
 }

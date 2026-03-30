@@ -2,8 +2,8 @@
 
 import { Header } from '@/components/Header';
 import { Sidebar } from '@/components/Sidebar';
-import { ViewType } from '@/components/ViewContext';
-import { useState } from 'react';
+import { useView } from '@/components/ViewContext';
+import { useEffect, useState } from 'react';
 
 export default function SettingsLayout({
   children,
@@ -11,16 +11,15 @@ export default function SettingsLayout({
   children: React.ReactNode;
 }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [currentView, setCurrentView] = useState<ViewType>('settings');
+  const { setCurrentView } = useView();
+
+  useEffect(() => {
+    setCurrentView('settings');
+  }, [setCurrentView]);
 
   return (
     <div className="flex h-screen overflow-hidden">
-      <Sidebar 
-        currentView={currentView}
-        onViewChange={setCurrentView}
-        isOpen={isSidebarOpen}
-        onCloseSidebar={() => setIsSidebarOpen(false)}
-      />
+      <Sidebar isOpen={isSidebarOpen} onCloseSidebar={() => setIsSidebarOpen(false)} />
       <div className="flex-1 overflow-y-auto">
         <Header 
           onSidebarToggle={() => setIsSidebarOpen(!isSidebarOpen)}

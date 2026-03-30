@@ -52,6 +52,34 @@ export async function PATCH(
       );
     }
 
+    const journalPayload =
+      body.journalLogs === undefined
+        ? undefined
+        : Array.isArray(body.journalLogs)
+          ? body.journalLogs.map(
+              (e: {
+                id?: string;
+                text?: string;
+                createdAt?: string;
+                created_at?: string;
+                updatedAt?: string;
+                updated_at?: string;
+              }) => {
+                const created_at = e.createdAt ?? e.created_at;
+                const updated_at = e.updatedAt ?? e.updated_at;
+                const row: Record<string, unknown> = {
+                  id: e.id,
+                  text: e.text,
+                  created_at,
+                };
+                if (typeof updated_at === 'string' && updated_at.length > 0) {
+                  row.updated_at = updated_at;
+                }
+                return row;
+              }
+            )
+          : undefined;
+
     const updatedTask = await taskDb.update(params.id, {
       title: body.title,
       description: body.description,
@@ -60,6 +88,9 @@ export async function PATCH(
       due_date: body.dueDate,
       assignee_id: body.assigneeId === undefined ? undefined : (body.assigneeId || null),
       customer_id: body.customerId === undefined ? undefined : (body.customerId || null),
+      project_id: body.projectId === undefined ? undefined : (body.projectId || null),
+      learnings: body.learnings,
+      journal_logs: journalPayload,
     });
 
     if (!updatedTask) {

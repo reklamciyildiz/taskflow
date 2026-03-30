@@ -63,17 +63,11 @@ export function TeamMembers() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.group('Handle Submit');
     try {
       if (!currentTeam) {
-        console.error('❌ No team selected');
-        console.groupEnd();
+        toast.error('Takım seçilmedi');
         return;
       }
-
-      console.log('Current Team:', currentTeam);
-      console.log('Editing Member:', editingMember);
-      console.log('Form Data:', formData);
 
       const memberData = {
         name: formData.name.trim(),
@@ -82,32 +76,16 @@ export function TeamMembers() {
         avatar: formData.avatar.trim() || `https://ui-avatars.com/api/?name=${encodeURIComponent(formData.name.trim())}`
       };
 
-      console.log('Prepared Member Data:', memberData);
-
       if (editingMember) {
-        console.log('Updating existing member...');
-        console.log('Member ID to update:', editingMember.id);
-        
-        // Check if member exists in current team
         const memberExists = currentTeam.members.some(m => m.id === editingMember.id);
-        console.log('Member exists in team:', memberExists);
-        
         if (!memberExists) {
           throw new Error(`Member with ID ${editingMember.id} not found in team ${currentTeam.id}`);
         }
-
-        // Update member - the state will be updated via the context
         updateMember(currentTeam.id, editingMember.id, memberData);
-        console.log('Member update triggered');
       } else {
-        console.log('Adding new member...');
-        // Add member - the state will be updated via the context
         addMember(currentTeam.id, memberData);
-        console.log('Member add triggered');
       }
 
-      // Reset form
-      console.log('Resetting form...');
       setFormData({
         name: '',
         email: '',
@@ -116,12 +94,8 @@ export function TeamMembers() {
       });
       setEditingMember(null);
       setIsDialogOpen(false);
-      console.log('✅ Form submitted successfully');
     } catch (error) {
-      console.error('❌ Error in handleSubmit:', error);
-      // You might want to show an error toast/message to the user here
-    } finally {
-      console.groupEnd();
+      toast.error(error instanceof Error ? error.message : 'İşlem başarısız');
     }
   };
 
@@ -138,20 +112,17 @@ export function TeamMembers() {
 
   const handleDelete = async (memberId: string) => {
     if (!currentTeam) {
-      console.error('No team selected');
+      toast.error('Takım seçilmedi');
       return;
     }
-    
+
     try {
       const confirmed = window.confirm('Are you sure you want to remove this member?');
       if (!confirmed) return;
-      
-      // Remove member - the state will be updated via the context
+
       removeMember(currentTeam.id, memberId);
-      console.log('Member removal triggered');
     } catch (error) {
-      console.error('Error removing member:', error);
-      // You might want to show an error toast/message to the user here
+      toast.error(error instanceof Error ? error.message : 'Üye kaldırılamadı');
     }
   };
 

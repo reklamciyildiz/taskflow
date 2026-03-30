@@ -3,6 +3,26 @@
 
 import { getSupabaseClient } from '@/lib/supabase';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import type { Database } from '@/lib/database.types';
+
+type TasksInsert = Database['public']['Tables']['tasks']['Insert'];
+type TasksUpdate = Database['public']['Tables']['tasks']['Update'];
+
+function normalizeTaskInsert(row: TasksInsert): TasksInsert {
+  return {
+    ...row,
+    journal_logs: row.journal_logs ?? [],
+  };
+}
+
+function pickDefinedTaskUpdates(updates: Partial<TasksUpdate>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  (Object.keys(updates) as (keyof TasksUpdate)[]).forEach((key) => {
+    const v = updates[key];
+    if (v !== undefined) out[key as string] = v;
+  });
+  return out;
+}
 
 // Helper to get client at runtime only - NO client created at build time
 function getClient() {
@@ -262,6 +282,85 @@ export const teamDb = {
 };
 
 // =============================================
+// PROJECT (pipeline / süreç) OPERATIONS
+// =============================================
+
+export const projectDb = {
+  async create(projectData: {
+    name: string;
+    organization_id: string;
+    team_id?: string | null;
+    column_config?: unknown;
+  }) {
+    const { data, error } = await db
+      .from('projects')
+      .insert({
+        name: projectData.name,
+        organization_id: projectData.organization_id,
+        team_id: projectData.team_id ?? null,
+        column_config: projectData.column_config ?? [],
+      })
+      .select('*')
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  async update(id: string, updates: {
+    name?: string;
+    team_id?: string | null;
+    column_config?: unknown;
+  }) {
+    const { data, error } = await db
+      .from('projects')
+      .update({
+        name: updates.name,
+        team_id: updates.team_id,
+        column_config: updates.column_config,
+      })
+      .eq('id', id)
+      .select('*')
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  async delete(id: string) {
+    const { error } = await db
+      .from('projects')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+    return true;
+  },
+
+  async getByOrganization(organizationId: string) {
+    const { data, error } = await db
+      .from('projects')
+      .select('*')
+      .eq('organization_id', organizationId)
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
+    return data;
+  },
+
+  async getById(id: string) {
+    const { data, error } = await db
+      .from('projects')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+};
+
+// =============================================
 // TEAM MEMBER OPERATIONS
 // =============================================
 
@@ -365,10 +464,10 @@ export const teamMemberDb = {
 // =============================================
 
 export const taskDb = {
-  async create(taskData: any) {
+  async create(taskData: TasksInsert) {
     const { data, error } = await db
       .from('tasks')
-      .insert(taskData)
+      .insert(normalizeTaskInsert(taskData))
       .select(`
         *,
         assignee:users!tasks_assignee_id_fkey (
@@ -497,10 +596,14 @@ export const taskDb = {
     return data;
   },
 
-  async update(id: string, updates: any) {
+  async update(id: string, updates: Partial<TasksUpdate>) {
+    const payload = pickDefinedTaskUpdates(updates);
+    if (Object.keys(payload).length === 0) {
+      return taskDb.getById(id);
+    }
     const { data, error } = await db
       .from('tasks')
-      .update(updates)
+      .update(payload)
       .eq('id', id)
       .select(`
         *,

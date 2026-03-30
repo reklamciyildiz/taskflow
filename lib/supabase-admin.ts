@@ -19,6 +19,11 @@ export const supabaseAdmin = createClient(
 );
 
 /**
+ * Alias for supabaseAdmin (used in AI services)
+ */
+export const db = supabaseAdmin;
+
+/**
  * Normal Supabase client (RLS ile)
  * Frontend'den kullanılabilir
  */

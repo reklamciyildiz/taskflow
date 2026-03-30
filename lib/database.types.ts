@@ -32,6 +32,32 @@ export interface Database {
           updated_at?: string
         }
       }
+      projects: {
+        Row: {
+          id: string
+          name: string
+          organization_id: string
+          team_id: string | null
+          column_config: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          organization_id: string
+          team_id?: string | null
+          column_config?: Json
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          organization_id?: string
+          team_id?: string | null
+          column_config?: Json
+          created_at?: string
+        }
+      }
       users: {
         Row: {
           id: string
@@ -124,10 +150,14 @@ export interface Database {
           id: string
           title: string
           description: string | null
-          status: 'todo' | 'progress' | 'review' | 'done'
+          status: string
           priority: 'low' | 'medium' | 'high' | 'urgent'
           due_date: string | null
           assignee_id: string | null
+          customer_id: string | null
+          project_id: string | null
+          journal_logs: Json
+          learnings: string | null
           team_id: string
           organization_id: string
           created_by: string
@@ -138,10 +168,14 @@ export interface Database {
           id?: string
           title: string
           description?: string | null
-          status?: 'todo' | 'progress' | 'review' | 'done'
+          status?: string
           priority?: 'low' | 'medium' | 'high' | 'urgent'
           due_date?: string | null
           assignee_id?: string | null
+          customer_id?: string | null
+          project_id?: string | null
+          journal_logs?: Json
+          learnings?: string | null
           team_id: string
           organization_id: string
           created_by: string
@@ -152,10 +186,14 @@ export interface Database {
           id?: string
           title?: string
           description?: string | null
-          status?: 'todo' | 'progress' | 'review' | 'done'
+          status?: string
           priority?: 'low' | 'medium' | 'high' | 'urgent'
           due_date?: string | null
           assignee_id?: string | null
+          customer_id?: string | null
+          project_id?: string | null
+          journal_logs?: Json
+          learnings?: string | null
           team_id?: string
           organization_id?: string
           created_by?: string
@@ -232,7 +270,6 @@ export interface Database {
       [_ in never]: never
     }
     Enums: {
-      task_status: 'todo' | 'progress' | 'review' | 'done'
       task_priority: 'low' | 'medium' | 'high' | 'urgent'
       user_role: 'owner' | 'admin' | 'member'
       team_role: 'admin' | 'member' | 'viewer'

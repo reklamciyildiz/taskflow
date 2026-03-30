@@ -83,6 +83,8 @@ export async function POST(request: NextRequest) {
       due_date: body.dueDate || null,
       assignee_id: body.assigneeId || null,
       customer_id: body.customerId || null,
+      project_id: body.projectId ?? null,
+      journal_logs: [],
       team_id: body.teamId,
       organization_id: organizationId,
       created_by: userId,
@@ -105,7 +107,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Trigger webhooks
+    // Trigger webhooks (non-blocking)
     try {
       // Task created webhook
       const taskCreatedPayload: TaskCreatedPayload = {
@@ -122,6 +124,7 @@ export async function POST(request: NextRequest) {
           createdBy: task.created_by,
         },
       };
+
       await triggerWebhook(organizationId, 'task.created', taskCreatedPayload);
 
       // Task assigned webhook (if assigned)
@@ -137,7 +140,7 @@ export async function POST(request: NextRequest) {
         await triggerWebhook(organizationId, 'task.assigned', taskAssignedPayload);
       }
     } catch (webhookError) {
-      console.error('Failed to trigger webhooks:', webhookError);
+      console.error('[Webhook] Failed to trigger webhooks:', webhookError);
     }
 
     return NextResponse.json<ApiResponse<any>>({

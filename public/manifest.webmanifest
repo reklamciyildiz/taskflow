@@ -1,0 +1,16 @@
+{
+  "name": "TaskFlow - Premium Team Productivity",
+  "short_name": "TaskFlow",
+  "description": "Advanced task management with team collaboration",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#3b82f6",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "48x48",
+      "type": "image/x-icon"
+    }
+  ]
+}
