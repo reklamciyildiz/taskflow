@@ -18,7 +18,12 @@ export async function createSupabaseAuthUser(
     // Check if user already exists in Supabase Auth
     const { data: existingUser, error: getUserError } = await supabaseAdmin.auth.admin.getUserById(userId);
 
-    if (existingUser) {
+    if (getUserError && getUserError.message !== 'User not found') {
+      console.error('Error getting Supabase Auth user:', getUserError);
+      return { success: false, error: getUserError.message };
+    }
+
+    if (existingUser?.user) {
       // User exists, update metadata
       const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
         email,

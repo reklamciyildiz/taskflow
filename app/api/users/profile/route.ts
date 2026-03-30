@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { userDb } from '@/lib/db';
-import { supabase } from '@/lib/supabase';
 
 // PATCH - Update user profile
 export async function PATCH(request: NextRequest) {
@@ -30,20 +29,7 @@ export async function PATCH(request: NextRequest) {
     if (name) updates.name = name;
     if (avatar_url) updates.avatar_url = avatar_url;
 
-    const { data, error } = await supabase
-      .from('users')
-      .update(updates)
-      .eq('id', user.id)
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Error updating profile:', error);
-      return NextResponse.json(
-        { success: false, error: 'Failed to update profile' },
-        { status: 500 }
-      );
-    }
+    const data = await userDb.update(user.id, updates);
 
     return NextResponse.json({
       success: true,

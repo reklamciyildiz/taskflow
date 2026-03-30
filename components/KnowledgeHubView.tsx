@@ -137,7 +137,7 @@ export function KnowledgeHubView() {
             <div className="space-y-2 max-w-md mx-auto">
               <p className="font-semibold text-foreground text-lg">Bilgi bankan henüz boş</p>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Henüz bir öğrenme veya günlük notu yok. Hadi bir görev açıp &quot;Neler öğrendim?&quot; alanına not ekle
+                Henüz bir öğrenme veya günlük notu yok. Hadi bir görev açıp "Neler öğrendim?" alanına not ekle
                 veya süreç günlüğüne bir satır yaz; kayıtların burada aranabilir şekilde birikecek.
               </p>
             </div>
@@ -152,7 +152,7 @@ export function KnowledgeHubView() {
           <CardContent className="py-14 text-center text-muted-foreground space-y-2">
             <p className="font-medium text-foreground">Bu filtrelere uygun kayıt yok</p>
             <p className="text-sm max-w-md mx-auto">
-              Arama metnini sil, tür veya süreç filtresini &quot;Tümü&quot; yapmayı dene. Kayıtlar görevlerinde duruyor;
+              Arama metnini sil, tür veya süreç filtresini "Tümü" yapmayı dene. Kayıtlar görevlerinde duruyor;
               silinmedi.
             </p>
           </CardContent>

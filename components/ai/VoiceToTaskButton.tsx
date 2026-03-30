@@ -324,7 +324,7 @@ export function VoiceToTaskButton({ onTaskCreated, className }: VoiceToTaskButto
               <div className="space-y-2">
                 <h4 className="font-medium text-sm">Transkript:</h4>
                 <div className="p-3 bg-muted rounded-lg text-sm">
-                  <p className="italic">&quot;{transcription}&quot;</p>
+                  <p className="italic">"{transcription}"</p>
                 </div>
               </div>
             )}

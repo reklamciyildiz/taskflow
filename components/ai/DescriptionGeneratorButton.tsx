@@ -134,7 +134,7 @@ export function DescriptionGeneratorButton({
           <div className="space-y-4">
             <div>
               <p className="text-sm font-medium mb-2">Task Title:</p>
-              <p className="text-sm text-muted-foreground italic">&quot;{taskTitle}&quot;</p>
+              <p className="text-sm text-muted-foreground italic">"{taskTitle}"</p>
             </div>
 
             {!generatedDescription && (

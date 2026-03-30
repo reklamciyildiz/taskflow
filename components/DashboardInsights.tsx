@@ -139,7 +139,7 @@ export function DashboardInsights() {
                 Henüz bir öğrenme kaydedilmedi
               </p>
               <p className="text-sm text-muted-foreground max-w-sm mx-auto leading-relaxed">
-                Bir görevi açıp &quot;Neler öğrendim?&quot; alanına not düş veya süreç günlüğüne satır ekle; burada en yeni
+                Bir görevi açıp "Neler öğrendim?" alanına not düş veya süreç günlüğüne satır ekle; burada en yeni
                 kayıtların görünsün.
               </p>
               <Button variant="outline" size="sm" className="gap-1.5" onClick={() => router.push('/board')}>

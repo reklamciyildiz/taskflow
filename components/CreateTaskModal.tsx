@@ -87,7 +87,7 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
           <DialogTitle>Create New Task</DialogTitle>
           <DialogDescription>
             Başlık ve isteğe bağlı alanları doldurup kaydedin. Panoda üstten bir süreç seçtiysen yeni görev o sürece
-            bağlanır; &quot;All tasks&quot; seçiliyse süreç atanmaz.
+            bağlanır; "All tasks" seçiliyse süreç atanmaz.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
