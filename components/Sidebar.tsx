@@ -149,7 +149,7 @@ export function Sidebar({ isOpen, onCloseSidebar }: SidebarProps) {
         "fixed lg:relative inset-y-0 left-0 w-64 bg-card border-r transform transition-transform duration-200 ease-in-out z-50",
         isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
       )}>
-        <div className="flex flex-col h-full">
+        <div className="flex flex-col h-full min-h-0">
           {/* Logo & Organization */}
           <div className="p-6 border-b">
             <div className="flex items-center gap-3 mb-2">
@@ -217,7 +217,7 @@ export function Sidebar({ isOpen, onCloseSidebar }: SidebarProps) {
           )}
 
           {/* Navigation */}
-          <nav className="flex-1 p-4 space-y-2">
+          <nav className="flex-1 min-h-0 overflow-y-auto p-4 space-y-2 overscroll-contain">
             {menuItems.map((item) => {
               const isActive = isNavItemActive(item.id, pathname, currentView);
               return (
