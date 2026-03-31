@@ -238,7 +238,7 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId }
         if (!v) onClose();
       }}
     >
-      <DialogContent className="sm:max-w-[720px]">
+      <DialogContent className="max-h-[90dvh] w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] overflow-y-auto sm:max-w-[860px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Layers className="h-5 w-5" />
@@ -343,7 +343,7 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId }
                               <div
                                 ref={draggableProvided.innerRef}
                                 {...draggableProvided.draggableProps}
-                                className="flex items-center gap-2 px-3 py-2"
+                                className="flex flex-col gap-2 px-3 py-2 sm:flex-row sm:items-center"
                               >
                                 <span
                                   className="cursor-grab text-muted-foreground/70"
@@ -355,9 +355,9 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId }
                                   value={col.title}
                                   onChange={(e) => handleColumnTitleChange(index, e.target.value)}
                                   placeholder={`Kolon ${index + 1}`}
-                                  className="h-9 flex-1"
+                                  className="h-9 w-full sm:flex-1"
                                 />
-                                <div className="flex items-center gap-1">
+                                <div className="flex flex-wrap items-center gap-1">
                                   {COLUMN_COLOR_OPTIONS.map((opt) => (
                                     <button
                                       key={opt.id}
@@ -373,27 +373,29 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId }
                                     />
                                   ))}
                                 </div>
-                                <Button
-                                  type="button"
-                                  variant={col.isTerminal ? 'default' : 'outline'}
-                                  size="sm"
-                                  className="h-8 px-2 gap-1"
-                                  onClick={() => handleToggleTerminal(index)}
-                                >
-                                  <CheckCircle2 className="h-4 w-4" />
-                                  <span className="text-xs">Done</span>
-                                </Button>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                                  onClick={() => handleToggleInclude(index, false)}
-                                  disabled={columnsDraft.length <= 1}
-                                  aria-label="Kolonu sil"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
+                                <div className="flex items-center gap-2 sm:ml-auto">
+                                  <Button
+                                    type="button"
+                                    variant={col.isTerminal ? 'default' : 'outline'}
+                                    size="sm"
+                                    className="h-8 px-2 gap-1"
+                                    onClick={() => handleToggleTerminal(index)}
+                                  >
+                                    <CheckCircle2 className="h-4 w-4" />
+                                    <span className="text-xs">Done</span>
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                    onClick={() => handleToggleInclude(index, false)}
+                                    disabled={columnsDraft.length <= 1}
+                                    aria-label="Kolonu sil"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
                               </div>
                             )}
                           </Draggable>
@@ -408,22 +410,22 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId }
 
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Board önizlemesi</Label>
-              <div className="rounded-md border bg-gradient-to-r from-slate-50 via-muted to-slate-50 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900 p-3 overflow-x-auto">
+              <div className="rounded-md border bg-gradient-to-r from-slate-50 via-muted to-slate-50 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900 p-3">
                 {normalizedColumns.length === 0 ? (
                   <p className="text-xs text-muted-foreground italic">
                     Henüz kolon yok. En az bir kolon eklediğinde burada önizlemesini göreceksin.
                   </p>
                 ) : (
-                  <div className="flex gap-3 min-h-[56px]">
+                  <div className="grid gap-2 min-h-[56px] grid-cols-2 sm:grid-cols-3 md:grid-cols-4">
                     {normalizedColumns.map((col) => (
                       <div
                         key={col.id}
                         className={cn(
-                          'flex min-w-[110px] flex-col items-center justify-center rounded-xl px-3 py-2 text-xs shadow-sm border border-border/70',
+                          'flex min-w-0 flex-col items-center justify-center rounded-xl px-3 py-2 text-xs shadow-sm border border-border/70',
                           col.color ?? 'bg-background'
                         )}
                       >
-                        <span className="font-medium truncate max-w-[120px]">{col.title}</span>
+                        <span className="font-medium truncate max-w-full">{col.title}</span>
                         {col.isTerminal && (
                           <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] text-emerald-700 dark:text-emerald-200">
                             <CheckCircle2 className="h-3 w-3" />
@@ -440,7 +442,7 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId }
 
           {error && <p className="text-sm text-destructive">{error}</p>}
 
-          <div className="flex gap-2 justify-end">
+          <div className="flex flex-col-reverse gap-2 justify-end sm:flex-row">
             <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
               İptal
             </Button>

@@ -526,8 +526,14 @@ export const taskDb = {
       .eq('id', id)
       .single();
     
-    if (error) throw error;
-    return data;
+    // PostgREST: .single() returns PGRST116 when there are 0 rows.
+    // Treat as "not found" so API routes can return 404 instead of 500.
+    if (error) {
+      const code = (error as unknown as { code?: string })?.code;
+      if (code === 'PGRST116') return null;
+      throw error;
+    }
+    return data ?? null;
   },
 
   async getByTeam(teamId: string) {

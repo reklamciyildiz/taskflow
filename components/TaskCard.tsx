@@ -42,7 +42,7 @@ const priorityColors = {
 };
 
 export function TaskCard({ task, dragHandleProps, onTaskClick }: TaskCardProps) {
-  const { currentTeam, updateTask, deleteTask, canEditTask, canDeleteTask, boardColumns, canCompleteTask } = useTaskContext();
+  const { currentTeam, updateTask, deleteTask, canEditTask, canDeleteTask, boardColumns, canCompleteTask, suppressTaskEditorOpenFor } = useTaskContext();
   /** After ⋮ → Statü değiştir, menü kapanırken mobilde hayalet tık kart onClick'ine düşebilir; kısa süre modal açılmasın. */
   const blockCardOpenUntilRef = useRef(0);
   
@@ -129,7 +129,10 @@ export function TaskCard({ task, dragHandleProps, onTaskClick }: TaskCardProps) 
                         <DropdownMenuItem
                           key={col.id}
                           disabled={isCurrent || blocked}
-                          onSelect={() => {
+                          onSelect={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            suppressTaskEditorOpenFor(1000);
                             blockCardOpenUntilRef.current = Date.now() + 550;
                             void updateTask(task.id, { status: col.id });
                           }}
@@ -144,14 +147,27 @@ export function TaskCard({ task, dragHandleProps, onTaskClick }: TaskCardProps) 
                   </>
                 )}
                 {canEdit && (
-                  <DropdownMenuItem onSelect={() => onTaskClick?.(task)}>
+                  <DropdownMenuItem
+                    onSelect={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      suppressTaskEditorOpenFor(1000);
+                      onTaskClick?.(task);
+                    }}
+                  >
                     Edit Task
                   </DropdownMenuItem>
                 )}
                 {canDelete && (
                   <DropdownMenuItem 
                     className="text-red-600 focus:text-red-600"
-                    onSelect={() => void deleteTask(task.id)}
+                    onSelect={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      suppressTaskEditorOpenFor(1500);
+                      blockCardOpenUntilRef.current = Date.now() + 700;
+                      void deleteTask(task.id);
+                    }}
                   >
                     Delete Task
                   </DropdownMenuItem>

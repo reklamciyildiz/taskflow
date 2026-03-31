@@ -78,6 +78,8 @@ interface TaskContextType {
   editingTaskId: string | null;
   openTaskEditor: (taskId: string) => void;
   closeTaskEditor: () => void;
+  /** Prevent accidental editor opens (e.g. click-through after menu close). */
+  suppressTaskEditorOpenFor: (ms: number) => void;
 }
 
 const TaskContext = createContext<TaskContextType | undefined>(undefined);
@@ -179,8 +181,18 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   const [filter, setFilter] = useState<FilterType>(null);
   const [customerFilter, setCustomerFilter] = useState<string | null>(null);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const suppressTaskEditorOpenUntilRef = useRef<number>(0);
+
+  const suppressTaskEditorOpenFor = useCallback((ms: number) => {
+    const dur = Number.isFinite(ms) ? Math.max(0, ms) : 0;
+    suppressTaskEditorOpenUntilRef.current = Math.max(
+      suppressTaskEditorOpenUntilRef.current,
+      Date.now() + dur
+    );
+  }, []);
 
   const openTaskEditor = useCallback((taskId: string) => {
+    if (Date.now() < suppressTaskEditorOpenUntilRef.current) return;
     setEditingTaskId(taskId);
   }, []);
 
@@ -532,6 +544,9 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   // Delete task via API
   const deleteTask = useCallback(async (id: string) => {
     try {
+      // Close editor immediately to avoid a stale "View Task" state
+      // if the card opens via a click race while deletion is in flight.
+      setEditingTaskId((cur) => (cur === id ? null : cur));
       const response = await taskApi.delete(id);
       if (response.success) {
         setTasks(prev => prev.filter(task => task.id !== id));
@@ -853,6 +868,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       editingTaskId,
       openTaskEditor,
       closeTaskEditor,
+      suppressTaskEditorOpenFor,
     }}>
       {children}
     </TaskContext.Provider>

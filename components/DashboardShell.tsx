@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Sidebar } from '@/components/Sidebar';
 import { Header } from '@/components/Header';
 import { EditTaskModal } from '@/components/EditTaskModal';
@@ -9,6 +9,14 @@ import { useTaskContext } from '@/components/TaskContext';
 function TaskEditModalHost() {
   const { tasks, editingTaskId, closeTaskEditor } = useTaskContext();
   const task = editingTaskId ? tasks.find((t) => t.id === editingTaskId) ?? null : null;
+
+  // If the task is deleted while the editor is open, close the modal automatically.
+  useEffect(() => {
+    if (!editingTaskId) return;
+    if (task) return;
+    closeTaskEditor();
+  }, [closeTaskEditor, editingTaskId, task]);
+
   return (
     <EditTaskModal
       key={editingTaskId ?? 'closed'}
