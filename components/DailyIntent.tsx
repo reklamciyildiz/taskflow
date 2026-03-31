@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Target } from 'lucide-react';
@@ -19,12 +19,19 @@ function todayKey(d = new Date()): string {
 type Stored = { date: string; text: string };
 
 export function DailyIntent() {
-  const today = useMemo(() => todayKey(), []);
+  // IMPORTANT: "today" depends on user's local timezone. Avoid computing it during SSR
+  // to prevent hydration mismatches on Vercel (UTC) vs client locale.
+  const [today, setToday] = useState<string>('');
   const [value, setValue] = useState('');
   const lastToastedValueRef = useRef<string>('');
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    setToday(todayKey());
+  }, []);
+
+  useEffect(() => {
+    if (!today) return;
     try {
       const raw = localStorage.getItem(KEY);
       const parsed = raw ? (JSON.parse(raw) as unknown) : null;
@@ -49,6 +56,7 @@ export function DailyIntent() {
   }, []);
 
   useEffect(() => {
+    if (!today) return;
     try {
       const payload: Stored = { date: today, text: value };
       localStorage.setItem(KEY, JSON.stringify(payload));
@@ -63,7 +71,9 @@ export function DailyIntent() {
         <div className="flex items-center gap-2 text-amber-900 dark:text-amber-100/90">
           <Target className="h-4 w-4" />
           <p className="text-sm font-semibold">Bugünün odağı</p>
-          <span className="text-xs text-muted-foreground ml-auto tabular-nums">{today}</span>
+          <span className="text-xs text-muted-foreground ml-auto tabular-nums" suppressHydrationWarning>
+            {today}
+          </span>
         </div>
         <Input
           value={value}

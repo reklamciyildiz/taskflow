@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { Bell, Check, CheckCheck, Trash2, ExternalLink } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -19,6 +19,8 @@ export function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [nowMs, setNowMs] = useState<number>(0);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
@@ -37,12 +39,21 @@ export function NotificationBell() {
   };
 
   useEffect(() => {
+    setMounted(true);
+    setNowMs(Date.now());
     fetchNotifications();
     
     // Poll for new notifications every 30 seconds
     const interval = setInterval(fetchNotifications, 30000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
+    // Refresh "x min ago" periodically without re-fetching.
+    const t = setInterval(() => setNowMs(Date.now()), 30000);
+    return () => clearInterval(t);
+  }, [mounted]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -119,10 +130,10 @@ export function NotificationBell() {
     }
   };
 
-  const formatTime = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
+  const formatTime = useMemo(() => {
+    return (dateString: string) => {
+      const date = new Date(dateString);
+      const diffMs = (nowMs || Date.now()) - date.getTime();
     const diffMins = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
@@ -132,7 +143,8 @@ export function NotificationBell() {
     if (diffHours < 24) return `${diffHours}h ago`;
     if (diffDays < 7) return `${diffDays}d ago`;
     return date.toLocaleDateString();
-  };
+    };
+  }, [nowMs]);
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -201,8 +213,8 @@ export function NotificationBell() {
                           {notification.message}
                         </p>
                       )}
-                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                        {formatTime(notification.created_at)}
+                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-1" suppressHydrationWarning>
+                        {mounted ? formatTime(notification.created_at) : ''}
                       </p>
                     </div>
                     {notification.link && (

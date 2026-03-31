@@ -72,31 +72,57 @@ export const authOptions: NextAuthOptions = {
       // Always fetch fresh user data from Supabase to ensure organization info is up-to-date
       // This is critical for security - when a user is removed from organization, token should reflect this
       if (token.email) {
-        try {
-          const userDb = getUserDb();
-          const dbUser: any = await userDb.getByEmail(token.email as string);
-          if (dbUser) {
-            token.id = dbUser.id;
-            token.organizationId = dbUser.organization_id; // Now properly nullable
-            token.role = dbUser.role;
-            token.needsOnboarding = false;
-            
-            // Sync user to Supabase Auth for RLS compatibility
-            // This ensures auth.uid() works in RLS policies
-            await syncUserToSupabaseAuth(
-              dbUser.id,
-              token.email as string,
-              token.name as string || 'User'
-            );
-          } else {
-            // User not in database - needs onboarding
-            token.needsOnboarding = true;
-            token.organizationId = null;
+        const now = Date.now();
+        const t: any = token as any;
+        const lastSyncAt = typeof t.dbSyncAt === 'number' ? t.dbSyncAt : 0;
+        const lastFailAt = typeof t.dbSyncFailAt === 'number' ? t.dbSyncFailAt : 0;
+
+        // Avoid hammering the DB on every JWT callback invocation.
+        // - Successful sync: cache for 5 minutes
+        // - Failed sync: back off for 60 seconds
+        const shouldBackoff = lastFailAt > 0 && now - lastFailAt < 60_000;
+        const isFresh = lastSyncAt > 0 && now - lastSyncAt < 5 * 60_000;
+
+        const hasSupabaseEnv =
+          Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL) &&
+          Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) &&
+          process.env.NEXT_PUBLIC_SUPABASE_URL !== 'https://placeholder.supabase.co' &&
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY !== 'placeholder-key';
+
+        if (!shouldBackoff && !isFresh && hasSupabaseEnv) {
+          try {
+            const userDb = getUserDb();
+            const dbUser: any = await userDb.getByEmail(token.email as string);
+            t.dbSyncAt = now;
+            t.dbSyncFailAt = 0;
+
+            if (dbUser) {
+              token.id = dbUser.id;
+              token.organizationId = dbUser.organization_id; // Now properly nullable
+              token.role = dbUser.role;
+              token.needsOnboarding = false;
+
+              // Sync user to Supabase Auth for RLS compatibility
+              // This ensures auth.uid() works in RLS policies
+              await syncUserToSupabaseAuth(
+                dbUser.id,
+                token.email as string,
+                token.name as string || 'User'
+              );
+            } else {
+              // User not in database - needs onboarding
+              token.needsOnboarding = true;
+              token.organizationId = null;
+            }
+          } catch (error: any) {
+            // Professional behavior: don't break auth/session on transient network issues.
+            // Keep prior token fields; just back off and log a compact message.
+            t.dbSyncFailAt = now;
+            if (process.env.NODE_ENV !== 'production') {
+              const msg = typeof error?.message === 'string' ? error.message : String(error);
+              console.error('Error fetching user from DB:', msg);
+            }
           }
-        } catch (error) {
-          console.error('Error fetching user from DB:', error);
-          token.needsOnboarding = true;
-          token.organizationId = null;
         }
       }
       
