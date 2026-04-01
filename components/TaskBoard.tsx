@@ -169,7 +169,7 @@ export function TaskBoard() {
                 className="h-10 w-full sm:w-auto sm:min-w-[200px] px-3 py-2 text-sm border rounded-md bg-background"
                 aria-label="Active process / project"
               >
-                <option value="">All tasks (no process)</option>
+                <option value="">All actions (no process)</option>
                 {projectsForTeam.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}

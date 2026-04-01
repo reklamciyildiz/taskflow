@@ -65,7 +65,7 @@ export function Header({ onSidebarToggle }: HeaderProps) {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search tasks, teams..."
+              placeholder="Search actions, teams..."
               className="pl-10 pr-10 h-10 bg-muted/50 border-0 focus-visible:ring-1"
               value={searchQuery}
               onChange={(e) => {
@@ -96,7 +96,7 @@ export function Header({ onSidebarToggle }: HeaderProps) {
                   {searchResults.tasks.length > 0 && (
                     <div>
                       <div className="px-3 py-2 text-xs font-medium text-muted-foreground bg-gray-50 dark:bg-gray-750">
-                        Tasks
+                        Actions
                       </div>
                       {searchResults.tasks.map(task => (
                         <button
@@ -150,7 +150,7 @@ export function Header({ onSidebarToggle }: HeaderProps) {
             className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium hidden sm:flex"
           >
             <Plus className="h-4 w-4 mr-2" />
-            Add Task
+            Add Action
           </Button>
           
           {/* Mobile create task button */}

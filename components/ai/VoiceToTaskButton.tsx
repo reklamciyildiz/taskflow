@@ -174,7 +174,7 @@ export function VoiceToTaskButton({ onTaskCreated, className }: VoiceToTaskButto
 
       toast({
         title: 'Başarılı!',
-        description: 'Task başarıyla oluşturuldu',
+        description: 'Aksiyon başarıyla oluşturuldu',
       });
     } catch (err) {
       console.error('Failed to process audio:', err);
@@ -227,15 +227,15 @@ export function VoiceToTaskButton({ onTaskCreated, className }: VoiceToTaskButto
         variant="outline"
       >
         <Mic className="h-4 w-4" />
-        Sesli Task Oluştur
+        Sesli aksiyon oluştur
       </Button>
 
       <Dialog open={isOpen} onOpenChange={handleClose}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
-            <DialogTitle>🎤 Sesli Task Oluştur</DialogTitle>
+            <DialogTitle>🎤 Sesli aksiyon oluştur</DialogTitle>
             <DialogDescription>
-              Mikrofona konuşarak task oluşturun. AI otomatik olarak task detaylarını çıkaracak.
+              Mikrofona konuşarak aksiyon oluşturun. Yapay zekâ ayrıntıları otomatik çıkarır.
             </DialogDescription>
           </DialogHeader>
 
@@ -276,7 +276,7 @@ export function VoiceToTaskButton({ onTaskCreated, className }: VoiceToTaskButto
                     <>
                       <p className="text-lg font-medium">İşleniyor...</p>
                       <p className="text-sm text-muted-foreground">
-                        AI task detaylarını çıkarıyor
+                        Yapay zekâ aksiyon ayrıntılarını çıkarıyor
                       </p>
                     </>
                   ) : isRecording ? (
@@ -329,12 +329,12 @@ export function VoiceToTaskButton({ onTaskCreated, className }: VoiceToTaskButto
               </div>
             )}
 
-            {/* Extracted Task Display */}
+            {/* Extracted action preview */}
             {extractedTask && (
               <div className="space-y-4">
                 <div className="flex items-center gap-2 text-green-600">
                   <CheckCircle2 className="h-5 w-5" />
-                  <span className="font-medium">Task Başarıyla Oluşturuldu!</span>
+                  <span className="font-medium">Aksiyon oluşturuldu</span>
                 </div>
 
                 <div className="space-y-3 p-4 bg-muted rounded-lg">

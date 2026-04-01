@@ -113,14 +113,14 @@ export function Analytics() {
         type: 'info',
         emoji: '📈',
         title: 'Steady Progress',
-        description: `Team has completed ${completionRate}% of tasks. Consider breaking down larger tasks for faster completion.`
+        description: `Team has completed ${completionRate}% of actions. Consider breaking down larger actions for faster completion.`
       });
     } else if (teamTasks.length > 0) {
       insights.push({
         type: 'warning',
         emoji: '⚠️',
         title: 'Needs Attention',
-        description: `Completion rate is at ${completionRate}%. Review task priorities and team workload distribution.`
+        description: `Completion rate is at ${completionRate}%. Review action priorities and team workload distribution.`
       });
     }
 
@@ -129,8 +129,8 @@ export function Analytics() {
       insights.push({
         type: 'warning',
         emoji: '⏰',
-        title: 'Overdue Tasks Alert',
-        description: `${overdueTasks.length} task${overdueTasks.length > 1 ? 's are' : ' is'} past due date. Prioritize these to avoid bottlenecks.`
+        title: 'Overdue actions alert',
+        description: `${overdueTasks.length} action${overdueTasks.length > 1 ? 's are' : ' is'} past due date. Prioritize these to avoid bottlenecks.`
       });
     }
 
@@ -143,7 +143,7 @@ export function Analytics() {
         type: 'warning',
         emoji: '🔥',
         title: 'High Priority Backlog',
-        description: `${highPriorityPending} high/urgent priority tasks pending. Consider redistributing workload.`
+        description: `${highPriorityPending} high/urgent priority actions pending. Consider redistributing workload.`
       });
     }
 
@@ -153,7 +153,7 @@ export function Analytics() {
         type: 'success',
         emoji: '⚡',
         title: 'High Velocity Week',
-        description: `${tasksCompletedThisWeek} tasks completed this week. Team is in peak productivity mode!`
+        description: `${tasksCompletedThisWeek} actions completed this week. Team is in peak productivity mode!`
       });
     }
 
@@ -164,8 +164,8 @@ export function Analytics() {
       insights.push({
         type: 'info',
         emoji: '👥',
-        title: 'Unassigned Tasks',
-        description: `${unassignedTasks} task${unassignedTasks > 1 ? 's need' : ' needs'} assignment. Distribute for better tracking.`
+        title: 'Unassigned actions',
+        description: `${unassignedTasks} action${unassignedTasks > 1 ? 's need' : ' needs'} assignment. Distribute for better tracking.`
       });
     }
 
@@ -175,14 +175,14 @@ export function Analytics() {
         type: 'success',
         emoji: '🎯',
         title: 'Fast Turnaround',
-        description: `Average task completion time is ${avgCompletionDays.toFixed(1)} days. Excellent efficiency!`
+        description: `Average action completion time is ${avgCompletionDays.toFixed(1)} days. Excellent efficiency!`
       });
     } else if (avgCompletionDays > 7) {
       insights.push({
         type: 'info',
         emoji: '📊',
         title: 'Completion Time Analysis',
-        description: `Tasks take ${avgCompletionDays.toFixed(1)} days on average. Consider smaller task breakdowns.`
+        description: `Actions take ${avgCompletionDays.toFixed(1)} days on average. Consider smaller breakdowns.`
       });
     }
 
@@ -192,7 +192,7 @@ export function Analytics() {
         type: 'info',
         emoji: '💡',
         title: 'Getting Started',
-        description: 'Add more tasks to get personalized AI insights about your team\'s productivity.'
+        description: 'Add more actions to get personalized AI insights about your team\'s productivity.'
       });
     }
 
@@ -235,7 +235,7 @@ export function Analytics() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-green-700 dark:text-green-300">Tasks Completed</p>
+                <p className="text-sm font-medium text-green-700 dark:text-green-300">Actions completed</p>
                 <p className="text-2xl font-bold text-green-900 dark:text-green-100">{productivityMetrics.tasksCompletedThisWeek}</p>
               </div>
               <CheckCircle2 className="h-8 w-8 text-green-600 dark:text-green-400" />
@@ -248,7 +248,7 @@ export function Analytics() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-orange-700 dark:text-orange-300">Overdue Tasks</p>
+                <p className="text-sm font-medium text-orange-700 dark:text-orange-300">Overdue actions</p>
                 <p className="text-2xl font-bold text-orange-900 dark:text-orange-100">{overdueTasks.length}</p>
               </div>
               <AlertTriangle className="h-8 w-8 text-orange-600 dark:text-orange-400" />
@@ -266,7 +266,7 @@ export function Analytics() {
               </div>
               <Clock className="h-8 w-8 text-purple-600 dark:text-purple-400" />
             </div>
-            <p className="text-xs text-purple-600 dark:text-purple-400 mt-2">Per task</p>
+            <p className="text-xs text-purple-600 dark:text-purple-400 mt-2">Per action</p>
           </CardContent>
         </Card>
       </div>
@@ -278,7 +278,7 @@ export function Analytics() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <BarChart3 className="h-5 w-5" />
-              Task Status Distribution
+              Action status distribution
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -321,7 +321,7 @@ export function Analytics() {
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-sm font-medium">{member.name}</span>
                     <span className="text-xs text-muted-foreground">
-                      {member.completedTasks}/{member.totalTasks} tasks
+                      {member.completedTasks}/{member.totalTasks} actions
                     </span>
                   </div>
                   <Progress value={member.completionRate} className="h-2" />

@@ -166,7 +166,7 @@ export function InviteMemberModal({ isOpen, onClose, teamId }: InviteMemberModal
                   className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   disabled={loading}
                 >
-                  <option value="viewer">Viewer - Can view tasks only</option>
+                  <option value="viewer">Viewer — can view actions only</option>
                   <option value="member">Member - Can create and edit tasks</option>
                   <option value="admin">Admin - Full access to team settings</option>
                 </select>

@@ -547,7 +547,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   // Delete task via API
   const deleteTask = useCallback(async (id: string) => {
     try {
-      // Close editor immediately to avoid a stale "View Task" state
+      // Close editor immediately to avoid a stale "view action" state
       // if the card opens via a click race while deletion is in flight.
       setEditingTaskId((cur) => (cur === id ? null : cur));
       const response = await taskApi.delete(id);

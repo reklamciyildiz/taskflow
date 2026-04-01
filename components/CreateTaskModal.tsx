@@ -219,7 +219,7 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              Otomatik seçersen panoda hangi süreç seçiliyse görev oraya bağlanır.
+              Otomatik seçersen panoda hangi süreç seçiliyse aksiyon oraya bağlanır.
             </p>
           </div>
 

@@ -127,13 +127,13 @@ export function DescriptionGeneratorButton({
           <DialogHeader>
             <DialogTitle>✨ AI Description Generator</DialogTitle>
             <DialogDescription>
-              Generate a comprehensive task description with AI
+              Generate a comprehensive action description with AI
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
             <div>
-              <p className="text-sm font-medium mb-2">Task Title:</p>
+              <p className="text-sm font-medium mb-2">Action title:</p>
               <p className="text-sm text-muted-foreground italic">"{taskTitle}"</p>
             </div>
 

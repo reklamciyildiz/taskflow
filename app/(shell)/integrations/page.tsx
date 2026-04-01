@@ -33,11 +33,11 @@ interface WebhookLog {
 }
 
 const EVENT_OPTIONS = [
-  { value: 'task.created', label: 'Task Created', description: 'When a new task is created' },
-  { value: 'task.updated', label: 'Task Updated', description: 'When a task is updated' },
-  { value: 'task.deleted', label: 'Task Deleted', description: 'When a task is deleted' },
-  { value: 'task.completed', label: 'Task Completed', description: 'When a task is marked as done' },
-  { value: 'task.assigned', label: 'Task Assigned', description: 'When a task is assigned to someone' },
+  { value: 'task.created', label: 'Action created', description: 'When a new action is created' },
+  { value: 'task.updated', label: 'Action updated', description: 'When an action is updated' },
+  { value: 'task.deleted', label: 'Action deleted', description: 'When an action is deleted' },
+  { value: 'task.completed', label: 'Action completed', description: 'When an action is marked as done' },
+  { value: 'task.assigned', label: 'Action assigned', description: 'When an action is assigned to someone' },
 ];
 
 export default function IntegrationsPage() {

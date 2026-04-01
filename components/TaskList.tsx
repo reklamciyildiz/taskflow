@@ -86,7 +86,7 @@ export function TaskList() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-foreground">Aksiyon listesi</h1>
         <p className="text-muted-foreground mt-1">
-          Comprehensive view of all your team's tasks
+          Ekibinizdeki tüm aksiyonların tek ekranda özeti
         </p>
       </div>
 
@@ -96,7 +96,7 @@ export function TaskList() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search tasks..."
+              placeholder="Aksiyon ara…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10"
@@ -338,9 +338,9 @@ export function TaskList() {
         {filteredTasks.length === 0 && (
           <div className="text-center py-12">
             <CheckCircle2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="font-medium text-foreground">No tasks found</h3>
+            <h3 className="font-medium text-foreground">Aksiyon bulunamadı</h3>
             <p className="text-muted-foreground text-sm mt-1">
-              {searchQuery ? 'Try adjusting your search or filters' : 'Create your first task to get started'}
+              {searchQuery ? 'Arama veya filtreleri değiştirmeyi deneyin' : 'Başlamak için ilk aksiyonunuzu oluşturun'}
             </p>
           </div>
         )}

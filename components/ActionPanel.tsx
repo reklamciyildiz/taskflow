@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, type Variants } from 'framer-motion';
-import { X } from 'lucide-react';
+import { ChevronDown, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,6 +11,7 @@ import { Task, TaskStatus, TaskPriority, useTaskContext } from '@/components/Tas
 import { ACTION_CHECKLIST_QUICK_ROW_ID } from '@/lib/action-checklist';
 import type { JournalLogEntry } from '@/lib/types';
 import { ActionChecklist } from '@/components/action/ActionChecklist';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 
 export interface ActionPanelProps {
@@ -74,6 +75,8 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
   const [dueDate, setDueDate] = useState('');
   const [journalLogs, setJournalLogs] = useState<JournalLogEntry[]>([]);
   const [learnings, setLearnings] = useState('');
+  /** Başlık, statü, açıklama vb. — not odaklı akış için varsayılan kapalı */
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const journalRef = useRef<JournalLogEntry[]>([]);
   const lastPersistedLearnings = useRef('');
 
@@ -97,6 +100,7 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
     const learningsVal = src.learnings ?? '';
     setLearnings(learningsVal);
     lastPersistedLearnings.current = learningsVal.trim();
+    setDetailsOpen(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- sync only when opening / task id
   }, [open, task?.id]);
 
@@ -239,153 +243,190 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
 
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-gutter:stable]">
               <div className="space-y-6 px-4 py-5 pb-8 md:px-6">
-                <div className="space-y-2">
-                  <label htmlFor="action-panel-title" className="sr-only">
-                    Başlık
-                  </label>
-                  <Input
-                    id="action-panel-title"
-                    value={title}
-                    disabled={!canEdit}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      setTitle(v);
-                      scheduleMetaPersist({ title: v });
-                    }}
-                    placeholder="Başlıksız aksiyon"
-                    className="h-auto border-0 bg-transparent px-0 text-2xl font-semibold tracking-tight shadow-none placeholder:text-muted-foreground/50 focus-visible:ring-0"
-                  />
-                </div>
+                <Collapsible open={detailsOpen} onOpenChange={setDetailsOpen}>
+                  <div className="space-y-3">
+                    <CollapsibleTrigger asChild>
+                      <button
+                        type="button"
+                        aria-expanded={detailsOpen}
+                        className={cn(
+                          'flex w-full items-center gap-3 rounded-xl border border-border/50 bg-muted/15 px-3 py-2.5 text-left transition-colors',
+                          'hover:bg-muted/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30'
+                        )}
+                      >
+                        <ChevronDown
+                          className={cn(
+                            'h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200',
+                            detailsOpen && 'rotate-180'
+                          )}
+                          aria-hidden
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                            Aksiyon ayrıntıları
+                          </p>
+                          <p className="truncate text-sm font-medium text-foreground">
+                            {title.trim() || 'Başlıksız aksiyon'}
+                          </p>
+                        </div>
+                        <span className="hidden max-w-[40%] shrink-0 truncate rounded-md bg-muted/50 px-2 py-0.5 text-xs text-muted-foreground sm:inline-block">
+                          {statusSelectOptions.find((c) => c.id === status)?.title ?? status}
+                        </span>
+                      </button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="overflow-hidden">
+                      <div className="space-y-6 pt-1">
+                        <div className="space-y-2">
+                          <label htmlFor="action-panel-title" className="sr-only">
+                            Başlık
+                          </label>
+                          <Input
+                            id="action-panel-title"
+                            value={title}
+                            disabled={!canEdit}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setTitle(v);
+                              scheduleMetaPersist({ title: v });
+                            }}
+                            placeholder="Başlıksız aksiyon"
+                            className="h-auto border-0 bg-transparent px-0 text-2xl font-semibold tracking-tight shadow-none placeholder:text-muted-foreground/50 focus-visible:ring-0"
+                          />
+                        </div>
 
-                <div className="rounded-xl border border-border/50 bg-muted/20 p-3">
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <div className="space-y-1.5">
-                      <Label className="text-[11px] uppercase text-muted-foreground">Statü</Label>
-                      <Select
-                        value={status}
-                        onValueChange={(v) => {
-                          setStatus(v as TaskStatus);
-                          if (task && canEdit) void updateTask(task.id, { status: v as TaskStatus });
-                        }}
-                        disabled={!canEdit}
-                      >
-                        <SelectTrigger className="h-9 border-border/60 bg-background/80">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="z-[200]">
-                          {statusSelectOptions.map((col) => (
-                            <SelectItem key={col.id} value={col.id}>
-                              {col.title}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-[11px] uppercase text-muted-foreground">Öncelik</Label>
-                      <Select
-                        value={priority}
-                        onValueChange={(v) => {
-                          setPriority(v as TaskPriority);
-                          if (task && canEdit) void updateTask(task.id, { priority: v as TaskPriority });
-                        }}
-                        disabled={!canEdit}
-                      >
-                        <SelectTrigger className="h-9 border-border/60 bg-background/80">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="z-[200]">
-                          <SelectItem value="low">Düşük</SelectItem>
-                          <SelectItem value="medium">Orta</SelectItem>
-                          <SelectItem value="high">Yüksek</SelectItem>
-                          <SelectItem value="urgent">Acil</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-[11px] uppercase text-muted-foreground">Atanan</Label>
-                      <Select
-                        value={assigneeId}
-                        onValueChange={(v) => {
-                          setAssigneeId(v);
-                          if (task && canEdit) {
-                            void updateTask(task.id, { assigneeId: v === 'unassigned' ? null : v });
-                          }
-                        }}
-                        disabled={!canEdit}
-                      >
-                        <SelectTrigger className="h-9 border-border/60 bg-background/80">
-                          <SelectValue placeholder="Atanmadı" />
-                        </SelectTrigger>
-                        <SelectContent className="z-[200]">
-                          <SelectItem value="unassigned">Atanmadı</SelectItem>
-                          {currentTeam?.members.map((member) => (
-                            <SelectItem key={member.id} value={member.id}>
-                              {member.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-[11px] uppercase text-muted-foreground">Bitiş</Label>
-                      <Input
-                        type="date"
-                        value={dueDate}
-                        disabled={!canEdit}
-                        onChange={(e) => {
-                          const v = e.target.value;
-                          setDueDate(v);
-                          if (task && canEdit) {
-                            void updateTask(task.id, { dueDate: v ? new Date(v) : undefined });
-                          }
-                        }}
-                        className="h-9 border-border/60 bg-background/80"
-                      />
-                    </div>
-                    <div className="space-y-1.5 sm:col-span-2">
-                      <Label className="text-[11px] uppercase text-muted-foreground">Müşteri</Label>
-                      <Select
-                        value={customerId}
-                        onValueChange={(v) => {
-                          setCustomerId(v);
-                          if (task && canEdit) {
-                            void updateTask(task.id, { customerId: v === 'none' ? null : v });
-                          }
-                        }}
-                        disabled={!canEdit}
-                      >
-                        <SelectTrigger className="h-9 border-border/60 bg-background/80">
-                          <SelectValue placeholder="Yok" />
-                        </SelectTrigger>
-                        <SelectContent className="z-[200]">
-                          <SelectItem value="none">Yok</SelectItem>
-                          {customers.map((customer) => (
-                            <SelectItem key={customer.id} value={customer.id}>
-                              {customer.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                        <div className="rounded-xl border border-border/50 bg-muted/20 p-3">
+                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            <div className="space-y-1.5">
+                              <Label className="text-[11px] uppercase text-muted-foreground">Statü</Label>
+                              <Select
+                                value={status}
+                                onValueChange={(v) => {
+                                  setStatus(v as TaskStatus);
+                                  if (task && canEdit) void updateTask(task.id, { status: v as TaskStatus });
+                                }}
+                                disabled={!canEdit}
+                              >
+                                <SelectTrigger className="h-9 border-border/60 bg-background/80">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="z-[200]">
+                                  {statusSelectOptions.map((col) => (
+                                    <SelectItem key={col.id} value={col.id}>
+                                      {col.title}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-[11px] uppercase text-muted-foreground">Öncelik</Label>
+                              <Select
+                                value={priority}
+                                onValueChange={(v) => {
+                                  setPriority(v as TaskPriority);
+                                  if (task && canEdit) void updateTask(task.id, { priority: v as TaskPriority });
+                                }}
+                                disabled={!canEdit}
+                              >
+                                <SelectTrigger className="h-9 border-border/60 bg-background/80">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="z-[200]">
+                                  <SelectItem value="low">Düşük</SelectItem>
+                                  <SelectItem value="medium">Orta</SelectItem>
+                                  <SelectItem value="high">Yüksek</SelectItem>
+                                  <SelectItem value="urgent">Acil</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-[11px] uppercase text-muted-foreground">Atanan</Label>
+                              <Select
+                                value={assigneeId}
+                                onValueChange={(v) => {
+                                  setAssigneeId(v);
+                                  if (task && canEdit) {
+                                    void updateTask(task.id, { assigneeId: v === 'unassigned' ? null : v });
+                                  }
+                                }}
+                                disabled={!canEdit}
+                              >
+                                <SelectTrigger className="h-9 border-border/60 bg-background/80">
+                                  <SelectValue placeholder="Atanmadı" />
+                                </SelectTrigger>
+                                <SelectContent className="z-[200]">
+                                  <SelectItem value="unassigned">Atanmadı</SelectItem>
+                                  {currentTeam?.members.map((member) => (
+                                    <SelectItem key={member.id} value={member.id}>
+                                      {member.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-[11px] uppercase text-muted-foreground">Bitiş</Label>
+                              <Input
+                                type="date"
+                                value={dueDate}
+                                disabled={!canEdit}
+                                onChange={(e) => {
+                                  const v = e.target.value;
+                                  setDueDate(v);
+                                  if (task && canEdit) {
+                                    void updateTask(task.id, { dueDate: v ? new Date(v) : undefined });
+                                  }
+                                }}
+                                className="h-9 border-border/60 bg-background/80"
+                              />
+                            </div>
+                            <div className="space-y-1.5 sm:col-span-2">
+                              <Label className="text-[11px] uppercase text-muted-foreground">Müşteri</Label>
+                              <Select
+                                value={customerId}
+                                onValueChange={(v) => {
+                                  setCustomerId(v);
+                                  if (task && canEdit) {
+                                    void updateTask(task.id, { customerId: v === 'none' ? null : v });
+                                  }
+                                }}
+                                disabled={!canEdit}
+                              >
+                                <SelectTrigger className="h-9 border-border/60 bg-background/80">
+                                  <SelectValue placeholder="Yok" />
+                                </SelectTrigger>
+                                <SelectContent className="z-[200]">
+                                  <SelectItem value="none">Yok</SelectItem>
+                                  {customers.map((customer) => (
+                                    <SelectItem key={customer.id} value={customer.id}>
+                                      {customer.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label className="text-[11px] uppercase text-muted-foreground">Açıklama</Label>
+                          <textarea
+                            value={description}
+                            disabled={!canEdit}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setDescription(v);
+                              scheduleMetaPersist({ description: v });
+                            }}
+                            placeholder="Kısa bağlam…"
+                            rows={2}
+                            className="w-full resize-none rounded-lg border border-border/50 bg-transparent px-3 py-2.5 text-sm leading-relaxed outline-none ring-offset-background placeholder:text-muted-foreground/45 focus-visible:ring-2 focus-visible:ring-ring/30"
+                          />
+                        </div>
+                      </div>
+                    </CollapsibleContent>
                   </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-[11px] uppercase text-muted-foreground">Açıklama</Label>
-                  <textarea
-                    value={description}
-                    disabled={!canEdit}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      setDescription(v);
-                      scheduleMetaPersist({ description: v });
-                    }}
-                    placeholder="Kısa bağlam…"
-                    rows={2}
-                    className="w-full resize-none rounded-lg border border-border/50 bg-transparent px-3 py-2.5 text-sm leading-relaxed outline-none ring-offset-background placeholder:text-muted-foreground/45 focus-visible:ring-2 focus-visible:ring-ring/30"
-                  />
-                </div>
+                </Collapsible>
 
                 <div className="space-y-3">
                   <div className="flex items-baseline justify-between gap-2">

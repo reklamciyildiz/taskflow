@@ -425,7 +425,7 @@ export function Settings() {
               <div className="flex items-center justify-between">
                 <div>
                   <Label className="text-sm font-medium">Email Notifications</Label>
-                  <p className="text-xs text-muted-foreground">Receive email updates for task assignments</p>
+                  <p className="text-xs text-muted-foreground">Receive email updates for action assignments</p>
                 </div>
                 <Switch 
                   checked={emailNotifications} 
@@ -445,7 +445,7 @@ export function Settings() {
               <div className="flex items-center justify-between">
                 <div>
                   <Label className="text-sm font-medium">Team Activity</Label>
-                  <p className="text-xs text-muted-foreground">Notifications when team members complete tasks</p>
+                  <p className="text-xs text-muted-foreground">Notifications when team members complete actions</p>
                 </div>
                 <Switch 
                   checked={teamActivity} 

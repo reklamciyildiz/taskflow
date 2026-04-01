@@ -15,7 +15,7 @@ const mockNotifications = [
   {
     id: '1',
     type: 'task_completed',
-    title: 'Task Completed ✅',
+    title: 'Action completed ✅',
     message: 'Sarah Chen completed "User feedback integration"',
     time: '5 minutes ago',
     avatar: 'https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop',
@@ -43,7 +43,7 @@ const mockNotifications = [
     id: '4',
     type: 'deadline',
     title: 'Deadline Alert ⏰',
-    message: 'Task "Performance optimization sprint" is due in 2 days',
+    message: 'Action "Performance optimization sprint" is due in 2 days',
     time: '3 hours ago',
     avatar: null,
     unread: false

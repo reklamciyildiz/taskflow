@@ -56,7 +56,7 @@ export function FocusDashboard() {
   const [pendingProjectId, setPendingProjectId] = useState<string | null>(null);
   const [savedProjectId, setSavedProjectId] = useState<string | null>(null);
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  /** Which project card has the "varsayılan günlük task" combobox open (controlled close on select). */
+  /** Which project card has the "varsayılan günlük aksiyon" combobox open (controlled close on select). */
   const [loggingTaskPickerProjectId, setLoggingTaskPickerProjectId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -291,7 +291,7 @@ export function FocusDashboard() {
 
                 {stats.recentTaskIds.length > 0 && (
                   <div className="space-y-1">
-                    <p className="text-[11px] font-medium text-muted-foreground">Varsayılan günlük task</p>
+                    <p className="text-[11px] font-medium text-muted-foreground">Varsayılan günlük aksiyon</p>
                     <Popover
                       open={loggingTaskPickerProjectId === p.id}
                       onOpenChange={(open) => {
@@ -306,7 +306,7 @@ export function FocusDashboard() {
                           role="combobox"
                           disabled={pending}
                           className="h-9 w-full justify-between"
-                          aria-label="Varsayılan günlük task seç"
+                          aria-label="Varsayılan günlük aksiyon seç"
                         >
                           <span className="truncate">
                             {pinnedTaskId
@@ -318,7 +318,7 @@ export function FocusDashboard() {
                       </PopoverTrigger>
                       <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
                         <Command>
-                          <CommandInput placeholder="Task ara..." />
+                          <CommandInput placeholder="Aksiyon ara…" />
                           <CommandList>
                             <CommandEmpty>Sonuç yok.</CommandEmpty>
                             <CommandGroup>
@@ -374,7 +374,7 @@ export function FocusDashboard() {
                     onChange={(e) =>
                       setDraftByProjectId((d) => ({ ...d, [p.id]: e.target.value }))
                     }
-                    placeholder={hasTarget ? 'Hızlı not… (Enter)' : 'Bu süreçte task yok'}
+                    placeholder={hasTarget ? 'Hızlı not… (Enter)' : 'Bu süreçte aksiyon yok'}
                     disabled={!hasTarget || pending}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && !e.shiftKey) {
@@ -402,7 +402,7 @@ export function FocusDashboard() {
                   </Button>
                   {!hasTarget && (
                     <span className="text-xs text-muted-foreground">
-                      Not için önce bir task oluştur
+                      Not için önce bir aksiyon oluştur
                     </span>
                   )}
                 </div>
