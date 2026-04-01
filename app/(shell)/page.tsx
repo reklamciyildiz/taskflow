@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { useView } from '@/components/ViewContext';
+import { QuickCapture } from '@/components/QuickCapture';
 import { DailyIntent } from '@/components/DailyIntent';
 import { FocusDashboard } from '@/components/FocusDashboard';
 import { DashboardInsights } from '@/components/DashboardInsights';
@@ -15,6 +16,7 @@ export default function Home() {
 
   return (
     <>
+      <QuickCapture />
       <DailyIntent />
       <FocusDashboard />
       <DashboardInsights />

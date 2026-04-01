@@ -84,18 +84,18 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Create New Task</DialogTitle>
+          <DialogTitle>Yeni aksiyon</DialogTitle>
           <DialogDescription>
-            Başlık ve isteğe bağlı alanları doldurup kaydedin. Panoda üstten bir süreç seçtiysen yeni görev o sürece
-            bağlanır; "All tasks" seçiliyse süreç atanmaz.
+            Başlık ve isteğe bağlı alanları doldurup kaydedin. Panoda üstten bir süreç seçtiysen yeni aksiyon o sürece
+            bağlanır; süreç seçili değilse proje atanmaz.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="title">Task Title</Label>
+            <Label htmlFor="title">Başlık</Label>
             <Input
               id="title"
-              placeholder="Enter task title..."
+              placeholder="Aksiyon başlığı…"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               required
@@ -116,7 +116,7 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
             </div>
             <Textarea
               id="description"
-              placeholder="Add task description..."
+              placeholder="Kısa açıklama…"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
@@ -245,7 +245,7 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
               Cancel
             </Button>
             <Button type="submit" disabled={!title.trim()}>
-              Create Task
+              Oluştur
             </Button>
           </div>
         </form>

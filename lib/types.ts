@@ -16,6 +16,8 @@ export interface JournalLogEntry {
   createdAt: string;
   /** Set when the note text was last edited; API stores as `updated_at`. */
   updatedAt?: string;
+  /** Checklist completion — stored inside `journal_logs` JSON. */
+  done?: boolean;
 }
 
 export interface ProjectColumnConfig {

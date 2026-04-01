@@ -8,10 +8,11 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import {
-  buildKnowledgeEntries,
+  buildKnowledgeHubCards,
   knowledgeMapsFromContext,
   formatKnowledgeEntryDate,
-  type KnowledgeHubEntry,
+  normalizeKnowledgePinId,
+  type KnowledgeHubCard,
 } from '@/lib/knowledge-entries';
 import {
   FALLBACK_BOARD_COLUMNS,
@@ -36,6 +37,17 @@ const COLORS = [
   'bg-blue-500',
 ];
 
+function hubCardPreview(c: KnowledgeHubCard): string {
+  const first = c.checklistItems[0]?.text;
+  if (first) return first;
+  if (c.learningsPreview) return c.learningsPreview;
+  return c.taskTitle;
+}
+
+function hubCardIsLearningOnly(c: KnowledgeHubCard): boolean {
+  return !!c.learningsPreview && c.checklistItems.length === 0;
+}
+
 export function DashboardInsights() {
   const { tasks, projects, teams, currentTeam, loading, openTaskEditor } = useTaskContext();
   const router = useRouter();
@@ -46,12 +58,12 @@ export function DashboardInsights() {
     [projects, teams]
   );
 
-  const allKnowledge = useMemo(
-    () => buildKnowledgeEntries(tasks, projectNameById, teamNameById),
+  const allKnowledgeCards = useMemo(
+    () => buildKnowledgeHubCards(tasks, projectNameById, teamNameById),
     [tasks, projectNameById, teamNameById]
   );
 
-  const recentFeed = useMemo(() => allKnowledge.slice(0, 5), [allKnowledge]);
+  const recentFeed = useMemo(() => allKnowledgeCards.slice(0, 5), [allKnowledgeCards]);
 
   const projectsForTeam = useMemo(() => {
     if (!currentTeam) return projects;
@@ -80,15 +92,19 @@ export function DashboardInsights() {
     try {
       const raw = localStorage.getItem('taskflow:pinnedKnowledgeEntryIds');
       const arr = raw ? (JSON.parse(raw) as unknown) : [];
-      setPinnedIds(Array.isArray(arr) ? arr.filter((x): x is string => typeof x === 'string') : []);
+      const list = Array.isArray(arr) ? arr.filter((x): x is string => typeof x === 'string') : [];
+      setPinnedIds(list.map(normalizeKnowledgePinId));
     } catch {
       setPinnedIds([]);
     }
   }, []);
 
   const togglePinned = (entryId: string) => {
+    const normalized = normalizeKnowledgePinId(entryId);
     setPinnedIds((prev) => {
-      const next = prev.includes(entryId) ? prev.filter((x) => x !== entryId) : [entryId, ...prev];
+      const next = prev.includes(normalized)
+        ? prev.filter((x) => x !== normalized)
+        : [normalized, ...prev];
       try {
         localStorage.setItem('taskflow:pinnedKnowledgeEntryIds', JSON.stringify(next));
       } catch {
@@ -100,9 +116,9 @@ export function DashboardInsights() {
 
   const pinnedEntries = useMemo(() => {
     if (pinnedIds.length === 0) return [];
-    const byId = new Map(allKnowledge.map((e) => [e.id, e]));
-    return pinnedIds.map((id) => byId.get(id)).filter(Boolean) as KnowledgeHubEntry[];
-  }, [allKnowledge, pinnedIds]);
+    const byId = new Map(allKnowledgeCards.map((c) => [c.id, c]));
+    return pinnedIds.map((id) => byId.get(id)).filter(Boolean) as KnowledgeHubCard[];
+  }, [allKnowledgeCards, pinnedIds]);
 
   const topProcessSummaries = useMemo(() => {
     return [...processSummaries]
@@ -136,15 +152,14 @@ export function DashboardInsights() {
                 <Lightbulb className="h-6 w-6" aria-hidden />
               </div>
               <p className="text-sm font-medium text-foreground">
-                Henüz bir öğrenme kaydedilmedi
+                Henüz bir kazanım kaydı yok
               </p>
               <p className="text-sm text-muted-foreground max-w-sm mx-auto leading-relaxed">
-                Bir görevi açıp "Neler öğrendim?" alanına not düş veya süreç günlüğüne satır ekle; burada en yeni
-                kayıtların görünsün.
+                Bir aksiyonda Kazanımlar veya kontrol listesi ekleyin; burada en yeni kayıtlar görünür.
               </p>
               <Button variant="outline" size="sm" className="gap-1.5" onClick={() => router.push('/board')}>
                 <LayoutGrid className="h-3.5 w-3.5" />
-                Panoya git, görev seç
+                Panoya git
               </Button>
             </div>
           ) : (
@@ -175,7 +190,7 @@ export function DashboardInsights() {
                           >
                             <div className="flex items-start justify-between gap-2">
                               <div className="min-w-0">
-                                <p className="text-sm line-clamp-1 text-foreground">{entry.text}</p>
+                                <p className="text-sm line-clamp-1 text-foreground">{hubCardPreview(entry)}</p>
                                 <p className="text-xs text-muted-foreground mt-0.5 truncate">{entry.taskTitle}</p>
                               </div>
                               <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">
@@ -202,7 +217,7 @@ export function DashboardInsights() {
               )}
 
               <ul className="space-y-3">
-                {recentFeed.map((entry: KnowledgeHubEntry) => (
+                {recentFeed.map((entry: KnowledgeHubCard) => (
                   <li key={entry.id}>
                     <div className="flex gap-2">
                       <button
@@ -215,7 +230,7 @@ export function DashboardInsights() {
                       >
                         <div className="flex items-start justify-between gap-2 mb-1.5">
                           <div className="flex items-start gap-2 min-w-0 flex-wrap">
-                            {entry.type === 'learning' ? (
+                            {hubCardIsLearningOnly(entry) ? (
                               <BookOpen className="h-3.5 w-3.5 text-emerald-600 shrink-0 mt-0.5" />
                             ) : (
                               <FileText className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />
@@ -230,7 +245,7 @@ export function DashboardInsights() {
                             )}
                           </div>
                         </div>
-                        <p className="text-sm line-clamp-2 text-foreground">{entry.text}</p>
+                        <p className="text-sm line-clamp-2 text-foreground">{hubCardPreview(entry)}</p>
                         <p className="text-xs text-muted-foreground mt-1 truncate">{entry.taskTitle}</p>
                       </button>
                       <Button
@@ -239,10 +254,15 @@ export function DashboardInsights() {
                         size="icon"
                         className="h-12 w-12"
                         onClick={() => togglePinned(entry.id)}
-                        aria-label={pinnedIds.includes(entry.id) ? 'Unpin' : 'Pin'}
-                        title={pinnedIds.includes(entry.id) ? 'Unpin' : 'Pin'}
+                        aria-label={pinnedIds.includes(normalizeKnowledgePinId(entry.id)) ? 'Unpin' : 'Pin'}
+                        title={pinnedIds.includes(normalizeKnowledgePinId(entry.id)) ? 'Unpin' : 'Pin'}
                       >
-                        <Star className={cn('h-4 w-4', pinnedIds.includes(entry.id) && 'fill-current')} />
+                        <Star
+                          className={cn(
+                            'h-4 w-4',
+                            pinnedIds.includes(normalizeKnowledgePinId(entry.id)) && 'fill-current'
+                          )}
+                        />
                       </Button>
                     </div>
                   </li>
@@ -293,7 +313,7 @@ export function DashboardInsights() {
             <div className="space-y-5">
               {processSummaries.every((s) => s.total === 0) && (
                 <p className="text-sm text-muted-foreground rounded-lg border border-dashed bg-muted/40 px-3 py-2.5">
-                  Bu süreçlerde henüz görev yok. Panodan görev ekleyerek ilerleme çubukları ve aşama dağılımı dolar.
+                  Bu süreçlerde henüz aksiyon yok. Panodan aksiyon ekleyerek ilerleme çubukları ve aşama dağılımı dolar.
                 </p>
               )}
               {topProcessSummaries.map(({ project, total, terminal, pct, byCol }) => (

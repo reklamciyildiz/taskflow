@@ -113,6 +113,12 @@ export const projectApi = {
     fetchApi<Project[]>(
       organizationId ? `/projects?organizationId=${encodeURIComponent(organizationId)}` : '/projects'
     ),
+
+  create: (body: { name: string; teamId?: string | null; organizationId?: string; columnConfig?: unknown }) =>
+    fetchApi<Project>('/projects', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
 };
 
 // Member API

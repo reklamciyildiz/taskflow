@@ -64,6 +64,7 @@ export async function PATCH(
                 created_at?: string;
                 updatedAt?: string;
                 updated_at?: string;
+                done?: boolean;
               }) => {
                 const created_at = e.createdAt ?? e.created_at;
                 const updated_at = e.updatedAt ?? e.updated_at;
@@ -72,6 +73,9 @@ export async function PATCH(
                   text: e.text,
                   created_at,
                 };
+                if (e.done === true) {
+                  row.done = true;
+                }
                 if (typeof updated_at === 'string' && updated_at.length > 0) {
                   row.updated_at = updated_at;
                 }

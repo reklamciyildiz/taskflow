@@ -155,7 +155,7 @@ export function TaskCard({ task, dragHandleProps, onTaskClick }: TaskCardProps) 
                       onTaskClick?.(task);
                     }}
                   >
-                    Edit Task
+                    Aksiyonu düzenle
                   </DropdownMenuItem>
                 )}
                 {canDelete && (
@@ -169,7 +169,7 @@ export function TaskCard({ task, dragHandleProps, onTaskClick }: TaskCardProps) 
                       void deleteTask(task.id);
                     }}
                   >
-                    Delete Task
+                    Sil
                   </DropdownMenuItem>
                 )}
               </DropdownMenuContent>

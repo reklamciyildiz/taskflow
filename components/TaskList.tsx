@@ -84,7 +84,7 @@ export function TaskList() {
   return (
     <div className="h-full">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Task List</h1>
+        <h1 className="text-2xl font-bold text-foreground">Aksiyon listesi</h1>
         <p className="text-muted-foreground mt-1">
           Comprehensive view of all your team's tasks
         </p>
@@ -310,7 +310,7 @@ export function TaskList() {
                               e.stopPropagation();
                               openTaskEditor(task.id);
                             }}>
-                              Edit Task
+                              Aksiyonu düzenle
                             </DropdownMenuItem>
                           )}
                           {canDeleteTask(task.createdBy) && (

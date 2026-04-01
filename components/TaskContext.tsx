@@ -74,9 +74,11 @@ interface TaskContextType {
   canEditTask: (taskCreatorId?: string | null, taskAssigneeId?: string | null) => boolean;
   canDeleteTask: (taskCreatorId?: string | null) => boolean;
   canCompleteTask: (taskAssigneeId?: string | null) => boolean;
-  /** Global task editor (Board, List, Knowledge Hub) */
+  /** Global action editor (Board, List, Knowledge Hub) */
   editingTaskId: string | null;
   openTaskEditor: (taskId: string) => void;
+  /** Alias for `openTaskEditor` — opens the Aksiyon panel. */
+  openActionEditor: (taskId: string) => void;
   closeTaskEditor: () => void;
   /** Prevent accidental editor opens (e.g. click-through after menu close). */
   suppressTaskEditorOpenFor: (ms: number) => void;
@@ -92,6 +94,7 @@ function mapJournalLogs(raw: unknown): Task['journalLogs'] {
       id: String(item.id ?? `jl-${i}`),
       text: String(item.text ?? ''),
       createdAt: String(item.created_at ?? item.createdAt ?? new Date().toISOString()),
+      ...(item.done === true ? { done: true } : {}),
       ...(typeof updatedRaw === 'string' && updatedRaw
         ? { updatedAt: updatedRaw }
         : {}),
@@ -867,6 +870,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       canCompleteTask: checkCanCompleteTask,
       editingTaskId,
       openTaskEditor,
+      openActionEditor: openTaskEditor,
       closeTaskEditor,
       suppressTaskEditorOpenFor,
     }}>
