@@ -21,7 +21,12 @@ function isEnterLike(e: React.KeyboardEvent<HTMLInputElement>): boolean {
   // Also ignore IME composition to avoid accidental commits mid-composition.
   const native = e.nativeEvent as unknown as { isComposing?: boolean; keyCode?: number; which?: number };
   if (native?.isComposing) return false;
-  return e.key === 'Enter' || e.key === 'Done' || e.key === 'Go' || e.key === 'Unidentified' || native?.keyCode === 13 || native?.which === 13;
+  const code = native?.keyCode ?? native?.which;
+  // IMPORTANT: Some mobile browsers report many keys as "Unidentified" — do NOT treat that as Enter.
+  if (e.key === 'Enter') return true;
+  // Treat "Go/Done/Next/Search/Send" as Enter only when keyCode is 13.
+  if (code === 13 && ['Done', 'Go', 'Next', 'Search', 'Send'].includes(e.key)) return true;
+  return code === 13;
 }
 
 export interface ActionChecklistProps {
