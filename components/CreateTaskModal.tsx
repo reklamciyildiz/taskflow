@@ -82,7 +82,7 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="max-h-[90dvh] w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] overflow-y-auto sm:w-full sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Yeni aksiyon</DialogTitle>
           <DialogDescription>
