@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils';
 import { isToday } from 'date-fns';
 import { resolveTaskBoardColumnId, isTerminalBoardColumn, FALLBACK_BOARD_COLUMNS } from '@/lib/types';
 import { CreateProjectModal } from '@/components/CreateProjectModal';
+import { EditGeneralBoardModal } from '@/components/EditGeneralBoardModal';
 
 export function TaskBoard() {
   const [isMobileBoard, setIsMobileBoard] = useState(false);
@@ -32,10 +33,11 @@ export function TaskBoard() {
     setFilter,
     currentUser,
     currentTeam,
-    currentProject,
+    boardScope,
+    boardProject,
     boardColumns,
     projects,
-    setCurrentProjectId,
+    setBoardScope,
     permissions,
     canCompleteTask,
     canEditTask,
@@ -48,6 +50,7 @@ export function TaskBoard() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
+  const [editGeneralOpen, setEditGeneralOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<TaskStatus | null>(null);
 
   const projectsForTeam = useMemo(() => {
@@ -56,15 +59,15 @@ export function TaskBoard() {
   }, [projects, currentTeam?.id]);
 
   const projectProgressColumns = useMemo(() => {
-    if (!currentProject) return null;
-    const cfg = currentProject.columnConfig;
+    if (!boardProject) return null;
+    const cfg = boardProject.columnConfig;
     return cfg?.length ? cfg : FALLBACK_BOARD_COLUMNS;
-  }, [currentProject]);
+  }, [boardProject]);
 
   const projectProgressStats = useMemo(() => {
-    if (!currentProject || !projectProgressColumns) return null;
+    if (!boardProject || !projectProgressColumns) return null;
     const pt = tasks.filter(
-      (t) => t.teamId === currentTeam?.id && t.projectId === currentProject.id
+      (t) => t.teamId === currentTeam?.id && t.projectId === boardProject.id
     );
     const total = pt.length;
     const done = pt.filter((t) =>
@@ -72,7 +75,7 @@ export function TaskBoard() {
     ).length;
     const pct = total === 0 ? 0 : Math.round((done / total) * 100);
     return { total, done, pct };
-  }, [tasks, currentTeam?.id, currentProject, projectProgressColumns]);
+  }, [tasks, currentTeam?.id, boardProject, projectProgressColumns]);
 
   const onDragEnd = (result: DropResult) => {
     const { destination, source, draggableId } = result;
@@ -109,8 +112,10 @@ export function TaskBoard() {
   const filteredTasks = useMemo(() => {
     let result = tasks.filter((task) => task.teamId === currentTeam?.id);
 
-    if (currentProject) {
-      result = result.filter((task) => task.projectId === currentProject.id);
+    if (boardScope.type === 'general') {
+      result = result.filter((task) => task.projectId == null);
+    } else {
+      result = result.filter((task) => task.projectId === boardScope.projectId);
     }
     
     // Apply quick filter from sidebar
@@ -133,7 +138,7 @@ export function TaskBoard() {
     }
     
     return result;
-  }, [tasks, statusFilter, filter, customerFilter, currentUser?.id, currentTeam?.id, currentProject?.id]);
+  }, [tasks, statusFilter, filter, customerFilter, currentUser?.id, currentTeam?.id, boardScope]);
 
   const getFilterLabel = () => {
     if (filter === 'dueToday') return 'Due Today';
@@ -144,11 +149,11 @@ export function TaskBoard() {
 
   return (
     <div className="space-y-6">
-      {currentProject && projectProgressStats && (
+      {boardProject && projectProgressStats && (
         <div className="rounded-lg border bg-muted/30 px-4 py-3 space-y-2">
           <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
             <span className="font-medium">
-              İlerleme: <span className="text-foreground">{currentProject.name}</span>
+              İlerleme: <span className="text-foreground">{boardProject.name}</span>
             </span>
             <span className="text-muted-foreground tabular-nums">
               {projectProgressStats.done} / {projectProgressStats.total} tamamlandı ({projectProgressStats.pct}%)
@@ -164,12 +169,16 @@ export function TaskBoard() {
           {projectsForTeam.length > 0 && (
             <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
               <select
-                value={currentProject?.id ?? ''}
-                onChange={(e) => setCurrentProjectId(e.target.value || null)}
+                value={boardScope.type === 'general' ? '__general__' : boardScope.projectId}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === '__general__') setBoardScope({ type: 'general' });
+                  else setBoardScope({ type: 'project', projectId: v });
+                }}
                 className="h-10 w-full sm:w-auto sm:min-w-[200px] px-3 py-2 text-sm border rounded-md bg-background"
                 aria-label="Active process / project"
               >
-                <option value="">All actions (no process)</option>
+                <option value="__general__">Genel aksiyonlar</option>
                 {projectsForTeam.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
@@ -194,10 +203,13 @@ export function TaskBoard() {
                     variant="outline"
                     size="icon"
                     className="h-10 w-10"
-                    onClick={() => setEditingProjectId(currentProject?.id ?? null)}
-                    disabled={!currentProject}
-                    title="Seçili süreci düzenle"
-                    aria-label="Seçili süreci düzenle"
+                    onClick={() => {
+                      if (boardScope.type === 'general') setEditGeneralOpen(true);
+                      else setEditingProjectId(boardProject?.id ?? null);
+                    }}
+                    disabled={boardScope.type !== 'general' && !boardProject}
+                    title={boardScope.type === 'general' ? 'Genel kolonları düzenle' : 'Seçili süreci düzenle'}
+                    aria-label={boardScope.type === 'general' ? 'Genel kolonları düzenle' : 'Seçili süreci düzenle'}
                   >
                     <Settings2 className="h-4 w-4" />
                   </Button>
@@ -405,6 +417,7 @@ export function TaskBoard() {
         onClose={() => setIsCreateModalOpen(false)} 
       />
       <CreateProjectModal open={isCreateProjectOpen} onClose={() => setIsCreateProjectOpen(false)} />
+      <EditGeneralBoardModal open={editGeneralOpen} onClose={() => setEditGeneralOpen(false)} />
       {editingProjectId && (
         <CreateProjectModal
           open={!!editingProjectId}

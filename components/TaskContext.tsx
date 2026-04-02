@@ -29,6 +29,10 @@ interface MemberFormData extends Omit<TeamMember, 'id' | 'isOnline' | 'joinedAt'
 
 export type FilterType = 'dueToday' | 'highPriority' | 'assignedToMe' | null;
 
+export type BoardScope =
+  | { type: 'general' }
+  | { type: 'project'; projectId: string };
+
 interface TaskContextType {
   tasks: Task[];
   teams: Team[];
@@ -36,8 +40,14 @@ interface TaskContextType {
   customers: Customer[];
   currentTeam: Team | null;
   currentProject: Project | null;
+  /** Board scope: either General (no process) or a specific project. */
+  boardScope: BoardScope;
+  /** Convenience: resolved project for boardScope when type=project, else null. */
+  boardProject: Project | null;
   /** Resolved columns for TaskBoard (project config or FALLBACK_BOARD_COLUMNS) */
   boardColumns: ProjectColumnConfig[];
+  /** Customizable columns for General board (no process), stored per team. */
+  generalBoardColumns: ProjectColumnConfig[];
   currentUser: TeamMember | null;
   currentUserRole: Role;
   permissions: Permission;
@@ -50,6 +60,8 @@ interface TaskContextType {
   setFilter: (filter: FilterType) => void;
   setCustomerFilter: (customerId: string | null) => void;
   setCurrentProjectId: (projectId: string | null) => void;
+  setBoardScope: (scope: BoardScope) => void;
+  setGeneralBoardColumns: (cols: ProjectColumnConfig[]) => void;
   addTask: (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'attachments' | 'comments'>) => Promise<void>;
   updateTask: (id: string, updates: Partial<Task>) => Promise<boolean>;
   deleteTask: (id: string) => Promise<void>;
@@ -172,6 +184,10 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [currentTeam, setCurrentTeamState] = useState<Team | null>(null);
   const [currentProject, setCurrentProjectState] = useState<Project | null>(null);
+  const [boardScope, setBoardScopeState] = useState<BoardScope>({ type: 'general' });
+  const [generalBoardColumns, setGeneralBoardColumnsState] = useState<ProjectColumnConfig[]>(
+    () => FALLBACK_BOARD_COLUMNS.map((c) => ({ ...c }))
+  );
   const [currentUser, setCurrentUser] = useState<TeamMember | null>(null);
   const [organizationName, setOrganizationName] = useState<string>('My Organization');
   const [organizationId, setOrganizationId] = useState<string | null>(null);
@@ -203,11 +219,19 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     setEditingTaskId(null);
   }, []);
 
+  const boardProject = useMemo(() => {
+    if (boardScope.type !== 'project') return null;
+    return projects.find((p) => p.id === boardScope.projectId) ?? null;
+  }, [boardScope, projects]);
+
   const boardColumns = useMemo((): ProjectColumnConfig[] => {
-    const cfg = currentProject?.columnConfig;
+    if (boardScope.type === 'general') {
+      return generalBoardColumns.length ? generalBoardColumns : FALLBACK_BOARD_COLUMNS;
+    }
+    const cfg = boardProject?.columnConfig;
     if (cfg && cfg.length > 0) return cfg;
     return FALLBACK_BOARD_COLUMNS;
-  }, [currentProject]);
+  }, [boardScope.type, boardProject, generalBoardColumns]);
 
   const replaceProjectQuery = useCallback(
     (projectId: string | null) => {
@@ -246,6 +270,37 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       }
     },
     [projects, replaceProjectQuery]
+  );
+
+  const setBoardScope = useCallback(
+    (scope: BoardScope) => {
+      setBoardScopeState(scope);
+      try {
+        if (typeof window !== 'undefined') {
+          const teamId = currentTeam?.id ?? 'none';
+          window.localStorage.setItem(`taskflow:boardScope:${teamId}`, JSON.stringify(scope));
+        }
+      } catch {
+        // ignore
+      }
+    },
+    [currentTeam?.id]
+  );
+
+  const setGeneralBoardColumns = useCallback(
+    (cols: ProjectColumnConfig[]) => {
+      const next = Array.isArray(cols) ? cols.map((c) => ({ ...c })) : [];
+      setGeneralBoardColumnsState(next);
+      try {
+        if (typeof window !== 'undefined') {
+          const teamId = currentTeam?.id ?? 'none';
+          window.localStorage.setItem(`taskflow:generalBoardColumns:${teamId}`, JSON.stringify(next));
+        }
+      } catch {
+        // ignore
+      }
+    },
+    [currentTeam?.id]
   );
 
   // Fetch data from API (reads latest session from sessionRef so the callback stays stable across session object churn)
@@ -357,6 +412,75 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       }
     }
   }, []);
+
+  // Restore last board scope per team (defaults to General).
+  useEffect(() => {
+    const teamId = currentTeam?.id;
+    if (!teamId) return;
+    try {
+      if (typeof window === 'undefined') return;
+      const raw = window.localStorage.getItem(`taskflow:boardScope:${teamId}`);
+      if (!raw) {
+        setBoardScopeState({ type: 'general' });
+        return;
+      }
+      const parsed = JSON.parse(raw) as unknown;
+      if (
+        parsed &&
+        typeof parsed === 'object' &&
+        'type' in (parsed as any) &&
+        ((parsed as any).type === 'general' ||
+          ((parsed as any).type === 'project' && typeof (parsed as any).projectId === 'string'))
+      ) {
+        setBoardScopeState(parsed as BoardScope);
+      } else {
+        setBoardScopeState({ type: 'general' });
+      }
+    } catch {
+      setBoardScopeState({ type: 'general' });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- should rerun only when team changes
+  }, [currentTeam?.id]);
+
+  // Restore general board columns per team (defaults to FALLBACK_BOARD_COLUMNS).
+  useEffect(() => {
+    const teamId = currentTeam?.id;
+    if (!teamId) return;
+    try {
+      if (typeof window === 'undefined') return;
+      const raw = window.localStorage.getItem(`taskflow:generalBoardColumns:${teamId}`);
+      if (!raw) {
+        setGeneralBoardColumnsState(FALLBACK_BOARD_COLUMNS.map((c) => ({ ...c })));
+        return;
+      }
+      const parsed = JSON.parse(raw) as unknown;
+      if (Array.isArray(parsed)) {
+        const cleaned = parsed
+          .filter((x): x is Record<string, unknown> => x !== null && typeof x === 'object')
+          .map((x, idx) => ({
+            id: typeof x.id === 'string' ? x.id : `col-${idx + 1}`,
+            title: typeof x.title === 'string' ? x.title : `Stage ${idx + 1}`,
+            color: typeof x.color === 'string' ? x.color : undefined,
+            isTerminal: x.isTerminal === true,
+          }))
+          .filter((c) => c.id && c.title);
+        setGeneralBoardColumnsState(cleaned.length ? cleaned : FALLBACK_BOARD_COLUMNS.map((c) => ({ ...c })));
+      } else {
+        setGeneralBoardColumnsState(FALLBACK_BOARD_COLUMNS.map((c) => ({ ...c })));
+      }
+    } catch {
+      setGeneralBoardColumnsState(FALLBACK_BOARD_COLUMNS.map((c) => ({ ...c })));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- rerun only when team changes
+  }, [currentTeam?.id]);
+
+  // If stored boardScope references a missing project, fall back to General.
+  useEffect(() => {
+    if (boardScope.type !== 'project') return;
+    if (!projects.some((p) => p.id === boardScope.projectId)) {
+      setBoardScopeState({ type: 'general' });
+    }
+  }, [boardScope, projects]);
 
   // Sync current project from ?project= when projects load or URL changes
   useEffect(() => {
@@ -831,7 +955,10 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       customers,
       currentTeam,
       currentProject,
+      boardScope,
+      boardProject,
       boardColumns,
+      generalBoardColumns,
       currentUser,
       currentUserRole,
       permissions,
@@ -844,6 +971,8 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       setFilter,
       setCustomerFilter,
       setCurrentProjectId,
+      setBoardScope,
+      setGeneralBoardColumns,
       addTask,
       updateTask,
       deleteTask,
