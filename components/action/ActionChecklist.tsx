@@ -16,6 +16,14 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
+function isEnterLike(e: React.KeyboardEvent<HTMLInputElement>): boolean {
+  // Mobile keyboards can report Enter inconsistently (e.g. "Go"/"Done"/"Unidentified"), so fall back to keyCode.
+  // Also ignore IME composition to avoid accidental commits mid-composition.
+  const native = e.nativeEvent as unknown as { isComposing?: boolean; keyCode?: number; which?: number };
+  if (native?.isComposing) return false;
+  return e.key === 'Enter' || e.key === 'Done' || e.key === 'Go' || e.key === 'Unidentified' || native?.keyCode === 13 || native?.which === 13;
+}
+
 export interface ActionChecklistProps {
   items: JournalLogEntry[];
   disabled: boolean;
@@ -167,10 +175,11 @@ export function ActionChecklist({ items, disabled, onItemsChange }: ActionCheckl
             type="text"
             value={quickRow.text}
             disabled={disabled}
+            enterKeyHint="done"
             placeholder="Liste maddesi…"
             onChange={(e) => updateQuick(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') {
+              if (isEnterLike(e)) {
                 e.preventDefault();
                 commitQuickRowAndFocusTop();
                 return;
@@ -178,6 +187,10 @@ export function ActionChecklist({ items, disabled, onItemsChange }: ActionCheckl
               if (e.key === 'Backspace' && quickRow.text === '') {
                 e.preventDefault();
               }
+            }}
+            onKeyUp={(e) => {
+              // Some mobile browsers will move focus on keyup even if keydown is missed.
+              if (isEnterLike(e)) e.preventDefault();
             }}
             className={cn(
               'min-w-0 flex-1 border-0 bg-transparent py-1 text-[15px] leading-relaxed outline-none',
@@ -237,6 +250,7 @@ export function ActionChecklist({ items, disabled, onItemsChange }: ActionCheckl
                         type="text"
                         value={row.text}
                         disabled={disabled}
+                        enterKeyHint="done"
                         placeholder="Liste maddesi…"
                         onChange={(e) => {
                           const t = e.target.value;
@@ -246,7 +260,7 @@ export function ActionChecklist({ items, disabled, onItemsChange }: ActionCheckl
                           });
                         }}
                         onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
+                          if (isEnterLike(e)) {
                             e.preventDefault();
                             insertAfterBody(bodyIndex);
                             return;
@@ -255,6 +269,9 @@ export function ActionChecklist({ items, disabled, onItemsChange }: ActionCheckl
                             e.preventDefault();
                             removeBodyRow(bodyIndex);
                           }
+                        }}
+                        onKeyUp={(e) => {
+                          if (isEnterLike(e)) e.preventDefault();
                         }}
                         className={cn(
                           'min-w-0 flex-1 border-0 bg-transparent py-1 text-[15px] leading-relaxed outline-none',
