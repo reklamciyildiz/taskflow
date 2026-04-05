@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,6 +19,7 @@ import { format } from 'date-fns';
 import { CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTaskContext, TaskStatus, TaskPriority } from '@/components/TaskContext';
+import { FALLBACK_BOARD_COLUMNS, type ProjectColumnConfig } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DescriptionGeneratorButton } from '@/components/ai/DescriptionGeneratorButton';
 
@@ -29,7 +30,17 @@ interface CreateTaskModalProps {
 }
 
 export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModalProps) {
-  const { addTask, currentTeam, currentUser, customers, projects, currentProject } = useTaskContext();
+  const {
+    addTask,
+    currentTeam,
+    currentUser,
+    customers,
+    projects,
+    currentProject,
+    boardScope,
+    boardProject,
+    generalBoardColumns,
+  } = useTaskContext();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState<TaskStatus>(defaultStatus || 'todo');
@@ -44,11 +55,48 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
     return projects.filter((p) => !p.teamId || p.teamId === currentTeam.id);
   }, [projects, currentTeam?.id]);
 
+  /** Pano’da seçili süreç `boardScope`; Süreç Merkezi / ?project= ise `currentProject`. */
   const resolvedProjectId = useMemo(() => {
     if (projectId === '__none__') return null;
-    if (projectId === '__auto__') return currentProject?.id ?? null;
+    if (projectId === '__auto__') {
+      if (boardScope.type === 'project') return boardScope.projectId;
+      return currentProject?.id ?? null;
+    }
     return projectId;
-  }, [projectId, currentProject?.id]);
+  }, [projectId, boardScope, currentProject?.id]);
+
+  /** `resolvedProjectId` ile aynı sürecin kolonları (otomatik + yalnızca currentProject senaryosu dahil). */
+  const statusColumns = useMemo((): ProjectColumnConfig[] => {
+    const generalCols =
+      generalBoardColumns.length > 0 ? generalBoardColumns : FALLBACK_BOARD_COLUMNS;
+    const pid = resolvedProjectId;
+    if (!pid) return generalCols;
+    const proj = projectsForTeam.find((p) => p.id === pid);
+    const cfg = proj?.columnConfig;
+    return cfg && cfg.length > 0 ? cfg : FALLBACK_BOARD_COLUMNS;
+  }, [resolvedProjectId, projectsForTeam, generalBoardColumns]);
+
+  useEffect(() => {
+    if (!open) return;
+    const ids = statusColumns.map((c) => c.id);
+    const first = (ids[0] ?? 'todo') as TaskStatus;
+    setStatus((prev) => {
+      if (ids.includes(prev)) return prev;
+      if (defaultStatus && ids.includes(defaultStatus)) return defaultStatus;
+      return first;
+    });
+  }, [open, statusColumns, defaultStatus]);
+
+  const autoContextLabel = useMemo(() => {
+    if (boardScope.type === 'project') {
+      return (
+        boardProject?.name ??
+        projectsForTeam.find((p) => p.id === boardScope.projectId)?.name ??
+        'Seçili süreç'
+      );
+    }
+    return currentProject?.name ?? 'yok';
+  }, [boardScope, boardProject, projectsForTeam, currentProject]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,7 +119,9 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
     // Reset form
     setTitle('');
     setDescription('');
-    setStatus(defaultStatus || 'todo');
+    const ids = statusColumns.map((c) => c.id);
+    const fallback = (ids[0] ?? 'todo') as TaskStatus;
+    setStatus(defaultStatus && ids.includes(defaultStatus) ? defaultStatus : fallback);
     setPriority('medium');
     setDueDate(undefined);
     setAssigneeId("unassigned");
@@ -86,8 +136,8 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
         <DialogHeader>
           <DialogTitle>Yeni aksiyon</DialogTitle>
           <DialogDescription>
-            Başlık ve isteğe bağlı alanları doldurup kaydedin. Panoda üstten bir süreç seçtiysen yeni aksiyon o sürece
-            bağlanır; süreç seçili değilse proje atanmaz.
+            Başlık ve isteğe bağlı alanları doldurup kaydedin. Süreç (veya panoda seçili süreç) değiştikçe statü listesi o
+            akışın kolonlarıyla eşlenir; böylece oluşturduğun aksiyon doğru aşamada başlar.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -125,16 +175,17 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Status</Label>
+              <Label>Statü (aşama)</Label>
               <Select value={status} onValueChange={(value) => setStatus(value as TaskStatus)}>
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Aşama seçin" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="todo">To Do</SelectItem>
-                  <SelectItem value="progress">In Progress</SelectItem>
-                  <SelectItem value="review">Review</SelectItem>
-                  <SelectItem value="done">Done</SelectItem>
+                  {statusColumns.map((col) => (
+                    <SelectItem key={col.id} value={col.id}>
+                      {col.title}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -208,7 +259,7 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__auto__">
-                  Otomatik (panoda seçili: {currentProject?.name ?? 'yok'})
+                  Otomatik (panoda seçili: {autoContextLabel})
                 </SelectItem>
                 <SelectItem value="__none__">Süreç yok</SelectItem>
                 {projectsForTeam.map((p) => (
@@ -219,7 +270,7 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              Otomatik seçersen panoda hangi süreç seçiliyse aksiyon oraya bağlanır.
+              Otomatik: panoda seçili sürece bağlanır; Genel panoda isen süreç atanmaz ve statüler genel pano kolonlarıdır.
             </p>
           </div>
 

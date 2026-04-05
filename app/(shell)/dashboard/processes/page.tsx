@@ -14,7 +14,8 @@ import { toast } from 'sonner';
 
 export default function ProcessesPage() {
   const { setCurrentView } = useView();
-  const { projects, currentTeam, refreshData, currentProject, setCurrentProjectId } = useTaskContext();
+  const { projects, currentTeam, refreshData, currentProject, setCurrentProjectId, setBoardScope } =
+    useTaskContext();
   const [query, setQuery] = useState('');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
@@ -122,7 +123,10 @@ export default function ProcessesPage() {
                       variant="outline"
                       size="sm"
                       className="gap-2"
-                      onClick={() => setCurrentProjectId(p.id)}
+                      onClick={() => {
+                        setBoardScope({ type: 'project', projectId: p.id });
+                        setCurrentProjectId(p.id);
+                      }}
                     >
                       <Settings2 className="h-4 w-4" />
                       Panoda seç

@@ -8,11 +8,10 @@ import { Badge } from '@/components/ui/badge';
 import { Plus, X, Layers, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CreateTaskModal } from '@/components/CreateTaskModal';
-import { Progress } from '@/components/ui/progress';
 import { VoiceToTaskButton } from '@/components/ai/VoiceToTaskButton';
 import { cn } from '@/lib/utils';
 import { isToday } from 'date-fns';
-import { resolveTaskBoardColumnId, isTerminalBoardColumn, FALLBACK_BOARD_COLUMNS } from '@/lib/types';
+import { resolveTaskBoardColumnId, isTerminalBoardColumn } from '@/lib/types';
 import { CreateProjectModal } from '@/components/CreateProjectModal';
 import { EditGeneralBoardModal } from '@/components/EditGeneralBoardModal';
 
@@ -57,25 +56,6 @@ export function TaskBoard() {
     if (!currentTeam) return projects;
     return projects.filter((p) => !p.teamId || p.teamId === currentTeam.id);
   }, [projects, currentTeam?.id]);
-
-  const projectProgressColumns = useMemo(() => {
-    if (!boardProject) return null;
-    const cfg = boardProject.columnConfig;
-    return cfg?.length ? cfg : FALLBACK_BOARD_COLUMNS;
-  }, [boardProject]);
-
-  const projectProgressStats = useMemo(() => {
-    if (!boardProject || !projectProgressColumns) return null;
-    const pt = tasks.filter(
-      (t) => t.teamId === currentTeam?.id && t.projectId === boardProject.id
-    );
-    const total = pt.length;
-    const done = pt.filter((t) =>
-      isTerminalBoardColumn(t.status, projectProgressColumns)
-    ).length;
-    const pct = total === 0 ? 0 : Math.round((done / total) * 100);
-    return { total, done, pct };
-  }, [tasks, currentTeam?.id, boardProject, projectProgressColumns]);
 
   const onDragEnd = (result: DropResult) => {
     const { destination, source, draggableId } = result;
@@ -149,20 +129,6 @@ export function TaskBoard() {
 
   return (
     <div className="space-y-6">
-      {boardProject && projectProgressStats && (
-        <div className="rounded-lg border bg-muted/30 px-4 py-3 space-y-2">
-          <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-            <span className="font-medium">
-              İlerleme: <span className="text-foreground">{boardProject.name}</span>
-            </span>
-            <span className="text-muted-foreground tabular-nums">
-              {projectProgressStats.done} / {projectProgressStats.total} tamamlandı ({projectProgressStats.pct}%)
-            </span>
-          </div>
-          <Progress value={projectProgressStats.pct} className="h-2.5" />
-        </div>
-      )}
-
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-3">
           <h2 className="text-2xl font-bold">Pano</h2>

@@ -6,7 +6,6 @@ import { useTaskContext } from '@/components/TaskContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import {
   buildKnowledgeHubCards,
   knowledgeMapsFromContext,
@@ -76,12 +75,11 @@ export function DashboardInsights() {
       const pt = tasks.filter((t) => t.projectId === p.id);
       const total = pt.length;
       const terminal = pt.filter((t) => isTerminalBoardColumn(t.status, cols)).length;
-      const pct = total === 0 ? 0 : Math.round((terminal / total) * 100);
       const byCol = cols.map((col) => ({
         ...col,
         count: pt.filter((t) => resolveTaskBoardColumnId(t.status, cols) === col.id).length,
       }));
-      return { project: p, cols, pt, total, terminal, pct, byCol };
+      return { project: p, cols, pt, total, terminal, byCol };
     });
   }, [projectsForTeam, tasks]);
 
@@ -123,9 +121,8 @@ export function DashboardInsights() {
   const topProcessSummaries = useMemo(() => {
     return [...processSummaries]
       .sort((a, b) => {
-        // Prioritize active processes: more tasks first, then lower completion.
         if (b.total !== a.total) return b.total - a.total;
-        return a.pct - b.pct;
+        return a.terminal - b.terminal;
       })
       .slice(0, 4);
   }, [processSummaries]);
@@ -306,40 +303,23 @@ export function DashboardInsights() {
               <p className="text-sm font-medium text-foreground">Henüz süreç (proje) yok</p>
               <p className="text-sm text-muted-foreground max-w-sm mx-auto leading-relaxed">
                 Veritabanında <code className="text-xs bg-muted px-1 rounded">projects</code> kaydı oluşturduğunda burada
-                aşama sayısı ve yoğunluk özeti görünür; panoda süreç seçerek görevleri o akışa bağlarsın.
+                süreç başına aksiyon sayıları ve aşama dağılımı görünür; panoda süreç seçerek aksiyonları o akışa bağlarsın.
               </p>
             </div>
           ) : (
             <div className="space-y-5">
               {processSummaries.every((s) => s.total === 0) && (
                 <p className="text-sm text-muted-foreground rounded-lg border border-dashed bg-muted/40 px-3 py-2.5">
-                  Bu süreçlerde henüz aksiyon yok. Panodan aksiyon ekleyerek ilerleme çubukları ve aşama dağılımı dolar.
+                  Bu süreçlerde henüz aksiyon yok. Panodan aksiyon ekleyerek aşağıdaki özet dolar.
                 </p>
               )}
-              {topProcessSummaries.map(({ project, total, terminal, pct, byCol }) => (
+              {topProcessSummaries.map(({ project, total, terminal, byCol }) => (
               <div key={project.id} className="space-y-2">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-sm font-medium truncate">{project.name}</span>
                   <span className="text-xs text-muted-foreground tabular-nums shrink-0">
-                    {byCol.length} aşama · {terminal}/{total} bitti
+                    {byCol.length} aşama · {total} aksiyon
                   </span>
-                </div>
-                <Progress value={pct} className="h-2" />
-                <div
-                  className="flex h-2 rounded-full overflow-hidden bg-muted gap-px"
-                  title={byCol.map((c) => `${c.title}: ${c.count}`).join(' · ')}
-                >
-                  {total === 0 ? (
-                    <div className="flex-1 bg-muted-foreground/15" />
-                  ) : (
-                    byCol.map((c, i) => (
-                      <div
-                        key={c.id}
-                        className={cn(COLORS[i % COLORS.length], 'min-w-[4px] transition-all')}
-                        style={{ width: `${(c.count / total) * 100}%` }}
-                      />
-                    ))
-                  )}
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {byCol.map((c, i) => (

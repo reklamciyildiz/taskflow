@@ -8,10 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import type { JournalLogEntry } from '@/lib/types';
-import { FALLBACK_BOARD_COLUMNS, isTerminalBoardColumn } from '@/lib/types';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Command,
@@ -44,7 +42,7 @@ export function FocusDashboard() {
     tasks,
     projects,
     currentTeam,
-    setCurrentProjectId,
+    openBoardForProject,
     updateTask,
     canEditTask,
   } = useTaskContext();
@@ -93,19 +91,16 @@ export function FocusDashboard() {
   const projectStats = useMemo(() => {
     const byProjectId = new Map<
       string,
-      { total: number; done: number; pct: number; hottestTaskId: string | null; recentTaskIds: string[] }
+      { total: number; hottestTaskId: string | null; recentTaskIds: string[] }
     >();
 
     for (const p of projectsForTeam) {
       const pt = tasks.filter((t) => t.projectId === p.id);
       const total = pt.length;
-      const cols = p.columnConfig?.length ? p.columnConfig : FALLBACK_BOARD_COLUMNS;
-      const done = pt.filter((t) => isTerminalBoardColumn(t.status, cols)).length;
-      const pct = total === 0 ? 0 : Math.round((done / total) * 100);
       const sorted = [...pt].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
       const hottest = sorted[0] ?? null;
       const recentTaskIds = sorted.slice(0, 12).map((t) => t.id);
-      byProjectId.set(p.id, { total, done, pct, hottestTaskId: hottest?.id ?? null, recentTaskIds });
+      byProjectId.set(p.id, { total, hottestTaskId: hottest?.id ?? null, recentTaskIds });
     }
     return byProjectId;
   }, [projectsForTeam, tasks]);
@@ -145,8 +140,7 @@ export function FocusDashboard() {
 
   const openProjectBoard = (projectId: string) => {
     setCurrentView('board');
-    setCurrentProjectId(projectId);
-    router.push('/board');
+    openBoardForProject(projectId);
   };
 
   const appendQuickLog = async (projectId: string) => {
@@ -229,7 +223,7 @@ export function FocusDashboard() {
         )}
       >
         {focusProjects.map((p) => {
-          const stats = projectStats.get(p.id) ?? { total: 0, done: 0, pct: 0, hottestTaskId: null, recentTaskIds: [] };
+          const stats = projectStats.get(p.id) ?? { total: 0, hottestTaskId: null, recentTaskIds: [] };
           const pinned = pinnedProjectIds.includes(p.id);
           const draft = draftByProjectId[p.id] ?? '';
           const pending = pendingProjectId === p.id;
@@ -241,14 +235,14 @@ export function FocusDashboard() {
 
           return (
             <Card key={p.id} className="overflow-hidden">
-              <CardHeader className="pb-2">
+              <CardHeader className="space-y-2 pb-3">
                 <div className="flex items-start justify-between gap-2">
-                  <CardTitle className="text-base font-semibold truncate">{p.name}</CardTitle>
+                  <CardTitle className="text-base font-semibold truncate min-w-0 pr-1">{p.name}</CardTitle>
                   <Button
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8"
+                    className="h-8 w-8 shrink-0"
                     onClick={() => togglePinProject(p.id)}
                     aria-label={pinned ? 'Unpin project' : 'Pin project'}
                     title={pinned ? 'Unpin' : 'Pin'}
@@ -256,20 +250,8 @@ export function FocusDashboard() {
                     <Star className={cn('h-4 w-4', pinned && 'fill-current')} />
                   </Button>
                 </div>
-                <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                  <span className="tabular-nums">
-                    {stats.done}/{stats.total} bitti
-                  </span>
-                  <Badge variant="secondary" className="text-[10px]">
-                    {p.columnConfig?.length ? `${p.columnConfig.length} aşama` : 'Varsayılan'}
-                  </Badge>
-                </div>
-                <Progress value={stats.pct} className="h-2" />
-              </CardHeader>
-
-              <CardContent className="pt-3 space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-xs text-muted-foreground truncate">
+                <div className="flex items-center gap-2">
+                  <p className="text-xs text-muted-foreground truncate min-w-0 flex-1">
                     {hasTarget ? (
                       <>
                         Hedef:{' '}
@@ -281,14 +263,21 @@ export function FocusDashboard() {
                       'Hedef: —'
                     )}
                   </p>
-                  {saved && (
-                    <span className="text-xs text-emerald-600 flex items-center gap-1 shrink-0">
-                      <Check className="h-3.5 w-3.5" />
-                      Kaydedildi
-                    </span>
-                  )}
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Badge variant="secondary" className="text-[10px] whitespace-nowrap">
+                      {p.columnConfig?.length ? `${p.columnConfig.length} aşama` : 'Varsayılan'}
+                    </Badge>
+                    {saved && (
+                      <span className="text-xs text-emerald-600 flex items-center gap-1">
+                        <Check className="h-3.5 w-3.5 shrink-0" />
+                        Kaydedildi
+                      </span>
+                    )}
+                  </div>
                 </div>
+              </CardHeader>
 
+              <CardContent className="space-y-2 pt-0">
                 {stats.recentTaskIds.length > 0 && (
                   <div className="space-y-1">
                     <p className="text-[11px] font-medium text-muted-foreground">Varsayılan günlük aksiyon</p>

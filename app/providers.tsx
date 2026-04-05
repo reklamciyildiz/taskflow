@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from 'react';
 import { AuthProvider } from '@/components/AuthProvider';
 import { TaskProvider } from '@/components/TaskContext';
 import { ThemeProvider } from '@/components/ThemeProvider';
@@ -10,12 +11,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <AuthProvider>
       <ThemeProvider attribute="class" defaultTheme="light" enableSystem storageKey="todo-theme">
-        <TaskProvider>
-          <ViewProvider>
-            {children}
-            <Toaster />
-          </ViewProvider>
-        </TaskProvider>
+        <Suspense fallback={null}>
+          <TaskProvider>
+            <ViewProvider>
+              {children}
+              <Toaster />
+            </ViewProvider>
+          </TaskProvider>
+        </Suspense>
       </ThemeProvider>
     </AuthProvider>
   );

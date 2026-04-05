@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSession } from 'next-auth/react';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { taskApi, teamApi, memberApi, projectApi } from '@/lib/api';
 import { getPermissions, canEditTask, canDeleteTask, canCompleteTask, Permission, Role } from '@/lib/permissions';
 import {
@@ -60,6 +60,8 @@ interface TaskContextType {
   setFilter: (filter: FilterType) => void;
   setCustomerFilter: (customerId: string | null) => void;
   setCurrentProjectId: (projectId: string | null) => void;
+  /** Panoyu açar, süreç kapsamını ve URL ?project= değerini bu sürece sabitler (ana sayfadan /board’a giderken kaybolmaz). */
+  openBoardForProject: (projectId: string) => void;
   setBoardScope: (scope: BoardScope) => void;
   setGeneralBoardColumns: (cols: ProjectColumnConfig[]) => void;
   addTask: (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'attachments' | 'comments'>) => Promise<void>;
@@ -178,6 +180,8 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession();
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const projectQueryParam = searchParams.get('project');
   const [tasks, setTasks] = useState<Task[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -285,6 +289,17 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       }
     },
     [currentTeam?.id]
+  );
+
+  const openBoardForProject = useCallback(
+    (projectId: string) => {
+      const p = projects.find((x) => x.id === projectId);
+      if (!p) return;
+      setBoardScope({ type: 'project', projectId });
+      setCurrentProjectState(p);
+      router.push(`/board?project=${encodeURIComponent(projectId)}`);
+    },
+    [projects, setBoardScope, router]
   );
 
   const setGeneralBoardColumns = useCallback(
@@ -614,7 +629,9 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
         assigneeId: taskData.assigneeId,
         customerId: taskData.customerId,
         teamId: taskData.teamId,
-        projectId: taskData.projectId ?? currentProject?.id ?? null,
+        // `null` = süreçsiz; yalnızca alan verilmediyse `currentProject` kullan
+        projectId:
+          taskData.projectId !== undefined ? taskData.projectId : (currentProject?.id ?? null),
       });
 
       if (response.success && response.data) {
@@ -971,6 +988,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       setFilter,
       setCustomerFilter,
       setCurrentProjectId,
+      openBoardForProject,
       setBoardScope,
       setGeneralBoardColumns,
       addTask,
