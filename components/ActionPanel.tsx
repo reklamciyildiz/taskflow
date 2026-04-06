@@ -100,6 +100,10 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
     [canEdit, updateTask, task?.id]
   );
 
+  /** `updateTask` her `tasks` değişiminde yeni referans alır; deps’e koymak hydrate’ı sürekli tetikleyip kontrol listesi taslağını siler. */
+  const persistLearningsForIdRef = useRef(persistLearningsForId);
+  persistLearningsForIdRef.current = persistLearningsForId;
+
   useEffect(() => {
     if (!open || !task) return;
     const prevHydrated = learningsHydratedTaskIdRef.current;
@@ -108,7 +112,7 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
         clearTimeout(learningsDebounceRef.current);
         learningsDebounceRef.current = null;
       }
-      void persistLearningsForId(prevHydrated, learningsRef.current);
+      void persistLearningsForIdRef.current(prevHydrated, learningsRef.current);
     }
     learningsHydratedTaskIdRef.current = task.id;
 
@@ -127,8 +131,8 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
     setLearnings(learningsVal);
     lastPersistedLearnings.current = learningsVal.trim();
     setDetailsOpen(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- yalnızca panel / aksiyon değişiminde hydrate; `tasks` her yenilendiğinde formu sıfırlama
-  }, [open, task?.id, canEdit, persistLearningsForId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- yalnızca panel / aksiyon kimliği; tasks/updateTask/persistLearnings değişiminde yeniden hydrate ETME
+  }, [open, task?.id]);
 
   useEffect(() => {
     journalRef.current = journalLogs;
@@ -162,12 +166,12 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
       learningsDebounceRef.current = null;
       const normalized = learningsRef.current.trim();
       if (normalized === lastPersistedLearnings.current) return;
-      void persistLearningsForId(taskId, learningsRef.current);
+      void persistLearningsForIdRef.current(taskId, learningsRef.current);
     }, LEARNINGS_SAVE_MS);
     return () => {
       if (learningsDebounceRef.current) clearTimeout(learningsDebounceRef.current);
     };
-  }, [learnings, open, task?.id, canEdit, persistLearningsForId]);
+  }, [learnings, open, task?.id, canEdit]);
 
   /** Panel kapanınca (X, overlay, başka aksiyon) bekleyen metni hemen yaz. */
   useEffect(() => {
@@ -506,7 +510,7 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
                       }
                       const normalized = learningsRef.current.trim();
                       if (normalized === lastPersistedLearnings.current) return;
-                      void persistLearningsForId(task.id, learningsRef.current);
+                      void persistLearningsForIdRef.current(task.id, learningsRef.current);
                     }}
                     placeholder="Öğrendiklerin, çıkarımların, mülakat notların… (kontrol listesinden ayrı, serbest metin)"
                     rows={5}
