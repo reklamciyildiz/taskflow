@@ -1,8 +1,17 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useEffect } from 'react';
-import { TaskBoard } from '@/components/TaskBoard';
 import { useView } from '@/components/ViewContext';
+import { RouteLoading } from '@/components/RouteLoading';
+
+const TaskBoard = dynamic(
+  () => import('@/components/TaskBoard').then((m) => ({ default: m.TaskBoard })),
+  {
+    ssr: false,
+    loading: () => <RouteLoading label="Pano yükleniyor…" />,
+  }
+);
 
 export default function BoardPage() {
   const { setCurrentView } = useView();

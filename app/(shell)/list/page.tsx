@@ -1,8 +1,16 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useEffect } from 'react';
-import { TaskList } from '@/components/TaskList';
 import { useView } from '@/components/ViewContext';
+import { RouteLoading } from '@/components/RouteLoading';
+
+const TaskList = dynamic(
+  () => import('@/components/TaskList').then((m) => ({ default: m.TaskList })),
+  {
+    loading: () => <RouteLoading label="Liste yükleniyor…" />,
+  }
+);
 
 export default function ListPage() {
   const { setCurrentView } = useView();

@@ -1,8 +1,16 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useEffect } from 'react';
-import { Achievements } from '@/components/Achievements';
 import { useView } from '@/components/ViewContext';
+import { RouteLoading } from '@/components/RouteLoading';
+
+const Achievements = dynamic(
+  () => import('@/components/Achievements').then((m) => ({ default: m.Achievements })),
+  {
+    loading: () => <RouteLoading label="Başarılar yükleniyor…" />,
+  }
+);
 
 export default function AchievementsPage() {
   const { setCurrentView } = useView();

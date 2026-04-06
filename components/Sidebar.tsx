@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -76,7 +77,6 @@ interface SidebarProps {
 }
 
 export function Sidebar({ isOpen, onCloseSidebar }: SidebarProps) {
-  const router = useRouter();
   const pathname = usePathname();
   const { currentView, setCurrentView } = useView();
   const { tasks, currentTeam, teams, setCurrentTeam, currentUser, setFilter, filter, updateTeam, organizationName } = useTaskContext();
@@ -98,25 +98,14 @@ export function Sidebar({ isOpen, onCloseSidebar }: SidebarProps) {
   const highPriorityCount = teamTasks.filter(t => (t.priority === 'high' || t.priority === 'urgent') && t.status !== 'done').length;
   const assignedToMeCount = teamTasks.filter(t => t.assigneeId === currentUser?.id && t.status !== 'done').length;
 
-  const navigateToView = (view: ViewType) => {
-    setCurrentView(view);
-    const explicit = VIEW_ROUTES[view];
-    if (explicit) {
-      router.push(explicit);
-      return;
-    }
-    if (pathname !== '/') {
-      router.push('/');
-    }
-  };
-
-  const handleFilterClick = (filterType: 'dueToday' | 'highPriority' | 'assignedToMe' | null) => {
+  const applyQuickFilter = (filterType: 'dueToday' | 'highPriority' | 'assignedToMe') => {
     if (filter === filterType) {
       setFilter(null);
     } else {
       setFilter(filterType);
     }
-    navigateToView('board');
+    setCurrentView('board');
+    onCloseSidebar();
   };
 
   const menuItems: MenuItem[] = [
@@ -220,25 +209,35 @@ export function Sidebar({ isOpen, onCloseSidebar }: SidebarProps) {
           <nav className="flex-1 min-h-0 overflow-y-auto p-4 space-y-2 overscroll-contain">
             {menuItems.map((item) => {
               const isActive = isNavItemActive(item.id, pathname, currentView);
+              const href = VIEW_ROUTES[item.id];
               return (
               <Button
                 key={item.id}
+                asChild
                 variant={isActive ? 'secondary' : 'ghost'}
                 className={cn(
                   "w-full justify-start gap-3 h-11 px-3 relative",
                   isActive && "bg-secondary text-secondary-foreground font-medium ring-1 ring-primary/25",
-                  // Stronger cue for top-level mode switches
                   (item.id === 'dashboard' || item.id === 'board') && isActive && "before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-1 before:rounded-r before:bg-primary"
                 )}
-                onClick={() => navigateToView(item.id)}
               >
-                <item.icon className="h-4 w-4" />
-                <span className="flex-1 text-left">{item.label}</span>
-                {item.count !== undefined && (
-                  <Badge variant="secondary" className="h-5 px-2 text-xs">
-                    {item.count}
-                  </Badge>
-                )}
+                <Link
+                  href={href ?? '/'}
+                  prefetch
+                  scroll={false}
+                  onClick={() => {
+                    setCurrentView(item.id);
+                    onCloseSidebar();
+                  }}
+                >
+                  <item.icon className="h-4 w-4 shrink-0" />
+                  <span className="flex-1 text-left">{item.label}</span>
+                  {item.count !== undefined && (
+                    <Badge variant="secondary" className="h-5 px-2 text-xs">
+                      {item.count}
+                    </Badge>
+                  )}
+                </Link>
               </Button>
             );
             })}
@@ -247,38 +246,59 @@ export function Sidebar({ isOpen, onCloseSidebar }: SidebarProps) {
             <div className="pt-4">
               <p className="text-xs font-medium text-muted-foreground mb-3 px-3">QUICK FILTERS</p>
               <div className="space-y-1">
-                <Button 
-                  variant={filter === 'dueToday' ? 'secondary' : 'ghost'} 
+                <Button
+                  asChild
+                  variant={filter === 'dueToday' ? 'secondary' : 'ghost'}
                   className="w-full justify-start gap-3 h-9 px-3 text-sm"
-                  onClick={() => handleFilterClick('dueToday')}
                 >
-                  <Calendar className="h-4 w-4" />
-                  Due Today
-                  <Badge variant={dueTodayCount > 0 ? 'destructive' : 'outline'} className="h-5 px-2 text-xs ml-auto">
-                    {dueTodayCount}
-                  </Badge>
+                  <Link
+                    href="/board"
+                    prefetch
+                    scroll={false}
+                    onClick={() => applyQuickFilter('dueToday')}
+                  >
+                    <Calendar className="h-4 w-4 shrink-0" />
+                    Due Today
+                    <Badge variant={dueTodayCount > 0 ? 'destructive' : 'outline'} className="h-5 px-2 text-xs ml-auto">
+                      {dueTodayCount}
+                    </Badge>
+                  </Link>
                 </Button>
-                <Button 
-                  variant={filter === 'highPriority' ? 'secondary' : 'ghost'} 
+                <Button
+                  asChild
+                  variant={filter === 'highPriority' ? 'secondary' : 'ghost'}
                   className="w-full justify-start gap-3 h-9 px-3 text-sm"
-                  onClick={() => handleFilterClick('highPriority')}
                 >
-                  <Tag className="h-4 w-4" />
-                  High Priority
-                  <Badge variant="outline" className="h-5 px-2 text-xs ml-auto">
-                    {highPriorityCount}
-                  </Badge>
+                  <Link
+                    href="/board"
+                    prefetch
+                    scroll={false}
+                    onClick={() => applyQuickFilter('highPriority')}
+                  >
+                    <Tag className="h-4 w-4 shrink-0" />
+                    High Priority
+                    <Badge variant="outline" className="h-5 px-2 text-xs ml-auto">
+                      {highPriorityCount}
+                    </Badge>
+                  </Link>
                 </Button>
-                <Button 
-                  variant={filter === 'assignedToMe' ? 'secondary' : 'ghost'} 
+                <Button
+                  asChild
+                  variant={filter === 'assignedToMe' ? 'secondary' : 'ghost'}
                   className="w-full justify-start gap-3 h-9 px-3 text-sm"
-                  onClick={() => handleFilterClick('assignedToMe')}
                 >
-                  <Archive className="h-4 w-4" />
-                  Assigned to Me
-                  <Badge variant="outline" className="h-5 px-2 text-xs ml-auto">
-                    {assignedToMeCount}
-                  </Badge>
+                  <Link
+                    href="/board"
+                    prefetch
+                    scroll={false}
+                    onClick={() => applyQuickFilter('assignedToMe')}
+                  >
+                    <Archive className="h-4 w-4 shrink-0" />
+                    Assigned to Me
+                    <Badge variant="outline" className="h-5 px-2 text-xs ml-auto">
+                      {assignedToMeCount}
+                    </Badge>
+                  </Link>
                 </Button>
               </div>
             </div>

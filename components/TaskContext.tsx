@@ -334,83 +334,114 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     setError(null);
 
     try {
-      // Fetch teams
-      const teamsResponse = await teamApi.getAll();
+      const profilePromise =
+        session.user?.email != null
+          ? fetch('/api/users/profile')
+              .then(async (r) => {
+                try {
+                  return { ok: r.ok, json: (await r.json()) as unknown };
+                } catch {
+                  return { ok: false, json: null as unknown };
+                }
+              })
+              .catch(() => ({ ok: false, json: null as unknown }))
+          : Promise.resolve({ ok: false, json: null as unknown });
+
+      const [teamsResponse, tasksResponse, profileWrap] = await Promise.all([
+        teamApi.getAll(),
+        taskApi.getAll(),
+        profilePromise,
+      ]);
+
       if (teamsResponse.success && teamsResponse.data) {
         const transformedTeams = teamsResponse.data.map(transformTeam);
         setTeams(transformedTeams);
         setCurrentTeamState((prev) => prev ?? transformedTeams[0] ?? null);
       }
 
-      // Fetch tasks
-      const tasksResponse = await taskApi.getAll();
       if (tasksResponse.success && tasksResponse.data) {
         const transformedTasks = tasksResponse.data.map(transformTask);
         setTasks(transformedTasks);
       }
 
-      // Fetch current user from API to get latest data
       if (session.user?.email) {
         try {
-          const userResponse = await fetch('/api/users/profile');
-          const userData = await userResponse.json();
-          if (userData.success && userData.data) {
+          const userData = profileWrap.json as {
+            success?: boolean;
+            data?: {
+              id: string;
+              name?: string;
+              email?: string;
+              role?: string;
+              avatar_url?: string;
+              organization_id?: string;
+            };
+          } | null;
+          if (profileWrap.ok && userData?.success && userData.data) {
+            const d = userData.data;
             setCurrentUser({
-              id: userData.data.id,
-              name: userData.data.name || 'User',
-              email: userData.data.email || '',
-              role: userData.data.role || 'member',
-              avatar: userData.data.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(userData.data.name || 'U')}`,
+              id: d.id,
+              name: d.name || 'User',
+              email: d.email || '',
+              role: (d.role as UserRole) || 'member',
+              avatar:
+                d.avatar_url ||
+                `https://ui-avatars.com/api/?name=${encodeURIComponent(d.name || 'U')}`,
               isOnline: true,
               joinedAt: new Date(),
             });
-            
-            // Fetch organization name
-            if (userData.data.organization_id) {
-              const oid = userData.data.organization_id;
+
+            if (d.organization_id) {
+              const oid = d.organization_id;
               setOrganizationId(oid);
-              try {
-                const orgResponse = await fetch(`/api/organizations/${oid}`);
-                const orgData = await orgResponse.json();
-                if (orgData.success && orgData.data) {
-                  setOrganizationName(orgData.data.name);
+              const [orgSettled, projSettled] = await Promise.allSettled([
+                fetch(`/api/organizations/${oid}`).then((r) => r.json()),
+                projectApi.getAll(oid),
+              ]);
+
+              if (orgSettled.status === 'fulfilled') {
+                const orgJson = orgSettled.value as { success?: boolean; data?: { name?: string } };
+                if (orgJson.success && orgJson.data) {
+                  setOrganizationName(orgJson.data.name || 'My Organization');
                 }
-              } catch (err) {
-                console.error('Failed to fetch organization:', err);
+              } else {
+                console.error('Failed to fetch organization:', orgSettled.reason);
               }
 
-              try {
-                const projRes = await projectApi.getAll(oid);
+              if (projSettled.status === 'fulfilled') {
+                const projRes = projSettled.value;
                 if (projRes.success && projRes.data) {
                   setProjects(projRes.data.map(transformProject));
                 } else {
                   setProjects([]);
                 }
-              } catch (err) {
-                console.error('Failed to fetch projects:', err);
+              } else {
+                console.error('Failed to fetch projects:', projSettled.reason);
                 setProjects([]);
               }
             }
           } else {
-            // Fallback to session data
             setCurrentUser({
               id: (session.user as any).id || 'unknown',
               name: session.user.name || 'User',
               email: session.user.email || '',
               role: (session.user as any).role || 'member',
-              avatar: session.user.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(session.user.name || 'U')}`,
+              avatar:
+                session.user.image ||
+                `https://ui-avatars.com/api/?name=${encodeURIComponent(session.user.name || 'U')}`,
               isOnline: true,
               joinedAt: new Date(),
             });
           }
         } catch {
-          // Fallback to session data on error
           setCurrentUser({
             id: (session.user as any).id || 'unknown',
             name: session.user.name || 'User',
             email: session.user.email || '',
             role: (session.user as any).role || 'member',
-            avatar: session.user.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(session.user.name || 'U')}`,
+            avatar:
+              session.user.image ||
+              `https://ui-avatars.com/api/?name=${encodeURIComponent(session.user.name || 'U')}`,
             isOnline: true,
             joinedAt: new Date(),
           });
@@ -490,8 +521,10 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   }, [currentTeam?.id]);
 
   // If stored boardScope references a missing project, fall back to General.
+  // Önemli: `projects` ilk yüklemede [] iken `.some` false döner; saklanan süreç yanlışlıkla silinmesin diye bekle.
   useEffect(() => {
     if (boardScope.type !== 'project') return;
+    if (projects.length === 0) return;
     if (!projects.some((p) => p.id === boardScope.projectId)) {
       setBoardScopeState({ type: 'general' });
     }
@@ -649,13 +682,13 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
 
   // Update task via API with optimistic update — returns false if rolled back
   const updateTask = useCallback(async (id: string, updates: Partial<Task>): Promise<boolean> => {
-    const previousTasks = tasks;
-
-    setTasks((prev) =>
-      prev.map((task) =>
+    let rollbackSnapshot: Task[] | null = null;
+    setTasks((prev) => {
+      rollbackSnapshot = prev;
+      return prev.map((task) =>
         task.id === id ? { ...task, ...updates, updatedAt: new Date() } : task
-      )
-    );
+      );
+    });
 
     try {
       const apiUpdates: Record<string, unknown> = {};
@@ -674,16 +707,16 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
 
       if (!response.success) {
         console.error('Failed to update task:', response.error);
-        setTasks(previousTasks);
+        if (rollbackSnapshot) setTasks(rollbackSnapshot);
         return false;
       }
       return true;
     } catch (err) {
       console.error('Error updating task:', err);
-      setTasks(previousTasks);
+      if (rollbackSnapshot) setTasks(rollbackSnapshot);
       return false;
     }
-  }, [tasks]);
+  }, []);
 
   // Delete task via API
   const deleteTask = useCallback(async (id: string) => {
