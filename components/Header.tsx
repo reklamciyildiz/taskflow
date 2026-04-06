@@ -7,8 +7,8 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { UserMenu } from '@/components/UserMenu';
 import { NotificationBell } from '@/components/NotificationBell';
 import { CreateTaskModal } from '@/components/CreateTaskModal';
-import { useState, useRef, useEffect } from 'react';
-import { useTaskContext } from '@/components/TaskContext';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { useTaskContext, type Task } from '@/components/TaskContext';
 import { useRouter } from 'next/navigation';
 
 interface HeaderProps {
@@ -19,20 +19,73 @@ export function Header({ onSidebarToggle }: HeaderProps) {
   const [showCreateTask, setShowCreateTask] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showResults, setShowResults] = useState(false);
-  const { tasks, teams } = useTaskContext();
+  const {
+    tasks,
+    teams,
+    currentTeam,
+    openTaskEditor,
+    openBoardForProject,
+    setBoardScope,
+    setCurrentProjectId,
+    setCurrentTeam,
+  } = useTaskContext();
   const searchRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
-  // Filter results based on search query
-  const searchResults = searchQuery.length >= 2 ? {
-    tasks: tasks.filter(t => 
-      t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.description?.toLowerCase().includes(searchQuery.toLowerCase())
-    ).slice(0, 5),
-    teams: teams.filter(t => 
-      t.name.toLowerCase().includes(searchQuery.toLowerCase())
-    ).slice(0, 3),
-  } : { tasks: [], teams: [] };
+  const tasksInScope = useMemo(() => {
+    if (!currentTeam) return tasks;
+    return tasks.filter((t) => t.teamId === currentTeam.id);
+  }, [tasks, currentTeam]);
+
+  const q = searchQuery.trim().toLowerCase();
+
+  // Filter results based on search query (aksiyonlar geçerli takıma göre)
+  const searchResults =
+    searchQuery.length >= 2
+      ? {
+          tasks: tasksInScope
+            .filter(
+              (t) =>
+                t.title.toLowerCase().includes(q) || t.description?.toLowerCase().includes(q)
+            )
+            .slice(0, 5),
+          teams: teams
+            .filter((t) => t.name.toLowerCase().includes(q))
+            .slice(0, 3),
+        }
+      : { tasks: [], teams: [] };
+
+  const onSelectTask = useCallback(
+    (task: Task) => {
+      setShowResults(false);
+      setSearchQuery('');
+      openTaskEditor(task.id);
+      if (task.projectId) {
+        openBoardForProject(task.projectId);
+      } else {
+        setBoardScope({ type: 'general' });
+        setCurrentProjectId(null);
+        router.push('/board');
+      }
+    },
+    [
+      openTaskEditor,
+      openBoardForProject,
+      setBoardScope,
+      setCurrentProjectId,
+      router,
+    ]
+  );
+
+  const onSelectTeam = useCallback(
+    (teamId: string) => {
+      setShowResults(false);
+      setSearchQuery('');
+      setCurrentTeam(teamId);
+      router.push('/team');
+    },
+    [setCurrentTeam, router]
+  );
 
   const hasResults = searchResults.tasks.length > 0 || searchResults.teams.length > 0;
 
@@ -98,13 +151,11 @@ export function Header({ onSidebarToggle }: HeaderProps) {
                       <div className="px-3 py-2 text-xs font-medium text-muted-foreground bg-gray-50 dark:bg-gray-750">
                         Actions
                       </div>
-                      {searchResults.tasks.map(task => (
+                      {searchResults.tasks.map((task) => (
                         <button
                           key={task.id}
-                          onClick={() => {
-                            setShowResults(false);
-                            setSearchQuery('');
-                          }}
+                          type="button"
+                          onClick={() => onSelectTask(task)}
                           className="w-full px-3 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
                         >
                           <span className={`w-2 h-2 rounded-full ${
@@ -122,13 +173,11 @@ export function Header({ onSidebarToggle }: HeaderProps) {
                       <div className="px-3 py-2 text-xs font-medium text-muted-foreground bg-gray-50 dark:bg-gray-750">
                         Teams
                       </div>
-                      {searchResults.teams.map(team => (
+                      {searchResults.teams.map((team) => (
                         <button
                           key={team.id}
-                          onClick={() => {
-                            setShowResults(false);
-                            setSearchQuery('');
-                          }}
+                          type="button"
+                          onClick={() => onSelectTeam(team.id)}
                           className="w-full px-3 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 text-sm"
                         >
                           {team.name}

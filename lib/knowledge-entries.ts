@@ -2,7 +2,8 @@ import { ACTION_CHECKLIST_QUICK_ROW_ID } from '@/lib/action-checklist';
 import type { Task, Team } from '@/lib/types';
 import { format, isValid, parseISO } from 'date-fns';
 
-export type KnowledgeEntryType = 'learning' | 'journal';
+/** Bilgi kartı kaynağı: `Task.learnings` özeti veya `journalLogs` not/kontrol satırları. */
+export type KnowledgeEntryType = 'learnings' | 'action_notes';
 
 /** @deprecated Use KnowledgeHubCard for masonry hub; kept for pin id migration. */
 export interface KnowledgeHubEntry {
@@ -100,7 +101,7 @@ export function buildKnowledgeEntries(
     if (c.learningsPreview) {
       out.push({
         id: `learning-${c.taskId}`,
-        type: 'learning',
+        type: 'learnings',
         text: c.learningsPreview,
         sortDate: c.sortDate,
         taskId: c.taskId,
@@ -114,7 +115,7 @@ export function buildKnowledgeEntries(
     for (const item of c.checklistItems) {
       out.push({
         id: `journal-${c.taskId}-${item.id}`,
-        type: 'journal',
+        type: 'action_notes',
         text: item.text,
         sortDate: c.sortDate,
         taskId: c.taskId,

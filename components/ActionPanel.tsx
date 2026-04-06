@@ -79,13 +79,39 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
   const [detailsOpen, setDetailsOpen] = useState(false);
   const journalRef = useRef<JournalLogEntry[]>([]);
   const lastPersistedLearnings = useRef('');
+  const learningsRef = useRef(learnings);
+  learningsRef.current = learnings;
+  /** Hangi aksiyonun `learnings` state’ine ait olduğunu izler (görev değişince önce eskiyi kaydet). */
+  const learningsHydratedTaskIdRef = useRef<string | null>(null);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const metaDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const learningsDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const persistLearningsForId = useCallback(
+    async (taskId: string, rawText: string) => {
+      if (!canEdit || !taskId) return;
+      const normalized = rawText.trim();
+      const ok = await updateTask(taskId, { learnings: normalized || null });
+      if (ok && task?.id === taskId) {
+        lastPersistedLearnings.current = normalized;
+      }
+    },
+    [canEdit, updateTask, task?.id]
+  );
+
   useEffect(() => {
     if (!open || !task) return;
+    const prevHydrated = learningsHydratedTaskIdRef.current;
+    if (prevHydrated && prevHydrated !== task.id && canEdit) {
+      if (learningsDebounceRef.current) {
+        clearTimeout(learningsDebounceRef.current);
+        learningsDebounceRef.current = null;
+      }
+      void persistLearningsForId(prevHydrated, learningsRef.current);
+    }
+    learningsHydratedTaskIdRef.current = task.id;
+
     const src = tasks.find((t) => t.id === task.id) ?? task;
     setTitle(src.title);
     setDescription(src.description || '');
@@ -101,8 +127,8 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
     setLearnings(learningsVal);
     lastPersistedLearnings.current = learningsVal.trim();
     setDetailsOpen(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- sync only when opening / task id
-  }, [open, task?.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- yalnızca panel / aksiyon değişiminde hydrate; `tasks` her yenilendiğinde formu sıfırlama
+  }, [open, task?.id, canEdit, persistLearningsForId]);
 
   useEffect(() => {
     journalRef.current = journalLogs;
@@ -126,27 +152,42 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
     }, 550);
   }, [task, canEdit, flushJournalSave]);
 
+  const LEARNINGS_SAVE_MS = 280;
+
   useEffect(() => {
     if (!open || !task?.id || !canEdit) return;
     if (learningsDebounceRef.current) clearTimeout(learningsDebounceRef.current);
     const taskId = task.id;
     learningsDebounceRef.current = setTimeout(() => {
-      const normalized = learnings.trim();
+      learningsDebounceRef.current = null;
+      const normalized = learningsRef.current.trim();
       if (normalized === lastPersistedLearnings.current) return;
-      void (async () => {
-        const ok = await updateTask(taskId, { learnings: normalized || null });
-        if (ok) lastPersistedLearnings.current = normalized;
-      })();
-    }, 1500);
+      void persistLearningsForId(taskId, learningsRef.current);
+    }, LEARNINGS_SAVE_MS);
     return () => {
       if (learningsDebounceRef.current) clearTimeout(learningsDebounceRef.current);
     };
-  }, [learnings, open, task?.id, canEdit, updateTask]);
+  }, [learnings, open, task?.id, canEdit, persistLearningsForId]);
+
+  /** Panel kapanınca (X, overlay, başka aksiyon) bekleyen metni hemen yaz. */
+  useEffect(() => {
+    if (open) return;
+    if (learningsDebounceRef.current) {
+      clearTimeout(learningsDebounceRef.current);
+      learningsDebounceRef.current = null;
+    }
+    const tid = task?.id;
+    if (!tid || !canEdit) return;
+    const normalized = learningsRef.current.trim();
+    if (normalized === lastPersistedLearnings.current) return;
+    void persistLearningsForId(tid, learningsRef.current);
+  }, [open, task?.id, canEdit, persistLearningsForId]);
 
   useEffect(() => {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
       if (metaDebounceRef.current) clearTimeout(metaDebounceRef.current);
+      if (learningsDebounceRef.current) clearTimeout(learningsDebounceRef.current);
     };
   }, []);
 
@@ -447,7 +488,9 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
                       Kazanımlar
                     </Label>
                     {canEdit && (
-                      <p className="text-[11px] text-muted-foreground">Bilgi Merkezi’nde özet olarak görünür · ~1,5 sn sonra kaydedilir</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        Bilgi Merkezi’nde özet · yazarken otomatik kayıt · alan dışına çıkınca veya panel kapanınca anında
+                      </p>
                     )}
                   </div>
                   <textarea
@@ -455,6 +498,16 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
                     value={learnings}
                     disabled={!canEdit}
                     onChange={(e) => setLearnings(e.target.value)}
+                    onBlur={() => {
+                      if (!task?.id || !canEdit) return;
+                      if (learningsDebounceRef.current) {
+                        clearTimeout(learningsDebounceRef.current);
+                        learningsDebounceRef.current = null;
+                      }
+                      const normalized = learningsRef.current.trim();
+                      if (normalized === lastPersistedLearnings.current) return;
+                      void persistLearningsForId(task.id, learningsRef.current);
+                    }}
                     placeholder="Öğrendiklerin, çıkarımların, mülakat notların… (kontrol listesinden ayrı, serbest metin)"
                     rows={5}
                     className={cn(

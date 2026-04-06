@@ -31,27 +31,39 @@ const PIN_KEY = 'taskflow:pinnedKnowledgeEntryIds';
 
 export function KnowledgeHubView() {
   const router = useRouter();
-  const { tasks, projects, teams, loading, openTaskEditor, updateTask, canEditTask } = useTaskContext();
+  const { tasks, projects, teams, currentTeam, loading, openTaskEditor, updateTask, canEditTask } =
+    useTaskContext();
   const [query, setQuery] = useState('');
-  const [typeFilter, setTypeFilter] = useState<'all' | KnowledgeEntryType>('all');
+  type TypeFilter = 'all' | KnowledgeEntryType;
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [projectFilter, setProjectFilter] = useState<string>('all');
   const [pinnedIds, setPinnedIds] = useState<string[]>([]);
 
+  const tasksScoped = useMemo(() => {
+    if (!currentTeam) return tasks;
+    return tasks.filter((t) => t.teamId === currentTeam.id);
+  }, [tasks, currentTeam]);
+
+  const projectsScoped = useMemo(() => {
+    if (!currentTeam) return projects;
+    return projects.filter((p) => !p.teamId || p.teamId === currentTeam.id);
+  }, [projects, currentTeam]);
+
   const { projectNameById, teamNameById } = useMemo(
-    () => knowledgeMapsFromContext(projects, teams),
-    [projects, teams]
+    () => knowledgeMapsFromContext(projectsScoped, teams),
+    [projectsScoped, teams]
   );
 
   const allCards = useMemo(
-    () => buildKnowledgeHubCards(tasks, projectNameById, teamNameById),
-    [tasks, projectNameById, teamNameById]
+    () => buildKnowledgeHubCards(tasksScoped, projectNameById, teamNameById),
+    [tasksScoped, projectNameById, teamNameById]
   );
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return allCards.filter((c) => {
-      if (typeFilter === 'learning' && !c.learningsPreview) return false;
-      if (typeFilter === 'journal' && c.checklistItems.length === 0) return false;
+      if (typeFilter === 'learnings' && !c.learningsPreview) return false;
+      if (typeFilter === 'action_notes' && c.checklistItems.length === 0) return false;
       if (projectFilter !== 'all') {
         if (projectFilter === '__none__') {
           if (c.projectId != null) return false;
@@ -116,8 +128,9 @@ export function KnowledgeHubView() {
           </div>
           <h1 className="text-3xl font-bold tracking-tight md:text-4xl">Bilgi Merkezi</h1>
           <p className="max-w-2xl text-base leading-relaxed text-muted-foreground">
-            Aksiyonlarından gelen notlar ve kontrol listeleri burada. Kutucukları pano açmadan işaretleyebilirsin; ayrıntı
-            için karta tıkla.
+            Aksiyonlarına bağlı <span className="text-foreground/90">kazanımlar</span> (özet metin) ve{' '}
+            <span className="text-foreground/90">günlük notlar</span> (aksiyon günlüğündeki satırlar) burada toplanır.
+            Kontrol kutularını pano açmadan işaretleyebilirsin; ayrıntı için karta tıkla.
           </p>
         </div>
       </div>
@@ -133,14 +146,14 @@ export function KnowledgeHubView() {
             aria-label="Bilgi merkezi araması"
           />
         </div>
-        <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as typeof typeFilter)}>
-          <SelectTrigger className="h-11 w-full sm:w-[200px]">
-            <SelectValue placeholder="Tür" />
+        <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as TypeFilter)}>
+          <SelectTrigger className="h-11 w-full sm:w-[220px]">
+            <SelectValue placeholder="İçerik" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Tüm türler</SelectItem>
-            <SelectItem value="learning">Öğrenme özeti</SelectItem>
-            <SelectItem value="journal">Kontrol listesi</SelectItem>
+            <SelectItem value="all">Tüm içerikler</SelectItem>
+            <SelectItem value="learnings">Kazanımlar</SelectItem>
+            <SelectItem value="action_notes">Günlük notlar</SelectItem>
           </SelectContent>
         </Select>
         <Select value={projectFilter} onValueChange={setProjectFilter}>
@@ -150,7 +163,7 @@ export function KnowledgeHubView() {
           <SelectContent>
             <SelectItem value="all">Tüm süreçler</SelectItem>
             <SelectItem value="__none__">Sürece bağlı değil</SelectItem>
-            {projects.map((p) => (
+            {projectsScoped.map((p) => (
               <SelectItem key={p.id} value={p.id}>
                 {p.name}
               </SelectItem>
@@ -169,7 +182,7 @@ export function KnowledgeHubView() {
               <div className="p-4">
                 <Badge variant="secondary" className="gap-1">
                   <FileText className="h-3 w-3" />
-                  Liste
+                  Günlük
                 </Badge>
                 <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
                   Örnek: Toplantı notu, mülakat maddesi…
@@ -187,7 +200,7 @@ export function KnowledgeHubView() {
                   <div className="min-w-0">
                     <p className="font-semibold text-foreground">Henüz not yok</p>
                     <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                      Panoda bir aksiyon açıp kontrol listesi ekleyin veya hızlı yakalamadan Inbox’a düşün.
+                      Panoda bir aksiyon açıp günlük not veya kazanım ekleyin; hızlı yakalama ile Inbox’a da düşebilirsiniz.
                     </p>
                     <Button variant="default" className="mt-4 gap-2" onClick={() => router.push('/board')}>
                       <LayoutGrid className="h-4 w-4" />
@@ -253,7 +266,7 @@ export function KnowledgeHubView() {
                         ) : (
                           <Badge variant="secondary" className="gap-1">
                             <FileText className="h-3 w-3" />
-                            Liste
+                            Günlük
                           </Badge>
                         )}
                         {isPinned && <span aria-label="Sabitlendi">⭐</span>}
