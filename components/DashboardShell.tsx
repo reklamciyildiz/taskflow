@@ -56,7 +56,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
-    const t = window.setTimeout(() => {
+    const run = () => {
       if (cancelled) return;
       PREFETCH_APP_ROUTES.forEach((href) => {
         try {
@@ -65,10 +65,19 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           // prefetch isteğe bağlı; bazı ortamlarda sessizce atla
         }
       });
-    }, 180);
+    };
+    // Ana işi bloklamadan prefetch: müsait CPU’da veya en geç ~500ms içinde tek seferde.
+    let dispose: (() => void) | undefined;
+    if (typeof window.requestIdleCallback !== 'undefined') {
+      const id = window.requestIdleCallback(run, { timeout: 500 });
+      dispose = () => window.cancelIdleCallback(id);
+    } else {
+      const id = window.setTimeout(run, 0);
+      dispose = () => window.clearTimeout(id);
+    }
     return () => {
       cancelled = true;
-      window.clearTimeout(t);
+      dispose?.();
     };
   }, [router]);
 
