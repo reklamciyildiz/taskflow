@@ -95,6 +95,7 @@ export async function PATCH(
       project_id: body.projectId === undefined ? undefined : (body.projectId || null),
       learnings: body.learnings,
       journal_logs: journalPayload,
+      board_position: body.boardPosition,
     });
 
     if (!updatedTask) {

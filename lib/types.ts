@@ -101,6 +101,8 @@ export interface Task {
   projectId?: string | null;
   journalLogs?: JournalLogEntry[];
   learnings?: string | null;
+  /** Order within the same board column (status); lower = higher on the board. */
+  boardPosition: number;
   createdBy: string;
   createdAt: Date;
   updatedAt: Date;
@@ -182,6 +184,7 @@ export interface UpdateTaskRequest {
   projectId?: string | null;
   journalLogs?: JournalLogEntry[];
   learnings?: string | null;
+  boardPosition?: number;
 }
 
 export interface CreateTeamRequest {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { DragDropContext, Draggable, Droppable, type DropResult } from '@hello-pangea/dnd';
 import { GripVertical } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -8,25 +8,39 @@ import { cn } from '@/lib/utils';
 import { ACTION_CHECKLIST_QUICK_ROW_ID } from '@/lib/action-checklist';
 import type { JournalLogEntry } from '@/lib/types';
 
+const TEXTAREA_MAX_PX = 280;
+const TEXTAREA_MIN_PX = 40;
+
 function newId(): string {
-  return typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `jl-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `jl-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
 function nowIso(): string {
   return new Date().toISOString();
 }
 
-function isEnterLike(e: React.KeyboardEvent<HTMLInputElement>): boolean {
-  // Mobile keyboards can report Enter inconsistently (e.g. "Go"/"Done"/"Unidentified"), so fall back to keyCode.
-  // Also ignore IME composition to avoid accidental commits mid-composition.
+function isEnterLike(e: React.KeyboardEvent<HTMLElement>): boolean {
   const native = e.nativeEvent as unknown as { isComposing?: boolean; keyCode?: number; which?: number };
   if (native?.isComposing) return false;
   const code = native?.keyCode ?? native?.which;
-  // IMPORTANT: Some mobile browsers report many keys as "Unidentified" — do NOT treat that as Enter.
   if (e.key === 'Enter') return true;
-  // Treat "Go/Done/Next/Search/Send" as Enter only when keyCode is 13.
   if (code === 13 && ['Done', 'Go', 'Next', 'Search', 'Send'].includes(e.key)) return true;
   return code === 13;
+}
+
+/** Enter = yeni madde; Shift+Enter = aynı maddede yeni satır. */
+function shouldCommitNewItem(e: React.KeyboardEvent<HTMLElement>): boolean {
+  return isEnterLike(e) && !e.shiftKey;
+}
+
+function syncTextareaHeight(el: HTMLTextAreaElement | null) {
+  if (!el) return;
+  el.style.height = 'auto';
+  const h = Math.min(Math.max(el.scrollHeight, TEXTAREA_MIN_PX), TEXTAREA_MAX_PX);
+  el.style.height = `${h}px`;
+  el.style.overflowY = el.scrollHeight > TEXTAREA_MAX_PX ? 'auto' : 'hidden';
 }
 
 export interface ActionChecklistProps {
@@ -36,20 +50,26 @@ export interface ActionChecklistProps {
 }
 
 export function ActionChecklist({ items, disabled, onItemsChange }: ActionChecklistProps) {
-  const quickInputRef = useRef<HTMLInputElement | null>(null);
-  const itemInputRefs = useRef<Array<HTMLInputElement | null>>([]);
+  const quickInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const itemInputRefs = useRef<Array<HTMLTextAreaElement | null>>([]);
   const [focusItemIndex, setFocusItemIndex] = useState<number | null>(null);
-  /** focusItemIndex: 1 = first row below quick-add */
   const [focusQuick, setFocusQuick] = useState(false);
 
   const quickRow = items[0];
   const bodyRows = items.slice(1);
   const quickIdOk = quickRow?.id === ACTION_CHECKLIST_QUICK_ROW_ID;
 
+  const sizeSignature = items.map((r) => r.text).join('\u0001');
+
+  useLayoutEffect(() => {
+    syncTextareaHeight(quickInputRef.current);
+    itemInputRefs.current.forEach((el) => syncTextareaHeight(el));
+  }, [sizeSignature]);
+
   useEffect(() => {
     if (!focusQuick) return;
-    quickInputRef.current?.focus();
     const el = quickInputRef.current;
+    el?.focus();
     if (el) {
       const len = el.value.length;
       el.setSelectionRange(len, len);
@@ -60,8 +80,8 @@ export function ActionChecklist({ items, disabled, onItemsChange }: ActionCheckl
   useEffect(() => {
     if (focusItemIndex === null) return;
     const el = itemInputRefs.current[focusItemIndex];
+    el?.focus();
     if (el) {
-      el.focus();
       const len = el.value.length;
       el.setSelectionRange(len, len);
     }
@@ -161,10 +181,15 @@ export function ActionChecklist({ items, disabled, onItemsChange }: ActionCheckl
     );
   }
 
+  const textareaClass = cn(
+    'min-w-0 flex-1 resize-none border-0 bg-transparent py-1 text-[15px] leading-relaxed outline-none',
+    'placeholder:text-muted-foreground/50',
+    'break-words [overflow-wrap:anywhere] whitespace-pre-wrap'
+  );
+
   return (
     <DragDropContext onDragEnd={onDragEnd}>
       <div className="flex flex-col gap-0.5">
-        {/* Sabit üst satır: hızlı ekleme — sürüklenemez */}
         <div
           className={cn(
             'group flex items-start gap-2 rounded-md border border-transparent px-1 py-1.5',
@@ -175,16 +200,19 @@ export function ActionChecklist({ items, disabled, onItemsChange }: ActionCheckl
           <div className="pt-0.5">
             <Checkbox checked={false} disabled className="border-muted-foreground/30 opacity-50" aria-hidden />
           </div>
-          <input
+          <textarea
             ref={quickInputRef}
-            type="text"
+            rows={1}
             value={quickRow.text}
             disabled={disabled}
             enterKeyHint="done"
             placeholder="Liste maddesi…"
-            onChange={(e) => updateQuick(e.target.value)}
+            onChange={(e) => {
+              updateQuick(e.target.value);
+              requestAnimationFrame(() => syncTextareaHeight(quickInputRef.current));
+            }}
             onKeyDown={(e) => {
-              if (isEnterLike(e)) {
+              if (shouldCommitNewItem(e)) {
                 e.preventDefault();
                 commitQuickRowAndFocusTop();
                 return;
@@ -194,13 +222,10 @@ export function ActionChecklist({ items, disabled, onItemsChange }: ActionCheckl
               }
             }}
             onKeyUp={(e) => {
-              // Some mobile browsers will move focus on keyup even if keydown is missed.
-              if (isEnterLike(e)) e.preventDefault();
+              if (isEnterLike(e) && !e.shiftKey) e.preventDefault();
             }}
-            className={cn(
-              'min-w-0 flex-1 border-0 bg-transparent py-1 text-[15px] leading-relaxed outline-none',
-              'placeholder:text-muted-foreground/50'
-            )}
+            className={textareaClass}
+            aria-label="Yeni liste maddesi"
           />
         </div>
 
@@ -248,11 +273,11 @@ export function ActionChecklist({ items, disabled, onItemsChange }: ActionCheckl
                           className="border-muted-foreground/40"
                         />
                       </div>
-                      <input
+                      <textarea
                         ref={(el) => {
                           itemInputRefs.current[bodyIndex] = el;
                         }}
-                        type="text"
+                        rows={1}
                         value={row.text}
                         disabled={disabled}
                         enterKeyHint="done"
@@ -263,9 +288,10 @@ export function ActionChecklist({ items, disabled, onItemsChange }: ActionCheckl
                             text: t,
                             ...(row.text !== t ? { updatedAt: nowIso() } : {}),
                           });
+                          requestAnimationFrame(() => syncTextareaHeight(itemInputRefs.current[bodyIndex]));
                         }}
                         onKeyDown={(e) => {
-                          if (isEnterLike(e)) {
+                          if (shouldCommitNewItem(e)) {
                             e.preventDefault();
                             insertAfterBody(bodyIndex);
                             return;
@@ -276,13 +302,14 @@ export function ActionChecklist({ items, disabled, onItemsChange }: ActionCheckl
                           }
                         }}
                         onKeyUp={(e) => {
-                          if (isEnterLike(e)) e.preventDefault();
+                          if (isEnterLike(e) && !e.shiftKey) e.preventDefault();
                         }}
                         className={cn(
-                          'min-w-0 flex-1 border-0 bg-transparent py-1 text-[15px] leading-relaxed outline-none',
-                          'placeholder:text-muted-foreground/50',
-                          row.done === true && 'text-muted-foreground line-through decoration-muted-foreground/60'
+                          textareaClass,
+                          row.done === true &&
+                            'text-muted-foreground line-through decoration-muted-foreground/60'
                         )}
+                        aria-label="Liste maddesi"
                       />
                     </div>
                   )}

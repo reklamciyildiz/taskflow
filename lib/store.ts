@@ -123,6 +123,7 @@ function initializeData() {
       dueDate: addDays(now, 5),
       assigneeId: 'user-2',
       teamId: 'team-1',
+      boardPosition: 0,
       createdBy: 'user-1',
       createdAt: new Date('2025-01-01'),
       updatedAt: new Date('2025-01-02'),
@@ -145,6 +146,7 @@ function initializeData() {
       dueDate: addDays(now, 3),
       assigneeId: 'user-3',
       teamId: 'team-1',
+      boardPosition: 0,
       createdBy: 'user-1',
       createdAt: new Date('2025-01-01'),
       updatedAt: new Date('2025-01-03'),
@@ -173,6 +175,7 @@ function initializeData() {
       dueDate: addDays(now, 10),
       assigneeId: 'user-4',
       teamId: 'team-1',
+      boardPosition: 0,
       createdBy: 'user-1',
       createdAt: new Date('2025-01-02'),
       updatedAt: new Date('2025-01-02'),
@@ -188,6 +191,7 @@ function initializeData() {
       dueDate: addDays(now, 1),
       assigneeId: 'user-5',
       teamId: 'team-1',
+      boardPosition: 1,
       createdBy: 'user-1',
       createdAt: new Date('2025-01-03'),
       updatedAt: new Date('2025-01-04'),
@@ -210,6 +214,7 @@ function initializeData() {
       dueDate: addDays(now, -5),
       assigneeId: 'user-2',
       teamId: 'team-1',
+      boardPosition: 0,
       createdBy: 'user-1',
       createdAt: new Date('2024-12-28'),
       updatedAt: new Date('2025-01-05'),
@@ -232,6 +237,7 @@ function initializeData() {
       dueDate: addDays(now, 7),
       assigneeId: 'user-6',
       teamId: 'team-2',
+      boardPosition: 0,
       createdBy: 'user-1',
       createdAt: new Date('2025-01-04'),
       updatedAt: new Date('2025-01-05'),
@@ -253,6 +259,7 @@ function initializeData() {
       priority: 'low',
       assigneeId: 'user-7',
       teamId: 'team-2',
+      boardPosition: 0,
       createdBy: 'user-1',
       createdAt: new Date('2025-01-05'),
       updatedAt: new Date('2025-01-05'),
@@ -281,10 +288,11 @@ export const taskStore = {
     return tasks.find(t => t.id === id);
   },
 
-  create: (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'attachments' | 'comments'>): Task => {
+  create: (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'attachments' | 'comments' | 'boardPosition'>): Task => {
     initializeData();
     const newTask: Task = {
       ...task,
+      boardPosition: 0,
       id: `task-${Date.now()}`,
       createdAt: new Date(),
       updatedAt: new Date(),

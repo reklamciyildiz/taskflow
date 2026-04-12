@@ -158,6 +158,7 @@ export interface Database {
           project_id: string | null
           journal_logs: Json
           learnings: string | null
+          board_position: number
           team_id: string
           organization_id: string
           created_by: string
@@ -176,6 +177,7 @@ export interface Database {
           project_id?: string | null
           journal_logs?: Json
           learnings?: string | null
+          board_position?: number
           team_id: string
           organization_id: string
           created_by: string
@@ -194,6 +196,7 @@ export interface Database {
           project_id?: string | null
           journal_logs?: Json
           learnings?: string | null
+          board_position?: number
           team_id?: string
           organization_id?: string
           created_by?: string

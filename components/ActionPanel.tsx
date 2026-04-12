@@ -458,6 +458,7 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
                           <textarea
                             value={description}
                             disabled={!canEdit}
+                            enterKeyHint="enter"
                             onChange={(e) => {
                               const v = e.target.value;
                               setDescription(v);
@@ -476,7 +477,9 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
                 <div className="space-y-3">
                   <div className="flex items-baseline justify-between gap-2">
                     <h2 className="text-sm font-medium text-foreground">Kontrol listesi</h2>
-                    <p className="text-[11px] text-muted-foreground">Enter ile yeni satır · sürükleyerek sırala</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      Enter yeni madde · Shift+Enter satır sonu · sürükleyerek sırala
+                    </p>
                   </div>
                   <div
                     className="max-h-[min(42vh,380px)] min-h-0 overflow-y-auto overscroll-contain rounded-xl border border-border/40 bg-card/40 px-2 py-3"
@@ -501,6 +504,7 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
                     id="action-kazanimlar"
                     value={learnings}
                     disabled={!canEdit}
+                    enterKeyHint="enter"
                     onChange={(e) => setLearnings(e.target.value)}
                     onBlur={() => {
                       if (!task?.id || !canEdit) return;

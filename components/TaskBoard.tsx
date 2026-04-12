@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
 import { TaskCard } from '@/components/TaskCard';
 import { useTaskContext, type TaskStatus } from '@/components/TaskContext';
@@ -11,7 +11,8 @@ import { CreateTaskModal } from '@/components/CreateTaskModal';
 import { VoiceToTaskButton } from '@/components/ai/VoiceToTaskButton';
 import { cn } from '@/lib/utils';
 import { isToday } from 'date-fns';
-import { resolveTaskBoardColumnId, isTerminalBoardColumn } from '@/lib/types';
+import { isTerminalBoardColumn } from '@/lib/types';
+import { orderedColumnTasks, computeBoardDropPatches } from '@/lib/board-reorder';
 import { CreateProjectModal } from '@/components/CreateProjectModal';
 import { EditGeneralBoardModal } from '@/components/EditGeneralBoardModal';
 
@@ -27,7 +28,6 @@ export function TaskBoard() {
 
   const {
     tasks,
-    updateTask,
     filter,
     setFilter,
     currentUser,
@@ -45,6 +45,7 @@ export function TaskBoard() {
     setCustomerFilter,
     openTaskEditor,
     currentUserRole,
+    applyTaskUpdates,
   } = useTaskContext();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
@@ -56,33 +57,6 @@ export function TaskBoard() {
     if (!currentTeam) return projects;
     return projects.filter((p) => !p.teamId || p.teamId === currentTeam.id);
   }, [projects, currentTeam?.id]);
-
-  const onDragEnd = (result: DropResult) => {
-    const { destination, source, draggableId } = result;
-
-    if (!destination) return;
-    if (destination.droppableId === source.droppableId && destination.index === source.index) return;
-
-    // Update the task status when dragged to a different column
-    if (destination.droppableId !== source.droppableId) {
-      const task = tasks.find(t => t.id === draggableId);
-      
-      if (!task) return;
-      
-      if (isTerminalBoardColumn(destination.droppableId, boardColumns)) {
-        if (!canCompleteTask(task.assigneeId)) {
-          return;
-        }
-      }
-      
-      // Check general edit permission for this specific task
-      if (!canEditTask(task.createdBy, task.assigneeId)) {
-        return; // User doesn't have permission to edit this task
-      }
-      
-      updateTask(draggableId, { status: destination.droppableId });
-    }
-  };
 
   const handleCreateTask = () => {
     setIsCreateModalOpen(true);
@@ -119,6 +93,31 @@ export function TaskBoard() {
     
     return result;
   }, [tasks, statusFilter, filter, customerFilter, currentUser?.id, currentTeam?.id, boardScope]);
+
+  const onDragEnd = useCallback(
+    (result: DropResult) => {
+      const { destination, source, draggableId } = result;
+      if (!destination) return;
+      if (destination.droppableId === source.droppableId && destination.index === source.index) return;
+
+      const task = filteredTasks.find((t) => t.id === draggableId);
+      if (!task) return;
+
+      if (!canEditTask(task.createdBy, task.assigneeId)) return;
+
+      if (destination.droppableId !== source.droppableId) {
+        if (isTerminalBoardColumn(destination.droppableId, boardColumns)) {
+          if (!canCompleteTask(task.assigneeId)) return;
+        }
+      }
+
+      const patches = computeBoardDropPatches(filteredTasks, boardColumns, result);
+      if (!patches?.length) return;
+
+      void applyTaskUpdates(patches);
+    },
+    [filteredTasks, boardColumns, canEditTask, canCompleteTask, applyTaskUpdates]
+  );
 
   const getFilterLabel = () => {
     if (filter === 'dueToday') return 'Due Today';
@@ -266,9 +265,7 @@ export function TaskBoard() {
             </p>
             <div className="-mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-3 pt-0.5 overscroll-x-contain [scrollbar-width:thin] [-webkit-overflow-scrolling:touch]">
               {boardColumns.map((column) => {
-                const columnTasks = filteredTasks.filter(
-                  (task) => resolveTaskBoardColumnId(task.status, boardColumns) === column.id
-                );
+                const columnTasks = orderedColumnTasks(filteredTasks, column.id, boardColumns);
                 return (
                   <div
                     key={column.id}
@@ -330,9 +327,7 @@ export function TaskBoard() {
             }}
           >
             {boardColumns.map((column) => {
-              const columnTasks = filteredTasks.filter(
-                (task) => resolveTaskBoardColumnId(task.status, boardColumns) === column.id
-              );
+              const columnTasks = orderedColumnTasks(filteredTasks, column.id, boardColumns);
 
               return (
                 <div key={column.id} className="space-y-2">

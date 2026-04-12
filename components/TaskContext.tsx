@@ -64,8 +64,10 @@ interface TaskContextType {
   openBoardForProject: (projectId: string) => void;
   setBoardScope: (scope: BoardScope) => void;
   setGeneralBoardColumns: (cols: ProjectColumnConfig[]) => void;
-  addTask: (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'attachments' | 'comments'>) => Promise<void>;
+  addTask: (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'attachments' | 'comments' | 'boardPosition'>) => Promise<void>;
   updateTask: (id: string, updates: Partial<Task>) => Promise<boolean>;
+  /** Optimistic multi-patch (e.g. kanban reorder); rolls back if any request fails. */
+  applyTaskUpdates: (items: { id: string; changes: Partial<Task> }[]) => Promise<boolean>;
   deleteTask: (id: string) => Promise<void>;
   setCurrentTeam: (teamId: string) => void;
   addTeam: (team: Omit<Team, 'id' | 'createdAt'>) => Promise<void>;
@@ -116,8 +118,25 @@ function mapJournalLogs(raw: unknown): Task['journalLogs'] {
   });
 }
 
+function partialTaskToUpdateRequest(updates: Partial<Task>): UpdateTaskRequest {
+  const api: UpdateTaskRequest = {};
+  if (updates.title !== undefined) api.title = updates.title;
+  if (updates.description !== undefined) api.description = updates.description;
+  if (updates.status !== undefined) api.status = updates.status;
+  if (updates.priority !== undefined) api.priority = updates.priority;
+  if (updates.dueDate !== undefined) api.dueDate = updates.dueDate?.toISOString();
+  if (updates.assigneeId !== undefined) api.assigneeId = updates.assigneeId;
+  if (updates.customerId !== undefined) api.customerId = updates.customerId;
+  if (updates.projectId !== undefined) api.projectId = updates.projectId;
+  if (updates.learnings !== undefined) api.learnings = updates.learnings;
+  if (updates.journalLogs !== undefined) api.journalLogs = updates.journalLogs;
+  if (updates.boardPosition !== undefined) api.boardPosition = updates.boardPosition;
+  return api;
+}
+
 // Helper to transform API data to frontend format
 function transformTask(apiTask: any): Task {
+  const bp = apiTask.board_position;
   return {
     id: apiTask.id,
     title: apiTask.title,
@@ -132,6 +151,7 @@ function transformTask(apiTask: any): Task {
     projectId: apiTask.project_id ?? null,
     journalLogs: mapJournalLogs(apiTask.journal_logs),
     learnings: apiTask.learnings ?? null,
+    boardPosition: typeof bp === 'number' && !Number.isNaN(bp) ? bp : 0,
     createdBy: apiTask.created_by || apiTask.createdBy || apiTask.user_id,
     createdAt: new Date(apiTask.created_at),
     updatedAt: new Date(apiTask.updated_at),
@@ -696,7 +716,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   }, [fetchCustomers]);
 
   // Add task via API
-  const addTask = useCallback(async (taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'attachments' | 'comments'>) => {
+  const addTask = useCallback(async (taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'attachments' | 'comments' | 'boardPosition'>) => {
     try {
       const response = await taskApi.create({
         title: taskData.title,
@@ -736,19 +756,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     });
 
     try {
-      const apiUpdates: Record<string, unknown> = {};
-      if (updates.title !== undefined) apiUpdates.title = updates.title;
-      if (updates.description !== undefined) apiUpdates.description = updates.description;
-      if (updates.status !== undefined) apiUpdates.status = updates.status;
-      if (updates.priority !== undefined) apiUpdates.priority = updates.priority;
-      if (updates.dueDate !== undefined) apiUpdates.dueDate = updates.dueDate?.toISOString();
-      if (updates.assigneeId !== undefined) apiUpdates.assigneeId = updates.assigneeId;
-      if (updates.customerId !== undefined) apiUpdates.customerId = updates.customerId;
-      if (updates.projectId !== undefined) apiUpdates.projectId = updates.projectId;
-      if (updates.learnings !== undefined) apiUpdates.learnings = updates.learnings;
-      if (updates.journalLogs !== undefined) apiUpdates.journalLogs = updates.journalLogs;
-
-      const response = await taskApi.update(id, apiUpdates as UpdateTaskRequest);
+      const response = await taskApi.update(id, partialTaskToUpdateRequest(updates));
 
       if (!response.success) {
         console.error('Failed to update task:', response.error);
@@ -758,6 +766,34 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       return true;
     } catch (err) {
       console.error('Error updating task:', err);
+      if (rollbackSnapshot) setTasks(rollbackSnapshot);
+      return false;
+    }
+  }, []);
+
+  const applyTaskUpdates = useCallback(async (items: { id: string; changes: Partial<Task> }[]): Promise<boolean> => {
+    if (items.length === 0) return true;
+    let rollbackSnapshot: Task[] | null = null;
+    setTasks((prev) => {
+      rollbackSnapshot = prev;
+      return prev.map((task) => {
+        const item = items.find((i) => i.id === task.id);
+        if (!item) return task;
+        return { ...task, ...item.changes, updatedAt: new Date() };
+      });
+    });
+
+    try {
+      const results = await Promise.all(
+        items.map(({ id, changes }) => taskApi.update(id, partialTaskToUpdateRequest(changes)))
+      );
+      if (results.some((r) => !r.success)) {
+        if (rollbackSnapshot) setTasks(rollbackSnapshot);
+        return false;
+      }
+      return true;
+    } catch (err) {
+      console.error('Error applying task updates:', err);
       if (rollbackSnapshot) setTasks(rollbackSnapshot);
       return false;
     }
@@ -1071,6 +1107,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       setGeneralBoardColumns,
       addTask,
       updateTask,
+      applyTaskUpdates,
       deleteTask,
       setCurrentTeam,
       addTeam,

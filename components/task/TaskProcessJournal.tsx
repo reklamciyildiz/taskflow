@@ -1,10 +1,9 @@
 'use client';
 
-import { useMemo, useState, useCallback, KeyboardEvent } from 'react';
+import { useMemo, useState, useCallback, useLayoutEffect, useRef, KeyboardEvent } from 'react';
 import { format, parseISO, isValid } from 'date-fns';
 import type { JournalLogEntry } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
@@ -58,6 +57,7 @@ export function TaskProcessJournal({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingDraft, setEditingDraft] = useState('');
   const [pendingEdit, setPendingEdit] = useState(false);
+  const draftRef = useRef<HTMLTextAreaElement | null>(null);
 
   const sorted = useMemo(
     () =>
@@ -74,12 +74,21 @@ export function TaskProcessJournal({
     if (ok) setDraft('');
   }, [draft, canEdit, pending, onAppend]);
 
-  const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+  const onDraftKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       void submit();
     }
   };
+
+  useLayoutEffect(() => {
+    const el = draftRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    const h = Math.min(Math.max(el.scrollHeight, 44), 240);
+    el.style.height = `${h}px`;
+    el.style.overflowY = el.scrollHeight > 240 ? 'auto' : 'hidden';
+  }, [draft]);
 
   const startEdit = useCallback(
     (entry: JournalLogEntry) => {
@@ -129,18 +138,21 @@ export function TaskProcessJournal({
         <Label className="text-base font-semibold">Süreç günlüğü</Label>
       </div>
       <p className="text-xs text-muted-foreground">
-        Teknik notları buraya ekleyin; en yeni kayıt üstte görünür.
+        Teknik notları buraya ekleyin; en yeni kayıt üstte görünür. Enter ile gönder · Shift+Enter ile satır sonu.
       </p>
 
       {canEdit && (
-        <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
-          <Input
+        <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start">
+          <Textarea
+            ref={draftRef}
+            rows={1}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={onKeyDown}
+            onKeyDown={onDraftKeyDown}
+            enterKeyHint="send"
             placeholder="Örn. Slippage 0.5 yapıldı…"
             disabled={disabled || pending}
-            className="min-w-0 flex-1 bg-white dark:bg-gray-900"
+            className="min-h-[44px] min-w-0 flex-1 resize-none break-words [overflow-wrap:anywhere] whitespace-pre-wrap bg-white dark:bg-gray-900"
             aria-label="Yeni günlük notu"
           />
           <Button
@@ -148,7 +160,7 @@ export function TaskProcessJournal({
             variant="secondary"
             onClick={() => void submit()}
             disabled={disabled || pending || !draft.trim()}
-            className="w-full shrink-0 sm:w-auto"
+            className="w-full shrink-0 sm:w-auto sm:mt-0.5"
           >
             {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Ekle'}
           </Button>
@@ -188,6 +200,7 @@ export function TaskProcessJournal({
                       value={editingDraft}
                       onChange={(e) => setEditingDraft(e.target.value)}
                       onKeyDown={onEditKeyDown}
+                      enterKeyHint="enter"
                       disabled={disabled || pendingEdit}
                       className="min-h-[80px] w-full min-w-0 max-w-full resize-y break-words bg-white dark:bg-gray-900"
                       aria-label="Günlük notunu düzenle"
