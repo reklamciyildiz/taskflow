@@ -20,6 +20,7 @@ const PREFETCH_APP_ROUTES = [
   '/team',
   '/profile',
   '/settings',
+  '/notifications',
 ] as const;
 
 function TaskEditModalHost() {

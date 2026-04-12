@@ -10,7 +10,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Sparkles, Loader2, Copy, Check } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 interface DescriptionGeneratorButtonProps {
@@ -37,8 +37,6 @@ export function DescriptionGeneratorButton({
   const [generatedDescription, setGeneratedDescription] = useState('');
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const { toast } = useToast();
 
   const handleGenerate = async () => {
     setIsGenerating(true);
@@ -71,19 +69,12 @@ export function DescriptionGeneratorButton({
         onDescriptionGenerated(result.data.generatedDescription);
       }
 
-      toast({
-        title: 'Success!',
-        description: 'Description generated successfully',
-      });
+      toast.success('Description generated successfully');
     } catch (err) {
       console.error('[AI Description] Error:', err);
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       setError(errorMessage);
-      toast({
-        title: 'Error',
-        description: errorMessage,
-        variant: 'destructive',
-      });
+      toast.error(errorMessage);
     } finally {
       setIsGenerating(false);
     }
@@ -93,10 +84,7 @@ export function DescriptionGeneratorButton({
     navigator.clipboard.writeText(generatedDescription);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-    toast({
-      title: 'Copied!',
-      description: 'Description copied to clipboard',
-    });
+    toast.success('Description copied to clipboard');
   };
 
   const handleUse = () => {
@@ -104,10 +92,7 @@ export function DescriptionGeneratorButton({
       onDescriptionGenerated(generatedDescription);
     }
     setIsOpen(false);
-    toast({
-      title: 'Applied!',
-      description: 'Description has been applied to the task',
-    });
+    toast.success('Description has been applied to the task');
   };
 
   return (

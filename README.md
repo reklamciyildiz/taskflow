@@ -74,7 +74,7 @@ A sophisticated task management application built with Next.js, featuring advanc
 │   ├── Analytics.tsx       # Analytics dashboard
 │   ├── Settings.tsx        # Team and user settings
 │   ├── CreateTaskModal.tsx # Task creation dialog
-│   ├── NotificationPanel.tsx # Notification dropdown
+│   ├── NotificationBell.tsx  # In-app notifications (header)
 │   ├── TaskContext.tsx     # Global state management
 │   ├── ThemeProvider.tsx   # Theme context provider
 │   ├── ThemeToggle.tsx     # Dark/light mode toggle

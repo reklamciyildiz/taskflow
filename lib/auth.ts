@@ -68,7 +68,7 @@ export const authOptions: NextAuthOptions = {
         token.accessToken = account.access_token;
         token.provider = account.provider;
       }
-      
+
       // Always fetch fresh user data from Supabase to ensure organization info is up-to-date
       // This is critical for security - when a user is removed from organization, token should reflect this
       if (token.email) {
@@ -83,13 +83,23 @@ export const authOptions: NextAuthOptions = {
         const shouldBackoff = lastFailAt > 0 && now - lastFailAt < 60_000;
         const isFresh = lastSyncAt > 0 && now - lastSyncAt < 5 * 60_000;
 
+        // After join-org / create-org, session.update() must see DB immediately — do not use stale cache.
+        const forceDbSync =
+          trigger === 'update' ||
+          trigger === 'signIn' ||
+          Boolean(user);
+
         const hasSupabaseEnv =
           Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL) &&
           Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) &&
           process.env.NEXT_PUBLIC_SUPABASE_URL !== 'https://placeholder.supabase.co' &&
           process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY !== 'placeholder-key';
 
-        if (!shouldBackoff && !isFresh && hasSupabaseEnv) {
+        const shouldSync =
+          hasSupabaseEnv &&
+          (forceDbSync || (!shouldBackoff && !isFresh));
+
+        if (shouldSync) {
           try {
             const userDb = getUserDb();
             const dbUser: any = await userDb.getByEmail(token.email as string);
@@ -98,25 +108,21 @@ export const authOptions: NextAuthOptions = {
 
             if (dbUser) {
               token.id = dbUser.id;
-              token.organizationId = dbUser.organization_id; // Now properly nullable
+              token.organizationId = dbUser.organization_id ?? null;
               token.role = dbUser.role;
-              token.needsOnboarding = false;
+              // Row exists but no org → still needs onboarding / invite join
+              token.needsOnboarding = !dbUser.organization_id;
 
-              // Sync user to Supabase Auth for RLS compatibility
-              // This ensures auth.uid() works in RLS policies
               await syncUserToSupabaseAuth(
                 dbUser.id,
                 token.email as string,
                 token.name as string || 'User'
               );
             } else {
-              // User not in database - needs onboarding
               token.needsOnboarding = true;
               token.organizationId = null;
             }
           } catch (error: any) {
-            // Professional behavior: don't break auth/session on transient network issues.
-            // Keep prior token fields; just back off and log a compact message.
             t.dbSyncFailAt = now;
             if (process.env.NODE_ENV !== 'production') {
               const msg = typeof error?.message === 'string' ? error.message : String(error);
@@ -125,7 +131,7 @@ export const authOptions: NextAuthOptions = {
           }
         }
       }
-      
+
       return token;
     },
     async session({ session, token }) {

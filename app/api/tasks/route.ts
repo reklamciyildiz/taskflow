@@ -94,13 +94,18 @@ export async function POST(request: NextRequest) {
     if (body.assigneeId && body.assigneeId !== userId) {
       try {
         const creator = await userDb.getById(userId);
+        const projectId = task.project_id ?? null;
+        const qs = new URLSearchParams();
+        if (projectId) qs.set('project', projectId);
+        qs.set('task', task.id);
+        const link = `/board?${qs.toString()}`;
         await notificationDb.create({
           user_id: body.assigneeId,
           organization_id: organizationId,
           type: 'task_assigned',
           title: 'New task assigned to you',
           message: `${creator?.name || 'Someone'} assigned you: "${body.title}"`,
-          link: '/?view=board',
+          link,
         });
       } catch (notifError) {
         console.error('Failed to create notification:', notifError);

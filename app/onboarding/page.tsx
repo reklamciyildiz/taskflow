@@ -57,14 +57,13 @@ export default function OnboardingPage() {
         throw new Error(data.error || 'Failed to create organization');
       }
 
-      // Update session to reflect new organization
       await update();
+      router.refresh();
       setStep('complete');
-      
-      // Redirect to dashboard after a short delay
+
       setTimeout(() => {
         router.push('/');
-      }, 2000);
+      }, 1200);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -94,14 +93,13 @@ export default function OnboardingPage() {
         throw new Error(data.error || 'Failed to join organization');
       }
 
-      // Update session to reflect new organization
       await update();
+      router.refresh();
       setStep('complete');
-      
-      // Redirect to dashboard after a short delay
+
       setTimeout(() => {
         router.push('/');
-      }, 2000);
+      }, 1200);
     } catch (err: any) {
       setError(err.message);
     } finally {

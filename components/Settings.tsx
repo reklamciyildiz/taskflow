@@ -23,9 +23,13 @@ import {
   Trash2,
   Edit,
   UserPlus,
-  Layers
+  Layers,
+  LogOut,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useTheme } from 'next-themes';
 import { ChangePasswordModal } from '@/components/ChangePasswordModal';
@@ -45,7 +49,10 @@ export function Settings() {
     teams,
     createTeam,
     updateTeam,
+    refreshData,
   } = useTaskContext();
+  const { update } = useSession();
+  const router = useRouter();
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
@@ -70,6 +77,7 @@ export function Settings() {
   const [pushNotifications, setPushNotifications] = useState(true);
   const [teamActivity, setTeamActivity] = useState(false);
   const [compactView, setCompactView] = useState(false);
+  const [leaveSoloLoading, setLeaveSoloLoading] = useState(false);
   // Processes are managed in Process Center (/dashboard/processes)
 
   // Load settings from API and localStorage on mount
@@ -167,6 +175,34 @@ export function Settings() {
   const handleOrgNameCancel = () => {
     setIsEditingOrg(false);
     setNewOrgName('');
+  };
+
+  const handleLeaveSoloWorkspace = async () => {
+    if (
+      !confirm(
+        'Organizasyonda yalnızca sen varsan, üyeliğin kaldırılır ve başka bir ekibin davetini kabul edebilirsin. Devam edilsin mi?'
+      )
+    ) {
+      return;
+    }
+    setLeaveSoloLoading(true);
+    try {
+      const res = await fetch('/api/onboarding/reset-solo-workspace', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'İşlem başarısız');
+      }
+      toast.success(data.message || 'Çalışma alanından çıktın');
+      await update?.();
+      router.refresh();
+      await refreshData();
+      router.push('/onboarding');
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'İşlem başarısız';
+      toast.error(msg);
+    } finally {
+      setLeaveSoloLoading(false);
+    }
   };
 
   // Check if user is admin or owner
@@ -452,6 +488,31 @@ export function Settings() {
                   onCheckedChange={handleTeamActivity} 
                 />
               </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-amber-200/80 dark:border-amber-900/40">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <LogOut className="h-5 w-5 text-amber-600 dark:text-amber-500" />
+                Çalışma alanı
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Yanlışlıkla kendi organizasyonunu oluşturduysan ve başka bir ekip davetini kabul etmek
+                istiyorsan, buradan çıkabilirsin. Yalnızca organizasyonda{' '}
+                <strong>tek üye</strong> isen işlem uygulanır.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                className="border-amber-300 text-amber-900 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-100 dark:hover:bg-amber-950/40"
+                disabled={leaveSoloLoading}
+                onClick={() => void handleLeaveSoloWorkspace()}
+              >
+                {leaveSoloLoading ? 'İşleniyor…' : 'Tek kişilik çalışma alanımdan çık'}
+              </Button>
             </CardContent>
           </Card>
         </div>

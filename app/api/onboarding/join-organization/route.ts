@@ -3,6 +3,26 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { invitationDb, userDb, teamMemberDb, teamDb } from '@/lib/db';
 
+function normalizeInviteTeamRole(role: string | null | undefined): 'admin' | 'member' | 'viewer' {
+  if (role === 'admin' || role === 'viewer') return role;
+  return 'member';
+}
+
+async function ensureUserInInviteTeams(
+  userId: string,
+  invitation: { organization_id: string; team_id: string | null; role: string | null }
+) {
+  const tr = normalizeInviteTeamRole(invitation.role ?? undefined);
+  if (invitation.team_id) {
+    await teamMemberDb.ensureMember(invitation.team_id, userId, tr);
+    return;
+  }
+  const teams = await teamDb.getByOrganization(invitation.organization_id);
+  if (teams && teams.length > 0) {
+    await teamMemberDb.ensureMember(teams[0].id, userId, tr);
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -28,7 +48,12 @@ export async function POST(request: NextRequest) {
 
     if (!invitation) {
       return NextResponse.json(
-        { success: false, error: 'Invalid or expired invite code' },
+        {
+          success: false,
+          error:
+            'Geçersiz veya süresi dolmuş davet kodu. Bağlantıyı tekrar kontrol et veya yöneticinden yeni davet iste.',
+          code: 'INVITE_INVALID',
+        },
         { status: 404 }
       );
     }
@@ -39,7 +64,7 @@ export async function POST(request: NextRequest) {
     if (existingUser) {
       // User already exists - check their organization
       if (existingUser.organization_id === invitation.organization_id) {
-        // Already in this organization - just mark invitation as accepted and redirect
+        await ensureUserInInviteTeams(existingUser.id, invitation);
         await invitationDb.accept(invitation.id);
         return NextResponse.json({
           success: true,
@@ -50,9 +75,13 @@ export async function POST(request: NextRequest) {
           message: 'You are already a member of this organization',
         });
       } else if (existingUser.organization_id) {
-        // User belongs to a different organization
         return NextResponse.json(
-          { success: false, error: 'You are already a member of another organization. Please contact support to transfer.' },
+          {
+            success: false,
+            error:
+              'Zaten başka bir organizasyona üyesin. Bu daveti kabul etmek için önce mevcut üyeliğin hakkında yönetici veya destek ile iletişime geç.',
+            code: 'OTHER_ORG',
+          },
           { status: 400 }
         );
       } else {
@@ -62,15 +91,7 @@ export async function POST(request: NextRequest) {
           role: invitation.role || 'member',
         });
 
-        // Add to team
-        if (invitation.team_id) {
-          await teamMemberDb.add(invitation.team_id, existingUser.id, invitation.role || 'member');
-        } else {
-          const teams = await teamDb.getByOrganization(invitation.organization_id);
-          if (teams && teams.length > 0) {
-            await teamMemberDb.add(teams[0].id, existingUser.id, invitation.role || 'member');
-          }
-        }
+        await ensureUserInInviteTeams(existingUser.id, invitation);
 
         await invitationDb.accept(invitation.id);
 
@@ -94,24 +115,7 @@ export async function POST(request: NextRequest) {
       role: invitation.role || 'member',
     });
 
-    // If invitation has a team_id, add user to that team
-    if (invitation.team_id) {
-      await teamMemberDb.add(
-        invitation.team_id,
-        newUser.id,
-        invitation.role || 'member'
-      );
-    } else {
-      // If no specific team, add to the first/default team in the organization
-      const teams = await teamDb.getByOrganization(invitation.organization_id);
-      if (teams && teams.length > 0) {
-        await teamMemberDb.add(
-          teams[0].id,
-          newUser.id,
-          invitation.role || 'member'
-        );
-      }
-    }
+    await ensureUserInInviteTeams(newUser.id, invitation);
 
     // Mark invitation as accepted
     await invitationDb.accept(invitation.id);

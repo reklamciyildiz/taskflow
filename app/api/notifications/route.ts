@@ -24,7 +24,10 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const limit = parseInt(searchParams.get('limit') || '20');
+    const rawLimit = searchParams.get('limit');
+    const parsed = rawLimit != null ? parseInt(rawLimit, 10) : 20;
+    const limit =
+      Number.isFinite(parsed) && parsed > 0 ? Math.min(parsed, 100) : 20;
 
     const [notifications, unreadCount] = await Promise.all([
       notificationDb.getByUser(user.id, limit),
@@ -67,7 +70,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { action, notificationId } = await request.json();
+    let body: { action?: string; notificationId?: string };
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        { success: false, error: 'Invalid JSON body' },
+        { status: 400 }
+      );
+    }
+
+    const { action, notificationId } = body;
 
     if (action === 'markAllRead') {
       await notificationDb.markAllAsRead(user.id);
@@ -78,7 +91,13 @@ export async function POST(request: NextRequest) {
     }
 
     if (action === 'markRead' && notificationId) {
-      await notificationDb.markAsRead(notificationId);
+      const row = await notificationDb.markAsReadForUser(notificationId, user.id);
+      if (!row) {
+        return NextResponse.json(
+          { success: false, error: 'Notification not found' },
+          { status: 404 }
+        );
+      }
       return NextResponse.json({
         success: true,
         message: 'Notification marked as read',

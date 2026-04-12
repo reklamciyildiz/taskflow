@@ -182,6 +182,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const projectQueryParam = searchParams.get('project');
+  const taskQueryParam = searchParams.get('task');
   const [tasks, setTasks] = useState<Task[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -549,6 +550,50 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       prev && projects.some((x) => x.id === prev.id) ? prev : null
     );
   }, [projects]);
+
+  // Open action panel from /board?task=… (e.g. in-app notification deep link)
+  useEffect(() => {
+    if (pathname !== '/board' || !taskQueryParam) return;
+    if (loading) return;
+
+    const task = tasks.find((t) => t.id === taskQueryParam);
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('task');
+
+    if (!task) {
+      const q = params.toString();
+      router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false });
+      return;
+    }
+
+    if (task.projectId) {
+      const p = projects.find((pr) => pr.id === task.projectId);
+      if (p) {
+        setBoardScope({ type: 'project', projectId: task.projectId });
+        setCurrentProjectState(p);
+        params.set('project', task.projectId);
+      }
+    } else {
+      setBoardScope({ type: 'general' });
+      setCurrentProjectState(null);
+      params.delete('project');
+    }
+
+    openTaskEditor(task.id);
+
+    const q = params.toString();
+    router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false });
+  }, [
+    pathname,
+    taskQueryParam,
+    loading,
+    tasks,
+    projects,
+    router,
+    searchParams,
+    setBoardScope,
+    openTaskEditor,
+  ]);
 
   // Fetch customers from API
   const fetchCustomers = useCallback(async () => {

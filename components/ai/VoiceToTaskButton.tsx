@@ -15,7 +15,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Mic, Square, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 interface VoiceToTaskButtonProps {
@@ -42,8 +42,6 @@ export function VoiceToTaskButton({ onTaskCreated, className }: VoiceToTaskButto
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-
-  const { toast } = useToast();
 
   // Cleanup on unmount
   useEffect(() => {
@@ -111,11 +109,7 @@ export function VoiceToTaskButton({ onTaskCreated, className }: VoiceToTaskButto
     } catch (err) {
       console.error('Failed to start recording:', err);
       setError('Mikrofon erişimi reddedildi. Lütfen tarayıcı izinlerini kontrol edin.');
-      toast({
-        title: 'Hata',
-        description: 'Mikrofon erişimi reddedildi',
-        variant: 'destructive',
-      });
+      toast.error('Mikrofon erişimi reddedildi');
     }
   };
 
@@ -172,10 +166,7 @@ export function VoiceToTaskButton({ onTaskCreated, className }: VoiceToTaskButto
         onTaskCreated(result.data.extractedTask);
       }
 
-      toast({
-        title: 'Başarılı!',
-        description: 'Aksiyon başarıyla oluşturuldu',
-      });
+      toast.success('Aksiyon başarıyla oluşturuldu');
     } catch (err) {
       console.error('Failed to process audio:', err);
       
@@ -192,11 +183,7 @@ export function VoiceToTaskButton({ onTaskCreated, className }: VoiceToTaskButto
       }
       
       setError(errorMessage);
-      toast({
-        title: 'Hata',
-        description: errorMessage,
-        variant: 'destructive',
-      });
+      toast.error(errorMessage);
     } finally {
       setIsProcessing(false);
     }

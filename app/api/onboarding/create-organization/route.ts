@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { createUserWithOrganization } from '@/lib/db';
+import { createUserWithOrganization, userDb } from '@/lib/db';
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,7 +23,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create organization and user
+    const existing = await userDb.getByEmail(session.user.email);
+    if (existing?.organization_id) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            'Zaten bir organizasyona bağlısın. Yeni çalışma alanı oluşturmak için önce mevcut üyeliğini sonlandırman gerekir (veya farklı bir hesap kullan).',
+          code: 'ALREADY_IN_ORG',
+        },
+        { status: 409 }
+      );
+    }
+
     const result = await createUserWithOrganization(
       session.user.email,
       session.user.name || session.user.email.split('@')[0],

@@ -27,7 +27,9 @@ export default function InvitePage() {
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [joinErrorCode, setJoinErrorCode] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [resettingWorkspace, setResettingWorkspace] = useState(false);
 
   // Fetch invitation details
   useEffect(() => {
@@ -37,7 +39,7 @@ export default function InvitePage() {
         const data = await response.json();
 
         if (!response.ok) {
-          setError(data.error || 'Invalid invitation');
+          setError(data.error || 'Davet yüklenemedi');
           return;
         }
 
@@ -58,16 +60,9 @@ export default function InvitePage() {
   useEffect(() => {
     async function autoJoin() {
       if (!session?.user || !invitation || joining || success || error) return;
-      
-      // Check if user already has an organization (not a new user)
-      const user = session.user as any;
-      if (user.organizationId) {
-        setError('You are already a member of an organization');
-        return;
-      }
 
-      // Auto-accept the invitation
       setJoining(true);
+      setJoinErrorCode(null);
       try {
         const response = await fetch('/api/onboarding/join-organization', {
           method: 'POST',
@@ -78,18 +73,18 @@ export default function InvitePage() {
         const data = await response.json();
 
         if (!response.ok) {
-          throw new Error(data.error || 'Failed to join organization');
+          setJoinErrorCode(typeof data.code === 'string' ? data.code : null);
+          throw new Error(data.error || 'Davet kabul edilemedi');
         }
 
         setSuccess(true);
-        
-        // Update session to reflect new organization
+
         await updateSession();
-        
-        // Redirect to dashboard after a short delay
+        router.refresh();
+
         setTimeout(() => {
           router.push('/');
-        }, 2000);
+        }, 1200);
       } catch (err: any) {
         setError(err.message);
       } finally {
@@ -97,8 +92,8 @@ export default function InvitePage() {
       }
     }
 
-    autoJoin();
-  }, [session, invitation, token, joining, success, error, router]);
+    void autoJoin();
+  }, [session, invitation, token, joining, success, error, router, updateSession]);
 
   const handleAcceptInvitation = async () => {
     if (!session?.user) {
@@ -110,6 +105,7 @@ export default function InvitePage() {
 
     setJoining(true);
     setError(null);
+    setJoinErrorCode(null);
 
     try {
       const response = await fetch('/api/onboarding/join-organization', {
@@ -121,22 +117,45 @@ export default function InvitePage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to join organization');
+        setJoinErrorCode(typeof data.code === 'string' ? data.code : null);
+        throw new Error(data.error || 'Davet kabul edilemedi');
       }
 
       setSuccess(true);
-      
-      // Update session to reflect new organization
+
       await updateSession();
-      
-      // Redirect to dashboard after a short delay
+      router.refresh();
+
       setTimeout(() => {
         router.push('/');
-      }, 2000);
+      }, 1200);
     } catch (err: any) {
       setError(err.message);
     } finally {
       setJoining(false);
+    }
+  };
+
+  const handleResetSoloWorkspace = async () => {
+    setResettingWorkspace(true);
+    setError(null);
+    setJoinErrorCode(null);
+    try {
+      const response = await fetch('/api/onboarding/reset-solo-workspace', {
+        method: 'POST',
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'İşlem başarısız');
+      }
+      await updateSession();
+      router.refresh();
+      setError(null);
+      setJoinErrorCode(null);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setResettingWorkspace(false);
     }
   };
 
@@ -159,9 +178,9 @@ export default function InvitePage() {
             <XCircle className="w-12 h-12 text-red-600 dark:text-red-400" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-            Invalid Invitation
+            Davet kullanılamıyor
           </h1>
-          <p className="text-gray-600 dark:text-gray-400 mb-6">
+          <p className="text-gray-600 dark:text-gray-400 mb-6 text-sm leading-relaxed">
             {error}
           </p>
           <button
@@ -239,6 +258,33 @@ export default function InvitePage() {
             {error}
           </div>
         )}
+
+        {session?.user &&
+          joinErrorCode === 'OTHER_ORG' &&
+          invitation && (
+            <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-100">
+              <p className="mb-2 font-medium">Yanlışlıkla kendi çalışma alanını mı oluşturdun?</p>
+              <p className="mb-3 text-amber-800/90 dark:text-amber-200/90">
+                O alanda <strong>sadece sen</strong> varsan, güvenli şekilde çıkıp bu daveti kabul edebilirsin.
+                Sayfa ardından otomatik olarak tekrar katılmayı dener.
+              </p>
+              <button
+                type="button"
+                onClick={() => void handleResetSoloWorkspace()}
+                disabled={resettingWorkspace}
+                className="w-full rounded-lg bg-amber-600 px-4 py-2.5 font-medium text-white transition-colors hover:bg-amber-700 disabled:opacity-50"
+              >
+                {resettingWorkspace ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    İşleniyor…
+                  </span>
+                ) : (
+                  'Tek kişilik çalışma alanımdan çık'
+                )}
+              </button>
+            </div>
+          )}
 
         {/* Action Buttons */}
         {!session?.user ? (

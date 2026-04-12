@@ -7,23 +7,53 @@ export async function GET(
   { params }: { params: { token: string } }
 ) {
   try {
-    const { token } = params;
+    const raw = params.token;
 
-    if (!token) {
+    if (!raw || typeof raw !== 'string') {
       return NextResponse.json(
-        { success: false, error: 'Token is required' },
+        { success: false, error: 'Token is required', code: 'BAD_REQUEST' },
         { status: 400 }
       );
     }
 
-    const invitation = await invitationDb.getByToken(token);
+    const normalized = raw.trim().toUpperCase();
+    const row = await invitationDb.getRawByToken(normalized);
 
-    if (!invitation) {
+    if (!row) {
       return NextResponse.json(
-        { success: false, error: 'Invalid or expired invitation' },
+        {
+          success: false,
+          error: 'Geçersiz davet bağlantısı.',
+          code: 'NOT_FOUND',
+        },
         { status: 404 }
       );
     }
+
+    if (row.accepted_at) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            'Bu davet zaten kullanılmış. Hesabınla giriş yaparak çalışma alanına erişebilirsin.',
+          code: 'ALREADY_USED',
+        },
+        { status: 410 }
+      );
+    }
+
+    if (new Date(row.expires_at) <= new Date()) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Bu davetin süresi dolmuş. Yöneticinden yeni bir davet isteyebilirsin.',
+          code: 'EXPIRED',
+        },
+        { status: 410 }
+      );
+    }
+
+    const invitation = row;
 
     // Get organization details
     let organization = null;
@@ -60,9 +90,15 @@ export async function DELETE(
   { params }: { params: { token: string } }
 ) {
   try {
-    const { token } = params;
+    const raw = params.token;
+    if (!raw || typeof raw !== 'string') {
+      return NextResponse.json(
+        { success: false, error: 'Token is required' },
+        { status: 400 }
+      );
+    }
 
-    const invitation = await invitationDb.getByToken(token);
+    const invitation = await invitationDb.getRawByToken(raw.trim().toUpperCase());
 
     if (!invitation) {
       return NextResponse.json(

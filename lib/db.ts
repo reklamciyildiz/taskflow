@@ -385,6 +385,18 @@ export const teamMemberDb = {
     return data;
   },
 
+  /** Insert membership or no-op if (team_id, user_id) already exists (idempotent joins). */
+  async ensureMember(teamId: string, userId: string, role: 'admin' | 'member' | 'viewer' = 'member') {
+    const existing = await this.getMembership(teamId, userId);
+    if (existing) {
+      if (existing.role !== role) {
+        return await this.updateRole(teamId, userId, role);
+      }
+      return existing;
+    }
+    return await this.add(teamId, userId, role);
+  },
+
   async getByTeam(teamId: string) {
     const { data, error } = await db
       .from('team_members')
@@ -426,6 +438,27 @@ export const teamMemberDb = {
       .eq('user_id', userId);
     
     if (error) throw error;
+    return true;
+  },
+
+  /** Removes this user from every team that belongs to the given organization (e.g. before switching org). */
+  async removeUserFromOrganizationTeams(userId: string, organizationId: string) {
+    const { data: teams, error: teamsError } = await db
+      .from('teams')
+      .select('id')
+      .eq('organization_id', organizationId);
+
+    if (teamsError) throw teamsError;
+    if (!teams?.length) return true;
+
+    for (const row of teams) {
+      const { error } = await db
+        .from('team_members')
+        .delete()
+        .eq('team_id', row.id)
+        .eq('user_id', userId);
+      if (error) throw error;
+    }
     return true;
   },
 
@@ -732,6 +765,18 @@ export const invitationDb = {
     return data;
   },
 
+  /** Lookup by token regardless of accepted/expiry (for clear API error messages). */
+  async getRawByToken(token: string) {
+    const { data, error } = await db
+      .from('invitations')
+      .select('*')
+      .eq('token', token)
+      .maybeSingle();
+
+    if (error) throw error;
+    return data;
+  },
+
   async getByOrganization(organizationId: string) {
     const { data, error } = await db
       .from('invitations')
@@ -794,7 +839,12 @@ export async function createUserWithOrganization(
   
   if (existingUser) {
     userId = existingUser.id;
-    // Update existing user (re-activate them)
+    if (existingUser.organization_id) {
+      await teamMemberDb.removeUserFromOrganizationTeams(
+        existingUser.id,
+        existingUser.organization_id
+      );
+    }
     user = await userDb.update(existingUser.id, {
       name: name || existingUser.name,
       organization_id: org.id,
@@ -877,14 +927,16 @@ export const notificationDb = {
     return count || 0;
   },
 
-  async markAsRead(notificationId: string) {
+  /** Marks read only if the row belongs to `userId` (avoids cross-user IDOR). */
+  async markAsReadForUser(notificationId: string, userId: string) {
     const { data, error } = await db
       .from('notifications')
       .update({ read: true })
       .eq('id', notificationId)
-      .select()
-      .single();
-    
+      .eq('user_id', userId)
+      .select('id')
+      .maybeSingle();
+
     if (error) throw error;
     return data;
   },
@@ -1164,8 +1216,7 @@ export async function joinOrganizationViaInvitation(
   name: string,
   invitationToken: string
 ) {
-  // Get invitation
-  const invitation = await invitationDb.getByToken(invitationToken);
+  const invitation = await invitationDb.getByToken(invitationToken.trim().toUpperCase());
   if (!invitation) {
     throw new Error('Invalid or expired invitation');
   }
@@ -1179,12 +1230,19 @@ export async function joinOrganizationViaInvitation(
     avatar_url: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`,
   });
 
-  // If invitation includes a team, add user to that team
+  const tr =
+    invitation.role === 'admin' || invitation.role === 'viewer'
+      ? invitation.role
+      : 'member';
   if (invitation.team_id) {
-    await teamMemberDb.add(invitation.team_id, user.id, invitation.role);
+    await teamMemberDb.ensureMember(invitation.team_id, user.id, tr);
+  } else {
+    const teams = await teamDb.getByOrganization(invitation.organization_id);
+    if (teams && teams.length > 0) {
+      await teamMemberDb.ensureMember(teams[0].id, user.id, tr);
+    }
   }
 
-  // Mark invitation as accepted
   await invitationDb.accept(invitation.id);
 
   return { user, invitation };
