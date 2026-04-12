@@ -1,6 +1,6 @@
 'use client';
 
-import { Menu, Search, Plus, X } from 'lucide-react';
+import { Menu, PanelLeftClose, PanelLeftOpen, Search, Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -13,9 +13,11 @@ import { useRouter } from 'next/navigation';
 
 interface HeaderProps {
   onSidebarToggle: () => void;
+  /** lg+: sidebar geniş modda mı (dar şerit değil) */
+  desktopSidebarExpanded?: boolean;
 }
 
-export function Header({ onSidebarToggle }: HeaderProps) {
+export function Header({ onSidebarToggle, desktopSidebarExpanded = true }: HeaderProps) {
   const [showCreateTask, setShowCreateTask] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showResults, setShowResults] = useState(false);
@@ -103,14 +105,30 @@ export function Header({ onSidebarToggle }: HeaderProps) {
   return (
     <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-40">
       <div className="flex h-16 items-center px-4 sm:px-6 gap-3 sm:gap-4">
-        {/* Mobile sidebar toggle */}
         <Button
+          type="button"
           variant="ghost"
           size="sm"
-          className="lg:hidden"
+          className="lg:hidden shrink-0"
           onClick={onSidebarToggle}
+          aria-label="Menüyü aç veya kapat"
         >
           <Menu className="h-5 w-5" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="hidden lg:inline-flex shrink-0 text-muted-foreground hover:text-foreground"
+          onClick={onSidebarToggle}
+          aria-label={desktopSidebarExpanded ? 'Kenar çubuğunu daralt' : 'Kenar çubuğunu genişlet'}
+          title={desktopSidebarExpanded ? 'Kenar çubuğunu daralt' : 'Kenar çubuğunu genişlet'}
+        >
+          {desktopSidebarExpanded ? (
+            <PanelLeftClose className="h-5 w-5" />
+          ) : (
+            <PanelLeftOpen className="h-5 w-5" />
+          )}
         </Button>
 
         {/* Search */}

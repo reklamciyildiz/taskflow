@@ -2,9 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Sidebar } from '@/components/Sidebar';
-import { Header } from '@/components/Header';
 import { ActionPanel } from '@/components/ActionPanel';
+import { AppShellLayout } from '@/components/shell';
 import { useTaskContext, type Task } from '@/components/TaskContext';
 
 const PREFETCH_APP_ROUTES = [
@@ -53,7 +52,6 @@ function TaskEditModalHost() {
 }
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -75,16 +73,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   }, [router]);
 
   return (
-    <div className="flex h-screen bg-background">
-      <Sidebar
-        isOpen={sidebarOpen}
-        onCloseSidebar={() => setSidebarOpen(false)}
-      />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <Header onSidebarToggle={() => setSidebarOpen(!sidebarOpen)} />
-        <main className="flex-1 overflow-auto p-4 sm:p-6">{children}</main>
-      </div>
+    <>
+      <AppShellLayout mainClassName="p-4 sm:p-6">{children}</AppShellLayout>
       <TaskEditModalHost />
-    </div>
+    </>
   );
 }
