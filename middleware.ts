@@ -28,10 +28,13 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Authentication required for all non-public routes
-  const token = await getToken({ 
-    req: request as any, 
-    secret: process.env.NEXTAUTH_SECRET 
+  // Tam NextRequest bazen gövde/adapter ile "Response body disturbed or locked" tetikliyor;
+  // getToken yalnızca headers + cookies kullanır (SessionStore cookies.getAll).
+  const token = await getToken({
+    req: { headers: request.headers, cookies: request.cookies } as Parameters<
+      typeof getToken
+    >[0]['req'],
+    secret: process.env.NEXTAUTH_SECRET,
   });
 
   if (!token) {

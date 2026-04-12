@@ -1,7 +1,14 @@
 'use client';
 
-import { useState } from 'react';
-import { useTaskContext, TaskStatus, TaskPriority } from '@/components/TaskContext';
+import { useState, useMemo, useEffect } from 'react';
+import { useTaskContext, TaskPriority } from '@/components/TaskContext';
+import {
+  resolveTaskBoardColumnId,
+  isTerminalBoardColumn,
+  type ProjectColumnConfig,
+} from '@/lib/types';
+import { CreateProjectModal } from '@/components/CreateProjectModal';
+import { EditGeneralBoardModal } from '@/components/EditGeneralBoardModal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -23,18 +30,31 @@ import {
   MoreHorizontal,
   CheckCircle2,
   Paperclip,
-  MessageCircle
+  MessageCircle,
+  Layers,
+  Settings2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, isToday, isPast } from 'date-fns';
 import { Card } from '@/components/ui/card';
 
-const statusConfig: Record<string, { label: string; color: string }> = {
-  todo: { label: 'To Do', color: 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300' },
-  progress: { label: 'In Progress', color: 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400' },
-  review: { label: 'Review', color: 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400' },
-  done: { label: 'Done', color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400' },
+/** Kolon `color` tanımlı değilse bilinen id’ler için rozet sınıfları */
+const LEGACY_COLUMN_BADGE: Record<string, string> = {
+  todo: 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300',
+  progress: 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400',
+  review: 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400',
+  done: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400',
 };
+
+function columnBadgeClass(columnId: string, columns: ProjectColumnConfig[]): string {
+  const col = columns.find((c) => c.id === columnId);
+  if (col?.color) return col.color;
+  return LEGACY_COLUMN_BADGE[columnId] ?? 'bg-muted text-muted-foreground';
+}
+
+function columnLabel(columnId: string, columns: ProjectColumnConfig[]): string {
+  return columns.find((c) => c.id === columnId)?.title ?? columnId;
+}
 
 const priorityConfig = {
   low: { label: 'Low', color: 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300' },
@@ -44,50 +64,173 @@ const priorityConfig = {
 };
 
 export function TaskList() {
-  const { tasks, currentTeam, updateTask, deleteTask, canCompleteTask, canEditTask, canDeleteTask, openTaskEditor } = useTaskContext();
+  const {
+    tasks,
+    currentTeam,
+    boardScope,
+    setBoardScope,
+    boardProject,
+    projects,
+    currentUserRole,
+    updateTask,
+    deleteTask,
+    canCompleteTask,
+    canEditTask,
+    canDeleteTask,
+    openTaskEditor,
+    boardColumns,
+  } = useTaskContext();
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterStatus, setFilterStatus] = useState<TaskStatus | 'all'>('all');
+  const [filterStatus, setFilterStatus] = useState<string | 'all'>('all');
   const [filterPriority, setFilterPriority] = useState<TaskPriority | 'all'>('all');
   const [sortBy, setSortBy] = useState<'dueDate' | 'priority' | 'created'>('dueDate');
+  const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
+  const [editGeneralOpen, setEditGeneralOpen] = useState(false);
 
-  const filteredTasks = tasks
-    .filter(task => task.teamId === currentTeam?.id)
-    .filter(task => 
-      task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      task.description.toLowerCase().includes(searchQuery.toLowerCase())
-    )
-    .filter(task => filterStatus === 'all' || task.status === filterStatus)
-    .filter(task => filterPriority === 'all' || task.priority === filterPriority)
-    .sort((a, b) => {
+  useEffect(() => {
+    if (filterStatus === 'all') return;
+    if (!boardColumns.some((c) => c.id === filterStatus)) {
+      setFilterStatus('all');
+    }
+  }, [boardColumns, filterStatus]);
+
+  const projectsForTeam = useMemo(() => {
+    if (!currentTeam) return projects;
+    return projects.filter((p) => !p.teamId || p.teamId === currentTeam.id);
+  }, [projects, currentTeam?.id]);
+
+  const filteredTasks = useMemo(() => {
+    let list = tasks.filter((task) => task.teamId === currentTeam?.id);
+
+    if (boardScope.type === 'general') {
+      list = list.filter((task) => task.projectId == null);
+    } else {
+      list = list.filter((task) => task.projectId === boardScope.projectId);
+    }
+
+    const q = searchQuery.toLowerCase();
+    list = list.filter(
+      (task) =>
+        task.title.toLowerCase().includes(q) || task.description.toLowerCase().includes(q)
+    );
+    list = list.filter((task) => {
+      if (filterStatus === 'all') return true;
+      return resolveTaskBoardColumnId(task.status, boardColumns) === filterStatus;
+    });
+    list = list.filter((task) => filterPriority === 'all' || task.priority === filterPriority);
+
+    return [...list].sort((a, b) => {
       switch (sortBy) {
         case 'dueDate':
           if (!a.dueDate && !b.dueDate) return 0;
           if (!a.dueDate) return 1;
           if (!b.dueDate) return -1;
           return a.dueDate.getTime() - b.dueDate.getTime();
-        case 'priority':
+        case 'priority': {
           const priorityOrder = { urgent: 0, high: 1, medium: 2, low: 3 };
           return priorityOrder[a.priority] - priorityOrder[b.priority];
+        }
         case 'created':
           return b.createdAt.getTime() - a.createdAt.getTime();
         default:
           return 0;
       }
     });
+  }, [
+    tasks,
+    currentTeam?.id,
+    boardScope,
+    searchQuery,
+    filterStatus,
+    filterPriority,
+    sortBy,
+    boardColumns,
+  ]);
 
-  const toggleTaskComplete = (taskId: string, currentStatus: TaskStatus, assigneeId?: string | null) => {
+  const listSubtitle =
+    boardScope.type === 'general'
+      ? 'Genel aksiyonlar (sürece bağlı olmayan) — Pano ile aynı süreç seçimi'
+      : `Süreç: ${boardProject?.name ?? 'Seçili süreç'} — Pano ile paylaşılan filtre`;
+
+  const toggleTaskComplete = (
+    taskId: string,
+    assigneeId: string | null | undefined,
+    resolvedColumnId: string
+  ) => {
     if (!canCompleteTask(assigneeId)) return;
-    const newStatus = currentStatus === 'done' ? 'todo' : 'done';
-    updateTask(taskId, { status: newStatus });
+    const terminalNow = isTerminalBoardColumn(resolvedColumnId, boardColumns);
+    if (terminalNow) {
+      const openCol = boardColumns.find((c) => !isTerminalBoardColumn(c.id, boardColumns));
+      void updateTask(taskId, { status: openCol?.id ?? 'todo' });
+    } else {
+      const termCol = boardColumns.find((c) => isTerminalBoardColumn(c.id, boardColumns));
+      void updateTask(taskId, { status: termCol?.id ?? 'done' });
+    }
   };
 
   return (
     <div className="h-full">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Aksiyon listesi</h1>
-        <p className="text-muted-foreground mt-1">
-          Ekibinizdeki tüm aksiyonların tek ekranda özeti
-        </p>
+      <div className="mb-6 space-y-4">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Aksiyon listesi</h1>
+          <p className="mt-1 text-muted-foreground text-sm">{listSubtitle}</p>
+        </div>
+        {projectsForTeam.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={boardScope.type === 'general' ? '__general__' : boardScope.projectId}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (v === '__general__') setBoardScope({ type: 'general' });
+                else setBoardScope({ type: 'project', projectId: v });
+              }}
+              className="h-10 w-full min-w-[200px] max-w-md px-3 py-2 text-sm border rounded-md bg-background sm:w-auto"
+              aria-label="Liste kapsamı — süreç veya genel aksiyonlar"
+            >
+              <option value="__general__">Genel aksiyonlar</option>
+              {projectsForTeam.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+            {currentUserRole === 'admin' && (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-10 gap-2"
+                  onClick={() => setIsCreateProjectOpen(true)}
+                  title="Yeni süreç (proje) oluştur"
+                >
+                  <Layers className="h-4 w-4" />
+                  Yeni süreç
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-10 w-10"
+                  onClick={() => {
+                    if (boardScope.type === 'general') setEditGeneralOpen(true);
+                    else setEditingProjectId(boardProject?.id ?? null);
+                  }}
+                  disabled={boardScope.type !== 'general' && !boardProject}
+                  title={
+                    boardScope.type === 'general' ? 'Genel kolonları düzenle' : 'Seçili süreci düzenle'
+                  }
+                  aria-label={
+                    boardScope.type === 'general' ? 'Genel kolonları düzenle' : 'Seçili süreci düzenle'
+                  }
+                >
+                  <Settings2 className="h-4 w-4" />
+                </Button>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Filters and Search */}
@@ -107,21 +250,19 @@ export function TaskList() {
         <div className="flex gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-2">
-                <Filter className="h-4 w-4" />
-                Status: {filterStatus === 'all' ? 'All' : (statusConfig[filterStatus] ?? { label: filterStatus }).label}
+              <Button variant="outline" size="sm" className="gap-2 max-w-[min(100%,14rem)] sm:max-w-[16rem]">
+                <Filter className="h-4 w-4 shrink-0" />
+                <span className="truncate">
+                  Durum:{' '}
+                  {filterStatus === 'all' ? 'Tümü' : columnLabel(filterStatus, boardColumns)}
+                </span>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onClick={() => setFilterStatus('all')}>
-                All Statuses
-              </DropdownMenuItem>
-              {Object.entries(statusConfig).map(([status, config]) => (
-                <DropdownMenuItem 
-                  key={status} 
-                  onClick={() => setFilterStatus(status as TaskStatus)}
-                >
-                  {config.label}
+            <DropdownMenuContent align="end" className="max-h-[min(60vh,320px)] overflow-y-auto">
+              <DropdownMenuItem onClick={() => setFilterStatus('all')}>Tüm durumlar</DropdownMenuItem>
+              {boardColumns.map((col) => (
+                <DropdownMenuItem key={col.id} onClick={() => setFilterStatus(col.id)}>
+                  {col.title}
                 </DropdownMenuItem>
               ))}
             </DropdownMenuContent>
@@ -175,7 +316,9 @@ export function TaskList() {
       <div className="space-y-2">
         {filteredTasks.map((task) => {
           const assignee = currentTeam?.members.find(m => m.id === task.assigneeId);
-          const isDueSoon = task.dueDate && isPast(task.dueDate) && task.status !== 'done';
+          const resolvedCol = resolveTaskBoardColumnId(task.status, boardColumns);
+          const isTerminal = isTerminalBoardColumn(resolvedCol, boardColumns);
+          const isDueSoon = task.dueDate && isPast(task.dueDate) && !isTerminal;
           
           const getDueDateDisplay = () => {
             if (!task.dueDate) return null;
@@ -184,23 +327,34 @@ export function TaskList() {
             return format(task.dueDate, 'MMM d');
           };
 
+          const handleTaskRowClick = (e: React.MouseEvent<HTMLDivElement>) => {
+            const target = e.target as HTMLElement;
+            // Checkbox slot (genişletilmiş hit alanı) veya satırdaki kontroller — kart tıklaması editör açmasın.
+            if (target.closest('[data-task-list-checkbox-slot]')) return;
+            if (target.closest('button')) return;
+            openTaskEditor(task.id);
+          };
+
           return (
             <Card 
               key={task.id} 
               className={cn(
                 "p-4 hover:shadow-md transition-all duration-200 group cursor-pointer",
-                task.status === 'done' && "opacity-75"
+                isTerminal && "opacity-75"
               )}
-              onClick={() => openTaskEditor(task.id)}
+              onClick={handleTaskRowClick}
             >
               <div className="flex items-center gap-4">
-                {/* Checkbox */}
-                <div onClick={(e) => e.stopPropagation()}>
+                {/* Checkbox: geniş hedef + üstte kal; disabled iken tıklama kartın arkasına düşmesin */}
+                <div
+                  data-task-list-checkbox-slot
+                  className="relative z-10 flex shrink-0 items-center justify-center self-start rounded-md p-1.5 -m-1.5 min-h-9 min-w-9"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <Checkbox
-                    checked={task.status === 'done'}
-                    onCheckedChange={() => toggleTaskComplete(task.id, task.status, task.assigneeId)}
+                    checked={isTerminal}
+                    onCheckedChange={() => toggleTaskComplete(task.id, task.assigneeId, resolvedCol)}
                     disabled={!canCompleteTask(task.assigneeId)}
-                    className="mt-1"
                   />
                 </div>
 
@@ -210,7 +364,7 @@ export function TaskList() {
                     <div className="flex-1 min-w-0">
                       <h4 className={cn(
                         "font-medium text-sm mb-1",
-                        task.status === 'done' && "line-through text-muted-foreground"
+                        isTerminal && "line-through text-muted-foreground"
                       )}>
                         {task.title}
                       </h4>
@@ -223,14 +377,11 @@ export function TaskList() {
                       {/* Metadata */}
                       <div className="flex items-center gap-3 flex-wrap">
                         {/* Status */}
-                        <Badge 
-                          variant="secondary" 
-                          className={cn(
-                            'text-xs px-2 py-0.5',
-                            (statusConfig[task.status] ?? { label: task.status, color: 'bg-muted' }).color
-                          )}
+                        <Badge
+                          variant="secondary"
+                          className={cn('text-xs px-2 py-0.5', columnBadgeClass(resolvedCol, boardColumns))}
                         >
-                          {(statusConfig[task.status] ?? { label: task.status, color: '' }).label}
+                          {columnLabel(resolvedCol, boardColumns)}
                         </Badge>
 
                         {/* Priority */}
@@ -340,12 +491,26 @@ export function TaskList() {
             <CheckCircle2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="font-medium text-foreground">Aksiyon bulunamadı</h3>
             <p className="text-muted-foreground text-sm mt-1">
-              {searchQuery ? 'Arama veya filtreleri değiştirmeyi deneyin' : 'Başlamak için ilk aksiyonunuzu oluşturun'}
+              {searchQuery || filterStatus !== 'all' || filterPriority !== 'all'
+                ? 'Arama veya filtreleri değiştirmeyi deneyin'
+                : boardScope.type === 'project'
+                  ? 'Bu süreçte henüz aksiyon yok veya hepsi başka filtrelerle eleniyor'
+                  : 'Başlamak için ilk aksiyonunuzu oluşturun'}
             </p>
           </div>
         )}
       </div>
 
+      <CreateProjectModal open={isCreateProjectOpen} onClose={() => setIsCreateProjectOpen(false)} />
+      <EditGeneralBoardModal open={editGeneralOpen} onClose={() => setEditGeneralOpen(false)} />
+      {editingProjectId && (
+        <CreateProjectModal
+          open={!!editingProjectId}
+          onClose={() => setEditingProjectId(null)}
+          mode="edit"
+          projectId={editingProjectId}
+        />
+      )}
     </div>
   );
 }

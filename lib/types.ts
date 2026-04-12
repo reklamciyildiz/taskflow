@@ -51,11 +51,16 @@ export function parseColumnConfigFromJson(raw: unknown): ProjectColumnConfig[] {
 /** Map task.status to a visible column id when using a reduced default board (e.g. legacy `review`). */
 export function resolveTaskBoardColumnId(
   status: string,
-  columns: Pick<ProjectColumnConfig, 'id'>[]
+  columns: ProjectColumnConfig[]
 ): string {
   const ids = new Set(columns.map((c) => c.id));
   if (ids.has(status)) return status;
   if (status === 'review' && ids.has('progress')) return 'progress';
+  // DB’de `done` kalmış ama süreçte `done` kolonu yok (özel terminal id) — todo’ya düşürme.
+  if (status === 'done' && !ids.has('done')) {
+    const terminal = columns.find((c) => c.isTerminal);
+    if (terminal) return terminal.id;
+  }
   if (ids.has('todo')) return 'todo';
   return columns[0]?.id ?? 'todo';
 }
