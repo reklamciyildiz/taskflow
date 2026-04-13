@@ -34,6 +34,8 @@ const DemoActionDeck = dynamic(
   }
 );
 
+const MAX_DEMO_CARDS = 4;
+
 function newId(prefix: string): string {
   return typeof crypto !== 'undefined' && 'randomUUID' in crypto
     ? `${prefix}-${crypto.randomUUID()}`
@@ -77,14 +79,16 @@ export function MarketingHeroInteractive() {
   }, [cards, storageReady]);
 
   const onCapture = useCallback((title: string) => {
-    setCards((prev) => [
-      {
-        id: newId('c'),
-        title,
-        items: defaultChecklist(),
-      },
-      ...prev,
-    ]);
+    setCards((prev) =>
+      [
+        {
+          id: newId('c'),
+          title,
+          items: defaultChecklist(),
+        },
+        ...prev,
+      ].slice(0, MAX_DEMO_CARDS)
+    );
   }, []);
 
   const onToggleItem = useCallback((cardId: string, itemId: string) => {
@@ -118,6 +122,17 @@ export function MarketingHeroInteractive() {
     <DemoActionDeck cards={cards} onToggleItem={onToggleItem} />
   );
 
+  const clearDemo = useCallback(() => {
+    setCards([]);
+    setDrawerOpen(false);
+    prevCheckedRef.current = 0;
+    try {
+      localStorage.removeItem(MARKETING_DEMO_STORAGE_KEY);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   return (
     <div className="relative mt-12">
       <MarketingConfetti burstKey={confettiBurst} />
@@ -141,6 +156,18 @@ export function MarketingHeroInteractive() {
       <div className="mx-auto max-w-6xl">
         <DemoQuickCapture onCapture={onCapture} />
       </div>
+
+      {cards.length > 0 ? (
+        <div className="mx-auto mt-4 flex max-w-2xl justify-end px-4">
+          <button
+            type="button"
+            onClick={clearDemo}
+            className="text-xs font-medium text-zinc-500 transition-colors hover:text-emerald-300"
+          >
+            Clear demo
+          </button>
+        </div>
+      ) : null}
 
       {isMd ? (
         <div className="mx-auto mt-10 min-h-[120px]">{deck}</div>

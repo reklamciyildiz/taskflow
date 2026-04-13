@@ -7,3 +7,11 @@ export type { MarketingDemoCard, MarketingDemoCheckItem } from '@/lib/marketing-
 export { MarketingBento } from './MarketingBento';
 export { MarketingTrustStrip } from './MarketingTrustStrip';
 export { MarketingFooter } from './MarketingFooter';
+export { MarketingTeamOS } from './sections/MarketingTeamOS';
+export { MarketingEnterprise } from './sections/MarketingEnterprise';
+export { MarketingInsights } from './sections/MarketingInsights';
+export { MarketingPwaNote } from './sections/MarketingPwaNote';
+export { MarketingUseCases } from './sections/MarketingUseCases';
+export { MarketingSocialProof } from './sections/MarketingSocialProof';
+export { MarketingProductShots } from './sections/MarketingProductShots';
+export { MarketingUseCasesShowcase } from './sections/MarketingUseCasesShowcase';

@@ -15,7 +15,7 @@ export function DemoQuickCapture({ onCapture, disabled }: DemoQuickCaptureProps)
   const [focused, setFocused] = useState(false);
 
   const submit = () => {
-    const title = value.trim();
+    const title = value.trim().slice(0, 120);
     if (!title || disabled) return;
     onCapture(title);
     setValue('');
@@ -59,6 +59,7 @@ export function DemoQuickCapture({ onCapture, disabled }: DemoQuickCaptureProps)
             }
           }}
           placeholder="Capture a thought… Enter to materialize (local demo)"
+          maxLength={160}
           className="h-12 w-full border-0 bg-transparent text-base text-zinc-100 outline-none placeholder:text-zinc-500/70"
           aria-label="Demo quick capture"
         />

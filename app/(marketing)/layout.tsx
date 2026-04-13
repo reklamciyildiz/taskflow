@@ -66,14 +66,20 @@ const jsonLd = {
   '@type': 'SoftwareApplication',
   name: 'TaskFlow',
   applicationCategory: 'BusinessApplication',
+  applicationSubCategory: 'Personal and team productivity operating system',
   operatingSystem: 'Web',
   description,
   url: new URL('/marketing', base).toString(),
-  offers: {
-    '@type': 'Offer',
-    price: '0',
-    priceCurrency: 'USD',
-  },
+  featureList: [
+    'Kanban board + list view',
+    'Dynamic process pipelines with terminal stages',
+    'Knowledge Hub (learnings + journal entries)',
+    'Voice to task capture',
+    'Multi-team collaboration, roles, assignments',
+    'Customers and webhooks (task/customer/team events)',
+    'Analytics, notifications, achievements',
+    'Installable PWA',
+  ].join('\\n'),
 };
 
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
