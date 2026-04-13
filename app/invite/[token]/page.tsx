@@ -39,7 +39,7 @@ export default function InvitePage() {
         const data = await response.json();
 
         if (!response.ok) {
-          setError(data.error || 'Davet yüklenemedi');
+          setError(data.error || 'Failed to load invitation');
           return;
         }
 
@@ -74,7 +74,7 @@ export default function InvitePage() {
 
         if (!response.ok) {
           setJoinErrorCode(typeof data.code === 'string' ? data.code : null);
-          throw new Error(data.error || 'Davet kabul edilemedi');
+          throw new Error(data.error || 'Could not accept the invitation');
         }
 
         setSuccess(true);
@@ -118,7 +118,7 @@ export default function InvitePage() {
 
       if (!response.ok) {
         setJoinErrorCode(typeof data.code === 'string' ? data.code : null);
-        throw new Error(data.error || 'Davet kabul edilemedi');
+        throw new Error(data.error || 'Could not accept the invitation');
       }
 
       setSuccess(true);
@@ -146,7 +146,7 @@ export default function InvitePage() {
       });
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.error || 'İşlem başarısız');
+        throw new Error(data.error || 'Request failed');
       }
       await updateSession();
       router.refresh();
@@ -178,7 +178,7 @@ export default function InvitePage() {
             <XCircle className="w-12 h-12 text-red-600 dark:text-red-400" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-            Davet kullanılamıyor
+            Invitation unavailable
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mb-6 text-sm leading-relaxed">
             {error}
@@ -263,10 +263,10 @@ export default function InvitePage() {
           joinErrorCode === 'OTHER_ORG' &&
           invitation && (
             <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-100">
-              <p className="mb-2 font-medium">Yanlışlıkla kendi çalışma alanını mı oluşturdun?</p>
+              <p className="mb-2 font-medium">Did you accidentally create your own workspace?</p>
               <p className="mb-3 text-amber-800/90 dark:text-amber-200/90">
-                O alanda <strong>sadece sen</strong> varsan, güvenli şekilde çıkıp bu daveti kabul edebilirsin.
-                Sayfa ardından otomatik olarak tekrar katılmayı dener.
+                If you are the <strong>only member</strong> there, you can safely leave and accept this invite.
+                This page will retry joining automatically afterwards.
               </p>
               <button
                 type="button"
@@ -277,10 +277,10 @@ export default function InvitePage() {
                 {resettingWorkspace ? (
                   <span className="flex items-center justify-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    İşleniyor…
+                    Working…
                   </span>
                 ) : (
-                  'Tek kişilik çalışma alanımdan çık'
+                  'Leave my solo workspace'
                 )}
               </button>
             </div>

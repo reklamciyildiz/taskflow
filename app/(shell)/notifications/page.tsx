@@ -40,10 +40,10 @@ function formatRelativeTime(dateString: string, nowMs: number): string {
   const diffHours = Math.floor(diffMs / 3600000);
   const diffDays = Math.floor(diffMs / 86400000);
 
-  if (diffMins < 1) return 'Az önce';
-  if (diffMins < 60) return `${diffMins} dk önce`;
-  if (diffHours < 24) return `${diffHours} sa önce`;
-  if (diffDays < 7) return `${diffDays} gün önce`;
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
   return date.toLocaleDateString();
 }
 
@@ -119,10 +119,10 @@ export default function NotificationsPage() {
           <div>
             <CardTitle className="flex items-center gap-2">
               <Bell className="h-5 w-5" aria-hidden />
-              Bildirimler
+              Notifications
             </CardTitle>
             <CardDescription>
-              Atamalar ve diğer uyarılar burada listelenir.
+              Assignments and other alerts show up here.
             </CardDescription>
           </div>
           {unreadCount > 0 && (
@@ -134,23 +134,23 @@ export default function NotificationsPage() {
               onClick={() => void markAll()}
             >
               <CheckCheck className="h-4 w-4" />
-              Tümünü okundu işaretle
+              Mark all as read
             </Button>
           )}
         </CardHeader>
         <CardContent className="p-0">
           {loading ? (
             <p className="px-6 py-10 text-center text-sm text-muted-foreground">
-              Yükleniyor…
+              Loading…
             </p>
           ) : items.length === 0 ? (
             <div className="px-6 py-12 text-center">
               <Bell className="mx-auto mb-3 h-12 w-12 text-muted-foreground/40" />
               <p className="text-sm text-muted-foreground">
-                Henüz bildirim yok.
+                No notifications yet.
               </p>
               <Button variant="link" asChild className="mt-2">
-                <Link href="/board">Panoya git</Link>
+                <Link href="/board">Go to board</Link>
               </Button>
             </div>
           ) : (

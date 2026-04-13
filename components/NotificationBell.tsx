@@ -153,7 +153,7 @@ export function NotificationBell() {
       {isOpen && (
         <div className="absolute right-0 z-50 mt-2 w-[min(24rem,calc(100vw-1.5rem))] overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground shadow-lg">
           <div className="flex items-center justify-between border-b border-border bg-muted/60 px-4 py-3">
-            <h3 className="font-semibold text-foreground">Bildirimler</h3>
+            <h3 className="font-semibold text-foreground">Notifications</h3>
             {unreadCount > 0 && (
               <button
                 type="button"
@@ -162,7 +162,7 @@ export function NotificationBell() {
                 className="flex items-center gap-1 text-xs text-primary hover:underline disabled:opacity-50"
               >
                 <CheckCheck className="h-3 w-3" />
-                Tümünü okundu işaretle
+                Mark all as read
               </button>
             )}
           </div>
@@ -171,9 +171,9 @@ export function NotificationBell() {
             {notifications.length === 0 ? (
               <div className="px-4 py-8 text-center">
                 <Bell className="mx-auto mb-3 h-12 w-12 text-muted-foreground/40" />
-                <p className="text-sm text-muted-foreground">Henüz bildirim yok</p>
+                <p className="text-sm text-muted-foreground">No notifications yet</p>
                 <p className="mt-2 text-xs text-muted-foreground/80">
-                  Tüm geçmiş ve ayarlar için bildirim merkezine gidebilirsiniz.
+                  Visit the notification center for history and settings.
                 </p>
               </div>
             ) : (
@@ -236,7 +236,7 @@ export function NotificationBell() {
               prefetch
               scroll={false}
             >
-              Bildirim merkezine git
+              Go to notification center
             </Link>
           </div>
         </div>

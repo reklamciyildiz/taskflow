@@ -54,7 +54,7 @@ export function FocusDashboard() {
   const [pendingProjectId, setPendingProjectId] = useState<string | null>(null);
   const [savedProjectId, setSavedProjectId] = useState<string | null>(null);
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  /** Which project card has the "varsayılan günlük aksiyon" combobox open (controlled close on select). */
+  /** Which project card has the "default journal action" combobox open (controlled close on select). */
   const [loggingTaskPickerProjectId, setLoggingTaskPickerProjectId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -211,7 +211,7 @@ export function FocusDashboard() {
           className="h-8 text-xs"
           onClick={() => router.push('/dashboard/processes')}
         >
-          Süreçleri yönet
+          Manage processes
           <ChevronRight className="h-3 w-3" />
         </Button>
       </div>
@@ -254,23 +254,23 @@ export function FocusDashboard() {
                   <p className="text-xs text-muted-foreground truncate min-w-0 flex-1">
                     {hasTarget ? (
                       <>
-                        Hedef:{' '}
+                        Target:{' '}
                         <span className="text-foreground font-medium">
                           {targetTask?.title}
                         </span>
                       </>
                     ) : (
-                      'Hedef: —'
+                      'Target: —'
                     )}
                   </p>
                   <div className="flex items-center gap-2 shrink-0">
                     <Badge variant="secondary" className="text-[10px] whitespace-nowrap">
-                      {p.columnConfig?.length ? `${p.columnConfig.length} aşama` : 'Varsayılan'}
+                      {p.columnConfig?.length ? `${p.columnConfig.length} stages` : 'Default'}
                     </Badge>
                     {saved && (
                       <span className="text-xs text-emerald-600 flex items-center gap-1">
                         <Check className="h-3.5 w-3.5 shrink-0" />
-                        Kaydedildi
+                        Saved
                       </span>
                     )}
                   </div>
@@ -280,7 +280,7 @@ export function FocusDashboard() {
               <CardContent className="space-y-2 pt-0">
                 {stats.recentTaskIds.length > 0 && (
                   <div className="space-y-1">
-                    <p className="text-[11px] font-medium text-muted-foreground">Varsayılan günlük aksiyon</p>
+                    <p className="text-[11px] font-medium text-muted-foreground">Default journal action</p>
                     <Popover
                       open={loggingTaskPickerProjectId === p.id}
                       onOpenChange={(open) => {
@@ -295,21 +295,21 @@ export function FocusDashboard() {
                           role="combobox"
                           disabled={pending}
                           className="h-9 w-full justify-between"
-                          aria-label="Varsayılan günlük aksiyon seç"
+                          aria-label="Select default journal action"
                         >
                           <span className="truncate">
                             {pinnedTaskId
-                              ? tasks.find((x) => x.id === pinnedTaskId)?.title ?? 'Seçili task'
-                              : 'Otomatik (en son güncellenen)'}
+                              ? tasks.find((x) => x.id === pinnedTaskId)?.title ?? 'Selected action'
+                              : 'Automatic (most recently updated)'}
                           </span>
                           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
                         <Command>
-                          <CommandInput placeholder="Aksiyon ara…" />
+                          <CommandInput placeholder="Search actions…" />
                           <CommandList>
-                            <CommandEmpty>Sonuç yok.</CommandEmpty>
+                            <CommandEmpty>No results.</CommandEmpty>
                             <CommandGroup>
                               <CommandItem
                                 value="__auto__"
@@ -324,7 +324,7 @@ export function FocusDashboard() {
                                     !pinnedTaskId ? 'opacity-100' : 'opacity-0'
                                   )}
                                 />
-                                Otomatik (en son güncellenen)
+                                Automatic (most recently updated)
                               </CommandItem>
                               {stats.recentTaskIds.map((tid) => {
                                 const t = tasks.find((x) => x.id === tid);
@@ -363,7 +363,7 @@ export function FocusDashboard() {
                     onChange={(e) =>
                       setDraftByProjectId((d) => ({ ...d, [p.id]: e.target.value }))
                     }
-                    placeholder={hasTarget ? 'Hızlı not… (Enter)' : 'Bu süreçte aksiyon yok'}
+                    placeholder={hasTarget ? 'Quick note… (Enter)' : 'No actions in this process'}
                     disabled={!hasTarget || pending}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && !e.shiftKey) {
@@ -371,7 +371,7 @@ export function FocusDashboard() {
                         void appendQuickLog(p.id);
                       }
                     }}
-                    aria-label="Hızlı süreç notu"
+                    aria-label="Quick process note"
                   />
                   <Button
                     type="button"
@@ -380,18 +380,18 @@ export function FocusDashboard() {
                     disabled={!hasTarget || pending || !draft.trim()}
                   >
                     <PenLine className="h-4 w-4" />
-                    {pending ? '…' : 'Ekle'}
+                    {pending ? '…' : 'Add'}
                   </Button>
                 </div>
 
                 <div className="flex items-center justify-between">
                   <Button type="button" variant="ghost" size="sm" className="h-8 text-xs" onClick={() => openProjectBoard(p.id)}>
-                    Sürece git
+                    Go to process
                     <ChevronRight className="h-3 w-3" />
                   </Button>
                   {!hasTarget && (
                     <span className="text-xs text-muted-foreground">
-                      Not için önce bir aksiyon oluştur
+                      Create an action first to add notes
                     </span>
                   )}
                 </div>

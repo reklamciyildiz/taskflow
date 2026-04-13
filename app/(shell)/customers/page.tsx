@@ -8,7 +8,7 @@ import { RouteLoading } from '@/components/RouteLoading';
 const Customers = dynamic(
   () => import('@/components/Customers').then((m) => ({ default: m.Customers })),
   {
-    loading: () => <RouteLoading label="Müşteriler yükleniyor…" />,
+    loading: () => <RouteLoading label="Loading customers…" />,
   }
 );
 

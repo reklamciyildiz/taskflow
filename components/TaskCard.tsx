@@ -43,7 +43,7 @@ const priorityColors = {
 
 export function TaskCard({ task, dragHandleProps, onTaskClick }: TaskCardProps) {
   const { currentTeam, updateTask, deleteTask, canEditTask, canDeleteTask, boardColumns, canCompleteTask, suppressTaskEditorOpenFor } = useTaskContext();
-  /** After ⋮ → Statü değiştir, menü kapanırken mobilde hayalet tık kart onClick'ine düşebilir; kısa süre modal açılmasın. */
+  /** After ⋮ → Change status, the menu close can trigger a ghost click on mobile; prevent opening the modal briefly. */
   const blockCardOpenUntilRef = useRef(0);
   
   // Check permissions for this task
@@ -119,7 +119,7 @@ export function TaskCard({ task, dragHandleProps, onTaskClick }: TaskCardProps) 
                   <>
                     <DropdownMenuLabel className="flex items-center gap-2">
                       <ArrowRightLeft className="h-4 w-4" />
-                      Statü değiştir
+                      Change status
                     </DropdownMenuLabel>
                     {boardColumns.map((col: ProjectColumnConfig) => {
                       const isCurrent = col.id === task.status;
@@ -138,8 +138,8 @@ export function TaskCard({ task, dragHandleProps, onTaskClick }: TaskCardProps) 
                           }}
                         >
                           {col.title}
-                          {isCurrent ? <span className="ml-auto text-xs text-muted-foreground">Şu an</span> : null}
-                          {blocked ? <span className="ml-auto text-xs text-muted-foreground">Yetki</span> : null}
+                          {isCurrent ? <span className="ml-auto text-xs text-muted-foreground">Current</span> : null}
+                          {blocked ? <span className="ml-auto text-xs text-muted-foreground">Permission</span> : null}
                         </DropdownMenuItem>
                       );
                     })}
@@ -155,7 +155,7 @@ export function TaskCard({ task, dragHandleProps, onTaskClick }: TaskCardProps) 
                       onTaskClick?.(task);
                     }}
                   >
-                    Aksiyonu düzenle
+                    Edit action
                   </DropdownMenuItem>
                 )}
                 {canDelete && (
@@ -169,7 +169,7 @@ export function TaskCard({ task, dragHandleProps, onTaskClick }: TaskCardProps) 
                       void deleteTask(task.id);
                     }}
                   >
-                    Sil
+                    Delete
                   </DropdownMenuItem>
                 )}
               </DropdownMenuContent>

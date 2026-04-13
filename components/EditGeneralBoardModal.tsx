@@ -107,14 +107,14 @@ export function EditGeneralBoardModal({ open, onClose }: EditGeneralBoardModalPr
     try {
       const finalColumns = normalizedColumns;
       if (finalColumns.length === 0) {
-        setError('En az bir kolon eklemelisin.');
+        setError('Add at least one column.');
         setLoading(false);
         return;
       }
       setGeneralBoardColumns(finalColumns);
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Kaydedilemedi');
+      setError(err instanceof Error ? err.message : 'Save failed');
     } finally {
       setLoading(false);
     }
@@ -126,10 +126,10 @@ export function EditGeneralBoardModal({ open, onClose }: EditGeneralBoardModalPr
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Settings2 className="h-5 w-5" />
-            Genel aksiyon kolonlarını düzenle
+            Edit general action columns
           </DialogTitle>
           <DialogDescription>
-            Bu kolonlar “Genel aksiyonlar” görünümünde geçerlidir (süreçsiz). Takım: {currentTeam?.name ?? '—'}
+            These columns apply to the “General actions” view (no process). Team: {currentTeam?.name ?? '—'}
           </DialogDescription>
         </DialogHeader>
 
@@ -142,9 +142,9 @@ export function EditGeneralBoardModal({ open, onClose }: EditGeneralBoardModalPr
 
           <div className="rounded-md border bg-muted/40">
             <div className="flex items-center justify-between px-3 py-2 border-b bg-muted/60">
-              <span className="text-xs font-medium text-muted-foreground">Kolon düzenleyici</span>
+              <span className="text-xs font-medium text-muted-foreground">Column editor</span>
               <Button type="button" size="sm" variant="outline" onClick={handleAddColumn} className="h-7 px-2 text-xs">
-                + Kolon ekle
+                + Add column
               </Button>
             </div>
             <DragDropContext
@@ -166,7 +166,7 @@ export function EditGeneralBoardModal({ open, onClose }: EditGeneralBoardModalPr
                   <div ref={provided.innerRef} {...provided.droppableProps} className="divide-y">
                     {columnsDraft.length === 0 ? (
                       <div className="px-3 py-4 text-xs text-muted-foreground">
-                        Henüz kolon yok. Buradan kolon ekleyebilirsin.
+                        No columns yet. Add a column to get started.
                       </div>
                     ) : (
                       columnsDraft.map((col, index) => (
@@ -181,11 +181,11 @@ export function EditGeneralBoardModal({ open, onClose }: EditGeneralBoardModalPr
                                 <GripVertical className="h-4 w-4" aria-hidden />
                               </span>
                               <div className="flex-1 space-y-1">
-                                <Label className="sr-only">Kolon adı</Label>
+                                <Label className="sr-only">Column name</Label>
                                 <Input
                                   value={col.title}
                                   onChange={(e) => handleColumnTitleChange(index, e.target.value)}
-                                  placeholder={`Kolon ${index + 1}`}
+                                  placeholder={`Column ${index + 1}`}
                                   className="h-9 w-full"
                                 />
                               </div>
@@ -200,7 +200,7 @@ export function EditGeneralBoardModal({ open, onClose }: EditGeneralBoardModalPr
                                       opt.className,
                                       col.color === opt.className && 'ring-2 ring-offset-1 ring-primary ring-offset-background'
                                     )}
-                                    aria-label={`${opt.label} rengi`}
+                                    aria-label={`${opt.label} color`}
                                   />
                                 ))}
                               </div>
@@ -211,10 +211,10 @@ export function EditGeneralBoardModal({ open, onClose }: EditGeneralBoardModalPr
                                   size="sm"
                                   className="h-8 gap-2"
                                   onClick={() => handleToggleTerminal(index)}
-                                  title="Tamamlandı (terminal) kolonu"
+                                  title="Terminal (done) column"
                                 >
                                   <CheckCircle2 className="h-4 w-4" />
-                                  <span className="text-xs">{col.isTerminal ? 'Tamamlandı' : 'Terminal'}</span>
+                                  <span className="text-xs">{col.isTerminal ? 'Done' : 'Terminal'}</span>
                                 </Button>
                                 <Button
                                   type="button"
@@ -222,8 +222,8 @@ export function EditGeneralBoardModal({ open, onClose }: EditGeneralBoardModalPr
                                   size="icon"
                                   className="h-8 w-8"
                                   onClick={() => setColumnsDraft((prev) => prev.filter((_, i) => i !== index))}
-                                  title="Kolonu sil"
-                                  aria-label="Kolonu sil"
+                                  title="Delete column"
+                                  aria-label="Delete column"
                                 >
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
@@ -242,10 +242,10 @@ export function EditGeneralBoardModal({ open, onClose }: EditGeneralBoardModalPr
 
           <div className="flex items-center justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
-              Vazgeç
+              Cancel
             </Button>
             <Button type="submit" disabled={loading}>
-              Kaydet
+              Save
             </Button>
           </div>
         </form>

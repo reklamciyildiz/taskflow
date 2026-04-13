@@ -8,7 +8,7 @@ import { RouteLoading } from '@/components/RouteLoading';
 const TaskList = dynamic(
   () => import('@/components/TaskList').then((m) => ({ default: m.TaskList })),
   {
-    loading: () => <RouteLoading label="Liste yükleniyor…" />,
+    loading: () => <RouteLoading label="Loading list…" />,
   }
 );
 

@@ -21,15 +21,15 @@ interface CreateProjectModalProps {
 }
 
 const PRESETS: { id: string; name: string; columns: ProjectColumnConfig[] }[] = [
-  { id: 'default', name: 'Basit (To Do → In Progress → Done)', columns: FALLBACK_BOARD_COLUMNS },
+  { id: 'default', name: 'Simple (To Do → In Progress → Done)', columns: FALLBACK_BOARD_COLUMNS },
   {
     id: 'blank',
-    name: 'Sıfırdan başla (boş)',
+    name: 'Start from scratch (blank)',
     columns: [],
   },
   {
     id: 'job-search',
-    name: 'İş arama (Applied → Interview → Offer → Hired)',
+    name: 'Job search (Applied → Interview → Offer → Hired)',
     columns: [
       { id: 'applied', title: 'Applied', color: 'bg-slate-100 dark:bg-slate-800' },
       { id: 'interview', title: 'Interview', color: 'bg-blue-50 dark:bg-blue-500/10' },
@@ -168,7 +168,7 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId }
     setError(null);
 
     if (!organizationId) {
-      setError('Organization bulunamadı (oturum / profil yüklenmemiş olabilir).');
+      setError('Organization not found (session/profile may not be loaded).');
       return;
     }
     if (!name.trim()) return;
@@ -178,7 +178,7 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId }
       const finalColumns = normalizedColumns;
 
       if (finalColumns.length === 0) {
-        setError('En az bir kolon eklemelisin.');
+        setError('Add at least one column.');
         setLoading(false);
         return;
       }
@@ -201,7 +201,10 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId }
         }
       );
       const data = await res.json();
-      if (!data?.success) throw new Error(data?.error || (mode === 'edit' ? 'Süreç güncellenemedi' : 'Süreç oluşturulamadı'));
+      if (!data?.success)
+        throw new Error(
+          data?.error || (mode === 'edit' ? 'Process update failed' : 'Process creation failed')
+        );
       const createdId = (data?.data as { id?: string } | undefined)?.id;
 
       if (mode === 'create') {
@@ -225,7 +228,7 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId }
         router.replace(target, { scroll: false });
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Süreç oluşturulamadı');
+      setError(err instanceof Error ? err.message : 'Process creation failed');
     } finally {
       setLoading(false);
     }
@@ -242,35 +245,35 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId }
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Layers className="h-5 w-5" />
-            {mode === 'edit' ? 'Süreci düzenle' : 'Yeni süreç (proje) oluştur'}
+            {mode === 'edit' ? 'Edit process' : 'Create new process'}
           </DialogTitle>
           <DialogDescription>
-            Süreçler panonun kolonlarını belirler. Panodan süreç seçip görevleri bu akışa bağlayabilir, burada kolon
-            yapısını istediğin zaman güncelleyebilirsin.
+            Processes define the board’s columns. Select a process on the board to link actions to that flow, and
+            update the column structure here anytime.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="project-name">Süreç adı</Label>
+            <Label htmlFor="project-name">Process name</Label>
             <Input
               id="project-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Örn. İş arama, TaskFlow geliştirme…"
+              placeholder="e.g. Job search, TaskFlow development…"
               required
             />
           </div>
 
           <div className="space-y-2">
-            <Label>Takım (opsiyonel)</Label>
+            <Label>Team (optional)</Label>
             <Select value={teamId} onValueChange={setTeamId}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="__current__">Mevcut takım ({currentTeam?.name ?? 'seçili değil'})</SelectItem>
-                <SelectItem value="__none__">Takıma bağlı değil</SelectItem>
+                <SelectItem value="__current__">Current team ({currentTeam?.name ?? 'none selected'})</SelectItem>
+                <SelectItem value="__none__">Not tied to a team</SelectItem>
                 {teams.map((t) => (
                   <SelectItem key={t.id} value={t.id}>
                     {t.name}
@@ -282,10 +285,10 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId }
 
           <div className="space-y-3">
             <div className="space-y-2">
-              <Label>{mode === 'edit' ? 'Şablon' : 'Başlangıç şablonu'}</Label>
+              <Label>{mode === 'edit' ? 'Template' : 'Starter template'}</Label>
               <Select value={presetId} onValueChange={handlePresetChange}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Şablon seç" />
+                  <SelectValue placeholder="Select a template" />
                 </SelectTrigger>
                 <SelectContent>
                   {PRESETS.map((p) => (
@@ -297,16 +300,16 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId }
               </Select>
               <p className="text-xs text-muted-foreground">
                 {mode === 'edit'
-                  ? 'Mevcut kolonları altta düzenleyebilirsin; şablon seçmek sadece başlangıç yapısını değiştirir.'
-                  : 'Bir şablon seçtikten sonra alttaki listeden kolon adlarını değiştirebilir, yeni kolon ekleyebilir veya silebilirsin. Son kolon varsayılan olarak “Tamamlandı” kabul edilir; istersen başka bir kolonu da tamamlanan olarak işaretleyebilirsin.'}
+                  ? 'You can edit the current columns below; choosing a template only affects the initial structure.'
+                  : 'After choosing a template, you can rename columns, add new columns, or remove them. The last column is treated as “Done” by default; you can also mark a different column as the terminal state.'}
               </p>
             </div>
 
             <div className="rounded-md border bg-muted/40">
               <div className="flex items-center justify-between px-3 py-2 border-b bg-muted/60">
-                <span className="text-xs font-medium text-muted-foreground">Kolon düzenleyici</span>
+                <span className="text-xs font-medium text-muted-foreground">Column editor</span>
                 <Button type="button" size="sm" variant="outline" onClick={handleAddColumn} className="h-7 px-2 text-xs">
-                  + Kolon ekle
+                  + Add column
                 </Button>
               </div>
               <DragDropContext
@@ -333,8 +336,8 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId }
                     <div ref={provided.innerRef} {...provided.droppableProps} className="divide-y">
                       {columnsDraft.length === 0 ? (
                         <div className="px-3 py-4 text-xs text-muted-foreground">
-                          Henüz kolon yok. Yukarıdan “Sıfırdan başla (boş)” seçip buradan istediğin kadar kolon
-                          ekleyebilirsin.
+                          No columns yet. Choose “Start from scratch (blank)” above, then add as many columns as you
+                          want here.
                         </div>
                       ) : (
                         columnsDraft.map((col, index) => (
@@ -354,7 +357,7 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId }
                                 <Input
                                   value={col.title}
                                   onChange={(e) => handleColumnTitleChange(index, e.target.value)}
-                                  placeholder={`Kolon ${index + 1}`}
+                                  placeholder={`Column ${index + 1}`}
                                   className="h-9 w-full sm:flex-1"
                                 />
                                 <div className="flex flex-wrap items-center gap-1">
@@ -369,7 +372,7 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId }
                                         col.color === opt.className &&
                                           'ring-2 ring-offset-1 ring-primary ring-offset-background'
                                       )}
-                                      aria-label={`${opt.label} rengi`}
+                                      aria-label={`${opt.label} color`}
                                     />
                                   ))}
                                 </div>
@@ -391,7 +394,7 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId }
                                     className="h-8 w-8 text-muted-foreground hover:text-destructive"
                                     onClick={() => handleToggleInclude(index, false)}
                                     disabled={columnsDraft.length <= 1}
-                                    aria-label="Kolonu sil"
+                                    aria-label="Delete column"
                                   >
                                     <Trash2 className="h-4 w-4" />
                                   </Button>
@@ -409,11 +412,11 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId }
             </div>
 
             <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Board önizlemesi</Label>
+              <Label className="text-xs text-muted-foreground">Board preview</Label>
               <div className="rounded-md border bg-gradient-to-r from-slate-50 via-muted to-slate-50 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900 p-3">
                 {normalizedColumns.length === 0 ? (
                   <p className="text-xs text-muted-foreground italic">
-                    Henüz kolon yok. En az bir kolon eklediğinde burada önizlemesini göreceksin.
+                    No columns yet. Once you add at least one column, you’ll see a preview here.
                   </p>
                 ) : (
                   <div className="grid gap-2 min-h-[56px] grid-cols-2 sm:grid-cols-3 md:grid-cols-4">
@@ -444,10 +447,10 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId }
 
           <div className="flex flex-col-reverse gap-2 justify-end sm:flex-row">
             <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
-              İptal
+              Cancel
             </Button>
             <Button type="submit" disabled={loading || !name.trim()}>
-              {loading ? 'Oluşturuluyor…' : 'Süreç oluştur'}
+              {loading ? 'Creating…' : 'Create process'}
             </Button>
           </div>
         </form>

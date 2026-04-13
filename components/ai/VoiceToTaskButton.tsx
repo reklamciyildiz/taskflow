@@ -108,8 +108,8 @@ export function VoiceToTaskButton({ onTaskCreated, className }: VoiceToTaskButto
       }, 1000);
     } catch (err) {
       console.error('Failed to start recording:', err);
-      setError('Mikrofon erişimi reddedildi. Lütfen tarayıcı izinlerini kontrol edin.');
-      toast.error('Mikrofon erişimi reddedildi');
+      setError('Microphone access denied. Please check your browser permissions.');
+      toast.error('Microphone access denied');
     }
   };
 
@@ -154,7 +154,7 @@ export function VoiceToTaskButton({ onTaskCreated, className }: VoiceToTaskButto
       const result = await response.json();
 
       if (!result.success) {
-        throw new Error(result.error?.message || 'İşlem başarısız oldu');
+        throw new Error(result.error?.message || 'Request failed');
       }
 
       // Set results
@@ -166,17 +166,18 @@ export function VoiceToTaskButton({ onTaskCreated, className }: VoiceToTaskButto
         onTaskCreated(result.data.extractedTask);
       }
 
-      toast.success('Aksiyon başarıyla oluşturuldu');
+      toast.success('Action created successfully');
     } catch (err) {
       console.error('Failed to process audio:', err);
       
-      let errorMessage = 'Bilinmeyen bir hata oluştu';
+      let errorMessage = 'Something went wrong';
       
       if (err instanceof Error) {
         if (err.name === 'AbortError') {
-          errorMessage = 'İşlem zaman aşımına uğradı. Lütfen tekrar deneyin.';
+          errorMessage = 'Request timed out. Please try again.';
         } else if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
-          errorMessage = 'Bağlantı hatası. İnternet bağlantınızı kontrol edin veya AI özelliklerinin aktif olduğundan emin olun.';
+          errorMessage =
+            'Network error. Check your connection or make sure AI features are enabled.';
         } else {
           errorMessage = err.message;
         }
@@ -214,15 +215,15 @@ export function VoiceToTaskButton({ onTaskCreated, className }: VoiceToTaskButto
         variant="outline"
       >
         <Mic className="h-4 w-4" />
-        Sesli aksiyon oluştur
+        Create action with voice
       </Button>
 
       <Dialog open={isOpen} onOpenChange={handleClose}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
-            <DialogTitle>🎤 Sesli aksiyon oluştur</DialogTitle>
+            <DialogTitle>🎤 Create action with voice</DialogTitle>
             <DialogDescription>
-              Mikrofona konuşarak aksiyon oluşturun. Yapay zekâ ayrıntıları otomatik çıkarır.
+              Speak into your microphone. AI will extract the action details automatically.
             </DialogDescription>
           </DialogHeader>
 
@@ -261,23 +262,23 @@ export function VoiceToTaskButton({ onTaskCreated, className }: VoiceToTaskButto
                 <div className="text-center space-y-2">
                   {isProcessing ? (
                     <>
-                      <p className="text-lg font-medium">İşleniyor...</p>
+                      <p className="text-lg font-medium">Processing...</p>
                       <p className="text-sm text-muted-foreground">
-                        Yapay zekâ aksiyon ayrıntılarını çıkarıyor
+                        AI is extracting the action details
                       </p>
                     </>
                   ) : isRecording ? (
                     <>
                       <p className="text-lg font-medium">{formatTime(recordingTime)}</p>
                       <p className="text-sm text-muted-foreground">
-                        Kayıt ediliyor... Durdurmak için tıklayın
+                        Recording... Click to stop
                       </p>
                     </>
                   ) : (
                     <>
-                      <p className="text-lg font-medium">Kayda Hazır</p>
+                      <p className="text-lg font-medium">Ready to record</p>
                       <p className="text-sm text-muted-foreground">
-                        Başlamak için mikrofon butonuna tıklayın
+                        Click the microphone button to start
                       </p>
                     </>
                   )}
@@ -287,7 +288,7 @@ export function VoiceToTaskButton({ onTaskCreated, className }: VoiceToTaskButto
                 {isRecording && recordingTime >= 240 && (
                   <div className="flex items-center gap-2 text-amber-600 text-sm">
                     <AlertCircle className="h-4 w-4" />
-                    <span>Maksimum süreye yaklaşıyorsunuz (5 dakika)</span>
+                    <span>Approaching the maximum duration (5 minutes)</span>
                   </div>
                 )}
               </div>
@@ -299,7 +300,7 @@ export function VoiceToTaskButton({ onTaskCreated, className }: VoiceToTaskButto
                 <div className="flex items-start gap-2">
                   <AlertCircle className="h-5 w-5 text-destructive mt-0.5" />
                   <div>
-                    <p className="font-medium text-destructive">Hata</p>
+                    <p className="font-medium text-destructive">Error</p>
                     <p className="text-sm text-destructive/90">{error}</p>
                   </div>
                 </div>
@@ -309,7 +310,7 @@ export function VoiceToTaskButton({ onTaskCreated, className }: VoiceToTaskButto
             {/* Transcription Display */}
             {transcription && (
               <div className="space-y-2">
-                <h4 className="font-medium text-sm">Transkript:</h4>
+                <h4 className="font-medium text-sm">Transcript</h4>
                 <div className="p-3 bg-muted rounded-lg text-sm">
                   <p className="italic">"{transcription}"</p>
                 </div>
@@ -321,23 +322,23 @@ export function VoiceToTaskButton({ onTaskCreated, className }: VoiceToTaskButto
               <div className="space-y-4">
                 <div className="flex items-center gap-2 text-green-600">
                   <CheckCircle2 className="h-5 w-5" />
-                  <span className="font-medium">Aksiyon oluşturuldu</span>
+                  <span className="font-medium">Action created</span>
                 </div>
 
                 <div className="space-y-3 p-4 bg-muted rounded-lg">
                   <div>
-                    <p className="text-xs text-muted-foreground mb-1">Başlık</p>
+                    <p className="text-xs text-muted-foreground mb-1">Title</p>
                     <p className="font-medium">{extractedTask.title}</p>
                   </div>
 
                   <div>
-                    <p className="text-xs text-muted-foreground mb-1">Açıklama</p>
+                    <p className="text-xs text-muted-foreground mb-1">Description</p>
                     <p className="text-sm">{extractedTask.description}</p>
                   </div>
 
                   {extractedTask.priority && (
                     <div>
-                      <p className="text-xs text-muted-foreground mb-1">Öncelik</p>
+                      <p className="text-xs text-muted-foreground mb-1">Priority</p>
                       <span
                         className={cn(
                           'inline-flex items-center px-2 py-1 rounded text-xs font-medium',
@@ -349,16 +350,16 @@ export function VoiceToTaskButton({ onTaskCreated, className }: VoiceToTaskButto
                             'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
                         )}
                       >
-                        {extractedTask.priority === 'high' && 'Yüksek'}
-                        {extractedTask.priority === 'medium' && 'Orta'}
-                        {extractedTask.priority === 'low' && 'Düşük'}
+                        {extractedTask.priority === 'high' && 'High'}
+                        {extractedTask.priority === 'medium' && 'Medium'}
+                        {extractedTask.priority === 'low' && 'Low'}
                       </span>
                     </div>
                   )}
 
                   {extractedTask.assignees && extractedTask.assignees.length > 0 && (
                     <div>
-                      <p className="text-xs text-muted-foreground mb-1">Atananlar</p>
+                      <p className="text-xs text-muted-foreground mb-1">Assignees</p>
                       <div className="flex flex-wrap gap-1">
                         {extractedTask.assignees.map((assignee: string, index: number) => (
                           <span
@@ -374,7 +375,7 @@ export function VoiceToTaskButton({ onTaskCreated, className }: VoiceToTaskButto
 
                   {extractedTask.tags && extractedTask.tags.length > 0 && (
                     <div>
-                      <p className="text-xs text-muted-foreground mb-1">Etiketler</p>
+                      <p className="text-xs text-muted-foreground mb-1">Tags</p>
                       <div className="flex flex-wrap gap-1">
                         {extractedTask.tags.map((tag: string, index: number) => (
                           <span

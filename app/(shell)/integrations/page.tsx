@@ -6,7 +6,7 @@ import { useView } from '@/components/ViewContext';
 import { RouteLoading } from '@/components/RouteLoading';
 
 const IntegrationsClient = dynamic(() => import('./IntegrationsClient'), {
-  loading: () => <RouteLoading label="Entegrasyonlar yükleniyor…" />,
+  loading: () => <RouteLoading label="Loading integrations…" />,
 });
 
 export default function IntegrationsPage() {

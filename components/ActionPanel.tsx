@@ -279,7 +279,7 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
         >
             <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border/50 bg-muted/10 px-4 py-3 md:rounded-t-2xl">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                {canEdit ? 'Aksiyon' : 'Salt okunur'}
+                {canEdit ? 'Action' : 'Read-only'}
               </p>
               <Button type="button" variant="ghost" size="icon" className="h-9 w-9 shrink-0" onClick={onClose}>
                 <X className="h-4 w-4" />
@@ -308,10 +308,10 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
                         />
                         <div className="min-w-0 flex-1">
                           <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                            Aksiyon ayrıntıları
+                            Action details
                           </p>
                           <p className="truncate text-sm font-medium text-foreground">
-                            {title.trim() || 'Başlıksız aksiyon'}
+                            {title.trim() || 'Untitled action'}
                           </p>
                         </div>
                         <span className="hidden max-w-[40%] shrink-0 truncate rounded-md bg-muted/50 px-2 py-0.5 text-xs text-muted-foreground sm:inline-block">
@@ -323,7 +323,7 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
                       <div className="space-y-6 pt-1">
                         <div className="space-y-2">
                           <label htmlFor="action-panel-title" className="sr-only">
-                            Başlık
+                            Title
                           </label>
                           <Input
                             id="action-panel-title"
@@ -334,7 +334,7 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
                               setTitle(v);
                               scheduleMetaPersist({ title: v });
                             }}
-                            placeholder="Başlıksız aksiyon"
+                            placeholder="Untitled action"
                             className="h-auto border-0 bg-transparent px-0 text-2xl font-semibold tracking-tight shadow-none placeholder:text-muted-foreground/50 focus-visible:ring-0"
                           />
                         </div>
@@ -342,7 +342,7 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
                         <div className="rounded-xl border border-border/50 bg-muted/20 p-3">
                           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                             <div className="space-y-1.5">
-                              <Label className="text-[11px] uppercase text-muted-foreground">Statü</Label>
+                              <Label className="text-[11px] uppercase text-muted-foreground">Status</Label>
                               <Select
                                 value={status}
                                 onValueChange={(v) => {
@@ -364,7 +364,7 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
                               </Select>
                             </div>
                             <div className="space-y-1.5">
-                              <Label className="text-[11px] uppercase text-muted-foreground">Öncelik</Label>
+                              <Label className="text-[11px] uppercase text-muted-foreground">Priority</Label>
                               <Select
                                 value={priority}
                                 onValueChange={(v) => {
@@ -377,15 +377,15 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent className="z-[200]">
-                                  <SelectItem value="low">Düşük</SelectItem>
-                                  <SelectItem value="medium">Orta</SelectItem>
-                                  <SelectItem value="high">Yüksek</SelectItem>
-                                  <SelectItem value="urgent">Acil</SelectItem>
+                                  <SelectItem value="low">Low</SelectItem>
+                                  <SelectItem value="medium">Medium</SelectItem>
+                                  <SelectItem value="high">High</SelectItem>
+                                  <SelectItem value="urgent">Urgent</SelectItem>
                                 </SelectContent>
                               </Select>
                             </div>
                             <div className="space-y-1.5">
-                              <Label className="text-[11px] uppercase text-muted-foreground">Atanan</Label>
+                              <Label className="text-[11px] uppercase text-muted-foreground">Assignee</Label>
                               <Select
                                 value={assigneeId}
                                 onValueChange={(v) => {
@@ -397,10 +397,10 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
                                 disabled={!canEdit}
                               >
                                 <SelectTrigger className="h-9 border-border/60 bg-background/80">
-                                  <SelectValue placeholder="Atanmadı" />
+                                  <SelectValue placeholder="Unassigned" />
                                 </SelectTrigger>
                                 <SelectContent className="z-[200]">
-                                  <SelectItem value="unassigned">Atanmadı</SelectItem>
+                                  <SelectItem value="unassigned">Unassigned</SelectItem>
                                   {currentTeam?.members.map((member) => (
                                     <SelectItem key={member.id} value={member.id}>
                                       {member.name}
@@ -410,7 +410,7 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
                               </Select>
                             </div>
                             <div className="space-y-1.5">
-                              <Label className="text-[11px] uppercase text-muted-foreground">Bitiş</Label>
+                              <Label className="text-[11px] uppercase text-muted-foreground">Due date</Label>
                               <Input
                                 type="date"
                                 value={dueDate}
@@ -426,7 +426,7 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
                               />
                             </div>
                             <div className="space-y-1.5 sm:col-span-2">
-                              <Label className="text-[11px] uppercase text-muted-foreground">Müşteri</Label>
+                              <Label className="text-[11px] uppercase text-muted-foreground">Customer</Label>
                               <Select
                                 value={customerId}
                                 onValueChange={(v) => {
@@ -438,10 +438,10 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
                                 disabled={!canEdit}
                               >
                                 <SelectTrigger className="h-9 border-border/60 bg-background/80">
-                                  <SelectValue placeholder="Yok" />
+                                  <SelectValue placeholder="None" />
                                 </SelectTrigger>
                                 <SelectContent className="z-[200]">
-                                  <SelectItem value="none">Yok</SelectItem>
+                                  <SelectItem value="none">None</SelectItem>
                                   {customers.map((customer) => (
                                     <SelectItem key={customer.id} value={customer.id}>
                                       {customer.name}
@@ -454,7 +454,7 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
                         </div>
 
                         <div className="space-y-2">
-                          <Label className="text-[11px] uppercase text-muted-foreground">Açıklama</Label>
+                          <Label className="text-[11px] uppercase text-muted-foreground">Description</Label>
                           <textarea
                             value={description}
                             disabled={!canEdit}
@@ -464,7 +464,7 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
                               setDescription(v);
                               scheduleMetaPersist({ description: v });
                             }}
-                            placeholder="Kısa bağlam…"
+                            placeholder="Short context…"
                             rows={2}
                             className="w-full resize-none rounded-lg border border-border/50 bg-transparent px-3 py-2.5 text-sm leading-relaxed outline-none ring-offset-background placeholder:text-muted-foreground/45 focus-visible:ring-2 focus-visible:ring-ring/30"
                           />
@@ -476,9 +476,9 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
 
                 <div className="space-y-3">
                   <div className="flex items-baseline justify-between gap-2">
-                    <h2 className="text-sm font-medium text-foreground">Kontrol listesi</h2>
+                    <h2 className="text-sm font-medium text-foreground">Checklist</h2>
                     <p className="text-[11px] text-muted-foreground">
-                      Enter yeni madde · Shift+Enter satır sonu · sürükleyerek sırala
+                      Enter = new item · Shift+Enter = line break · drag to reorder
                     </p>
                   </div>
                   <div
@@ -492,11 +492,11 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
                 <div className="space-y-2">
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
                     <Label htmlFor="action-kazanimlar" className="text-[11px] uppercase text-muted-foreground">
-                      Kazanımlar
+                      Learnings
                     </Label>
                     {canEdit && (
                       <p className="text-[11px] text-muted-foreground">
-                        Bilgi Merkezi’nde özet · yazarken otomatik kayıt · alan dışına çıkınca veya panel kapanınca anında
+                        Summarized in Knowledge Hub · autosaves while typing · persists on blur or when the panel closes
                       </p>
                     )}
                   </div>
@@ -516,7 +516,7 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
                       if (normalized === lastPersistedLearnings.current) return;
                       void persistLearningsForIdRef.current(task.id, learningsRef.current);
                     }}
-                    placeholder="Öğrendiklerin, çıkarımların, mülakat notların… (kontrol listesinden ayrı, serbest metin)"
+                    placeholder="What you learned, key takeaways, interview notes… (separate from the checklist, free text)"
                     rows={5}
                     className={cn(
                       'max-h-[min(40vh,280px)] min-h-[120px] w-full resize-y rounded-lg border border-border/50 bg-muted/10 px-3 py-3',

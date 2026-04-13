@@ -159,7 +159,7 @@ export function Sidebar({ mobileOpen, onCloseMobile, desktopCollapsed }: Sidebar
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'board', label: 'Projects / Board', icon: Columns3, count: teamTasks.length },
     { id: 'list', label: 'List View', icon: List, count: teamTasks.length },
-    { id: 'processes', label: 'Süreç Merkezi', icon: Library },
+    { id: 'processes', label: 'Process Center', icon: Library },
     { id: 'knowledge-hub', label: 'Knowledge Hub', icon: Brain },
     { id: 'customers', label: 'Customers', icon: Building2 },
     { id: 'integrations', label: 'Integrations', icon: Webhook },
@@ -186,7 +186,7 @@ export function Sidebar({ mobileOpen, onCloseMobile, desktopCollapsed }: Sidebar
         <button
           type="button"
           className="fixed inset-0 z-40 bg-black/50 lg:hidden"
-          aria-label="Menüyü kapat"
+          aria-label="Close navigation"
           onClick={onCloseMobile}
         />
       )}
@@ -278,7 +278,7 @@ export function Sidebar({ mobileOpen, onCloseMobile, desktopCollapsed }: Sidebar
 
           {currentTeam && narrow && (
             <div className="border-b bg-muted/30 p-2">
-              <NavTip label={`${currentTeam.name} — Takım`} narrow={narrow}>
+              <NavTip label={`${currentTeam.name} — Team`} narrow={narrow}>
                 <Button variant="ghost" size="sm" className="h-11 w-full p-0 lg:justify-center" asChild>
                   <Link href="/team" prefetch scroll={false} onClick={() => onCloseMobile()}>
                     <Users className="h-5 w-5 shrink-0 text-secondary-foreground" />

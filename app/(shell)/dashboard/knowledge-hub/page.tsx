@@ -8,7 +8,7 @@ import { RouteLoading } from '@/components/RouteLoading';
 const KnowledgeHubView = dynamic(
   () => import('@/components/KnowledgeHubView').then((m) => ({ default: m.KnowledgeHubView })),
   {
-    loading: () => <RouteLoading label="Bilgi Merkezi yükleniyor…" />,
+    loading: () => <RouteLoading label="Loading Knowledge Hub…" />,
   }
 );
 

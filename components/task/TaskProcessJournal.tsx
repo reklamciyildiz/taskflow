@@ -135,10 +135,10 @@ export function TaskProcessJournal({
     <div className="min-w-0 space-y-3 overflow-hidden rounded-lg border border-amber-200/60 bg-amber-50/40 p-4 dark:border-amber-900/40 dark:bg-amber-950/20">
       <div className="flex items-center gap-2 text-amber-900 dark:text-amber-100/90">
         <StickyNote className="h-4 w-4 shrink-0 opacity-80" />
-        <Label className="text-base font-semibold">Süreç günlüğü</Label>
+        <Label className="text-base font-semibold">Process journal</Label>
       </div>
       <p className="text-xs text-muted-foreground">
-        Teknik notları buraya ekleyin; en yeni kayıt üstte görünür. Enter ile gönder · Shift+Enter ile satır sonu.
+        Add technical notes here; the newest entry appears on top. Enter to send · Shift+Enter for a new line.
       </p>
 
       {canEdit && (
@@ -150,10 +150,10 @@ export function TaskProcessJournal({
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={onDraftKeyDown}
             enterKeyHint="send"
-            placeholder="Örn. Slippage 0.5 yapıldı…"
+            placeholder="e.g. Slippage set to 0.5…"
             disabled={disabled || pending}
             className="min-h-[44px] min-w-0 flex-1 resize-none break-words [overflow-wrap:anywhere] whitespace-pre-wrap bg-white dark:bg-gray-900"
-            aria-label="Yeni günlük notu"
+            aria-label="New journal note"
           />
           <Button
             type="button"
@@ -162,7 +162,7 @@ export function TaskProcessJournal({
             disabled={disabled || pending || !draft.trim()}
             className="w-full shrink-0 sm:w-auto sm:mt-0.5"
           >
-            {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Ekle'}
+            {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Add'}
           </Button>
         </div>
       )}
@@ -170,7 +170,7 @@ export function TaskProcessJournal({
       <ScrollArea className="h-[min(220px,40vh)] pr-3">
         <ul className="space-y-3">
           {sorted.length === 0 ? (
-            <li className="text-sm text-muted-foreground italic py-2">Henüz not yok.</li>
+            <li className="text-sm text-muted-foreground italic py-2">No notes yet.</li>
           ) : (
             sorted.map((entry) => (
               <li
@@ -185,13 +185,13 @@ export function TaskProcessJournal({
                   dateTime={displayIso(entry)}
                   title={
                     entry.updatedAt && activityMs(entry.updatedAt) > 0
-                      ? `İlk kayıt: ${formatLogTime(entry.createdAt)}`
+                      ? `First entry: ${formatLogTime(entry.createdAt)}`
                       : undefined
                   }
                 >
                   {formatLogTime(displayIso(entry))}
                   {entry.updatedAt && activityMs(entry.updatedAt) > 0 ? (
-                    <span className="text-muted-foreground font-normal"> · güncellendi</span>
+                    <span className="text-muted-foreground font-normal"> · updated</span>
                   ) : null}
                 </time>
                 {editingId === entry.id ? (
@@ -203,7 +203,7 @@ export function TaskProcessJournal({
                       enterKeyHint="enter"
                       disabled={disabled || pendingEdit}
                       className="min-h-[80px] w-full min-w-0 max-w-full resize-y break-words bg-white dark:bg-gray-900"
-                      aria-label="Günlük notunu düzenle"
+                      aria-label="Edit journal note"
                     />
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                       <Button
@@ -213,10 +213,10 @@ export function TaskProcessJournal({
                         onClick={() => void saveEdit()}
                         disabled={disabled || pendingEdit || !editingDraft.trim()}
                         className="gap-1.5"
-                        title="Kaydet (Ctrl/⌘ + Enter)"
+                        title="Save (Ctrl/⌘ + Enter)"
                       >
                         {pendingEdit ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                        Kaydet
+                        Save
                       </Button>
                       <Button
                         type="button"
@@ -225,13 +225,13 @@ export function TaskProcessJournal({
                         onClick={cancelEdit}
                         disabled={disabled || pendingEdit}
                         className="gap-1.5"
-                        title="İptal (Esc)"
+                        title="Cancel (Esc)"
                       >
                         <X className="h-4 w-4" />
-                        İptal
+                        Cancel
                       </Button>
                       <p className="text-[11px] text-muted-foreground sm:ml-auto">
-                        Kaydet: Ctrl/⌘ + Enter · İptal: Esc
+                        Save: Ctrl/⌘ + Enter · Cancel: Esc
                       </p>
                     </div>
                   </div>

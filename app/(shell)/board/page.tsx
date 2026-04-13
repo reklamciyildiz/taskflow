@@ -9,7 +9,7 @@ const TaskBoard = dynamic(
   () => import('@/components/TaskBoard').then((m) => ({ default: m.TaskBoard })),
   {
     ssr: false,
-    loading: () => <RouteLoading label="Pano yükleniyor…" />,
+    loading: () => <RouteLoading label="Loading board…" />,
   }
 );
 

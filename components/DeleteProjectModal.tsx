@@ -48,20 +48,20 @@ export function DeleteProjectModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-red-600">
             <AlertTriangle className="h-5 w-5" />
-            Süreci sil
+            Delete process
           </DialogTitle>
           <DialogDescription>
-            Bu işlem geri alınamaz. Süreçle ilişkili görevler panoda artık bu akış altında görünmeyecek.
+            This action cannot be undone. Actions linked to this process will no longer appear under this workflow on the board.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
             <p className="text-sm text-red-800 dark:text-red-200">
-              <strong>Süreç:</strong> {project?.name}
+              <strong>Process:</strong> {project?.name}
             </p>
             <p className="text-sm text-red-600 dark:text-red-300 mt-1">
-              {project?.columnCount ?? 0} kolonluk board yapılandırması kaldırılacak.
+              The board configuration with {project?.columnCount ?? 0} columns will be removed.
             </p>
           </div>
 
@@ -69,18 +69,18 @@ export function DeleteProjectModal({
 
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={handleClose} disabled={loading}>
-              Vazgeç
+              Cancel
             </Button>
             <Button variant="destructive" onClick={handleDelete} disabled={loading}>
               {loading ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Siliniyor...
+                  Deleting...
                 </>
               ) : (
                 <>
                   <Trash2 className="h-4 w-4 mr-2" />
-                  Süreci sil
+                  Delete process
                 </>
               )}
             </Button>

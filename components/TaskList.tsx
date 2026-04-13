@@ -150,8 +150,8 @@ export function TaskList() {
 
   const listSubtitle =
     boardScope.type === 'general'
-      ? 'Genel aksiyonlar (sürece bağlı olmayan) — Pano ile aynı süreç seçimi'
-      : `Süreç: ${boardProject?.name ?? 'Seçili süreç'} — Pano ile paylaşılan filtre`;
+      ? 'General actions (not tied to a process) — shared process selection with the board'
+      : `Process: ${boardProject?.name ?? 'Selected process'} — shared filters with the board`;
 
   const toggleTaskComplete = (
     taskId: string,
@@ -173,7 +173,7 @@ export function TaskList() {
     <div className="h-full">
       <div className="mb-6 space-y-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Aksiyon listesi</h1>
+          <h1 className="text-2xl font-bold text-foreground">Action list</h1>
           <p className="mt-1 text-muted-foreground text-sm">{listSubtitle}</p>
         </div>
         {projectsForTeam.length > 0 && (
@@ -186,9 +186,9 @@ export function TaskList() {
                 else setBoardScope({ type: 'project', projectId: v });
               }}
               className="h-10 w-full min-w-[200px] max-w-md px-3 py-2 text-sm border rounded-md bg-background sm:w-auto"
-              aria-label="Liste kapsamı — süreç veya genel aksiyonlar"
+              aria-label="List scope — process or general actions"
             >
-              <option value="__general__">Genel aksiyonlar</option>
+              <option value="__general__">General actions</option>
               {projectsForTeam.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}
@@ -203,10 +203,10 @@ export function TaskList() {
                   size="sm"
                   className="h-10 gap-2"
                   onClick={() => setIsCreateProjectOpen(true)}
-                  title="Yeni süreç (proje) oluştur"
+                  title="Create a new process (project)"
                 >
                   <Layers className="h-4 w-4" />
-                  Yeni süreç
+                  New process
                 </Button>
                 <Button
                   type="button"
@@ -219,10 +219,10 @@ export function TaskList() {
                   }}
                   disabled={boardScope.type !== 'general' && !boardProject}
                   title={
-                    boardScope.type === 'general' ? 'Genel kolonları düzenle' : 'Seçili süreci düzenle'
+                    boardScope.type === 'general' ? 'Edit general columns' : 'Edit selected process'
                   }
                   aria-label={
-                    boardScope.type === 'general' ? 'Genel kolonları düzenle' : 'Seçili süreci düzenle'
+                    boardScope.type === 'general' ? 'Edit general columns' : 'Edit selected process'
                   }
                 >
                   <Settings2 className="h-4 w-4" />
@@ -239,7 +239,7 @@ export function TaskList() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Aksiyon ara…"
+              placeholder="Search actions…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10"
@@ -253,13 +253,12 @@ export function TaskList() {
               <Button variant="outline" size="sm" className="gap-2 max-w-[min(100%,14rem)] sm:max-w-[16rem]">
                 <Filter className="h-4 w-4 shrink-0" />
                 <span className="truncate">
-                  Durum:{' '}
-                  {filterStatus === 'all' ? 'Tümü' : columnLabel(filterStatus, boardColumns)}
+                  Status: {filterStatus === 'all' ? 'All' : columnLabel(filterStatus, boardColumns)}
                 </span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="max-h-[min(60vh,320px)] overflow-y-auto">
-              <DropdownMenuItem onClick={() => setFilterStatus('all')}>Tüm durumlar</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setFilterStatus('all')}>All statuses</DropdownMenuItem>
               {boardColumns.map((col) => (
                 <DropdownMenuItem key={col.id} onClick={() => setFilterStatus(col.id)}>
                   {col.title}
@@ -461,7 +460,7 @@ export function TaskList() {
                               e.stopPropagation();
                               openTaskEditor(task.id);
                             }}>
-                              Aksiyonu düzenle
+                              Edit action
                             </DropdownMenuItem>
                           )}
                           {canDeleteTask(task.createdBy) && (
@@ -489,13 +488,13 @@ export function TaskList() {
         {filteredTasks.length === 0 && (
           <div className="text-center py-12">
             <CheckCircle2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="font-medium text-foreground">Aksiyon bulunamadı</h3>
+            <h3 className="font-medium text-foreground">No actions found</h3>
             <p className="text-muted-foreground text-sm mt-1">
               {searchQuery || filterStatus !== 'all' || filterPriority !== 'all'
-                ? 'Arama veya filtreleri değiştirmeyi deneyin'
+                ? 'Try adjusting your search or filters'
                 : boardScope.type === 'project'
-                  ? 'Bu süreçte henüz aksiyon yok veya hepsi başka filtrelerle eleniyor'
-                  : 'Başlamak için ilk aksiyonunuzu oluşturun'}
+                  ? 'No actions in this process yet (or they are filtered out)'
+                  : 'Create your first action to get started'}
             </p>
           </div>
         )}

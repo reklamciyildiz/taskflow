@@ -8,7 +8,7 @@ import { RouteLoading } from '@/components/RouteLoading';
 const Achievements = dynamic(
   () => import('@/components/Achievements').then((m) => ({ default: m.Achievements })),
   {
-    loading: () => <RouteLoading label="Başarılar yükleniyor…" />,
+    loading: () => <RouteLoading label="Loading achievements…" />,
   }
 );
 

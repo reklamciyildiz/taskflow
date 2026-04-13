@@ -8,7 +8,7 @@ import { RouteLoading } from '@/components/RouteLoading';
 const Analytics = dynamic(
   () => import('@/components/Analytics').then((m) => ({ default: m.Analytics })),
   {
-    loading: () => <RouteLoading label="Analitik yükleniyor…" />,
+    loading: () => <RouteLoading label="Loading analytics…" />,
   }
 );
 

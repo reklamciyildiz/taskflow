@@ -8,7 +8,7 @@ import { RouteLoading } from '@/components/RouteLoading';
 const TeamMembers = dynamic(
   () => import('@/components/TeamMembers').then((m) => ({ default: m.TeamMembers })),
   {
-    loading: () => <RouteLoading label="Takım yükleniyor…" />,
+    loading: () => <RouteLoading label="Loading team…" />,
   }
 );
 

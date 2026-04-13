@@ -76,9 +76,14 @@ export function KnowledgeHubView() {
         c.teamName,
         c.learningsPreview ?? '',
         ...c.checklistItems.map((i) => i.text),
+        // legacy / bilingual search helpers
         'kazanım',
         'öğrenme',
         'günlük',
+        'learning',
+        'learnings',
+        'journal',
+        'notes',
       ]
         .join(' ')
         .toLowerCase();
@@ -126,11 +131,11 @@ export function KnowledgeHubView() {
             <Sparkles className="h-5 w-5" />
             <span className="text-sm font-medium uppercase tracking-wide">Second brain</span>
           </div>
-          <h1 className="text-3xl font-bold tracking-tight md:text-4xl">Bilgi Merkezi</h1>
+          <h1 className="text-3xl font-bold tracking-tight md:text-4xl">Knowledge Hub</h1>
           <p className="max-w-2xl text-base leading-relaxed text-muted-foreground">
-            Aksiyonlarına bağlı <span className="text-foreground/90">kazanımlar</span> (özet metin) ve{' '}
-            <span className="text-foreground/90">günlük notlar</span> (aksiyon günlüğündeki satırlar) burada toplanır.
-            Kontrol kutularını pano açmadan işaretleyebilirsin; ayrıntı için karta tıkla.
+            Your action <span className="text-foreground/90">learnings</span> (free-form notes) and{' '}
+            <span className="text-foreground/90">journal notes</span> (checklist items in the action journal) are collected here.
+            You can tick items without opening the board—click a card for full details.
           </p>
         </div>
       </div>
@@ -141,28 +146,28 @@ export function KnowledgeHubView() {
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Ara…"
+            placeholder="Search…"
             className="h-11 bg-background pl-10"
-            aria-label="Bilgi merkezi araması"
+            aria-label="Knowledge Hub search"
           />
         </div>
         <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as TypeFilter)}>
           <SelectTrigger className="h-11 w-full sm:w-[220px]">
-            <SelectValue placeholder="İçerik" />
+            <SelectValue placeholder="Content" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Tüm içerikler</SelectItem>
-            <SelectItem value="learnings">Kazanımlar</SelectItem>
-            <SelectItem value="action_notes">Günlük notlar</SelectItem>
+            <SelectItem value="all">All content</SelectItem>
+            <SelectItem value="learnings">Learnings</SelectItem>
+            <SelectItem value="action_notes">Journal notes</SelectItem>
           </SelectContent>
         </Select>
         <Select value={projectFilter} onValueChange={setProjectFilter}>
           <SelectTrigger className="h-11 w-full sm:min-w-[220px]">
-            <SelectValue placeholder="Süreç" />
+            <SelectValue placeholder="Process" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Tüm süreçler</SelectItem>
-            <SelectItem value="__none__">Sürece bağlı değil</SelectItem>
+            <SelectItem value="all">All processes</SelectItem>
+            <SelectItem value="__none__">No process</SelectItem>
             {projectsScoped.map((p) => (
               <SelectItem key={p.id} value={p.id}>
                 {p.name}
@@ -173,7 +178,7 @@ export function KnowledgeHubView() {
       </div>
 
       {loading ? (
-        <p className="text-sm text-muted-foreground">Yükleniyor…</p>
+        <p className="text-sm text-muted-foreground">Loading…</p>
       ) : allCards.length === 0 ? (
         <div className="columns-1 gap-4 [column-fill:_balance] md:columns-2 lg:columns-3 xl:columns-4">
           <div className="mb-4 break-inside-avoid">
@@ -182,10 +187,10 @@ export function KnowledgeHubView() {
               <div className="p-4">
                 <Badge variant="secondary" className="gap-1">
                   <FileText className="h-3 w-3" />
-                  Günlük
+                  Journal
                 </Badge>
                 <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
-                  Örnek: Toplantı notu, mülakat maddesi…
+                  Example: meeting note, interview item…
                 </p>
               </div>
             </div>
@@ -198,13 +203,13 @@ export function KnowledgeHubView() {
                     <Inbox className="h-6 w-6" aria-hidden />
                   </div>
                   <div className="min-w-0">
-                    <p className="font-semibold text-foreground">Henüz not yok</p>
+                    <p className="font-semibold text-foreground">No notes yet</p>
                     <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                      Panoda bir aksiyon açıp günlük not veya kazanım ekleyin; hızlı yakalama ile Inbox’a da düşebilirsiniz.
+                      Open an action on the board and add journal notes or learnings—quick capture can also land items in Inbox.
                     </p>
                     <Button variant="default" className="mt-4 gap-2" onClick={() => router.push('/board')}>
                       <LayoutGrid className="h-4 w-4" />
-                      Panoya git
+                      Go to board
                     </Button>
                   </div>
                 </div>
@@ -217,8 +222,8 @@ export function KnowledgeHubView() {
           <div className="mb-4 break-inside-avoid">
             <Card className="border-dashed shadow-sm">
               <CardContent className="space-y-2 p-5 text-muted-foreground">
-                <p className="font-medium text-foreground">Sonuç yok</p>
-                <p className="text-sm">Filtreleri veya aramayı sıfırlamayı dene.</p>
+                <p className="font-medium text-foreground">No results</p>
+                <p className="text-sm">Try resetting your filters or search.</p>
               </CardContent>
             </Card>
           </div>
@@ -261,15 +266,15 @@ export function KnowledgeHubView() {
                         {hasLearn ? (
                           <Badge className="gap-1 bg-emerald-600 hover:bg-emerald-600">
                             <BookOpen className="h-3 w-3" />
-                            Kazanımlar
+                            Learnings
                           </Badge>
                         ) : (
                           <Badge variant="secondary" className="gap-1">
                             <FileText className="h-3 w-3" />
-                            Günlük
+                            Journal
                           </Badge>
                         )}
-                        {isPinned && <span aria-label="Sabitlendi">⭐</span>}
+                        {isPinned && <span aria-label="Pinned">⭐</span>}
                       </div>
                       <div className="flex shrink-0 items-center gap-1">
                         <Button
@@ -277,7 +282,7 @@ export function KnowledgeHubView() {
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8"
-                          aria-label={isPinned ? 'Sabitlemeyi kaldır' : 'Sabitle'}
+                          aria-label={isPinned ? 'Unpin' : 'Pin'}
                           onClick={(e) => {
                             e.stopPropagation();
                             togglePin(card.id);
@@ -332,7 +337,7 @@ export function KnowledgeHubView() {
                           );
                         })}
                         {card.checklistItems.length > 10 && (
-                          <li className="text-xs text-muted-foreground">+{card.checklistItems.length - 10} madde…</li>
+                          <li className="text-xs text-muted-foreground">+{card.checklistItems.length - 10} more…</li>
                         )}
                       </ul>
                     )}
@@ -358,7 +363,7 @@ export function KnowledgeHubView() {
                         </Badge>
                       ) : (
                         <Badge variant="outline" className="font-normal text-muted-foreground">
-                          Süreç yok
+                          No process
                         </Badge>
                       )}
                       <Badge variant="outline" className="font-normal">
@@ -367,7 +372,7 @@ export function KnowledgeHubView() {
                     </div>
 
                     <p className="mt-2 text-[11px] text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">
-                      Ayrıntı için tıkla
+                      Click for details
                     </p>
                   </CardContent>
                 </Card>
@@ -379,7 +384,7 @@ export function KnowledgeHubView() {
 
       {!loading && allCards.length > 0 && (
         <p className="text-center text-xs text-muted-foreground">
-          {filtered.length} / {allCards.length} kart
+          {filtered.length} / {allCards.length} cards
         </p>
       )}
     </div>

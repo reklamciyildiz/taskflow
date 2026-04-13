@@ -6,7 +6,7 @@ import { useView } from '@/components/ViewContext';
 import { RouteLoading } from '@/components/RouteLoading';
 
 const ProcessesClient = dynamic(() => import('./ProcessesClient'), {
-  loading: () => <RouteLoading label="Süreç Merkezi yükleniyor…" />,
+  loading: () => <RouteLoading label="Loading Process Center…" />,
 });
 
 export default function ProcessesPage() {

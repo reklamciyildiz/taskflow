@@ -111,7 +111,7 @@ export function Header({ onSidebarToggle, desktopSidebarExpanded = true }: Heade
           size="sm"
           className="lg:hidden shrink-0"
           onClick={onSidebarToggle}
-          aria-label="Menüyü aç veya kapat"
+          aria-label="Toggle navigation"
         >
           <Menu className="h-5 w-5" />
         </Button>
@@ -121,8 +121,8 @@ export function Header({ onSidebarToggle, desktopSidebarExpanded = true }: Heade
           size="sm"
           className="hidden lg:inline-flex shrink-0 text-muted-foreground hover:text-foreground"
           onClick={onSidebarToggle}
-          aria-label={desktopSidebarExpanded ? 'Kenar çubuğunu daralt' : 'Kenar çubuğunu genişlet'}
-          title={desktopSidebarExpanded ? 'Kenar çubuğunu daralt' : 'Kenar çubuğunu genişlet'}
+          aria-label={desktopSidebarExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
+          title={desktopSidebarExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
         >
           {desktopSidebarExpanded ? (
             <PanelLeftClose className="h-5 w-5" />

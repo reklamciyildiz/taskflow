@@ -92,10 +92,10 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
       return (
         boardProject?.name ??
         projectsForTeam.find((p) => p.id === boardScope.projectId)?.name ??
-        'Seçili süreç'
+        'Selected process'
       );
     }
-    return currentProject?.name ?? 'yok';
+    return currentProject?.name ?? 'none';
   }, [boardScope, boardProject, projectsForTeam, currentProject]);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -134,18 +134,18 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-h-[90dvh] w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] overflow-y-auto sm:w-full sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Yeni aksiyon</DialogTitle>
+          <DialogTitle>New action</DialogTitle>
           <DialogDescription>
-            Başlık ve isteğe bağlı alanları doldurup kaydedin. Süreç (veya panoda seçili süreç) değiştikçe statü listesi o
-            akışın kolonlarıyla eşlenir; böylece oluşturduğun aksiyon doğru aşamada başlar.
+            Fill in the title and any optional fields, then save. As the selected process (or the board’s process)
+            changes, the status list is mapped to that workflow’s columns so your action starts in the right stage.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="title">Başlık</Label>
+            <Label htmlFor="title">Title</Label>
             <Input
               id="title"
-              placeholder="Aksiyon başlığı…"
+              placeholder="Action title…"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               required
@@ -166,7 +166,7 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
             </div>
             <Textarea
               id="description"
-              placeholder="Kısa açıklama…"
+              placeholder="Short description…"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
@@ -175,10 +175,10 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Statü (aşama)</Label>
+              <Label>Status (stage)</Label>
               <Select value={status} onValueChange={(value) => setStatus(value as TaskStatus)}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Aşama seçin" />
+                  <SelectValue placeholder="Select a stage" />
                 </SelectTrigger>
                 <SelectContent>
                   {statusColumns.map((col) => (
@@ -252,16 +252,16 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
           </div>
 
           <div className="space-y-2">
-            <Label>Süreç (Project)</Label>
+            <Label>Process</Label>
             <Select value={projectId} onValueChange={setProjectId}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__auto__">
-                  Otomatik (panoda seçili: {autoContextLabel})
+                  Automatic (board selection: {autoContextLabel})
                 </SelectItem>
-                <SelectItem value="__none__">Süreç yok</SelectItem>
+                <SelectItem value="__none__">No process</SelectItem>
                 {projectsForTeam.map((p) => (
                   <SelectItem key={p.id} value={p.id}>
                     {p.name}
@@ -270,7 +270,8 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              Otomatik: panoda seçili sürece bağlanır; Genel panoda isen süreç atanmaz ve statüler genel pano kolonlarıdır.
+              Automatic: links to the process selected on the board. In General board, no process is assigned and
+              statuses follow the general board columns.
             </p>
           </div>
 
@@ -296,7 +297,7 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
               Cancel
             </Button>
             <Button type="submit" disabled={!title.trim()}>
-              Oluştur
+              Create
             </Button>
           </div>
         </form>

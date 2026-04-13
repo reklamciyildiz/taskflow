@@ -143,7 +143,7 @@ export function TaskBoard() {
                 className="h-10 w-full sm:w-auto sm:min-w-[200px] px-3 py-2 text-sm border rounded-md bg-background"
                 aria-label="Active process / project"
               >
-                <option value="__general__">Genel aksiyonlar</option>
+                <option value="__general__">General actions</option>
                 {projectsForTeam.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
@@ -158,10 +158,10 @@ export function TaskBoard() {
                     size="sm"
                     className="h-10 gap-2"
                     onClick={() => setIsCreateProjectOpen(true)}
-                    title="Yeni süreç (proje) oluştur"
+                    title="Create a new process (project)"
                   >
                     <Layers className="h-4 w-4" />
-                    Yeni süreç
+                    New process
                   </Button>
                   <Button
                     type="button"
@@ -173,8 +173,8 @@ export function TaskBoard() {
                       else setEditingProjectId(boardProject?.id ?? null);
                     }}
                     disabled={boardScope.type !== 'general' && !boardProject}
-                    title={boardScope.type === 'general' ? 'Genel kolonları düzenle' : 'Seçili süreci düzenle'}
-                    aria-label={boardScope.type === 'general' ? 'Genel kolonları düzenle' : 'Seçili süreci düzenle'}
+                    title={boardScope.type === 'general' ? 'Edit general columns' : 'Edit selected process'}
+                    aria-label={boardScope.type === 'general' ? 'Edit general columns' : 'Edit selected process'}
                   >
                     <Settings2 className="h-4 w-4" />
                   </Button>
@@ -256,12 +256,12 @@ export function TaskBoard() {
 
       <DragDropContext onDragEnd={onDragEnd}>
         <>
-          {/* Mobile: horizontal scroll across all columns (snap); drag between columns is unreliable on touch — use ⋮ → Statü değiştir */}
+          {/* Mobile: horizontal scroll across all columns (snap); drag between columns is unreliable on touch — use ⋮ → Change status */}
           <div className="md:hidden">
             <p className="mb-2 px-0.5 text-xs text-muted-foreground">
-              Sütunlar arasında yatay kaydırın. Mobilde sütunlar arası taşıma için kartın sağ üstündeki ⋮ menüsünden
-              <span className="font-medium text-foreground"> Statü değiştir</span> kullanın (kaydırma ile sürükleme
-              çakışmasın diye sürükle-bırak kapalı).
+              Swipe horizontally between columns. On mobile, move a card between columns from the ⋮ menu using
+              <span className="font-medium text-foreground"> Change status</span> (drag & drop is disabled to
+              avoid scroll/drag conflicts).
             </p>
             <div className="-mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-3 pt-0.5 overscroll-x-contain [scrollbar-width:thin] [-webkit-overflow-scrolling:touch]">
               {boardColumns.map((column) => {

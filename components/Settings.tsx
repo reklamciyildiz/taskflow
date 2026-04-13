@@ -180,7 +180,7 @@ export function Settings() {
   const handleLeaveSoloWorkspace = async () => {
     if (
       !confirm(
-        'Organizasyonda yalnızca sen varsan, üyeliğin kaldırılır ve başka bir ekibin davetini kabul edebilirsin. Devam edilsin mi?'
+        "If you're the only member in this organization, your membership will be removed so you can accept another team's invite. Continue?"
       )
     ) {
       return;
@@ -190,15 +190,15 @@ export function Settings() {
       const res = await fetch('/api/onboarding/reset-solo-workspace', { method: 'POST' });
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || 'İşlem başarısız');
+        throw new Error(data.error || 'Request failed');
       }
-      toast.success(data.message || 'Çalışma alanından çıktın');
+      toast.success(data.message || 'You left the workspace');
       await update?.();
       router.refresh();
       await refreshData();
       router.push('/onboarding');
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'İşlem başarısız';
+      const msg = e instanceof Error ? e.message : 'Request failed';
       toast.error(msg);
     } finally {
       setLeaveSoloLoading(false);
@@ -350,15 +350,15 @@ export function Settings() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Layers className="h-5 w-5" />
-                  Süreç Merkezi
+                  Process Center
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="rounded-xl border border-dashed p-4 bg-muted/30 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="space-y-1">
-                    <p className="text-sm font-medium text-foreground">Süreçleri artık ayrı bir merkezden yönet</p>
+                    <p className="text-sm font-medium text-foreground">Manage processes from a dedicated center</p>
                     <p className="text-xs text-muted-foreground">
-                      Oluşturma, düzenleme, silme ve kolon yapılandırmaları için Süreç Merkezi’ni kullan.
+                      Use Process Center to create, edit, delete, and configure columns.
                     </p>
                   </div>
                   <Button
@@ -368,7 +368,7 @@ export function Settings() {
                     className="gap-2"
                   >
                     <Layers className="h-4 w-4" />
-                    Süreç Merkezi’ne git
+                    Go to Process Center
                   </Button>
                 </div>
               </CardContent>
@@ -495,14 +495,13 @@ export function Settings() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
                 <LogOut className="h-5 w-5 text-amber-600 dark:text-amber-500" />
-                Çalışma alanı
+                Workspace
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <p className="text-sm text-muted-foreground">
-                Yanlışlıkla kendi organizasyonunu oluşturduysan ve başka bir ekip davetini kabul etmek
-                istiyorsan, buradan çıkabilirsin. Yalnızca organizasyonda{' '}
-                <strong>tek üye</strong> isen işlem uygulanır.
+                If you accidentally created your own organization and want to accept another team's invite, you can
+                leave from here. This only works when you're the <strong>only member</strong> in the organization.
               </p>
               <Button
                 type="button"
@@ -511,7 +510,7 @@ export function Settings() {
                 disabled={leaveSoloLoading}
                 onClick={() => void handleLeaveSoloWorkspace()}
               >
-                {leaveSoloLoading ? 'İşleniyor…' : 'Tek kişilik çalışma alanımdan çık'}
+                {leaveSoloLoading ? 'Working…' : 'Leave my solo workspace'}
               </Button>
             </CardContent>
           </Card>

@@ -40,22 +40,22 @@ export default function ProcessesClient() {
         <div className="space-y-1">
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <Layers className="h-5 w-5" />
-            Süreç Merkezi
+            Process Center
           </h1>
           <p className="text-sm text-muted-foreground">
-            Süreçleri (pipeline) burada yönet: oluştur, düzenle, sil. Değişiklikler panodaki kolonları anında etkiler.
+            Manage processes (pipelines) here: create, edit, delete. Changes instantly affect board columns.
           </p>
         </div>
         <Button onClick={() => setIsCreateOpen(true)} className="gap-2">
           <Plus className="h-4 w-4" />
-          Yeni süreç
+          New process
         </Button>
       </div>
 
       <Card className="border-border/70">
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center justify-between gap-3">
-            <span>Süreçler</span>
+            <span>Processes</span>
             <Badge variant="secondary">{visible.length}</Badge>
           </CardTitle>
         </CardHeader>
@@ -65,20 +65,20 @@ export default function ProcessesClient() {
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Süreç ara…"
+              placeholder="Search processes…"
               className="pl-9"
             />
           </div>
 
           {visible.length === 0 ? (
             <div className="rounded-lg border border-dashed p-8 text-center space-y-2 bg-muted/30">
-              <p className="text-sm font-medium text-foreground">Henüz süreç yok</p>
+              <p className="text-sm font-medium text-foreground">No processes yet</p>
               <p className="text-sm text-muted-foreground">
-                Bir süreç oluşturup kolonlarını tanımla; sonra panoda süreç seçerek görevleri o akışa bağla.
+                Create a process and define its columns, then select it on the board to link actions to that flow.
               </p>
               <Button variant="outline" onClick={() => setIsCreateOpen(true)} className="gap-2">
                 <Plus className="h-4 w-4" />
-                Süreç oluştur
+                Create process
               </Button>
             </div>
           ) : (
@@ -93,21 +93,21 @@ export default function ProcessesClient() {
                       <p className="font-semibold truncate">{p.name}</p>
                       {currentProject?.id === p.id && (
                         <Badge variant="default" className="h-5 text-[10px]">
-                          Seçili
+                          Selected
                         </Badge>
                       )}
                       {p.teamId ? (
                         <Badge variant="outline" className="h-5 text-[10px]">
-                          Takım
+                          Team
                         </Badge>
                       ) : (
                         <Badge variant="outline" className="h-5 text-[10px] text-muted-foreground">
-                          Genel
+                          General
                         </Badge>
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
-                      {p.columnConfig?.length ?? 0} kolon
+                      {p.columnConfig?.length ?? 0} columns
                     </p>
                   </div>
 
@@ -123,7 +123,7 @@ export default function ProcessesClient() {
                       }}
                     >
                       <Settings2 className="h-4 w-4" />
-                      Panoda seç
+                      Select on board
                     </Button>
                     <Button
                       type="button"
@@ -133,7 +133,7 @@ export default function ProcessesClient() {
                       onClick={() => setEditingProjectId(p.id)}
                     >
                       <Settings2 className="h-4 w-4" />
-                      Düzenle
+                      Edit
                     </Button>
                     <Button
                       type="button"
@@ -143,7 +143,7 @@ export default function ProcessesClient() {
                       onClick={() => setDeletingProjectId(p.id)}
                     >
                       <Trash2 className="h-4 w-4" />
-                      Sil
+                      Delete
                     </Button>
                   </div>
                 </div>
@@ -172,7 +172,7 @@ export default function ProcessesClient() {
           if (!data.success) throw new Error(data.error || 'Failed to delete process');
           if (currentProject?.id === projectId) setCurrentProjectId(null);
           await refreshData();
-          toast.success('Süreç silindi');
+          toast.success('Process deleted');
           setDeletingProjectId(null);
         }}
       />
