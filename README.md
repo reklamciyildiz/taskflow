@@ -2,6 +2,10 @@
 
 A sophisticated task management application built with Next.js, featuring advanced team collaboration, analytics, and modern UI design.
 
+## Documentation
+
+Ek rehberler (Supabase, auth, webhook, RLS, yol haritaları vb.) [`docs/`](./docs/) klasöründe; indeks: [`docs/README.md`](./docs/README.md).
+
 ## 🚀 Features Implemented
 
 ### ✅ Core Task Management
@@ -81,7 +85,8 @@ A sophisticated task management application built with Next.js, featuring advanc
 │   └── UserMenu.tsx        # User profile dropdown
 ├── lib/
 │   └── utils.ts            # Utility functions (cn, etc.)
-└── README.md               # This documentation
+├── docs/                   # Kurulum, güvenlik, webhook, RLS, roadmap belgeleri
+├── README.md               # Ana proje özeti
 ```
 
 ## 🎨 Design System
