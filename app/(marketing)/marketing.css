@@ -1,0 +1,111 @@
+/* Scoped marketing / landing theme — Obsidian + emerald accents */
+.marketing-theme {
+  --background: 0 0% 2%;
+  --foreground: 0 0% 96%;
+  --card: 0 0% 6%;
+  --card-foreground: 0 0% 96%;
+  --popover: 0 0% 5%;
+  --popover-foreground: 0 0% 96%;
+  --primary: 217 91% 60%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 160 84% 39%;
+  --muted: 0 0% 12%;
+  --muted-foreground: 0 0% 55%;
+  --border: 0 0% 14%;
+  --input: 0 0% 14%;
+  --ring: 160 84% 45%;
+}
+
+.marketing-noise {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.35;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  mix-blend-mode: overlay;
+}
+
+.marketing-headline-primary {
+  color: #fafafa;
+  letter-spacing: -0.04em;
+}
+
+.marketing-kinetic-line {
+  display: block;
+  margin-top: 0.15em;
+  background: linear-gradient(
+    100deg,
+    #52525b 0%,
+    #a1a1aa 25%,
+    #fafafa 50%,
+    #a1a1aa 75%,
+    #52525b 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: marketing-kinetic-shift 10s ease-in-out infinite;
+}
+
+@keyframes marketing-kinetic-shift {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marketing-kinetic-line {
+    animation: none;
+    background: linear-gradient(90deg, #d4d4d8, #fafafa);
+    background-size: 100%;
+  }
+}
+
+.marketing-bento-float {
+  animation: marketing-float-y 5s ease-in-out infinite;
+}
+
+.marketing-bento-float-delay-1 {
+  animation-delay: 0.4s;
+}
+.marketing-bento-float-delay-2 {
+  animation-delay: 0.8s;
+}
+.marketing-bento-float-delay-3 {
+  animation-delay: 1.2s;
+}
+
+@keyframes marketing-float-y {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marketing-bento-float,
+  .marketing-bento-float-delay-1,
+  .marketing-bento-float-delay-2,
+  .marketing-bento-float-delay-3 {
+    animation: none;
+  }
+}
+
+html.marketing-smooth-scroll {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.marketing-smooth-scroll {
+    scroll-behavior: auto;
+  }
+}

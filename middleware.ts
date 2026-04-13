@@ -12,6 +12,7 @@ export async function middleware(request: NextRequest) {
     '/auth/error',
     '/manifest.webmanifest',
     '/api/auth',
+    '/marketing',
     '/onboarding',
     '/invite',
     '/api/invitations',
