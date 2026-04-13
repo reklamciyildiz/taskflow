@@ -21,7 +21,7 @@ Rules:
 4. Generate relevant tags based on task type
 5. Keep title concise but descriptive
 6. Include all important details in description
-7. Use Turkish language context appropriately
+7. Preserve the user's language context when helpful
 
 Always respond with valid JSON in this exact format:
 {
@@ -47,22 +47,22 @@ Respond with a JSON object containing the extracted task details.`;
  */
 export const TASK_EXTRACTION_EXAMPLES = [
   {
-    input: 'Yarın saat 3\'te müşteri toplantısı var, Ahmet ve Mehmet katılacak, sunum hazırlanmalı',
+    input: "Tomorrow at 3 PM there's a customer meeting, Alex and Sam will attend, a presentation needs to be prepared",
     expected: {
-      title: 'Müşteri Toplantısı Sunumu Hazırla',
-      description: 'Yarın 15:00\'te müşteri toplantısı için sunum hazırlanacak. Ahmet ve Mehmet katılacak.',
+      title: 'Prepare Customer Meeting Presentation',
+      description: "Prepare a presentation for tomorrow's 15:00 customer meeting. Alex and Sam will attend.",
       priority: 'high',
       dueDate: 'tomorrow at 15:00',
-      assignees: ['Ahmet', 'Mehmet'],
+      assignees: ['Alex', 'Sam'],
       tags: ['meeting', 'presentation'],
       estimatedHours: 2,
     },
   },
   {
-    input: 'Login butonu çalışmıyor, acil düzeltilmeli',
+    input: 'The login button is broken, needs an urgent fix',
     expected: {
-      title: 'Login Butonu Hatası',
-      description: 'Login butonu çalışmıyor ve acil olarak düzeltilmesi gerekiyor.',
+      title: 'Fix login button bug',
+      description: 'The login button is not working and needs to be fixed urgently.',
       priority: 'high',
       dueDate: null,
       assignees: [],
@@ -71,10 +71,10 @@ export const TASK_EXTRACTION_EXAMPLES = [
     },
   },
   {
-    input: 'Gelecek hafta API dokümantasyonunu güncelle',
+    input: 'Update the API documentation next week',
     expected: {
-      title: 'API Dokümantasyonunu Güncelle',
-      description: 'Gelecek hafta API dokümantasyonu güncellenecek.',
+      title: 'Update API documentation',
+      description: 'Update the API documentation next week.',
       priority: 'medium',
       dueDate: 'next week',
       assignees: [],

@@ -1,2 +1,2 @@
-/** İlk satır: her zaman boş “hızlı ekleme”; DB’ye yazılmaz (id filtrelenir). */
+/** First row: always an empty "quick add" row; not persisted to DB (filtered by id). */
 export const ACTION_CHECKLIST_QUICK_ROW_ID = '__action-checklist-quick-add__' as const;

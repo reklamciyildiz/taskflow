@@ -55,7 +55,7 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
     return projects.filter((p) => !p.teamId || p.teamId === currentTeam.id);
   }, [projects, currentTeam?.id]);
 
-  /** Pano’da seçili süreç `boardScope`; Süreç Merkezi / ?project= ise `currentProject`. */
+  /** Selected process on the board is `boardScope`; in Process Center / ?project= it is `currentProject`. */
   const resolvedProjectId = useMemo(() => {
     if (projectId === '__none__') return null;
     if (projectId === '__auto__') {
@@ -65,7 +65,7 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
     return projectId;
   }, [projectId, boardScope, currentProject?.id]);
 
-  /** `resolvedProjectId` ile aynı sürecin kolonları (otomatik + yalnızca currentProject senaryosu dahil). */
+  /** Columns for the selected process via `resolvedProjectId` (supports auto + currentProject fallback). */
   const statusColumns = useMemo((): ProjectColumnConfig[] => {
     const generalCols =
       generalBoardColumns.length > 0 ? generalBoardColumns : FALLBACK_BOARD_COLUMNS;

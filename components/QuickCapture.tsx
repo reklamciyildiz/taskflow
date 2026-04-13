@@ -24,7 +24,7 @@ export function QuickCapture() {
         organizationId,
       });
       if (!inboxId) {
-        toast.error('Inbox süreci oluşturulamadı. Organizasyon bağlantını kontrol et.');
+        toast.error('Could not create the Inbox process. Please check your organization connection.');
         return;
       }
       await addTask({
@@ -39,7 +39,7 @@ export function QuickCapture() {
         customerId: null,
       });
       setValue('');
-      toast.success('Inbox’a aksiyon eklendi');
+      toast.success('Added to Inbox');
     } finally {
       setBusy(false);
     }
@@ -64,9 +64,9 @@ export function QuickCapture() {
               void onSubmit();
             }
           }}
-          placeholder="Bir not al… (Enter ile Inbox’a aksiyon olarak eklenir)"
+          placeholder="Capture a note… (Press Enter to add it to Inbox as an action)"
           className="h-11 border-0 bg-transparent text-base shadow-none placeholder:text-muted-foreground/55 focus-visible:ring-0"
-          aria-label="Hızlı yakalama"
+          aria-label="Quick capture"
         />
       </div>
     </div>

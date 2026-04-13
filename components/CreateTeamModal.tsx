@@ -56,7 +56,7 @@ export function CreateTeamModal({ open, onClose }: CreateTeamModalProps): JSX.El
             Create New Team
           </DialogTitle>
           <DialogDescription>
-            Takım adı ve açıklama girin; oluşturduktan sonra üyeleri davet edebilirsiniz.
+            Enter a team name and description. You can invite members after creating the team.
           </DialogDescription>
         </DialogHeader>
 

@@ -38,7 +38,7 @@ import { cn } from '@/lib/utils';
 import { format, isToday, isPast } from 'date-fns';
 import { Card } from '@/components/ui/card';
 
-/** Kolon `color` tanımlı değilse bilinen id’ler için rozet sınıfları */
+/** Badge fallbacks for known ids when a column has no `color` configured. */
 const LEGACY_COLUMN_BADGE: Record<string, string> = {
   todo: 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300',
   progress: 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400',
@@ -328,7 +328,7 @@ export function TaskList() {
 
           const handleTaskRowClick = (e: React.MouseEvent<HTMLDivElement>) => {
             const target = e.target as HTMLElement;
-            // Checkbox slot (genişletilmiş hit alanı) veya satırdaki kontroller — kart tıklaması editör açmasın.
+            // Checkbox slot (expanded hit target) or row controls — don't open editor on row click.
             if (target.closest('[data-task-list-checkbox-slot]')) return;
             if (target.closest('button')) return;
             openTaskEditor(task.id);
@@ -344,7 +344,7 @@ export function TaskList() {
               onClick={handleTaskRowClick}
             >
               <div className="flex items-center gap-4">
-                {/* Checkbox: geniş hedef + üstte kal; disabled iken tıklama kartın arkasına düşmesin */}
+                {/* Checkbox: larger target + stays on top; avoid clicks falling through when disabled */}
                 <div
                   data-task-list-checkbox-slot
                   className="relative z-10 flex shrink-0 items-center justify-center self-start rounded-md p-1.5 -m-1.5 min-h-9 min-w-9"

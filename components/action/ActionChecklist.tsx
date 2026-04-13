@@ -30,7 +30,7 @@ function isEnterLike(e: React.KeyboardEvent<HTMLElement>): boolean {
   return code === 13;
 }
 
-/** Enter = yeni madde; Shift+Enter = aynı maddede yeni satır. */
+/** Enter = new item; Shift+Enter = new line within the item. */
 function shouldCommitNewItem(e: React.KeyboardEvent<HTMLElement>): boolean {
   return isEnterLike(e) && !e.shiftKey;
 }
@@ -176,7 +176,7 @@ export function ActionChecklist({ items, disabled, onItemsChange }: ActionCheckl
   if (!quickIdOk) {
     return (
       <p className="text-xs text-muted-foreground">
-        Liste yüklenemedi (beklenen hızlı ekleme satırı eksik).
+        Checklist could not be loaded (missing expected quick-capture row).
       </p>
     );
   }
@@ -206,7 +206,7 @@ export function ActionChecklist({ items, disabled, onItemsChange }: ActionCheckl
             value={quickRow.text}
             disabled={disabled}
             enterKeyHint="done"
-            placeholder="Liste maddesi…"
+            placeholder="Checklist item…"
             onChange={(e) => {
               updateQuick(e.target.value);
               requestAnimationFrame(() => syncTextareaHeight(quickInputRef.current));
@@ -225,7 +225,7 @@ export function ActionChecklist({ items, disabled, onItemsChange }: ActionCheckl
               if (isEnterLike(e) && !e.shiftKey) e.preventDefault();
             }}
             className={textareaClass}
-            aria-label="Yeni liste maddesi"
+            aria-label="New checklist item"
           />
         </div>
 
@@ -254,7 +254,7 @@ export function ActionChecklist({ items, disabled, onItemsChange }: ActionCheckl
                           'mt-1.5 shrink-0 touch-none text-muted-foreground opacity-60 hover:opacity-100',
                           disabled && 'pointer-events-none opacity-30'
                         )}
-                        aria-label="Sürükle"
+                        aria-label="Drag"
                         {...dragProvided.dragHandleProps}
                         tabIndex={-1}
                       >
@@ -269,7 +269,7 @@ export function ActionChecklist({ items, disabled, onItemsChange }: ActionCheckl
                           checked={row.done === true}
                           disabled={disabled || !row.text.trim()}
                           onCheckedChange={(v) => updateBodyRow(bodyIndex, { done: v === true })}
-                          aria-label="Tamamlandı"
+                          aria-label="Completed"
                           className="border-muted-foreground/40"
                         />
                       </div>
@@ -281,7 +281,7 @@ export function ActionChecklist({ items, disabled, onItemsChange }: ActionCheckl
                         value={row.text}
                         disabled={disabled}
                         enterKeyHint="done"
-                        placeholder="Liste maddesi…"
+                        placeholder="Checklist item…"
                         onChange={(e) => {
                           const t = e.target.value;
                           updateBodyRow(bodyIndex, {
@@ -309,7 +309,7 @@ export function ActionChecklist({ items, disabled, onItemsChange }: ActionCheckl
                           row.done === true &&
                             'text-muted-foreground line-through decoration-muted-foreground/60'
                         )}
-                        aria-label="Liste maddesi"
+                        aria-label="Checklist item"
                       />
                     </div>
                   )}

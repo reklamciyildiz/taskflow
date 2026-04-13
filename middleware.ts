@@ -29,8 +29,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Tam NextRequest bazen gövde/adapter ile "Response body disturbed or locked" tetikliyor;
-  // getToken yalnızca headers + cookies kullanır (SessionStore cookies.getAll).
+  // Passing the full NextRequest can sometimes trigger "Response body disturbed or locked";
+  // getToken only needs headers + cookies (SessionStore cookies.getAll).
   const token = await getToken({
     req: { headers: request.headers, cookies: request.cookies } as Parameters<
       typeof getToken

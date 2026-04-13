@@ -30,7 +30,7 @@ function activityMs(iso: string | undefined): number {
   }
 }
 
-/** Last activity: düzenleme varsa o zaman, yoksa oluşturulma. */
+/** Last activity: updatedAt if present, otherwise createdAt. */
 function displayIso(entry: JournalLogEntry): string {
   const u = entry.updatedAt;
   if (u && activityMs(u) > 0) return u;
@@ -251,8 +251,8 @@ export function TaskProcessJournal({
                         )}
                         onClick={() => startEdit(entry)}
                         disabled={disabled || pending || pendingEdit}
-                        aria-label="Notu düzenle"
-                        title="Düzenle"
+                        aria-label="Edit note"
+                        title="Edit"
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>

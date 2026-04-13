@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
         {
           success: false,
           error:
-            'Zaten bir organizasyona bağlısın. Yeni çalışma alanı oluşturmak için önce mevcut üyeliğini sonlandırman gerekir (veya farklı bir hesap kullan).',
+            'You are already connected to an organization. To create a new workspace, you must first leave your current membership (or use a different account).',
           code: 'ALREADY_IN_ORG',
         },
         { status: 409 }

@@ -7,13 +7,13 @@ import { useShellSidebar } from '@/components/shell/sidebar-shell-context';
 
 export interface AppShellLayoutProps {
   children: React.ReactNode;
-  /** Ana içerik alanı için ek sınıflar (örn. padding) */
+  /** Extra classes for the main content area (e.g. padding) */
   mainClassName?: string;
 }
 
 /**
- * Ortak uygulama iskeleti: Sidebar + Header + scroll edilebilir main.
- * State `SidebarShellProvider` içinden gelir (tek kaynak).
+ * Shared app shell: Sidebar + Header + scrollable main.
+ * State comes from `SidebarShellProvider` (single source of truth).
  */
 export function AppShellLayout({ children, mainClassName }: AppShellLayoutProps) {
   const { mobileOpen, desktopCollapsed, toggleSidebar, closeMobile } = useShellSidebar();

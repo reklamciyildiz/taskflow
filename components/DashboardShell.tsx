@@ -62,11 +62,11 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         try {
           router.prefetch(href);
         } catch {
-          // prefetch isteğe bağlı; bazı ortamlarda sessizce atla
+          // prefetch is best-effort; ignore in some environments
         }
       });
     };
-    // Ana işi bloklamadan prefetch: müsait CPU’da veya en geç ~500ms içinde tek seferde.
+    // Prefetch without blocking: idle CPU or within ~500ms timeout, once.
     let dispose: (() => void) | undefined;
     if (typeof window.requestIdleCallback !== 'undefined') {
       const id = window.requestIdleCallback(run, { timeout: 500 });

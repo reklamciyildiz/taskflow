@@ -13,7 +13,7 @@ export async function POST() {
 
     if (!session?.user?.email) {
       return NextResponse.json(
-        { success: false, error: 'Oturum gerekli' },
+        { success: false, error: 'Authentication required' },
         { status: 401 }
       );
     }
@@ -23,7 +23,7 @@ export async function POST() {
       return NextResponse.json(
         {
           success: false,
-          error: 'Zaten bir organizasyona bağlı değilsin.',
+          error: 'You are not currently connected to an organization.',
           code: 'NO_ORG',
         },
         { status: 400 }
@@ -38,7 +38,7 @@ export async function POST() {
         {
           success: false,
           error:
-            'Bu çalışma alanında başka üyeler var veya hesabın bu işlem için uygun değil. Yönetici veya destek ile iletişime geç.',
+            'This workspace has other members, or your account is not eligible for this action. Contact your admin or support.',
           code: 'NOT_SOLO',
         },
         { status: 409 }
@@ -54,12 +54,12 @@ export async function POST() {
     return NextResponse.json({
       success: true,
       message:
-        'Kişisel çalışma alanından çıktın. Şimdi davet bağlantısını tekrar kullanabilir veya sayfayı yenileyebilirsin.',
+        'You left your personal workspace. You can now use the invite link again or refresh the page.',
     });
   } catch (error: unknown) {
     console.error('reset-solo-workspace error:', error);
     return NextResponse.json(
-      { success: false, error: 'İşlem tamamlanamadı' },
+      { success: false, error: 'Could not complete the request' },
       { status: 500 }
     );
   }

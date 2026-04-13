@@ -85,10 +85,10 @@ function NavTip({ label, narrow, children }: { label: string; narrow: boolean; c
 }
 
 interface SidebarProps {
-  /** Mobil çekmece açık mı */
+  /** Is the mobile drawer open? */
   mobileOpen: boolean;
   onCloseMobile: () => void;
-  /** lg+ dar ikon şeridi (tercih localStorage’da saklanır) */
+  /** lg+ collapsed icon rail (preference stored in localStorage) */
   desktopCollapsed: boolean;
 }
 

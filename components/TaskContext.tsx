@@ -60,7 +60,7 @@ interface TaskContextType {
   setFilter: (filter: FilterType) => void;
   setCustomerFilter: (customerId: string | null) => void;
   setCurrentProjectId: (projectId: string | null) => void;
-  /** Panoyu açar, süreç kapsamını ve URL ?project= değerini bu sürece sabitler (ana sayfadan /board’a giderken kaybolmaz). */
+  /** Opens the board and pins the process scope and URL ?project= to this process (so it persists across navigation). */
   openBoardForProject: (projectId: string) => void;
   setBoardScope: (scope: BoardScope) => void;
   setGeneralBoardColumns: (cols: ProjectColumnConfig[]) => void;
@@ -542,7 +542,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   }, [currentTeam?.id]);
 
   // If stored boardScope references a missing project, fall back to General.
-  // Önemli: `projects` ilk yüklemede [] iken `.some` false döner; saklanan süreç yanlışlıkla silinmesin diye bekle.
+  // Important: On first load `projects` may be []; `.some` would be false. Wait so we don't accidentally clear the stored process.
   useEffect(() => {
     if (boardScope.type !== 'project') return;
     if (projects.length === 0) return;
@@ -727,7 +727,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
         assigneeId: taskData.assigneeId,
         customerId: taskData.customerId,
         teamId: taskData.teamId,
-        // `null` = süreçsiz; yalnızca alan verilmediyse `currentProject` kullan
+        // `null` = no process; use `currentProject` only when the field isn't explicitly provided
         projectId:
           taskData.projectId !== undefined ? taskData.projectId : (currentProject?.id ?? null),
       });

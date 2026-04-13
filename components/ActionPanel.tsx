@@ -26,7 +26,7 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
-/** İlk satır her zaman UI-only hızlı ekleme; sunucudan gelen eski kayıtları ayıklayıp başa boş satır koyar. */
+/** First row is always a UI-only quick-capture row; filters persisted rows and inserts an empty first row. */
 function ensureQuickRowFirst(logs: JournalLogEntry[]): JournalLogEntry[] {
   const rest = logs.filter((x) => x.id !== ACTION_CHECKLIST_QUICK_ROW_ID);
   const quick = logs.find((x) => x.id === ACTION_CHECKLIST_QUICK_ROW_ID);
@@ -39,7 +39,7 @@ function ensureQuickRowFirst(logs: JournalLogEntry[]): JournalLogEntry[] {
   return [first, ...rest];
 }
 
-/** Kontrol listesi yalnızca `journal_logs`; `learnings` ayrı “Kazanımlar” alanında tutulur. */
+/** The checklist is stored in `journal_logs`; `learnings` are stored separately as free-form notes. */
 function journalLogsFromTask(logs: JournalLogEntry[] | undefined): JournalLogEntry[] {
   const persisted = (logs ?? []).filter((x) => x.id !== ACTION_CHECKLIST_QUICK_ROW_ID);
   const quick: JournalLogEntry = {
@@ -75,13 +75,13 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
   const [dueDate, setDueDate] = useState('');
   const [journalLogs, setJournalLogs] = useState<JournalLogEntry[]>([]);
   const [learnings, setLearnings] = useState('');
-  /** Başlık, statü, açıklama vb. — not odaklı akış için varsayılan kapalı */
+  /** Title, status, description, etc. — default collapsed for a note-first flow */
   const [detailsOpen, setDetailsOpen] = useState(false);
   const journalRef = useRef<JournalLogEntry[]>([]);
   const lastPersistedLearnings = useRef('');
   const learningsRef = useRef(learnings);
   learningsRef.current = learnings;
-  /** Hangi aksiyonun `learnings` state’ine ait olduğunu izler (görev değişince önce eskiyi kaydet). */
+  /** Track which action the `learnings` state belongs to (persist previous on action change). */
   const learningsHydratedTaskIdRef = useRef<string | null>(null);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -100,7 +100,7 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
     [canEdit, updateTask, task?.id]
   );
 
-  /** `updateTask` her `tasks` değişiminde yeni referans alır; deps’e koymak hydrate’ı sürekli tetikleyip kontrol listesi taslağını siler. */
+  /** `updateTask` gets a new ref when `tasks` changes; putting it in deps would retrigger hydration and wipe draft checklist edits. */
   const persistLearningsForIdRef = useRef(persistLearningsForId);
   persistLearningsForIdRef.current = persistLearningsForId;
 
@@ -131,7 +131,7 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
     setLearnings(learningsVal);
     lastPersistedLearnings.current = learningsVal.trim();
     setDetailsOpen(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- yalnızca panel / aksiyon kimliği; tasks/updateTask/persistLearnings değişiminde yeniden hydrate ETME
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only panel/action identity; do NOT re-hydrate on tasks/updateTask/persistLearnings changes
   }, [open, task?.id]);
 
   useEffect(() => {
@@ -173,7 +173,7 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
     };
   }, [learnings, open, task?.id, canEdit]);
 
-  /** Panel kapanınca (X, overlay, başka aksiyon) bekleyen metni hemen yaz. */
+  /** When the panel closes (X, overlay, another action), persist any pending text immediately. */
   useEffect(() => {
     if (open) return;
     if (learningsDebounceRef.current) {
@@ -260,7 +260,7 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
           className={cn(
             'pointer-events-auto flex w-full max-w-3xl flex-col overflow-hidden border border-border/60 bg-background shadow-2xl',
             'ring-1 ring-black/5 dark:ring-white/10',
-            /* max-height + min-h-0: içerik scroll’u için flex çocuğu küçülebilsin */
+            /* max-height + min-h-0: allow the flex child to shrink for scrollable content */
             'max-h-[min(92dvh,920px)] min-h-0',
             'rounded-t-2xl border-b-0 md:rounded-2xl md:border md:max-h-[min(88dvh,900px)]',
             'origin-bottom md:origin-center'

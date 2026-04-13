@@ -282,7 +282,7 @@ export const teamDb = {
 };
 
 // =============================================
-// PROJECT (pipeline / süreç) OPERATIONS
+// PROJECT (pipeline / process) OPERATIONS
 // =============================================
 
 export const projectDb = {

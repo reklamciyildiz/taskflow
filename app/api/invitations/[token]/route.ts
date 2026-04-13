@@ -23,7 +23,7 @@ export async function GET(
       return NextResponse.json(
         {
           success: false,
-          error: 'Geçersiz davet bağlantısı.',
+          error: 'Invalid invitation link.',
           code: 'NOT_FOUND',
         },
         { status: 404 }
@@ -35,7 +35,7 @@ export async function GET(
         {
           success: false,
           error:
-            'Bu davet zaten kullanılmış. Hesabınla giriş yaparak çalışma alanına erişebilirsin.',
+            'This invitation has already been used. Sign in to access the workspace.',
           code: 'ALREADY_USED',
         },
         { status: 410 }
@@ -46,7 +46,7 @@ export async function GET(
       return NextResponse.json(
         {
           success: false,
-          error: 'Bu davetin süresi dolmuş. Yöneticinden yeni bir davet isteyebilirsin.',
+          error: 'This invitation has expired. Ask your admin for a new invite.',
           code: 'EXPIRED',
         },
         { status: 410 }

@@ -56,7 +56,7 @@ export function resolveTaskBoardColumnId(
   const ids = new Set(columns.map((c) => c.id));
   if (ids.has(status)) return status;
   if (status === 'review' && ids.has('progress')) return 'progress';
-  // DB’de `done` kalmış ama süreçte `done` kolonu yok (özel terminal id) — todo’ya düşürme.
+  // DB still has `done` but the process has no `done` column (custom terminal id) — don't fall back to todo.
   if (status === 'done' && !ids.has('done')) {
     const terminal = columns.find((c) => c.isTerminal);
     if (terminal) return terminal.id;

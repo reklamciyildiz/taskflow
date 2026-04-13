@@ -13,7 +13,7 @@ import { useRouter } from 'next/navigation';
 
 interface HeaderProps {
   onSidebarToggle: () => void;
-  /** lg+: sidebar geniş modda mı (dar şerit değil) */
+  /** lg+: is the sidebar expanded (not collapsed) */
   desktopSidebarExpanded?: boolean;
 }
 
@@ -41,7 +41,7 @@ export function Header({ onSidebarToggle, desktopSidebarExpanded = true }: Heade
 
   const q = searchQuery.trim().toLowerCase();
 
-  // Filter results based on search query (aksiyonlar geçerli takıma göre)
+  // Filter results based on search query (actions scoped to current team)
   const searchResults =
     searchQuery.length >= 2
       ? {

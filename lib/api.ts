@@ -107,7 +107,7 @@ export const teamApi = {
     }),
 };
 
-// Projects (pipelines / süreçler)
+// Projects (pipelines / processes)
 export const projectApi = {
   getAll: (organizationId?: string) =>
     fetchApi<Project[]>(

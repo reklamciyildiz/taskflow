@@ -2,7 +2,7 @@ import { ACTION_CHECKLIST_QUICK_ROW_ID } from '@/lib/action-checklist';
 import type { Task, Team } from '@/lib/types';
 import { format, isValid, parseISO } from 'date-fns';
 
-/** Bilgi kartı kaynağı: `Task.learnings` özeti veya `journalLogs` not/kontrol satırları. */
+/** Knowledge card source: `Task.learnings` summary or `journalLogs` note/checklist rows. */
 export type KnowledgeEntryType = 'learnings' | 'action_notes';
 
 /** @deprecated Use KnowledgeHubCard for masonry hub; kept for pin id migration. */

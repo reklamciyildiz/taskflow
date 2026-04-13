@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
         {
           success: false,
           error:
-            'Geçersiz veya süresi dolmuş davet kodu. Bağlantıyı tekrar kontrol et veya yöneticinden yeni davet iste.',
+            'Invalid or expired invite code. Check the link or ask your admin for a new invitation.',
           code: 'INVITE_INVALID',
         },
         { status: 404 }
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
           {
             success: false,
             error:
-              'Zaten başka bir organizasyona üyesin. Bu daveti kabul etmek için önce mevcut üyeliğin hakkında yönetici veya destek ile iletişime geç.',
+              'You are already a member of another organization. Contact your admin or support before accepting this invite.',
             code: 'OTHER_ORG',
           },
           { status: 400 }

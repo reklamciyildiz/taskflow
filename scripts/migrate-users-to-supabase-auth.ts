@@ -1,8 +1,8 @@
 /**
  * Migration Script: Migrate Existing Users to Supabase Auth
  * 
- * Bu script tüm mevcut user'ları Supabase Auth'a ekler.
- * Tek seferlik çalıştırılmalı.
+ * This script adds all existing users to Supabase Auth.
+ * It should be run once.
  */
 
 import { config } from 'dotenv';
@@ -28,7 +28,7 @@ async function migrateUsersToSupabaseAuth() {
   console.log('🚀 Starting user migration to Supabase Auth...\n');
 
   try {
-    // 1. Tüm user'ları al
+    // 1. Fetch all users
     console.log('📊 Fetching all users from database...');
     const { data: users, error: fetchError } = await supabaseAdmin
       .from('users')
@@ -47,7 +47,7 @@ async function migrateUsersToSupabaseAuth() {
 
     console.log(`✅ Found ${users.length} users to migrate.\n`);
 
-    // 2. Her user için Supabase Auth'a ekle
+    // 2. Add each user to Supabase Auth
     let successCount = 0;
     let skipCount = 0;
     let errorCount = 0;

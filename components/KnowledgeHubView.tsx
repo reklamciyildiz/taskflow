@@ -76,10 +76,7 @@ export function KnowledgeHubView() {
         c.teamName,
         c.learningsPreview ?? '',
         ...c.checklistItems.map((i) => i.text),
-        // legacy / bilingual search helpers
-        'kazanım',
-        'öğrenme',
-        'günlük',
+        // search helpers
         'learning',
         'learnings',
         'journal',

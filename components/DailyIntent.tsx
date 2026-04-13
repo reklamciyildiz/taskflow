@@ -70,7 +70,7 @@ export function DailyIntent() {
       <CardContent className="py-4 flex flex-col gap-2">
         <div className="flex items-center gap-2 text-amber-900 dark:text-amber-100/90">
           <Target className="h-4 w-4" />
-          <p className="text-sm font-semibold">Bugünün odağı</p>
+          <p className="text-sm font-semibold">Today’s focus</p>
           <span className="text-xs text-muted-foreground ml-auto tabular-nums" suppressHydrationWarning>
             {today}
           </span>
@@ -91,15 +91,15 @@ export function DailyIntent() {
             if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
             // Small debounce to avoid toast spam when focus toggles quickly
             toastTimerRef.current = setTimeout(() => {
-              toast.success('Kaydedildi');
+              toast.success('Saved');
             }, 250);
           }}
-          placeholder="Örn. 3 başvuru + 1 mock interview + 1 derin çalışma bloğu"
+          placeholder="e.g. 3 applications + 1 mock interview + 1 deep work block"
           className="bg-background"
-          aria-label="Bugünün odağı"
+          aria-label="Today’s focus"
         />
         <p className="text-xs text-muted-foreground">
-          Bu alan sadece yerelde saklanır (localStorage). Her gün yeni bir odak belirleyebilirsin.
+          This is stored locally (localStorage). Set a new focus each day.
         </p>
       </CardContent>
     </Card>

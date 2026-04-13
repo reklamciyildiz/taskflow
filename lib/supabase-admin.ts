@@ -1,11 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
 
 /**
- * Supabase Admin Client - Service Role Key ile
- * 
- * Bu client RLS'i bypass eder ve tüm verilere erişebilir.
- * SADECE server-side (API routes) kullanılmalıdır!
- * Asla client-side'da kullanmayın!
+ * Supabase Admin Client (Service Role Key).
+ *
+ * This client bypasses RLS and can access all data.
+ * Use ONLY on the server (API routes).
+ * Never use on the client.
  */
 export const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -24,7 +24,7 @@ export const supabaseAdmin = createClient(
 export const db = supabaseAdmin;
 
 /**
- * Normal Supabase client (RLS ile)
- * Frontend'den kullanılabilir
+ * Normal Supabase client (with RLS).
+ * Safe to use from the frontend.
  */
 export { supabase } from './supabase';

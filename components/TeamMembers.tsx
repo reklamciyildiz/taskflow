@@ -65,7 +65,7 @@ export function TeamMembers() {
     e.preventDefault();
     try {
       if (!currentTeam) {
-        toast.error('Takım seçilmedi');
+        toast.error('No team selected');
         return;
       }
 
@@ -95,7 +95,7 @@ export function TeamMembers() {
       setEditingMember(null);
       setIsDialogOpen(false);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'İşlem başarısız');
+      toast.error(error instanceof Error ? error.message : 'Request failed');
     }
   };
 
@@ -112,7 +112,7 @@ export function TeamMembers() {
 
   const handleDelete = async (memberId: string) => {
     if (!currentTeam) {
-      toast.error('Takım seçilmedi');
+      toast.error('No team selected');
       return;
     }
 
@@ -122,7 +122,7 @@ export function TeamMembers() {
 
       removeMember(currentTeam.id, memberId);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Üye kaldırılamadı');
+      toast.error(error instanceof Error ? error.message : 'Member could not be removed');
     }
   };
 
