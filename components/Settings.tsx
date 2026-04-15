@@ -25,8 +25,9 @@ import {
   UserPlus,
   Layers,
   LogOut,
+  Calendar,
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -39,6 +40,7 @@ import { ActiveSessionsModal } from '@/components/ActiveSessionsModal';
 import { CreateTeamModal } from '@/components/CreateTeamModal';
 import { EditTeamModal } from '@/components/EditTeamModal';
 import { DeleteTeamModal } from '@/components/DeleteTeamModal';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export function Settings() {
   const {
@@ -80,7 +82,57 @@ export function Settings() {
   const [compactView, setCompactView] = useState(false);
   const [pushPermission, setPushPermission] = useState<NotificationPermission | 'unsupported'>('default');
   const [leaveSoloLoading, setLeaveSoloLoading] = useState(false);
+  const [timeZone, setTimeZone] = useState('UTC');
+
+  const [googleConnected, setGoogleConnected] = useState(false);
+  const [googleEmail, setGoogleEmail] = useState<string | null>(null);
+  const [googleSelectedCalendarId, setGoogleSelectedCalendarId] = useState<string>('primary');
+  const [googleSyncEnabled, setGoogleSyncEnabled] = useState(true);
+  const [googleCalendars, setGoogleCalendars] = useState<Array<{ id: string; summary: string; primary: boolean }>>([]);
+  const [googleCalendarsLoading, setGoogleCalendarsLoading] = useState(false);
+  const [googleBusy, setGoogleBusy] = useState(false);
   // Processes are managed in Process Center (/dashboard/processes)
+
+  const browserTimeZone = useMemo(() => {
+    try {
+      if (typeof Intl !== 'undefined' && 'supportedValuesOf' in Intl) {
+        // noop: we only need resolvedOptions below
+      }
+      return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+    } catch {
+      return 'UTC';
+    }
+  }, []);
+
+  const timeZoneOptions = useMemo(() => {
+    try {
+      const i = Intl as any;
+      if (typeof i.supportedValuesOf === 'function') {
+        const all = i.supportedValuesOf('timeZone') as string[];
+        return [...all].sort((a, b) => a.localeCompare(b));
+      }
+    } catch {
+      // ignore
+    }
+    return [
+      'UTC',
+      'Europe/Istanbul',
+      'Europe/London',
+      'Europe/Berlin',
+      'Europe/Paris',
+      'America/New_York',
+      'America/Chicago',
+      'America/Denver',
+      'America/Los_Angeles',
+      'America/Sao_Paulo',
+      'Asia/Dubai',
+      'Asia/Kolkata',
+      'Asia/Singapore',
+      'Asia/Tokyo',
+      'Asia/Seoul',
+      'Australia/Sydney',
+    ];
+  }, []);
 
   // Load settings from API and localStorage on mount
   useEffect(() => {
@@ -103,6 +155,75 @@ export function Settings() {
     }
   }, [mounted]);
 
+  const loadGoogleStatus = useCallback(async () => {
+    try {
+      const res = await fetch('/api/integrations/google/status');
+      const json = await res.json();
+      if (!json?.success) return;
+      const d = json.data;
+      if (!d?.connected) {
+        setGoogleConnected(false);
+        setGoogleEmail(null);
+        setGoogleCalendars([]);
+        return;
+      }
+      setGoogleConnected(true);
+      setGoogleEmail(d.email ?? null);
+      setGoogleSelectedCalendarId(d.selectedCalendarId || 'primary');
+      setGoogleSyncEnabled(d.syncEnabled !== false);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const loadGoogleCalendars = useCallback(async () => {
+    setGoogleCalendarsLoading(true);
+    try {
+      const res = await fetch('/api/integrations/google/calendars');
+      const json = await res.json();
+      if (!json?.success) {
+        setGoogleCalendars([]);
+        return;
+      }
+      setGoogleCalendars(json.data?.calendars ?? []);
+    } catch {
+      setGoogleCalendars([]);
+    } finally {
+      setGoogleCalendarsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
+    void loadGoogleStatus();
+  }, [mounted, loadGoogleStatus]);
+
+  useEffect(() => {
+    if (!mounted) return;
+    if (!googleConnected) return;
+    void loadGoogleCalendars();
+  }, [mounted, googleConnected, loadGoogleCalendars]);
+
+  useEffect(() => {
+    if (!mounted) return;
+    if (typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    const flag = url.searchParams.get('google');
+    if (!flag) return;
+
+    if (flag === 'connected') toast.success('Google Calendar connected');
+    else if (flag === 'unauthorized') toast.error('Google sign-in failed (unauthorized).');
+    else if (flag === 'invalid_state') toast.error('Google sign-in failed (invalid state).');
+    else if (flag === 'no_refresh_token') toast.error('Google did not return a refresh token. Try disconnect/reconnect with consent.');
+    else if (flag === 'db_error') toast.error('Could not save Google connection (database error).');
+    else if (flag === 'oauth_error') toast.error('Google OAuth failed.');
+    else toast.message(`Google: ${flag}`);
+
+    url.searchParams.delete('google');
+    router.replace(`${url.pathname}${url.search}`);
+    void loadGoogleStatus();
+  }, [mounted, router, loadGoogleStatus]);
+
   const loadSettings = async () => {
     try {
       const response = await fetch('/api/users/settings');
@@ -119,6 +240,12 @@ export function Settings() {
             setPushNotifications(settings.push_notifications ?? settings.pushNotifications ?? data.data.push_notifications ?? false);
             setTeamActivity(settings.team_activity ?? settings.teamActivity ?? data.data.team_activity ?? false);
             setCompactView(settings.compact_view ?? settings.compactView ?? data.data.compact_view ?? false);
+            setTimeZone(
+              settings.time_zone ??
+                settings.timeZone ??
+                data.data.time_zone ??
+                browserTimeZone
+            );
             return;
           }
         }
@@ -127,6 +254,7 @@ export function Settings() {
         setPushNotifications(data.data.push_notifications ?? false);
         setTeamActivity(data.data.team_activity ?? false);
         setCompactView(data.data.compact_view ?? false);
+        setTimeZone(data.data.time_zone || browserTimeZone);
       }
     } catch {
       // Fallback to localStorage
@@ -138,6 +266,7 @@ export function Settings() {
         setPushNotifications(settings.push_notifications ?? settings.pushNotifications ?? true);
         setTeamActivity(settings.team_activity ?? settings.teamActivity ?? false);
         setCompactView(settings.compact_view ?? settings.compactView ?? false);
+        setTimeZone(settings.time_zone ?? settings.timeZone ?? browserTimeZone);
       }
     }
   };
@@ -232,6 +361,73 @@ export function Settings() {
   const handleCompactView = (checked: boolean) => {
     setCompactView(checked);
     saveSettings('compact_view', checked);
+  };
+
+  const saveTimeZone = async (next: string) => {
+    setTimeZone(next);
+    const savedSettings = localStorage.getItem('taskflow-settings');
+    const settings = savedSettings ? JSON.parse(savedSettings) : {};
+    settings.time_zone = next;
+    localStorage.setItem('taskflow-settings', JSON.stringify(settings));
+    try {
+      await fetch('/api/users/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ time_zone: next }),
+      });
+    } catch (err) {
+      console.error('Failed to save timezone to API:', err);
+    }
+  };
+
+  const handleGoogleConnect = () => {
+    window.location.href = '/api/integrations/google/start';
+  };
+
+  const handleGoogleDisconnect = async () => {
+    setGoogleBusy(true);
+    try {
+      const res = await fetch('/api/integrations/google/disconnect', { method: 'POST' });
+      const json = await res.json();
+      if (!json?.success) throw new Error(json?.error || 'Disconnect failed');
+      toast.success('Google Calendar disconnected');
+      setGoogleConnected(false);
+      setGoogleEmail(null);
+      setGoogleCalendars([]);
+    } catch (e: any) {
+      toast.error(e?.message || 'Disconnect failed');
+    } finally {
+      setGoogleBusy(false);
+    }
+  };
+
+  const patchGoogleConnection = async (patch: { selectedCalendarId?: string; syncEnabled?: boolean }) => {
+    setGoogleBusy(true);
+    try {
+      const res = await fetch('/api/integrations/google/connection', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      });
+      const json = await res.json();
+      if (!json?.success) throw new Error(json?.error || 'Update failed');
+    } catch (e: any) {
+      toast.error(e?.message || 'Update failed');
+    } finally {
+      setGoogleBusy(false);
+    }
+  };
+
+  const handleGoogleCalendarChange = async (calendarId: string) => {
+    setGoogleSelectedCalendarId(calendarId);
+    await patchGoogleConnection({ selectedCalendarId: calendarId });
+    toast.success('Calendar selection saved');
+  };
+
+  const handleGoogleSyncToggle = async (checked: boolean) => {
+    setGoogleSyncEnabled(checked);
+    await patchGoogleConnection({ syncEnabled: checked });
+    toast.success(checked ? 'Calendar sync enabled' : 'Calendar sync paused');
   };
 
   const handleOrgNameEdit = () => {
@@ -595,6 +791,108 @@ export function Settings() {
                   checked={teamActivity} 
                   onCheckedChange={handleTeamActivity} 
                 />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="h-5 w-5" />
+                Calendar & time
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div className="space-y-2">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="space-y-1">
+                    <Label className="text-sm font-medium">Time zone</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Date-only due dates are interpreted as calendar days in this time zone.
+                    </p>
+                  </div>
+                </div>
+                <Select value={timeZone} onValueChange={(v) => void saveTimeZone(v)}>
+                  <SelectTrigger className="bg-white dark:bg-gray-800">
+                    <SelectValue placeholder="Select a time zone" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[320px] overflow-y-auto">
+                    {timeZoneOptions.map((tz) => (
+                      <SelectItem key={tz} value={tz}>
+                        {tz}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">Detected from browser: {browserTimeZone}</p>
+              </div>
+
+              <Separator />
+
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <Label className="text-sm font-medium">Google Calendar</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Sync due dates to a calendar you choose. Each teammate uses their own Google account and time zone.
+                  </p>
+                </div>
+
+                {!googleConnected ? (
+                  <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
+                    <p className="text-sm text-muted-foreground">Not connected</p>
+                    <Button type="button" onClick={handleGoogleConnect} disabled={googleBusy}>
+                      Connect Google
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-sm">
+                      <div className="text-muted-foreground text-xs">Connected as</div>
+                      <div className="font-medium">{googleEmail || 'Google account'}</div>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <Label className="text-sm font-medium">Sync due dates</Label>
+                        <p className="text-xs text-muted-foreground">Pause without disconnecting Google</p>
+                      </div>
+                      <Switch checked={googleSyncEnabled} onCheckedChange={(v) => void handleGoogleSyncToggle(v)} disabled={googleBusy} />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-xs font-medium">Destination calendar</Label>
+                      <Select
+                        value={googleSelectedCalendarId}
+                        onValueChange={(v) => void handleGoogleCalendarChange(v)}
+                        disabled={googleBusy || googleCalendarsLoading || !googleSyncEnabled}
+                      >
+                        <SelectTrigger className="bg-white dark:bg-gray-800">
+                          <SelectValue placeholder={googleCalendarsLoading ? 'Loading calendars…' : 'Select a calendar'} />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-[320px] overflow-y-auto">
+                          {(googleCalendars.length ? googleCalendars : [{ id: 'primary', summary: 'Primary', primary: true }]).map((c) => (
+                            <SelectItem key={c.id} value={c.id}>
+                              {c.summary}
+                              {c.primary ? ' (primary)' : ''}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {!googleSyncEnabled ? (
+                        <p className="text-xs text-muted-foreground">Turn sync on to update Google Calendar events.</p>
+                      ) : null}
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row gap-2 sm:justify-end">
+                      <Button type="button" variant="outline" onClick={() => void loadGoogleCalendars()} disabled={googleBusy || googleCalendarsLoading}>
+                        Refresh calendars
+                      </Button>
+                      <Button type="button" variant="destructive" onClick={() => void handleGoogleDisconnect()} disabled={googleBusy}>
+                        Disconnect
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

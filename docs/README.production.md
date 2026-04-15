@@ -21,6 +21,16 @@ NEXTAUTH_SECRET=generate-with-openssl-rand-base64-32
 GOOGLE_CLIENT_ID=your-google-client-id
 GOOGLE_CLIENT_SECRET=your-google-client-secret
 
+# Google Calendar (OAuth redirect + token encryption at rest)
+# Must match an Authorized redirect URI in Google Cloud Console.
+GOOGLE_REDIRECT_URI=https://your-domain.com/api/integrations/google/callback
+# 32-byte key (base64 or hex). Example generation:
+# node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+GOOGLE_TOKEN_ENCRYPTION_KEY=your-32-byte-key-base64-or-hex
+
+# Public URL used in calendar event descriptions (recommended in production)
+NEXT_PUBLIC_APP_URL=https://your-domain.com
+
 # Supabase
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
@@ -44,6 +54,15 @@ All tables are already created. Verify these tables exist:
 - `team_members`
 - `tasks`
 - `user_settings`
+- `google_calendar_connections`
+- `google_calendar_event_links`
+
+### Google Cloud Console setup (Calendar)
+
+1. Create OAuth credentials (Web application).
+2. Add Authorized redirect URI: `https://your-domain.com/api/integrations/google/callback`
+3. Enable Google Calendar API for the project.
+4. Scopes used by TaskFlow include Calendar event read/write (`calendar.events`) and calendar list read (`calendar.readonly`) plus basic OpenID profile/email.
 
 ---
 
@@ -119,6 +138,7 @@ Check for any build errors before deploying.
 - [ ] Check Analytics page
 - [ ] Test mobile responsiveness
 - [ ] Verify email invitations work
+- [ ] Connect Google Calendar in Settings, pick a calendar, create a dated action, verify the event appears
 
 ---
 

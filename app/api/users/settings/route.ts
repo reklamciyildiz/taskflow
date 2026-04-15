@@ -38,6 +38,7 @@ export async function GET(request: NextRequest) {
       push_notifications: false,
       team_activity: false,
       compact_view: false,
+      time_zone: null as string | null,
     };
 
     return NextResponse.json({

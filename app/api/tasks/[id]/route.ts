@@ -7,6 +7,11 @@ import { triggerWebhook } from '@/lib/webhook-trigger';
 import { TaskUpdatedPayload, TaskDeletedPayload, TaskCompletedPayload, TaskAssignedPayload } from '@/lib/webhooks';
 import { sendPushToUser } from '@/lib/push';
 import { createServerClient } from '@/lib/supabase';
+import {
+  deleteGoogleCalendarEventsForTaskEverywhere,
+  removeGoogleCalendarForUserTask,
+  syncGoogleCalendarForTaskForRelevantUsers,
+} from '@/lib/google-calendar-sync';
 
 // GET /api/tasks/[id] - Get a specific task
 export async function GET(
@@ -278,6 +283,39 @@ export async function PATCH(
       console.error('Failed to trigger webhooks:', webhookError);
     }
 
+    // Google Calendar sync (best-effort, per-user)
+    try {
+      let actorUserId: string | null = null;
+      if (session?.user?.email) {
+        const u: any = await userDb.getByEmail(session.user.email);
+        actorUserId = u?.id ?? null;
+      }
+      actorUserId = actorUserId ?? (originalTask.created_by as any) ?? null;
+
+      const assigneePatched = body.assigneeId !== undefined;
+      const nextAssigneeId = body.assigneeId === undefined ? undefined : (body.assigneeId || null);
+      const assigneeChanged = assigneePatched && nextAssigneeId !== originalTask.assignee_id;
+
+      if (assigneeChanged && originalTask.assignee_id && originalTask.assignee_id !== nextAssigneeId) {
+        void removeGoogleCalendarForUserTask({ userId: originalTask.assignee_id, taskId: updatedTask.id });
+      }
+
+      if (actorUserId) {
+        void syncGoogleCalendarForTaskForRelevantUsers({
+          actorUserId,
+          assigneeId: updatedTask.assignee_id,
+          task: {
+            id: updatedTask.id,
+            title: updatedTask.title,
+            description: updatedTask.description,
+            due_date: updatedTask.due_date,
+          },
+        });
+      }
+    } catch (gcalError) {
+      console.error('Google Calendar sync (update) failed:', gcalError);
+    }
+
     return NextResponse.json<ApiResponse<any>>({
       success: true,
       data: updatedTask,
@@ -308,6 +346,8 @@ export async function DELETE(
         { status: 404 }
       );
     }
+
+    await deleteGoogleCalendarEventsForTaskEverywhere(params.id);
 
     await taskDb.delete(params.id);
 

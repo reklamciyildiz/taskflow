@@ -6,6 +6,7 @@ import { ApiResponse } from '@/lib/types';
 import { triggerWebhook } from '@/lib/webhook-trigger';
 import { TaskCreatedPayload, TaskAssignedPayload } from '@/lib/webhooks';
 import { sendPushToUser } from '@/lib/push';
+import { syncGoogleCalendarForTaskForRelevantUsers } from '@/lib/google-calendar-sync';
 
 // GET /api/tasks - Get all tasks (optionally filtered by teamId or organizationId)
 export async function GET(request: NextRequest) {
@@ -154,6 +155,18 @@ export async function POST(request: NextRequest) {
     } catch (webhookError) {
       console.error('[Webhook] Failed to trigger webhooks:', webhookError);
     }
+
+    // Google Calendar sync (best-effort, per-user)
+    void syncGoogleCalendarForTaskForRelevantUsers({
+      actorUserId: userId,
+      assigneeId: task.assignee_id,
+      task: {
+        id: task.id,
+        title: task.title,
+        description: task.description,
+        due_date: task.due_date,
+      },
+    });
 
     return NextResponse.json<ApiResponse<any>>({
       success: true,
