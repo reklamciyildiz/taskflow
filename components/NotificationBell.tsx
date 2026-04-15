@@ -20,14 +20,57 @@ export function NotificationBell() {
   const [nowMs, setNowMs] = useState<number>(0);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+  const lastNotifiedIdRef = useRef<string | null>(null);
+
+  const maybeShowBrowserNotification = useCallback((next: InAppNotification[]) => {
+    if (typeof window === 'undefined') return;
+    if (typeof Notification === 'undefined') return;
+    if (document.visibilityState === 'visible') return;
+    if (Notification.permission !== 'granted') return;
+
+    const newestUnreadAssignment = next.find((n) => !n.read && n.type === 'task_assigned');
+    if (!newestUnreadAssignment) return;
+    const persistedLast = (() => {
+      try {
+        return window.localStorage.getItem('taskflow:lastNotifiedNotificationId');
+      } catch {
+        return null;
+      }
+    })();
+    if (lastNotifiedIdRef.current === newestUnreadAssignment.id) return;
+    if (persistedLast === newestUnreadAssignment.id) return;
+
+    lastNotifiedIdRef.current = newestUnreadAssignment.id;
+    try {
+      window.localStorage.setItem('taskflow:lastNotifiedNotificationId', newestUnreadAssignment.id);
+    } catch {
+      // ignore
+    }
+    try {
+      const title = newestUnreadAssignment.title || 'New assignment';
+      const body = newestUnreadAssignment.message || 'You have a new assigned action.';
+      const notif = new Notification(title, { body });
+      notif.onclick = () => {
+        try {
+          window.focus();
+        } catch {
+          // ignore
+        }
+        if (newestUnreadAssignment.link) router.push(newestUnreadAssignment.link);
+      };
+    } catch {
+      // ignore
+    }
+  }, [router]);
 
   const refresh = useCallback(async () => {
     const data = await fetchNotificationsList(20);
     if (data) {
+      maybeShowBrowserNotification(data.notifications);
       setNotifications(data.notifications);
       setUnreadCount(data.unreadCount);
     }
-  }, []);
+  }, [maybeShowBrowserNotification]);
 
   useEffect(() => {
     setMounted(true);

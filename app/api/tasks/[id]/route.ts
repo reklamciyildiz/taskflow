@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { taskDb, userDb } from '@/lib/db';
+import { taskDb, userDb, notificationDb } from '@/lib/db';
 import { ApiResponse } from '@/lib/types';
 import { triggerWebhook } from '@/lib/webhook-trigger';
-import { TaskUpdatedPayload, TaskDeletedPayload, TaskCompletedPayload } from '@/lib/webhooks';
+import { TaskUpdatedPayload, TaskDeletedPayload, TaskCompletedPayload, TaskAssignedPayload } from '@/lib/webhooks';
 
 // GET /api/tasks/[id] - Get a specific task
 export async function GET(
@@ -109,10 +109,14 @@ export async function PATCH(
     try {
       // Get user info for organizationId
       let organizationId = originalTask.organization_id;
+      let actorUserId: string | null = null;
+      let actorName: string | null = null;
       if (session?.user?.email) {
         const user: any = await userDb.getByEmail(session.user.email);
         if (user) {
           organizationId = user.organization_id;
+          actorUserId = user.id ?? null;
+          actorName = user.name ?? null;
         }
       }
 
@@ -130,6 +134,11 @@ export async function PATCH(
       if (body.priority !== undefined && body.priority !== originalTask.priority) {
         changes.push({ field: 'priority', oldValue: originalTask.priority, newValue: body.priority });
       }
+      const assigneePatched = body.assigneeId !== undefined;
+      const nextAssigneeId =
+        body.assigneeId === undefined ? undefined : (body.assigneeId || null);
+      const assigneeChanged =
+        assigneePatched && nextAssigneeId !== originalTask.assignee_id;
 
       // Task updated webhook
       if (changes.length > 0) {
@@ -148,6 +157,45 @@ export async function PATCH(
           changes,
         };
         await triggerWebhook(organizationId, 'task.updated', taskUpdatedPayload);
+      }
+
+      // Task assigned notification + webhook (when assignee changes)
+      if (assigneeChanged && nextAssigneeId) {
+        const assignedTo = nextAssigneeId;
+        const assignedBy = actorUserId ?? originalTask.created_by;
+
+        // In-app notification for the assignee (avoid notifying self)
+        if (assignedTo !== assignedBy) {
+          try {
+            const projectId = updatedTask.project_id ?? null;
+            const qs = new URLSearchParams();
+            if (projectId) qs.set('project', projectId);
+            qs.set('task', updatedTask.id);
+            const link = `/board?${qs.toString()}`;
+
+            await notificationDb.create({
+              user_id: assignedTo,
+              organization_id: organizationId,
+              type: 'task_assigned',
+              title: 'New action assigned to you',
+              message: `${actorName || 'Someone'} assigned you: "${updatedTask.title}"`,
+              link,
+            });
+          } catch (notifError) {
+            console.error('Failed to create assignment notification:', notifError);
+          }
+        }
+
+        // Webhook
+        const taskAssignedPayload: TaskAssignedPayload = {
+          task: {
+            id: updatedTask.id,
+            title: updatedTask.title,
+            assigneeId: assignedTo,
+            assignedBy,
+          },
+        };
+        await triggerWebhook(organizationId, 'task.assigned', taskAssignedPayload);
       }
 
       // Task completed webhook (if status changed to done)
