@@ -78,6 +78,7 @@ export function Settings() {
   const [pushNotifications, setPushNotifications] = useState(true);
   const [teamActivity, setTeamActivity] = useState(false);
   const [compactView, setCompactView] = useState(false);
+  const [pushPermission, setPushPermission] = useState<NotificationPermission | 'unsupported'>('default');
   const [leaveSoloLoading, setLeaveSoloLoading] = useState(false);
   // Processes are managed in Process Center (/dashboard/processes)
 
@@ -87,13 +88,43 @@ export function Settings() {
     loadSettings();
   }, []);
 
+  useEffect(() => {
+    if (!mounted) return;
+    try {
+      if (typeof window === 'undefined') return;
+      const supported = 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window;
+      if (!supported) {
+        setPushPermission('unsupported');
+        return;
+      }
+      setPushPermission(Notification.permission);
+    } catch {
+      setPushPermission('unsupported');
+    }
+  }, [mounted]);
+
   const loadSettings = async () => {
     try {
       const response = await fetch('/api/users/settings');
       const data = await response.json();
       if (data.success && data.data) {
+        // If the API is returning defaults (no DB row), prefer localStorage values so
+        // user actions persist even before `user_settings` is fully provisioned.
+        const source = data.meta?.source as 'db' | 'default' | undefined;
+        if (source === 'default') {
+          const savedSettings = localStorage.getItem('taskflow-settings');
+          if (savedSettings) {
+            const settings = JSON.parse(savedSettings);
+            setEmailNotifications(settings.email_notifications ?? settings.emailNotifications ?? data.data.email_notifications ?? true);
+            setPushNotifications(settings.push_notifications ?? settings.pushNotifications ?? data.data.push_notifications ?? false);
+            setTeamActivity(settings.team_activity ?? settings.teamActivity ?? data.data.team_activity ?? false);
+            setCompactView(settings.compact_view ?? settings.compactView ?? data.data.compact_view ?? false);
+            return;
+          }
+        }
+
         setEmailNotifications(data.data.email_notifications ?? true);
-        setPushNotifications(data.data.push_notifications ?? true);
+        setPushNotifications(data.data.push_notifications ?? false);
         setTeamActivity(data.data.team_activity ?? false);
         setCompactView(data.data.compact_view ?? false);
       }
@@ -102,10 +133,11 @@ export function Settings() {
       const savedSettings = localStorage.getItem('taskflow-settings');
       if (savedSettings) {
         const settings = JSON.parse(savedSettings);
-        setEmailNotifications(settings.emailNotifications ?? true);
-        setPushNotifications(settings.pushNotifications ?? true);
-        setTeamActivity(settings.teamActivity ?? false);
-        setCompactView(settings.compactView ?? false);
+        // Back-compat: older builds stored camelCase keys; current code stores snake_case keys.
+        setEmailNotifications(settings.email_notifications ?? settings.emailNotifications ?? true);
+        setPushNotifications(settings.push_notifications ?? settings.pushNotifications ?? true);
+        setTeamActivity(settings.team_activity ?? settings.teamActivity ?? false);
+        setCompactView(settings.compact_view ?? settings.compactView ?? false);
       }
     }
   };
@@ -141,13 +173,42 @@ export function Settings() {
     void (async () => {
       try {
         if (checked) {
+          // Refresh permission state before attempting subscribe
+          try {
+            if (typeof window !== 'undefined' && 'Notification' in window) {
+              setPushPermission(Notification.permission);
+            }
+          } catch {
+            // ignore
+          }
+
           const sub = await subscribeWebPush();
-          if (!sub) return;
+          if (!sub) {
+            // Permission denied or push unsupported — revert the toggle for clarity.
+            setPushNotifications(false);
+            saveSettings('push_notifications', false);
+            try {
+              if (typeof window !== 'undefined' && 'Notification' in window) {
+                setPushPermission(Notification.permission);
+              } else {
+                setPushPermission('unsupported');
+              }
+            } catch {
+              setPushPermission('unsupported');
+            }
+            toast.error('Push notifications are not enabled. Please allow notifications in your browser settings.');
+            return;
+          }
           await fetch('/api/push/subscribe', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ subscription: sub.toJSON() }),
           });
+          try {
+            setPushPermission(Notification.permission);
+          } catch {
+            // ignore
+          }
         } else {
           const endpoint = await unsubscribeWebPush();
           if (!endpoint) return;
@@ -501,6 +562,29 @@ export function Settings() {
                   checked={pushNotifications} 
                   onCheckedChange={handlePushNotifications} 
                 />
+              </div>
+              <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                {pushPermission === 'unsupported' ? (
+                  <span>
+                    Not supported on this device/browser. iOS Safari requires installing the app (Add to Home Screen) for push.
+                  </span>
+                ) : pushPermission === 'denied' ? (
+                  <span>
+                    Blocked in browser settings. Chrome: Site settings → Notifications → Allow.
+                  </span>
+                ) : pushPermission === 'granted' ? (
+                  pushNotifications ? (
+                    <span>Enabled (app toggle ON + browser permission granted).</span>
+                  ) : (
+                    <span>
+                      Browser permission is granted, but push is <strong>disabled</strong> in TaskFlow (toggle is OFF).
+                    </span>
+                  )
+                ) : pushNotifications ? (
+                  <span>Not allowed yet — turn ON to request permission.</span>
+                ) : (
+                  <span>Off (enable to request permission).</span>
+                )}
               </div>
               <div className="flex items-center justify-between">
                 <div>

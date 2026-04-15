@@ -33,7 +33,9 @@ export async function GET(request: NextRequest) {
 
     const defaultSettings = {
       email_notifications: true,
-      push_notifications: true,
+      // Default OFF to avoid "snap back to enabled" when DB row doesn't exist yet.
+      // The browser permission can still be granted, but app-level preference starts OFF.
+      push_notifications: false,
       team_activity: false,
       compact_view: false,
     };
@@ -41,6 +43,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data: settings || defaultSettings,
+      meta: { source: settings ? 'db' : 'default' as const },
     });
   } catch (error: any) {
     console.error('Get settings error:', error);

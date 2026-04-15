@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, type ReactElement } from 'react';
+import { useEffect, useMemo, useState, type ReactElement } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -32,6 +32,7 @@ import { CreateTeamModal } from '@/components/CreateTeamModal';
 import { EditTeamModal } from '@/components/EditTeamModal';
 import { isToday } from 'date-fns';
 import { useMediaQuery } from '@/hooks/use-media-query';
+import { isTerminalBoardColumn } from '@/lib/types';
 
 interface MenuItem {
   id: ViewType;
@@ -97,8 +98,19 @@ export function Sidebar({ mobileOpen, onCloseMobile, desktopCollapsed }: Sidebar
   const isDesktop = useMediaQuery('(min-width: 1024px)');
   const narrow = desktopCollapsed && isDesktop;
   const { currentView, setCurrentView } = useView();
-  const { tasks, currentTeam, teams, setCurrentTeam, currentUser, setFilter, filter, updateTeam, organizationName } =
-    useTaskContext();
+  const {
+    tasks,
+    currentTeam,
+    teams,
+    setCurrentTeam,
+    currentUser,
+    setFilter,
+    filter,
+    updateTeam,
+    organizationName,
+    boardScope,
+    boardColumns,
+  } = useTaskContext();
   const [showCreateTeam, setShowCreateTeam] = useState(false);
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
 
@@ -132,18 +144,36 @@ export function Sidebar({ mobileOpen, onCloseMobile, desktopCollapsed }: Sidebar
 
   const teamTasks = tasks.filter((t) => t.teamId === currentTeam?.id);
 
-  const taskCounts = {
-    todo: teamTasks.filter((t) => t.status === 'todo').length,
-    progress: teamTasks.filter((t) => t.status === 'progress').length,
-    review: teamTasks.filter((t) => t.status === 'review').length,
-    done: teamTasks.filter((t) => t.status === 'done').length,
-  };
+  const scopedTasks = useMemo(() => {
+    if (!currentTeam) return [];
+    if (boardScope.type === 'general') {
+      return teamTasks.filter((t) => t.projectId == null);
+    }
+    return teamTasks.filter((t) => t.projectId === boardScope.projectId);
+  }, [teamTasks, currentTeam, boardScope]);
 
-  const dueTodayCount = teamTasks.filter((t) => t.dueDate && isToday(t.dueDate) && t.status !== 'done').length;
-  const highPriorityCount = teamTasks.filter(
-    (t) => (t.priority === 'high' || t.priority === 'urgent') && t.status !== 'done'
+  const dynamicStatusCounts = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const col of boardColumns) map.set(col.id, 0);
+    for (const t of scopedTasks) {
+      map.set(t.status, (map.get(t.status) ?? 0) + 1);
+    }
+    return map;
+  }, [boardColumns, scopedTasks]);
+
+  const isCompletedInScope = useMemo(() => {
+    return (status: string) => isTerminalBoardColumn(status, boardColumns);
+  }, [boardColumns]);
+
+  const dueTodayCount = scopedTasks.filter(
+    (t) => t.dueDate && isToday(t.dueDate) && !isCompletedInScope(t.status)
   ).length;
-  const assignedToMeCount = teamTasks.filter((t) => t.assigneeId === currentUser?.id && t.status !== 'done').length;
+  const highPriorityCount = scopedTasks.filter(
+    (t) => (t.priority === 'high' || t.priority === 'urgent') && !isCompletedInScope(t.status)
+  ).length;
+  const assignedToMeCount = scopedTasks.filter(
+    (t) => t.assigneeId === currentUser?.id && !isCompletedInScope(t.status)
+  ).length;
 
   const applyQuickFilter = (filterType: 'dueToday' | 'highPriority' | 'assignedToMe') => {
     if (filter === filterType) {
@@ -375,22 +405,18 @@ export function Sidebar({ mobileOpen, onCloseMobile, desktopCollapsed }: Sidebar
             <div className="border-t bg-muted/30 p-4">
               <p className="mb-3 text-xs font-medium text-muted-foreground">TASK STATUS</p>
               <div className="grid grid-cols-2 gap-2 text-xs">
-                <div className="flex justify-between gap-2">
-                  <span className="text-muted-foreground">To Do</span>
-                  <span className="font-medium tabular-nums">{taskCounts.todo}</span>
-                </div>
-                <div className="flex justify-between gap-2">
-                  <span className="text-muted-foreground">In Progress</span>
-                  <span className="font-medium tabular-nums">{taskCounts.progress}</span>
-                </div>
-                <div className="flex justify-between gap-2">
-                  <span className="text-muted-foreground">Review</span>
-                  <span className="font-medium tabular-nums">{taskCounts.review}</span>
-                </div>
-                <div className="flex justify-between gap-2">
-                  <span className="text-muted-foreground">Done</span>
-                  <span className="font-medium tabular-nums text-green-600">{taskCounts.done}</span>
-                </div>
+                {boardColumns.map((col) => {
+                  const count = dynamicStatusCounts.get(col.id) ?? 0;
+                  const terminal = isTerminalBoardColumn(col.id, boardColumns);
+                  return (
+                    <div key={col.id} className="flex justify-between gap-2">
+                      <span className="min-w-0 truncate text-muted-foreground">{col.title}</span>
+                      <span className={cn('font-medium tabular-nums', terminal && 'text-emerald-600')}>
+                        {count}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}

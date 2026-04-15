@@ -52,6 +52,7 @@ export function TaskBoard() {
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const [editGeneralOpen, setEditGeneralOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<TaskStatus | null>(null);
+  const DESKTOP_SCROLL_THRESHOLD = 4;
 
   const projectsForTeam = useMemo(() => {
     if (!currentTeam) return projects;
@@ -328,9 +329,10 @@ export function TaskBoard() {
           >
             {boardColumns.map((column) => {
               const columnTasks = orderedColumnTasks(filteredTasks, column.id, boardColumns);
+              const shouldScroll = columnTasks.length >= DESKTOP_SCROLL_THRESHOLD;
 
               return (
-                <div key={column.id} className="space-y-2">
+                <div key={column.id} className="flex min-h-0 flex-col gap-2">
                   <div className="flex items-center justify-between">
                     <h3 className="font-medium">{column.title}</h3>
                     <Badge variant="secondary">{columnTasks.length}</Badge>
@@ -342,6 +344,7 @@ export function TaskBoard() {
                         {...provided.droppableProps}
                         className={cn(
                           'p-4 rounded-lg min-h-[200px] transition-colors',
+                          shouldScroll && 'max-h-[min(72dvh,680px)] overflow-y-auto',
                           column.color ?? 'bg-muted/40'
                         )}
                       >

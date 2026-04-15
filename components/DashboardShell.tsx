@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ActionPanel } from '@/components/ActionPanel';
 import { AppShellLayout } from '@/components/shell';
 import { useTaskContext, type Task } from '@/components/TaskContext';
+import { PushSoftAsk } from '@/components/push/PushSoftAsk';
 
 const PREFETCH_APP_ROUTES = [
   '/',
@@ -83,7 +84,10 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      <AppShellLayout mainClassName="p-4 sm:p-6">{children}</AppShellLayout>
+      <AppShellLayout mainClassName="p-4 sm:p-6">
+        <PushSoftAsk />
+        {children}
+      </AppShellLayout>
       <TaskEditModalHost />
     </>
   );

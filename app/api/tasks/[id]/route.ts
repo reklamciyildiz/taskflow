@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { taskDb, userDb, notificationDb } from '@/lib/db';
+import { taskDb, userDb, notificationDb, teamMemberDb } from '@/lib/db';
 import { ApiResponse } from '@/lib/types';
 import { triggerWebhook } from '@/lib/webhook-trigger';
 import { TaskUpdatedPayload, TaskDeletedPayload, TaskCompletedPayload, TaskAssignedPayload } from '@/lib/webhooks';
 import { sendPushToUser } from '@/lib/push';
+import { createServerClient } from '@/lib/supabase';
 
 // GET /api/tasks/[id] - Get a specific task
 export async function GET(
@@ -207,16 +208,71 @@ export async function PATCH(
 
       // Task completed webhook (if status changed to done)
       if (body.status === 'done' && originalTask.status !== 'done') {
-        const userId = session?.user ? (session.user as any).id : originalTask.created_by;
+        const completedByUserId = session?.user ? (session.user as any).id : originalTask.created_by;
+        const completedByName = actorName || 'Someone';
         const taskCompletedPayload: TaskCompletedPayload = {
           task: {
             id: updatedTask.id,
             title: updatedTask.title,
-            completedBy: userId,
+            completedBy: completedByUserId,
             completedAt: new Date().toISOString(),
           },
         };
         await triggerWebhook(organizationId, 'task.completed', taskCompletedPayload);
+
+        // Team activity notifications (opt-in): notify teammates when a member completes an action.
+        // Best-effort: if `user_settings` table doesn't exist, we silently skip.
+        const teamId = updatedTask.team_id ?? originalTask.team_id;
+        if (teamId) {
+          try {
+            const members = await teamMemberDb.getByTeam(teamId);
+            const teammateIds = members
+              .map((m: any) => m.user_id as string)
+              .filter((id) => id && id !== completedByUserId);
+
+            if (teammateIds.length > 0) {
+              const sb = createServerClient();
+              const { data: prefs, error: prefsError } = await sb
+                .from('user_settings')
+                .select('user_id, team_activity, push_notifications')
+                .in('user_id', teammateIds)
+                .eq('team_activity', true);
+
+              if (!prefsError && prefs?.length) {
+                const projectId = updatedTask.project_id ?? null;
+                const qs = new URLSearchParams();
+                if (projectId) qs.set('project', projectId);
+                qs.set('task', updatedTask.id);
+                const link = `/board?${qs.toString()}`;
+
+                await Promise.all(
+                  prefs.map(async (p: any) => {
+                    const toUserId = p.user_id as string;
+                    await notificationDb.create({
+                      user_id: toUserId,
+                      organization_id: organizationId,
+                      type: 'task_completed',
+                      title: 'Team activity',
+                      message: `${completedByName} completed: "${updatedTask.title}"`,
+                      link,
+                    });
+
+                    if (p.push_notifications === true) {
+                      await sendPushToUser(toUserId, {
+                        title: 'Team activity',
+                        body: `${completedByName} completed: "${updatedTask.title}"`,
+                        url: link,
+                        tag: `team_activity:task_completed:${updatedTask.id}`,
+                      });
+                    }
+                  })
+                );
+              }
+            }
+          } catch (teamActivityError) {
+            console.error('Failed to create team activity notifications:', teamActivityError);
+          }
+        }
       }
     } catch (webhookError) {
       console.error('Failed to trigger webhooks:', webhookError);

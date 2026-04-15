@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState, type FormEvent } from 'react';
+import { createPortal } from 'react-dom';
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
 import { usePathname, useRouter } from 'next/navigation';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -46,6 +47,12 @@ const COLUMN_COLOR_OPTIONS: { id: string; label: string; className: string }[] =
   { id: 'emerald', label: 'Emerald', className: 'bg-emerald-50 dark:bg-emerald-500/10' },
   { id: 'rose', label: 'Rose', className: 'bg-rose-50 dark:bg-rose-500/10' },
 ];
+
+function maybePortal(children: React.ReactNode, enabled: boolean) {
+  if (!enabled) return children;
+  if (typeof document === 'undefined') return children;
+  return createPortal(children, document.body);
+}
 
 export function CreateProjectModal({ open, onClose, mode = 'create', projectId }: CreateProjectModalProps) {
   const router = useRouter();
@@ -341,66 +348,73 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId }
                         </div>
                       ) : (
                         columnsDraft.map((col, index) => (
-                          <Draggable key={`${col.id}-${index}`} draggableId={`${col.id}-${index}`} index={index}>
-                            {(draggableProvided) => (
-                              <div
-                                ref={draggableProvided.innerRef}
-                                {...draggableProvided.draggableProps}
-                                className="flex flex-col gap-2 px-3 py-2 sm:flex-row sm:items-center"
-                              >
-                                <span
-                                  className="cursor-grab text-muted-foreground/70"
-                                  {...draggableProvided.dragHandleProps}
+                          <Draggable key={col.id} draggableId={col.id} index={index}>
+                            {(draggableProvided, snapshot) =>
+                              maybePortal(
+                                <div
+                                  ref={draggableProvided.innerRef}
+                                  {...draggableProvided.draggableProps}
+                                  className={cn(
+                                    'flex flex-col gap-2 px-3 py-2 sm:flex-row sm:items-center',
+                                    snapshot.isDragging &&
+                                      'rounded-md border border-border bg-background shadow-lg'
+                                  )}
                                 >
-                                  <GripVertical className="h-4 w-4" aria-hidden />
-                                </span>
-                                <Input
-                                  value={col.title}
-                                  onChange={(e) => handleColumnTitleChange(index, e.target.value)}
-                                  placeholder={`Column ${index + 1}`}
-                                  className="h-9 w-full sm:flex-1"
-                                />
-                                <div className="flex flex-wrap items-center gap-1">
-                                  {COLUMN_COLOR_OPTIONS.map((opt) => (
-                                    <button
-                                      key={opt.id}
+                                  <span
+                                    className="cursor-grab text-muted-foreground/70"
+                                    {...draggableProvided.dragHandleProps}
+                                  >
+                                    <GripVertical className="h-4 w-4" aria-hidden />
+                                  </span>
+                                  <Input
+                                    value={col.title}
+                                    onChange={(e) => handleColumnTitleChange(index, e.target.value)}
+                                    placeholder={`Column ${index + 1}`}
+                                    className="h-9 w-full sm:flex-1"
+                                  />
+                                  <div className="flex flex-wrap items-center gap-1">
+                                    {COLUMN_COLOR_OPTIONS.map((opt) => (
+                                      <button
+                                        key={opt.id}
+                                        type="button"
+                                        onClick={() => handleColorChange(index, opt.className)}
+                                        className={cn(
+                                          'h-4 w-4 rounded-full border border-border/60',
+                                          opt.className,
+                                          col.color === opt.className &&
+                                            'ring-2 ring-offset-1 ring-primary ring-offset-background'
+                                        )}
+                                        aria-label={`${opt.label} color`}
+                                      />
+                                    ))}
+                                  </div>
+                                  <div className="flex items-center gap-2 sm:ml-auto">
+                                    <Button
                                       type="button"
-                                      onClick={() => handleColorChange(index, opt.className)}
-                                      className={cn(
-                                        'h-4 w-4 rounded-full border border-border/60',
-                                        opt.className,
-                                        col.color === opt.className &&
-                                          'ring-2 ring-offset-1 ring-primary ring-offset-background'
-                                      )}
-                                      aria-label={`${opt.label} color`}
-                                    />
-                                  ))}
-                                </div>
-                                <div className="flex items-center gap-2 sm:ml-auto">
-                                  <Button
-                                    type="button"
-                                    variant={col.isTerminal ? 'default' : 'outline'}
-                                    size="sm"
-                                    className="h-8 px-2 gap-1"
-                                    onClick={() => handleToggleTerminal(index)}
-                                  >
-                                    <CheckCircle2 className="h-4 w-4" />
-                                    <span className="text-xs">Done</span>
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                                    onClick={() => handleToggleInclude(index, false)}
-                                    disabled={columnsDraft.length <= 1}
-                                    aria-label="Delete column"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              </div>
-                            )}
+                                      variant={col.isTerminal ? 'default' : 'outline'}
+                                      size="sm"
+                                      className="h-8 px-2 gap-1"
+                                      onClick={() => handleToggleTerminal(index)}
+                                    >
+                                      <CheckCircle2 className="h-4 w-4" />
+                                      <span className="text-xs">Done</span>
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                      onClick={() => handleToggleInclude(index, false)}
+                                      disabled={columnsDraft.length <= 1}
+                                      aria-label="Delete column"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                </div>,
+                                snapshot.isDragging
+                              )
+                            }
                           </Draggable>
                         ))
                       )}

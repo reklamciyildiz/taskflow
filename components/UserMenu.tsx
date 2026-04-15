@@ -15,11 +15,13 @@ import { useTaskContext } from '@/components/TaskContext';
 import { useView } from '@/components/ViewContext';
 import { useSession, signOut } from 'next-auth/react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export function UserMenu() {
   const { currentUser } = useTaskContext();
   const { setCurrentView } = useView();
   const { data: session, status } = useSession();
+  const router = useRouter();
 
   // Use session user if available, otherwise fall back to context user
   const user = session?.user || currentUser;
@@ -70,11 +72,23 @@ export function UserMenu() {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => setCurrentView('profile')} className="cursor-pointer">
+        <DropdownMenuItem
+          onClick={() => {
+            setCurrentView('profile');
+            router.push('/profile');
+          }}
+          className="cursor-pointer"
+        >
           <User className="mr-2 h-4 w-4" />
           <span>Profile</span>
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setCurrentView('settings')} className="cursor-pointer">
+        <DropdownMenuItem
+          onClick={() => {
+            setCurrentView('settings');
+            router.push('/settings');
+          }}
+          className="cursor-pointer"
+        >
           <Settings className="mr-2 h-4 w-4" />
           <span>Settings</span>
         </DropdownMenuItem>
