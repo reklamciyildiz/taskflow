@@ -21,6 +21,7 @@ export function NotificationBell() {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const lastNotifiedIdRef = useRef<string | null>(null);
+  const lastPollMsRef = useRef<number>(0);
 
   const maybeShowBrowserNotification = useCallback((next: InAppNotification[]) => {
     if (typeof window === 'undefined') return;
@@ -30,6 +31,15 @@ export function NotificationBell() {
 
     const newestUnreadAssignment = next.find((n) => !n.read && n.type === 'task_assigned');
     if (!newestUnreadAssignment) return;
+
+    // Avoid popping old unread items (e.g. first load) — only notify if it looks recent.
+    const createdMs = Date.parse(newestUnreadAssignment.created_at);
+    const now = Date.now();
+    if (Number.isFinite(createdMs)) {
+      const withinFiveMinutes = now - createdMs <= 5 * 60 * 1000;
+      if (!withinFiveMinutes) return;
+    }
+
     const persistedLast = (() => {
       try {
         return window.localStorage.getItem('taskflow:lastNotifiedNotificationId');
@@ -64,6 +74,7 @@ export function NotificationBell() {
   }, [router]);
 
   const refresh = useCallback(async () => {
+    lastPollMsRef.current = Date.now();
     const data = await fetchNotificationsList(20);
     if (data) {
       maybeShowBrowserNotification(data.notifications);
@@ -78,10 +89,16 @@ export function NotificationBell() {
     void refresh();
 
     const tick = () => {
-      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
+      // Visible: poll more frequently.
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        void refresh();
         return;
       }
-      void refresh();
+      // Hidden: poll less frequently, but still poll so browser notifications can fire.
+      const now = Date.now();
+      if (now - (lastPollMsRef.current || 0) >= 60_000) {
+        void refresh();
+      }
     };
 
     const interval = setInterval(tick, 30000);
@@ -194,7 +211,15 @@ export function NotificationBell() {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 z-50 mt-2 w-[min(24rem,calc(100vw-1.5rem))] overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground shadow-lg">
+        <div
+          className={[
+            // Mobile: render as a fixed, full-width panel so it never clips offscreen.
+            'fixed left-2 right-2 top-16 z-50',
+            // Desktop: keep the classic dropdown anchored to the bell.
+            'sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-[24rem]',
+            'overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground shadow-lg',
+          ].join(' ')}
+        >
           <div className="flex items-center justify-between border-b border-border bg-muted/60 px-4 py-3">
             <h3 className="font-semibold text-foreground">Notifications</h3>
             {unreadCount > 0 && (

@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
           user_id: body.assigneeId,
           organization_id: organizationId,
           type: 'task_assigned',
-          title: 'New task assigned to you',
+          title: 'New action assigned to you',
           message: `${creator?.name || 'Someone'} assigned you: "${body.title}"`,
           link,
         });

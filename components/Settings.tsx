@@ -137,6 +137,15 @@ export function Settings() {
   const handlePushNotifications = (checked: boolean) => {
     setPushNotifications(checked);
     saveSettings('push_notifications', checked);
+    if (checked) {
+      try {
+        if (typeof window !== 'undefined' && 'Notification' in window) {
+          void (Notification as any).requestPermission?.().catch?.(() => {});
+        }
+      } catch {
+        // ignore
+      }
+    }
   };
 
   const handleTeamActivity = (checked: boolean) => {
