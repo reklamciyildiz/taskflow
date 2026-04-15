@@ -5,6 +5,7 @@ import { taskDb, notificationDb, userDb } from '@/lib/db';
 import { ApiResponse } from '@/lib/types';
 import { triggerWebhook } from '@/lib/webhook-trigger';
 import { TaskCreatedPayload, TaskAssignedPayload } from '@/lib/webhooks';
+import { sendPushToUser } from '@/lib/push';
 
 // GET /api/tasks - Get all tasks (optionally filtered by teamId or organizationId)
 export async function GET(request: NextRequest) {
@@ -106,6 +107,12 @@ export async function POST(request: NextRequest) {
           title: 'New action assigned to you',
           message: `${creator?.name || 'Someone'} assigned you: "${body.title}"`,
           link,
+        });
+        await sendPushToUser(body.assigneeId, {
+          title: 'New action assigned to you',
+          body: `${creator?.name || 'Someone'} assigned you: "${body.title}"`,
+          url: link,
+          tag: `task_assigned:${task.id}`,
         });
       } catch (notifError) {
         console.error('Failed to create notification:', notifError);

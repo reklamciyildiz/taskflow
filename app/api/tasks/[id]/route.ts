@@ -5,6 +5,7 @@ import { taskDb, userDb, notificationDb } from '@/lib/db';
 import { ApiResponse } from '@/lib/types';
 import { triggerWebhook } from '@/lib/webhook-trigger';
 import { TaskUpdatedPayload, TaskDeletedPayload, TaskCompletedPayload, TaskAssignedPayload } from '@/lib/webhooks';
+import { sendPushToUser } from '@/lib/push';
 
 // GET /api/tasks/[id] - Get a specific task
 export async function GET(
@@ -180,6 +181,12 @@ export async function PATCH(
               title: 'New action assigned to you',
               message: `${actorName || 'Someone'} assigned you: "${updatedTask.title}"`,
               link,
+            });
+            await sendPushToUser(assignedTo, {
+              title: 'New action assigned to you',
+              body: `${actorName || 'Someone'} assigned you: "${updatedTask.title}"`,
+              url: link,
+              tag: `task_assigned:${updatedTask.id}`,
             });
           } catch (notifError) {
             console.error('Failed to create assignment notification:', notifError);

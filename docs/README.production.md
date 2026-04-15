@@ -24,6 +24,13 @@ GOOGLE_CLIENT_SECRET=your-google-client-secret
 # Supabase
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+
+# Web Push (VAPID)
+# Generate once (do NOT commit private key):
+# npx web-push generate-vapid-keys
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=your-vapid-public-key
+VAPID_PRIVATE_KEY=your-vapid-private-key
+VAPID_SUBJECT=mailto:admin@your-domain.com
 ```
 
 ---

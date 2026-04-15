@@ -30,6 +30,7 @@ import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
+import { subscribeWebPush, unsubscribeWebPush } from '@/components/push/push-client';
 import { cn } from '@/lib/utils';
 import { useTheme } from 'next-themes';
 import { ChangePasswordModal } from '@/components/ChangePasswordModal';
@@ -137,15 +138,29 @@ export function Settings() {
   const handlePushNotifications = (checked: boolean) => {
     setPushNotifications(checked);
     saveSettings('push_notifications', checked);
-    if (checked) {
+    void (async () => {
       try {
-        if (typeof window !== 'undefined' && 'Notification' in window) {
-          void (Notification as any).requestPermission?.().catch?.(() => {});
+        if (checked) {
+          const sub = await subscribeWebPush();
+          if (!sub) return;
+          await fetch('/api/push/subscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ subscription: sub.toJSON() }),
+          });
+        } else {
+          const endpoint = await unsubscribeWebPush();
+          if (!endpoint) return;
+          await fetch('/api/push/unsubscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ endpoint }),
+          });
         }
       } catch {
-        // ignore
+        // best-effort
       }
-    }
+    })();
   };
 
   const handleTeamActivity = (checked: boolean) => {

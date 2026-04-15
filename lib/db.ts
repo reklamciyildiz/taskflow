@@ -964,6 +964,90 @@ export const notificationDb = {
 };
 
 // =============================================
+// PUSH SUBSCRIPTION OPERATIONS
+// =============================================
+
+export type PushSubscriptionRow = {
+  id: string;
+  user_id: string;
+  organization_id: string;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  expiration_time: number | null;
+  user_agent: string | null;
+  revoked_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export const pushSubscriptionDb = {
+  async upsertActive(input: {
+    user_id: string;
+    organization_id: string;
+    endpoint: string;
+    p256dh: string;
+    auth: string;
+    expiration_time?: number | null;
+    user_agent?: string | null;
+  }) {
+    const { data, error } = await db
+      .from('push_subscriptions')
+      .upsert(
+        {
+          user_id: input.user_id,
+          organization_id: input.organization_id,
+          endpoint: input.endpoint,
+          p256dh: input.p256dh,
+          auth: input.auth,
+          expiration_time: input.expiration_time ?? null,
+          user_agent: input.user_agent ?? null,
+          revoked_at: null,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'endpoint' }
+      )
+      .select('*')
+      .single();
+
+    if (error) throw error;
+    return data as PushSubscriptionRow;
+  },
+
+  async listActiveByUser(userId: string) {
+    const { data, error } = await db
+      .from('push_subscriptions')
+      .select('*')
+      .eq('user_id', userId)
+      .is('revoked_at', null)
+      .order('updated_at', { ascending: false });
+    if (error) throw error;
+    return (data || []) as PushSubscriptionRow[];
+  },
+
+  async revokeByEndpoint(endpoint: string) {
+    const { error } = await db
+      .from('push_subscriptions')
+      .update({ revoked_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .eq('endpoint', endpoint)
+      .is('revoked_at', null);
+    if (error) throw error;
+    return true;
+  },
+
+  async revokeForUser(endpoint: string, userId: string) {
+    const { error } = await db
+      .from('push_subscriptions')
+      .update({ revoked_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .eq('endpoint', endpoint)
+      .eq('user_id', userId)
+      .is('revoked_at', null);
+    if (error) throw error;
+    return true;
+  },
+};
+
+// =============================================
 // CUSTOMER OPERATIONS
 // =============================================
 
