@@ -68,6 +68,13 @@ export async function upsertAllDayTaskEvent(args: {
       .filter(Boolean)
       .join('\n\n'),
     transparency: 'transparent',
+    // For all-day actions we intentionally remind shortly before the day starts.
+    // Google anchors all-day reminders to 00:00, so "15 minutes before" becomes 23:45
+    // on the previous day in many locales. This is useful as a pre-day heads-up.
+    reminders: {
+      useDefault: false,
+      overrides: [{ method: 'popup', minutes: 15 }],
+    },
     extendedProperties: {
       private: {
         taskflow_task_id: args.taskId,
