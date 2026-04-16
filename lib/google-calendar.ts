@@ -85,7 +85,9 @@ export async function upsertAllDayTaskEvent(args: {
   };
 
   if (args.eventId) {
-    const updated = await calendar.events.patch({
+    // Use full `update` (not `patch`) so we can safely switch an event between
+    // timed (dateTime) and all-day (date) without leaving stale fields behind.
+    const updated = await calendar.events.update({
       calendarId: args.calendarId,
       eventId: args.eventId,
       requestBody: body,
@@ -134,7 +136,9 @@ export async function upsertTimedTaskEvent(args: {
   };
 
   if (args.eventId) {
-    const updated = await calendar.events.patch({
+    // Use full `update` (not `patch`) so we can safely switch an event between
+    // timed (dateTime) and all-day (date) without leaving stale fields behind.
+    const updated = await calendar.events.update({
       calendarId: args.calendarId,
       eventId: args.eventId,
       requestBody: body,

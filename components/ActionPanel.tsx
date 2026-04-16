@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, type Variants } from 'framer-motion';
-import { ChevronDown, X } from 'lucide-react';
+import { CalendarIcon, ChevronDown, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,6 +14,9 @@ import { ActionChecklist } from '@/components/action/ActionChecklist';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 import { formatDueDateYmdLocal, parseYmdDateInput } from '@/lib/due-date';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { format } from 'date-fns';
 
 export interface ActionPanelProps {
   task: Task | null;
@@ -73,7 +76,7 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
   const [priority, setPriority] = useState<TaskPriority>('medium');
   const [assigneeId, setAssigneeId] = useState<string>('unassigned');
   const [customerId, setCustomerId] = useState<string>('none');
-  const [dueDate, setDueDate] = useState('');
+  const [dueDate, setDueDate] = useState(''); // YYYY-MM-DD
   const [journalLogs, setJournalLogs] = useState<JournalLogEntry[]>([]);
   const [learnings, setLearnings] = useState('');
   /** Title, status, description, etc. — default collapsed for a note-first flow */
@@ -235,6 +238,8 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
   );
 
   if (!task) return null;
+
+  const selectedDueDate = dueDate ? parseYmdDateInput(dueDate) : undefined;
 
   return (
     <>
@@ -412,21 +417,56 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
                             </div>
                             <div className="space-y-1.5">
                               <Label className="text-[11px] uppercase text-muted-foreground">Due date</Label>
-                              <Input
-                                type="date"
-                                value={dueDate}
-                                disabled={!canEdit}
-                                onChange={(e) => {
-                                  const v = e.target.value;
-                                  setDueDate(v);
-                                  if (task && canEdit) {
-                                    void updateTask(task.id, {
-                                    dueDate: v ? parseYmdDateInput(v) ?? undefined : null,
-                                  });
-                                  }
-                                }}
-                                className="h-9 border-border/60 bg-background/80"
-                              />
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    disabled={!canEdit}
+                                    className={cn(
+                                      'h-9 w-full justify-start border-border/60 bg-background/80 text-left font-normal',
+                                      !selectedDueDate && 'text-muted-foreground'
+                                    )}
+                                  >
+                                    <CalendarIcon className="mr-2 h-4 w-4" aria-hidden />
+                                    {selectedDueDate ? format(selectedDueDate, 'PPP') : 'Select date'}
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0 z-[200]" align="start">
+                                  <div className="p-2">
+                                    <Calendar
+                                      mode="single"
+                                      selected={selectedDueDate}
+                                      onSelect={(d) => {
+                                        if (!task || !canEdit) return;
+                                        if (!d) {
+                                          setDueDate('');
+                                          void updateTask(task.id, { dueDate: null });
+                                          return;
+                                        }
+                                        setDueDate(formatDueDateYmdLocal(d));
+                                        void updateTask(task.id, { dueDate: d });
+                                      }}
+                                      initialFocus
+                                    />
+                                    <div className="flex justify-end border-t border-border/50 px-2 py-2">
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        disabled={!canEdit || !selectedDueDate}
+                                        onClick={() => {
+                                          if (!task || !canEdit) return;
+                                          setDueDate('');
+                                          void updateTask(task.id, { dueDate: null });
+                                        }}
+                                      >
+                                        Clear
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </PopoverContent>
+                              </Popover>
                             </div>
                             <div className="space-y-1.5 sm:col-span-2">
                               <Label className="text-[11px] uppercase text-muted-foreground">Customer</Label>
