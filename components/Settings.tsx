@@ -183,11 +183,15 @@ export function Settings() {
       const json = await res.json();
       if (!json?.success) {
         setGoogleCalendars([]);
+        if (typeof json?.error === 'string' && json.error.length > 0) {
+          toast.error(json.error);
+        }
         return;
       }
       setGoogleCalendars(json.data?.calendars ?? []);
     } catch {
       setGoogleCalendars([]);
+      toast.error('Could not load Google calendars.');
     } finally {
       setGoogleCalendarsLoading(false);
     }

@@ -6,6 +6,27 @@ import { supabaseAdmin } from '@/lib/supabase-admin';
 import { decryptString } from '@/lib/crypto-app';
 import { listCalendars } from '@/lib/google-calendar';
 
+function calendarListFailureMessage(e: unknown): { code?: string; message: string; status: number } {
+  const err = e as any;
+  const first = err?.errors?.[0] ?? err?.response?.data?.error?.errors?.[0];
+  const reason = first?.reason as string | undefined;
+  const apiMessage = first?.message as string | undefined;
+
+  if (reason === 'accessNotConfigured' || (apiMessage && apiMessage.includes('Google Calendar API'))) {
+    return {
+      code: 'calendar_api_disabled',
+      message:
+        'Google Calendar API is off for this Google Cloud project. In Google Cloud Console open APIs & Services → Library, search "Google Calendar API", click Enable, wait a minute, then use Refresh calendars.',
+      status: 403,
+    };
+  }
+
+  return {
+    message: apiMessage || err?.message || 'Failed to list calendars',
+    status: 500,
+  };
+}
+
 export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) {
@@ -33,6 +54,7 @@ export async function GET() {
     return NextResponse.json({ success: true, data: { calendars } });
   } catch (e: any) {
     console.error('Failed to list calendars:', e);
-    return NextResponse.json({ success: false, error: e?.message || 'Failed to list calendars' }, { status: 500 });
+    const { code, message, status } = calendarListFailureMessage(e);
+    return NextResponse.json({ success: false, error: message, ...(code ? { code } : {}) }, { status });
   }
 }

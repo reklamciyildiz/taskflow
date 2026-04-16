@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { userDb } from '@/lib/db';
@@ -7,34 +6,47 @@ import { getGoogleOAuthClient } from '@/lib/google-calendar';
 import { encryptString } from '@/lib/crypto-app';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { google } from 'googleapis';
+import { GCAL_OAUTH_STATE_COOKIE } from '@/lib/gcal-oauth-cookie';
+
+function redirectWithClearedState(request: NextRequest, query: string) {
+  const res = NextResponse.redirect(new URL(`/settings?${query}`, request.url));
+  // Expire immediately (same attributes as start route so the browser removes it).
+  const secure = process.env.NODE_ENV === 'production';
+  res.cookies.set(GCAL_OAUTH_STATE_COOKIE, '', {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure,
+    path: '/',
+    maxAge: 0,
+  });
+  return res;
+}
 
 export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) {
-    return NextResponse.redirect(new URL('/settings?google=unauthorized', request.url));
+    return redirectWithClearedState(request, 'google=unauthorized');
   }
 
   const url = new URL(request.url);
   const code = url.searchParams.get('code');
   const state = url.searchParams.get('state');
-  const cookieStore = cookies();
-  const expected = cookieStore.get('gcal_oauth_state')?.value;
-  cookieStore.set('gcal_oauth_state', '', { path: '/', maxAge: 0 });
+  const expected = request.cookies.get(GCAL_OAUTH_STATE_COOKIE)?.value;
 
   if (!code || !state || !expected || state !== expected) {
-    return NextResponse.redirect(new URL('/settings?google=invalid_state', request.url));
+    return redirectWithClearedState(request, 'google=invalid_state');
   }
 
   const user: any = await userDb.getByEmail(session.user.email);
   if (!user?.id) {
-    return NextResponse.redirect(new URL('/settings?google=no_user', request.url));
+    return redirectWithClearedState(request, 'google=no_user');
   }
 
   try {
     const oauth2 = getGoogleOAuthClient();
     const { tokens } = await oauth2.getToken(code);
     if (!tokens.refresh_token) {
-      return NextResponse.redirect(new URL('/settings?google=no_refresh_token', request.url));
+      return redirectWithClearedState(request, 'google=no_refresh_token');
     }
 
     oauth2.setCredentials(tokens);
@@ -62,12 +74,12 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('Failed to persist google calendar connection:', error);
-      return NextResponse.redirect(new URL('/settings?google=db_error', request.url));
+      return redirectWithClearedState(request, 'google=db_error');
     }
 
-    return NextResponse.redirect(new URL('/settings?google=connected', request.url));
+    return redirectWithClearedState(request, 'google=connected');
   } catch (e) {
     console.error('Google OAuth callback failed:', e);
-    return NextResponse.redirect(new URL('/settings?google=oauth_error', request.url));
+    return redirectWithClearedState(request, 'google=oauth_error');
   }
 }
