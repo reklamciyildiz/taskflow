@@ -14,6 +14,28 @@ function isDateOnlyYmd(s: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(s.trim());
 }
 
+function isLegacyUtcMidnightIso(s: string): boolean {
+  // Legacy UI used `toISOString()` even for date-only picks, producing midnight UTC.
+  // Treat these as date-only to avoid "03:00–04:00" (or similar) time shifts.
+  const t = s.trim();
+  return /^\d{4}-\d{2}-\d{2}T00:00:00(?:\.\d{1,9})?(?:Z|[+-]00:00)$/.test(t);
+}
+
+function formatYmdInTimeZone(date: Date, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+
+  const y = parts.find((p) => p.type === 'year')?.value;
+  const m = parts.find((p) => p.type === 'month')?.value;
+  const d = parts.find((p) => p.type === 'day')?.value;
+  if (!y || !m || !d) return date.toISOString().slice(0, 10);
+  return `${y}-${m}-${d}`;
+}
+
 function formatRfc3339InTimeZone(date: Date, timeZone: string): string {
   // Use Intl parts to build an offset datetime string acceptable by Google Calendar API.
   const dtf = new Intl.DateTimeFormat('en-US', {
@@ -150,9 +172,11 @@ export async function syncGoogleCalendarForUserTask(args: { userId: string; task
 
     let result: { id: string; etag: string | null };
 
-    if (isDateOnlyYmd(dueStr)) {
-      // Literal calendar day — do not reinterpret via `Date` UTC midnight (avoids GMT+3 → 03:00 drift).
-      const ymd = dueStr.trim();
+    if (isDateOnlyYmd(dueStr) || isLegacyUtcMidnightIso(dueStr)) {
+      // Date-only semantics.
+      // - If stored as `YYYY-MM-DD`, use it literally.
+      // - If stored as legacy midnight-UTC ISO, convert to the user's calendar day.
+      const ymd = isDateOnlyYmd(dueStr) ? dueStr.trim() : formatYmdInTimeZone(parsed, tz);
       result = await upsertAllDayTaskEvent({
         refreshToken: conn.refreshToken,
         calendarId: conn.calendarId,
