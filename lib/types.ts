@@ -115,6 +115,11 @@ export interface Task {
   comments: Comment[];
 }
 
+/** Client-side task updates. `dueDate: null` clears the due date. */
+export type TaskUpdateFields = Partial<Omit<Task, 'dueDate'>> & {
+  dueDate?: Date | null;
+};
+
 export interface Customer {
   id: string;
   name: string;
@@ -183,7 +188,8 @@ export interface UpdateTaskRequest {
   description?: string;
   status?: TaskStatus;
   priority?: TaskPriority;
-  dueDate?: string;
+  /** `YYYY-MM-DD` for date-only, or legacy ISO datetime. `null` clears. */
+  dueDate?: string | null;
   assigneeId?: string | null;
   customerId?: string | null;
   projectId?: string | null;

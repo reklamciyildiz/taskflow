@@ -7,12 +7,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Task, TaskStatus, TaskPriority, useTaskContext } from '@/components/TaskContext';
+import { Task, TaskStatus, TaskPriority, TaskUpdateFields, useTaskContext } from '@/components/TaskContext';
 import { ACTION_CHECKLIST_QUICK_ROW_ID } from '@/lib/action-checklist';
 import type { JournalLogEntry } from '@/lib/types';
 import { ActionChecklist } from '@/components/action/ActionChecklist';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
+import { formatDueDateYmdLocal, parseYmdDateInput } from '@/lib/due-date';
 
 export interface ActionPanelProps {
   task: Task | null;
@@ -123,7 +124,7 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
     setPriority(src.priority);
     setAssigneeId(src.assigneeId || 'unassigned');
     setCustomerId(src.customerId || 'none');
-    setDueDate(src.dueDate ? src.dueDate.toISOString().split('T')[0] : '');
+    setDueDate(src.dueDate ? formatDueDateYmdLocal(src.dueDate) : '');
     const jl = journalLogsFromTask(src.journalLogs);
     setJournalLogs(jl);
     journalRef.current = jl;
@@ -204,7 +205,7 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
   );
 
   const scheduleMetaPersist = useCallback(
-    (patch: Partial<Task>) => {
+    (patch: TaskUpdateFields) => {
       if (!task || !canEdit) return;
       if (metaDebounceRef.current) clearTimeout(metaDebounceRef.current);
       metaDebounceRef.current = setTimeout(() => {
@@ -419,7 +420,9 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
                                   const v = e.target.value;
                                   setDueDate(v);
                                   if (task && canEdit) {
-                                    void updateTask(task.id, { dueDate: v ? new Date(v) : undefined });
+                                    void updateTask(task.id, {
+                                    dueDate: v ? parseYmdDateInput(v) ?? undefined : null,
+                                  });
                                   }
                                 }}
                                 className="h-9 border-border/60 bg-background/80"

@@ -14,21 +14,6 @@ function isDateOnlyYmd(s: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(s.trim());
 }
 
-function formatYmdInTimeZone(date: Date, timeZone: string): string {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(date);
-
-  const y = parts.find((p) => p.type === 'year')?.value;
-  const m = parts.find((p) => p.type === 'month')?.value;
-  const d = parts.find((p) => p.type === 'day')?.value;
-  if (!y || !m || !d) return date.toISOString().slice(0, 10);
-  return `${y}-${m}-${d}`;
-}
-
 function formatRfc3339InTimeZone(date: Date, timeZone: string): string {
   // Use Intl parts to build an offset datetime string acceptable by Google Calendar API.
   const dtf = new Intl.DateTimeFormat('en-US', {
@@ -166,8 +151,8 @@ export async function syncGoogleCalendarForUserTask(args: { userId: string; task
     let result: { id: string; etag: string | null };
 
     if (isDateOnlyYmd(dueStr)) {
-      // Interpret as calendar day in user's timezone (date-only semantics)
-      const ymd = formatYmdInTimeZone(parsed, tz);
+      // Literal calendar day — do not reinterpret via `Date` UTC midnight (avoids GMT+3 → 03:00 drift).
+      const ymd = dueStr.trim();
       result = await upsertAllDayTaskEvent({
         refreshToken: conn.refreshToken,
         calendarId: conn.calendarId,

@@ -9,6 +9,7 @@ import {
   type Task,
   type TaskStatus,
   type TaskPriority,
+  type TaskUpdateFields,
   type Customer,
   type Comment,
   type TeamMember,
@@ -19,8 +20,20 @@ import {
   FALLBACK_BOARD_COLUMNS,
   parseColumnConfigFromJson,
 } from '@/lib/types';
+import { formatDueDateYmdLocal, parseDueDateFromApi } from '@/lib/due-date';
 
-export type { Task, TaskStatus, TaskPriority, Customer, Comment, TeamMember, Team, Project, ProjectColumnConfig };
+export type {
+  Task,
+  TaskStatus,
+  TaskPriority,
+  TaskUpdateFields,
+  Customer,
+  Comment,
+  TeamMember,
+  Team,
+  Project,
+  ProjectColumnConfig,
+};
 
 /** Team roles in a team (not org owner) */
 export type UserRole = 'admin' | 'member' | 'viewer';
@@ -65,9 +78,9 @@ interface TaskContextType {
   setBoardScope: (scope: BoardScope) => void;
   setGeneralBoardColumns: (cols: ProjectColumnConfig[]) => void;
   addTask: (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'attachments' | 'comments' | 'boardPosition'>) => Promise<void>;
-  updateTask: (id: string, updates: Partial<Task>) => Promise<boolean>;
+  updateTask: (id: string, updates: TaskUpdateFields) => Promise<boolean>;
   /** Optimistic multi-patch (e.g. kanban reorder); rolls back if any request fails. */
-  applyTaskUpdates: (items: { id: string; changes: Partial<Task> }[]) => Promise<boolean>;
+  applyTaskUpdates: (items: { id: string; changes: TaskUpdateFields }[]) => Promise<boolean>;
   deleteTask: (id: string) => Promise<void>;
   setCurrentTeam: (teamId: string) => void;
   addTeam: (team: Omit<Team, 'id' | 'createdAt'>) => Promise<void>;
@@ -118,13 +131,16 @@ function mapJournalLogs(raw: unknown): Task['journalLogs'] {
   });
 }
 
-function partialTaskToUpdateRequest(updates: Partial<Task>): UpdateTaskRequest {
+function partialTaskToUpdateRequest(updates: TaskUpdateFields): UpdateTaskRequest {
   const api: UpdateTaskRequest = {};
   if (updates.title !== undefined) api.title = updates.title;
   if (updates.description !== undefined) api.description = updates.description;
   if (updates.status !== undefined) api.status = updates.status;
   if (updates.priority !== undefined) api.priority = updates.priority;
-  if (updates.dueDate !== undefined) api.dueDate = updates.dueDate?.toISOString();
+  if (Object.prototype.hasOwnProperty.call(updates, 'dueDate')) {
+    const d = updates.dueDate;
+    api.dueDate = d == null ? null : formatDueDateYmdLocal(d);
+  }
   if (updates.assigneeId !== undefined) api.assigneeId = updates.assigneeId;
   if (updates.customerId !== undefined) api.customerId = updates.customerId;
   if (updates.projectId !== undefined) api.projectId = updates.projectId;
@@ -723,7 +739,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
         description: taskData.description,
         status: taskData.status ?? 'todo',
         priority: taskData.priority,
-        dueDate: taskData.dueDate?.toISOString(),
+        dueDate: taskData.dueDate ? formatDueDateYmdLocal(taskData.dueDate) : undefined,
         assigneeId: taskData.assigneeId,
         customerId: taskData.customerId,
         teamId: taskData.teamId,
@@ -746,13 +762,22 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   }, [fetchCustomers, currentProject?.id]);
 
   // Update task via API with optimistic update — returns false if rolled back
-  const updateTask = useCallback(async (id: string, updates: Partial<Task>): Promise<boolean> => {
+  const updateTask = useCallback(async (id: string, updates: TaskUpdateFields): Promise<boolean> => {
     let rollbackSnapshot: Task[] | null = null;
     setTasks((prev) => {
       rollbackSnapshot = prev;
-      return prev.map((task) =>
-        task.id === id ? { ...task, ...updates, updatedAt: new Date() } : task
-      );
+      return prev.map((task) => {
+        if (task.id !== id) return task;
+        const { dueDate: duePatch, ...restUpdates } = updates;
+        return {
+          ...task,
+          ...restUpdates,
+          updatedAt: new Date(),
+          ...(Object.prototype.hasOwnProperty.call(updates, 'dueDate')
+            ? { dueDate: duePatch != null ? duePatch : undefined }
+            : {}),
+        } satisfies Task;
+      });
     });
 
     try {
@@ -771,7 +796,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const applyTaskUpdates = useCallback(async (items: { id: string; changes: Partial<Task> }[]): Promise<boolean> => {
+  const applyTaskUpdates = useCallback(async (items: { id: string; changes: TaskUpdateFields }[]): Promise<boolean> => {
     if (items.length === 0) return true;
     let rollbackSnapshot: Task[] | null = null;
     setTasks((prev) => {
@@ -779,7 +804,16 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       return prev.map((task) => {
         const item = items.find((i) => i.id === task.id);
         if (!item) return task;
-        return { ...task, ...item.changes, updatedAt: new Date() };
+        const ch = item.changes;
+        const { dueDate: duePatch, ...restCh } = ch;
+        return {
+          ...task,
+          ...restCh,
+          updatedAt: new Date(),
+          ...(Object.prototype.hasOwnProperty.call(ch, 'dueDate')
+            ? { dueDate: duePatch != null ? duePatch : undefined }
+            : {}),
+        } satisfies Task;
       });
     });
 
