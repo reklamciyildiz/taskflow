@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, type Variants } from 'framer-motion';
-import { CalendarIcon, ChevronDown, X, Lightbulb } from 'lucide-react';
+import { CalendarIcon, ChevronDown, X, Lightbulb, Maximize2, Minimize2, NotebookPen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,6 +17,7 @@ import { formatDueDateYmdLocal, parseYmdDateInput } from '@/lib/due-date';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { format } from 'date-fns';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 
 export interface ActionPanelProps {
   task: Task | null;
@@ -80,6 +81,9 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
   const [journalLogs, setJournalLogs] = useState<JournalLogEntry[]>([]);
   const [learnings, setLearnings] = useState('');
   const [learningsOpen, setLearningsOpen] = useState(false);
+  const [focusMode, setFocusMode] = useState<'none' | 'checklist' | 'learnings'>('none');
+  const [zenOpen, setZenOpen] = useState(false);
+  const [zenTab, setZenTab] = useState<'checklist' | 'learnings'>('checklist');
   /** Title, status, description, etc. — default collapsed for a note-first flow */
   const [detailsOpen, setDetailsOpen] = useState(false);
   const journalRef = useRef<JournalLogEntry[]>([]);
@@ -137,6 +141,9 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
     lastPersistedLearnings.current = learningsVal.trim();
     setDetailsOpen(false);
     setLearningsOpen(false);
+    setFocusMode('none');
+    setZenOpen(false);
+    setZenTab('checklist');
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only panel/action identity; do NOT re-hydrate on tasks/updateTask/persistLearnings changes
   }, [open, task?.id]);
 
@@ -278,6 +285,55 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
       });
     },
     [canEdit]
+  );
+
+  const setFocusModeSafe = useCallback(
+    (next: 'none' | 'checklist' | 'learnings') => {
+      setFocusMode((prev) => {
+        if (prev === next) return 'none';
+        // When leaving Learnings focus, flush immediately to avoid draft loss.
+        if (prev === 'learnings' && next !== 'learnings') {
+          flushLearningsNow();
+        }
+        return next;
+      });
+
+      if (next === 'checklist') {
+        if (learningsOpen) {
+          setLearningsOpen(false);
+          flushLearningsNow();
+        }
+      } else if (next === 'learnings') {
+        setLearningsOpen(true);
+      }
+    },
+    [flushLearningsNow, learningsOpen]
+  );
+
+  const openZen = useCallback(
+    (tab: 'checklist' | 'learnings') => {
+      // Zen is intentionally isolated from the panel layout modes.
+      setFocusMode('none');
+      setZenTab(tab);
+      if (tab === 'learnings') setLearningsOpen(true);
+      setZenOpen(true);
+    },
+    []
+  );
+
+  const closeZen = useCallback(() => {
+    flushLearningsNow();
+    setZenOpen(false);
+  }, [flushLearningsNow]);
+
+  const switchZenTab = useCallback(
+    (tab: 'checklist' | 'learnings') => {
+      // Leaving learnings → flush immediately.
+      if (zenTab === 'learnings' && tab !== 'learnings') flushLearningsNow();
+      setZenTab(tab);
+      if (tab === 'learnings') setLearningsOpen(true);
+    },
+    [zenTab, flushLearningsNow]
   );
 
   if (!task) return null;
@@ -560,7 +616,29 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
 
                 <div className="space-y-3">
                   <div className="flex items-baseline justify-between gap-2">
-                    <h2 className="text-sm font-medium text-foreground">Checklist</h2>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-sm font-medium text-foreground">Checklist</h2>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        aria-label="Open checklist in Zen mode"
+                        onClick={() => openZen('checklist')}
+                      >
+                        <NotebookPen className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        aria-label={focusMode === 'checklist' ? 'Exit checklist focus' : 'Focus checklist'}
+                        onClick={() => setFocusModeSafe('checklist')}
+                      >
+                        {focusMode === 'checklist' ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                      </Button>
+                    </div>
                     <p className="text-[11px] text-muted-foreground">
                       Enter = new item · Shift+Enter = line break · drag to reorder
                     </p>
@@ -568,7 +646,13 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
                   <div
                     className={cn(
                       'min-h-0 overflow-y-auto overscroll-contain rounded-xl border border-border/40 bg-card/40 px-2 py-3',
-                      learningsOpen ? 'max-h-[min(42vh,380px)]' : 'max-h-[min(60vh,520px)]'
+                      focusMode === 'checklist'
+                        ? 'max-h-[min(74vh,680px)]'
+                        : focusMode === 'learnings'
+                          ? 'max-h-[min(28vh,260px)]'
+                          : learningsOpen
+                            ? 'max-h-[min(42vh,380px)]'
+                            : 'max-h-[min(60vh,520px)]'
                     )}
                     onClick={(e) => e.stopPropagation()}
                   >
@@ -577,41 +661,72 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
                 </div>
 
                 <div className="rounded-xl border border-border/40 bg-muted/10">
-                  <button
-                    type="button"
-                    className={cn(
-                      'flex w-full items-start justify-between gap-3 rounded-xl px-3 py-2.5 text-left',
-                      'hover:bg-muted/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30'
-                    )}
-                    onClick={() => {
-                      const next = !learningsOpen;
-                      setLearningsOpen(next);
-                      if (!next) flushLearningsNow();
-                    }}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <Lightbulb className="h-4 w-4 text-muted-foreground" aria-hidden />
-                        <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Learnings</p>
-                      </div>
-                      {learningsOpen ? (
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          Reflection notes. Autosaves while typing; also saves when you collapse or close.
-                        </p>
-                      ) : learningsPreview ? (
-                        <p className="mt-1 truncate text-sm text-foreground/90">{learningsPreview}</p>
-                      ) : (
-                        <p className="mt-1 text-sm text-muted-foreground">Add a reflection (optional)</p>
-                      )}
-                    </div>
-                    <ChevronDown
+                  <div className="flex items-start gap-2 rounded-xl px-3 py-2.5">
+                    <button
+                      type="button"
                       className={cn(
-                        'mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200',
-                        learningsOpen && 'rotate-180'
+                        'flex min-w-0 flex-1 items-start justify-between gap-3 text-left',
+                        'hover:bg-muted/0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30'
                       )}
-                      aria-hidden
-                    />
-                  </button>
+                      onClick={() => {
+                        const next = !learningsOpen;
+                        setLearningsOpen(next);
+                        if (!next) flushLearningsNow();
+                        if (focusMode === 'learnings' && !next) setFocusMode('none');
+                      }}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <Lightbulb className="h-4 w-4 text-muted-foreground" aria-hidden />
+                          <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Learnings</p>
+                        </div>
+                        {learningsOpen ? (
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Reflection notes. Autosaves while typing; also saves when you collapse or close.
+                          </p>
+                        ) : learningsPreview ? (
+                          <p className="mt-1 truncate text-sm text-foreground/90">{learningsPreview}</p>
+                        ) : (
+                          <p className="mt-1 text-sm text-muted-foreground">Add a reflection (optional)</p>
+                        )}
+                      </div>
+                      <ChevronDown
+                        className={cn(
+                          'mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200',
+                          learningsOpen && 'rotate-180'
+                        )}
+                        aria-hidden
+                      />
+                    </button>
+
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="mt-0.5 h-7 w-7 shrink-0"
+                      aria-label={focusMode === 'learnings' ? 'Exit learnings focus' : 'Focus learnings'}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setFocusModeSafe('learnings');
+                      }}
+                    >
+                      {focusMode === 'learnings' ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                    </Button>
+
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="mt-0.5 h-7 w-7 shrink-0"
+                      aria-label="Open learnings in Zen mode"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openZen('learnings');
+                      }}
+                    >
+                      <NotebookPen className="h-4 w-4" />
+                    </Button>
+                  </div>
 
                   {learningsOpen ? (
                     <div className="space-y-2 border-t border-border/40 px-3 py-3">
@@ -640,8 +755,9 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
                         placeholder="Write what you learned… (separate from the checklist)"
                         rows={5}
                         className={cn(
-                          'max-h-[min(40vh,280px)] min-h-[120px] w-full resize-y rounded-lg border border-border/50 bg-background/40 px-3 py-3',
+                          'w-full resize-y rounded-lg border border-border/50 bg-background/40 px-3 py-3',
                           'text-sm leading-relaxed outline-none ring-offset-background placeholder:text-muted-foreground/45',
+                          focusMode === 'learnings' ? 'max-h-[min(60vh,520px)] min-h-[180px]' : 'max-h-[min(40vh,280px)] min-h-[120px]',
                           'focus-visible:ring-2 focus-visible:ring-ring/30'
                         )}
                       />
@@ -652,6 +768,90 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
             </div>
         </motion.div>
       </div>
+
+      <Dialog
+        open={zenOpen}
+        onOpenChange={(next) => {
+          if (!next) closeZen();
+          else setZenOpen(true);
+        }}
+      >
+        <DialogContent className="z-[300] w-[calc(100vw-1rem)] max-w-5xl p-0 sm:w-[min(96vw,1100px)] [&>button.absolute]:hidden">
+          <div className="flex h-[min(92dvh,920px)] flex-col overflow-hidden rounded-lg border border-border/60 bg-background">
+            <div className="flex items-center justify-between gap-3 border-b border-border/50 bg-muted/10 px-4 py-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold">{title.trim() || 'Untitled action'}</p>
+                <p className="text-xs text-muted-foreground">Zen mode</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant={zenTab === 'checklist' ? 'default' : 'outline'}
+                  size="sm"
+                  className="h-8"
+                  onClick={() => switchZenTab('checklist')}
+                >
+                  Checklist
+                </Button>
+                <Button
+                  type="button"
+                  variant={zenTab === 'learnings' ? 'default' : 'outline'}
+                  size="sm"
+                  className="h-8"
+                  onClick={() => switchZenTab('learnings')}
+                >
+                  Learnings
+                </Button>
+                <Button type="button" variant="outline" size="sm" className="h-8" onClick={closeZen}>
+                  Close
+                </Button>
+              </div>
+            </div>
+
+            {zenTab === 'checklist' ? (
+              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+                <div className="rounded-xl border border-border/40 bg-card/40 px-2 py-3">
+                  <ActionChecklist items={journalLogs} disabled={!canEdit} onItemsChange={onJournalChange} />
+                </div>
+              </div>
+            ) : (
+              <div className="min-h-0 flex flex-1 flex-col px-4 py-4">
+                <div className="flex flex-wrap gap-2 pb-3">
+                  {learningChips.map((c) => (
+                    <Button
+                      key={c.label}
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      disabled={!canEdit}
+                      className="h-7 rounded-full px-3 text-xs"
+                      onClick={() => appendLearningTemplate(c.template)}
+                    >
+                      {c.label}
+                    </Button>
+                  ))}
+                </div>
+                <textarea
+                  value={learnings}
+                  disabled={!canEdit}
+                  enterKeyHint="enter"
+                  onChange={(e) => setLearnings(e.target.value)}
+                  onBlur={flushLearningsNow}
+                  placeholder="Write what you learned… (separate from the checklist)"
+                  className={cn(
+                    'min-h-0 flex-1 overflow-y-auto resize-none rounded-xl border border-border/50 bg-background/40 px-4 py-4',
+                    'text-sm leading-relaxed outline-none ring-offset-background placeholder:text-muted-foreground/45',
+                    'focus-visible:ring-2 focus-visible:ring-ring/30'
+                  )}
+                />
+                <div className="pt-2 text-xs text-muted-foreground">
+                  Autosaves while typing. Also saves when you switch tabs or close Zen.
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
