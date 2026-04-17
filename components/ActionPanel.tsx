@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, type Variants } from 'framer-motion';
-import { CalendarIcon, ChevronDown, X } from 'lucide-react';
+import { CalendarIcon, ChevronDown, X, Lightbulb } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -79,6 +79,7 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
   const [dueDate, setDueDate] = useState(''); // YYYY-MM-DD
   const [journalLogs, setJournalLogs] = useState<JournalLogEntry[]>([]);
   const [learnings, setLearnings] = useState('');
+  const [learningsOpen, setLearningsOpen] = useState(false);
   /** Title, status, description, etc. — default collapsed for a note-first flow */
   const [detailsOpen, setDetailsOpen] = useState(false);
   const journalRef = useRef<JournalLogEntry[]>([]);
@@ -135,6 +136,7 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
     setLearnings(learningsVal);
     lastPersistedLearnings.current = learningsVal.trim();
     setDetailsOpen(false);
+    setLearningsOpen(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only panel/action identity; do NOT re-hydrate on tasks/updateTask/persistLearnings changes
   }, [open, task?.id]);
 
@@ -237,9 +239,48 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
     [isNarrow]
   );
 
-  if (!task) return null;
-
   const selectedDueDate = dueDate ? parseYmdDateInput(dueDate) : undefined;
+  const learningsPreview = useMemo(() => {
+    const t = learningsRef.current.trim();
+    if (!t) return '';
+    return t.replace(/\s+/g, ' ').slice(0, 140);
+  }, [learnings]);
+
+  const flushLearningsNow = useCallback(() => {
+    if (!task?.id || !canEdit) return;
+    if (learningsDebounceRef.current) {
+      clearTimeout(learningsDebounceRef.current);
+      learningsDebounceRef.current = null;
+    }
+    const normalized = learningsRef.current.trim();
+    if (normalized === lastPersistedLearnings.current) return;
+    void persistLearningsForIdRef.current(task.id, learningsRef.current);
+  }, [task?.id, canEdit]);
+
+  const learningChips = useMemo(
+    () => [
+      { label: 'Key takeaways', template: '## Key takeaways\n- \n' },
+      { label: 'What worked', template: '## What worked\n- \n' },
+      { label: 'What didn’t', template: '## What didn’t\n- \n' },
+      { label: 'Next time', template: '## Next time\n- \n' },
+      { label: 'Decision', template: '## Decision / rationale\n- \n' },
+    ],
+    []
+  );
+
+  const appendLearningTemplate = useCallback(
+    (template: string) => {
+      if (!canEdit) return;
+      setLearningsOpen(true);
+      setLearnings((prev) => {
+        const next = prev?.trim().length ? `${prev.trim()}\n\n${template}` : template;
+        return next;
+      });
+    },
+    [canEdit]
+  );
+
+  if (!task) return null;
 
   return (
     <>
@@ -525,48 +566,87 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
                     </p>
                   </div>
                   <div
-                    className="max-h-[min(42vh,380px)] min-h-0 overflow-y-auto overscroll-contain rounded-xl border border-border/40 bg-card/40 px-2 py-3"
+                    className={cn(
+                      'min-h-0 overflow-y-auto overscroll-contain rounded-xl border border-border/40 bg-card/40 px-2 py-3',
+                      learningsOpen ? 'max-h-[min(42vh,380px)]' : 'max-h-[min(60vh,520px)]'
+                    )}
                     onClick={(e) => e.stopPropagation()}
                   >
                     <ActionChecklist items={journalLogs} disabled={!canEdit} onItemsChange={onJournalChange} />
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <Label htmlFor="action-kazanimlar" className="text-[11px] uppercase text-muted-foreground">
-                      Learnings
-                    </Label>
-                    {canEdit && (
-                      <p className="text-[11px] text-muted-foreground">
-                        Summarized in Knowledge Hub · autosaves while typing · persists on blur or when the panel closes
-                      </p>
-                    )}
-                  </div>
-                  <textarea
-                    id="action-kazanimlar"
-                    value={learnings}
-                    disabled={!canEdit}
-                    enterKeyHint="enter"
-                    onChange={(e) => setLearnings(e.target.value)}
-                    onBlur={() => {
-                      if (!task?.id || !canEdit) return;
-                      if (learningsDebounceRef.current) {
-                        clearTimeout(learningsDebounceRef.current);
-                        learningsDebounceRef.current = null;
-                      }
-                      const normalized = learningsRef.current.trim();
-                      if (normalized === lastPersistedLearnings.current) return;
-                      void persistLearningsForIdRef.current(task.id, learningsRef.current);
-                    }}
-                    placeholder="What you learned, key takeaways, interview notes… (separate from the checklist, free text)"
-                    rows={5}
+                <div className="rounded-xl border border-border/40 bg-muted/10">
+                  <button
+                    type="button"
                     className={cn(
-                      'max-h-[min(40vh,280px)] min-h-[120px] w-full resize-y rounded-lg border border-border/50 bg-muted/10 px-3 py-3',
-                      'text-sm leading-relaxed outline-none ring-offset-background placeholder:text-muted-foreground/45',
-                      'focus-visible:ring-2 focus-visible:ring-ring/30'
+                      'flex w-full items-start justify-between gap-3 rounded-xl px-3 py-2.5 text-left',
+                      'hover:bg-muted/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30'
                     )}
-                  />
+                    onClick={() => {
+                      const next = !learningsOpen;
+                      setLearningsOpen(next);
+                      if (!next) flushLearningsNow();
+                    }}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <Lightbulb className="h-4 w-4 text-muted-foreground" aria-hidden />
+                        <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Learnings</p>
+                      </div>
+                      {learningsOpen ? (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Reflection notes. Autosaves while typing; also saves when you collapse or close.
+                        </p>
+                      ) : learningsPreview ? (
+                        <p className="mt-1 truncate text-sm text-foreground/90">{learningsPreview}</p>
+                      ) : (
+                        <p className="mt-1 text-sm text-muted-foreground">Add a reflection (optional)</p>
+                      )}
+                    </div>
+                    <ChevronDown
+                      className={cn(
+                        'mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200',
+                        learningsOpen && 'rotate-180'
+                      )}
+                      aria-hidden
+                    />
+                  </button>
+
+                  {learningsOpen ? (
+                    <div className="space-y-2 border-t border-border/40 px-3 py-3">
+                      <div className="flex flex-wrap gap-2">
+                        {learningChips.map((c) => (
+                          <Button
+                            key={c.label}
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            disabled={!canEdit}
+                            className="h-7 rounded-full px-3 text-xs"
+                            onClick={() => appendLearningTemplate(c.template)}
+                          >
+                            {c.label}
+                          </Button>
+                        ))}
+                      </div>
+                      <textarea
+                        id="action-kazanimlar"
+                        value={learnings}
+                        disabled={!canEdit}
+                        enterKeyHint="enter"
+                        onChange={(e) => setLearnings(e.target.value)}
+                        onBlur={flushLearningsNow}
+                        placeholder="Write what you learned… (separate from the checklist)"
+                        rows={5}
+                        className={cn(
+                          'max-h-[min(40vh,280px)] min-h-[120px] w-full resize-y rounded-lg border border-border/50 bg-background/40 px-3 py-3',
+                          'text-sm leading-relaxed outline-none ring-offset-background placeholder:text-muted-foreground/45',
+                          'focus-visible:ring-2 focus-visible:ring-ring/30'
+                        )}
+                      />
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </div>
