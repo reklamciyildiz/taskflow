@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { taskDb, notificationDb, userDb } from '@/lib/db';
+import { taskDb, notificationDb, userDb, teamMemberDb, projectDb } from '@/lib/db';
 import { ApiResponse } from '@/lib/types';
 import { triggerWebhook } from '@/lib/webhook-trigger';
 import { TaskCreatedPayload, TaskAssignedPayload } from '@/lib/webhooks';
@@ -18,18 +18,69 @@ export async function GET(request: NextRequest) {
 
     let tasks;
     if (teamId) {
-      tasks = await taskDb.getByTeam(teamId);
+      if (!session?.user?.email) {
+        return NextResponse.json<ApiResponse<null>>(
+          { success: false, error: 'Authentication required' },
+          { status: 401 }
+        );
+      }
+      const user: any = await userDb.getByEmail(session.user.email);
+      if (!user) {
+        return NextResponse.json<ApiResponse<null>>(
+          { success: false, error: 'User not found' },
+          { status: 404 }
+        );
+      }
+      // Must be a team member (or org admin) to view team tasks.
+      const isOrgAdmin = user.role === 'admin' || user.role === 'owner';
+      const membership = await teamMemberDb.getMembership(teamId, user.id);
+      if (!membership && !isOrgAdmin) {
+        return NextResponse.json<ApiResponse<null>>(
+          { success: false, error: 'Forbidden' },
+          { status: 403 }
+        );
+      }
+
+      // Filter tasks by visible projects for this user (team scope).
+      const visibleProjects = await projectDb.getVisibleForUser({
+        organizationId: user.organization_id,
+        teamId,
+        userId: user.id,
+        isOrgAdmin,
+      });
+      const visibleProjectIds = new Set<string>(visibleProjects.map((p: any) => p.id));
+
+      const raw = await taskDb.getByTeam(teamId);
+      tasks = (raw ?? []).filter((t: any) => {
+        const pid = t.project_id ?? null;
+        if (!pid) return true; // General actions remain team-wide in v1
+        return visibleProjectIds.has(pid);
+      });
     } else if (organizationId) {
+      // Only org admins can list an entire organization across teams.
+      if (!session?.user?.email) {
+        return NextResponse.json<ApiResponse<null>>(
+          { success: false, error: 'Authentication required' },
+          { status: 401 }
+        );
+      }
+      const user: any = await userDb.getByEmail(session.user.email);
+      if (!user?.organization_id || user.organization_id !== organizationId) {
+        return NextResponse.json<ApiResponse<null>>(
+          { success: false, error: 'Forbidden' },
+          { status: 403 }
+        );
+      }
+      if (user.role !== 'admin' && user.role !== 'owner') {
+        return NextResponse.json<ApiResponse<null>>(
+          { success: false, error: 'Forbidden' },
+          { status: 403 }
+        );
+      }
       tasks = await taskDb.getByOrganization(organizationId);
     } else {
-      // If no filter, try to get user's organization tasks
-      if (session?.user?.email) {
-        const user: any = await userDb.getByEmail(session.user.email);
-        if (user) {
-          tasks = await taskDb.getByOrganization(user.organization_id);
-        }
-      }
-      tasks = tasks || [];
+      // No filter: do NOT return cross-team org data. Require a teamId for normal operation.
+      tasks = [];
     }
 
     return NextResponse.json<ApiResponse<any>>({
@@ -75,6 +126,19 @@ export async function POST(request: NextRequest) {
         { success: false, error: 'User authentication required' },
         { status: 401 }
       );
+    }
+
+    // Require that the actor is a member of the team they are creating a task in (or org admin).
+    const actor: any = session?.user?.email ? await userDb.getByEmail(session.user.email) : null;
+    if (actor) {
+      const isOrgAdmin = actor.role === 'admin' || actor.role === 'owner';
+      const mem = await teamMemberDb.getMembership(body.teamId, actor.id);
+      if (!mem && !isOrgAdmin) {
+        return NextResponse.json<ApiResponse<null>>(
+          { success: false, error: 'Forbidden' },
+          { status: 403 }
+        );
+      }
     }
 
     const task = await taskDb.create({

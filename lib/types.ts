@@ -80,6 +80,10 @@ export interface Project {
   organizationId: string;
   teamId: string | null;
   columnConfig: ProjectColumnConfig[];
+  /** Visibility scope within a team. Missing means legacy 'team'. */
+  visibility?: 'team' | 'restricted' | 'private';
+  /** Creator for private visibility (may be null for legacy rows). */
+  createdBy?: string | null;
   createdAt: Date;
 }
 

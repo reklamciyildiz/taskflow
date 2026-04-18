@@ -130,6 +130,38 @@ interface TaskContextType {
 
 const TaskContext = createContext<TaskContextType | undefined>(undefined);
 
+function lastTeamStorageKey(organizationId: string | null | undefined, userId: string | null | undefined): string | null {
+  if (!organizationId || !userId) return null;
+  return `taskflow:lastTeamId:${organizationId}:${userId}`;
+}
+
+function readLastTeamId(transformedTeams: Team[], organizationId: string | null | undefined, userId: string | null | undefined): string | null {
+  try {
+    if (typeof window === 'undefined') return null;
+    const scopedKey = lastTeamStorageKey(organizationId, userId);
+    const scoped = scopedKey ? window.localStorage.getItem(scopedKey) : null;
+    if (scoped && transformedTeams.some((t) => t.id === scoped)) return scoped;
+    // Legacy fallback (pre org+user scoping).
+    const legacy = window.localStorage.getItem('taskflow:lastTeamId');
+    if (legacy && transformedTeams.some((t) => t.id === legacy)) return legacy;
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
+function writeLastTeamId(teamId: string, organizationId: string | null | undefined, userId: string | null | undefined) {
+  try {
+    if (typeof window === 'undefined') return;
+    const scopedKey = lastTeamStorageKey(organizationId, userId);
+    if (scopedKey) window.localStorage.setItem(scopedKey, teamId);
+    // Keep legacy key as a harmless fallback for older builds.
+    window.localStorage.setItem('taskflow:lastTeamId', teamId);
+  } catch {
+    // ignore
+  }
+}
+
 function mapJournalLogs(raw: unknown): Task['journalLogs'] {
   if (!Array.isArray(raw)) return [];
   return raw.map((item: Record<string, unknown>, i: number) => {
@@ -223,6 +255,8 @@ function transformProject(row: any): Project {
     organizationId: row.organization_id,
     teamId: row.team_id ?? null,
     columnConfig: parseColumnConfigFromJson(row.column_config),
+    visibility: row.visibility ?? 'team',
+    createdBy: row.created_by ?? null,
     createdAt: new Date(row.created_at),
   };
 }
@@ -247,6 +281,8 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<TeamMember | null>(null);
   const [organizationName, setOrganizationName] = useState<string>('My Organization');
   const [organizationId, setOrganizationId] = useState<string | null>(null);
+  const organizationIdRef = useRef<string | null>(null);
+  const currentTeamIdRef = useRef<string | null>(null);
   const [customerDirectoryLabel, setCustomerDirectoryLabel] = useState(DEFAULT_CUSTOMER_DIRECTORY_LABEL);
   const [customerSingularLabel, setCustomerSingularLabel] = useState(DEFAULT_CUSTOMER_SINGULAR_LABEL);
   const [loading, setLoading] = useState(true);
@@ -255,6 +291,12 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   const hasLoadedWorkspaceRef = useRef(false);
   const sessionRef = useRef(session);
   sessionRef.current = session;
+  useEffect(() => {
+    organizationIdRef.current = organizationId;
+  }, [organizationId]);
+  useEffect(() => {
+    currentTeamIdRef.current = currentTeam?.id ?? null;
+  }, [currentTeam?.id]);
   const [filter, setFilter] = useState<FilterType>(null);
   const [customerFilter, setCustomerFilter] = useState<string | null>(null);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
@@ -396,6 +438,37 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     [currentTeam?.id]
   );
 
+  /** Team + org scoped tasks/projects; used on team switch and after workspace refresh (e.g. process deleted). */
+  const loadTasksAndProjectsForTeam = useCallback(
+    async (teamId: string, orgId: string, isCancelled?: () => boolean) => {
+      const aborted = () => isCancelled?.() ?? false;
+      try {
+        const [tasksRes, projRes] = await Promise.all([
+          taskApi.getAll(teamId),
+          projectApi.getAll({ organizationId: orgId, teamId }),
+        ]);
+        if (aborted()) return;
+        if (tasksRes.success && tasksRes.data) {
+          setTasks(tasksRes.data.map(transformTask));
+        } else {
+          setTasks([]);
+        }
+        if (aborted()) return;
+        if (projRes.success && projRes.data) {
+          setProjects(projRes.data.map(transformProject));
+        } else {
+          setProjects([]);
+        }
+      } catch {
+        if (!aborted()) {
+          setTasks([]);
+          setProjects([]);
+        }
+      }
+    },
+    []
+  );
+
   // Fetch data from API (reads latest session from sessionRef so the callback stays stable across session object churn)
   const refreshData = useCallback(async () => {
     const session = sessionRef.current;
@@ -425,21 +498,18 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
               .catch(() => ({ ok: false, json: null as unknown }))
           : Promise.resolve({ ok: false, json: null as unknown });
 
-      const [teamsResponse, tasksResponse, profileWrap] = await Promise.all([
-        teamApi.getAll(),
-        taskApi.getAll(),
-        profilePromise,
-      ]);
+      const [teamsResponse, profileWrap] = await Promise.all([teamApi.getAll(), profilePromise]);
 
       if (teamsResponse.success && teamsResponse.data) {
         const transformedTeams = teamsResponse.data.map(transformTeam);
         setTeams(transformedTeams);
-        setCurrentTeamState((prev) => prev ?? transformedTeams[0] ?? null);
-      }
-
-      if (tasksResponse.success && tasksResponse.data) {
-        const transformedTasks = tasksResponse.data.map(transformTask);
-        setTasks(transformedTasks);
+        setCurrentTeamState((prev) => {
+          if (prev) return prev;
+          // Restore last selected team (per user+org) if available.
+          const stored = readLastTeamId(transformedTeams, (session as any)?.user?.organization_id ?? null, (session as any)?.user?.id ?? null);
+          if (stored) return transformedTeams.find((t) => t.id === stored) ?? transformedTeams[0] ?? null;
+          return transformedTeams[0] ?? null;
+        });
       }
 
       if (session.user?.email) {
@@ -472,9 +542,8 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
             if (d.organization_id) {
               const oid = d.organization_id;
               setOrganizationId(oid);
-              const [orgSettled, projSettled] = await Promise.allSettled([
+              const [orgSettled] = await Promise.allSettled([
                 fetch(`/api/organizations/${oid}`).then((r) => r.json()),
-                projectApi.getAll(oid),
               ]);
 
               if (orgSettled.status === 'fulfilled') {
@@ -486,17 +555,6 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
                 console.error('Failed to fetch organization:', orgSettled.reason);
               }
 
-              if (projSettled.status === 'fulfilled') {
-                const projRes = projSettled.value;
-                if (projRes.success && projRes.data) {
-                  setProjects(projRes.data.map(transformProject));
-                } else {
-                  setProjects([]);
-                }
-              } else {
-                console.error('Failed to fetch projects:', projSettled.reason);
-                setProjects([]);
-              }
             }
           } else {
             setCurrentUser({
@@ -526,6 +584,19 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
+      let resolvedOrgId: string | null = organizationIdRef.current;
+      const profileUserData = profileWrap.json as {
+        success?: boolean;
+        data?: { organization_id?: string };
+      } | null;
+      if (profileWrap.ok && profileUserData?.success && profileUserData.data?.organization_id) {
+        resolvedOrgId = profileUserData.data.organization_id;
+      }
+      const resolvedTeamId = currentTeamIdRef.current;
+      if (resolvedTeamId && resolvedOrgId) {
+        await loadTasksAndProjectsForTeam(resolvedTeamId, resolvedOrgId);
+      }
+
       hasLoadedWorkspaceRef.current = true;
     } catch (err) {
       console.error('Error fetching data:', err);
@@ -535,7 +606,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
         setLoading(false);
       }
     }
-  }, []);
+  }, [loadTasksAndProjectsForTeam]);
 
   // Restore last board scope per team (defaults to General).
   useEffect(() => {
@@ -702,6 +773,21 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     void refreshData();
     void fetchCustomers();
   }, [session?.user?.email, refreshData, fetchCustomers]);
+
+  // Fetch team-scoped tasks and visible projects whenever the active team changes.
+  useEffect(() => {
+    if (!session?.user?.email) return;
+    const teamId = currentTeam?.id;
+    const orgId = organizationId;
+    if (!teamId || !orgId) return;
+
+    let cancelled = false;
+    void loadTasksAndProjectsForTeam(teamId, orgId, () => cancelled);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.user?.email, currentTeam?.id, organizationId, loadTasksAndProjectsForTeam]);
 
   // Soft refresh when the tab becomes visible again (silent after first load — no global loading flash).
   useEffect(() => {
@@ -894,8 +980,15 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     const team = teams.find(t => t.id === teamId);
     if (team) {
       setCurrentTeamState(team);
+      writeLastTeamId(teamId, organizationId, currentUser?.id);
     }
-  }, [teams]);
+  }, [teams, organizationId, currentUser?.id]);
+
+  // Persist currentTeam in case it's set via other flows (team creation, refresh ordering).
+  useEffect(() => {
+    if (!currentTeam?.id) return;
+    writeLastTeamId(currentTeam.id, organizationId, currentUser?.id);
+  }, [currentTeam?.id, organizationId, currentUser?.id]);
 
   // Add team via API
   const addTeam = useCallback(async (teamData: Omit<Team, 'id' | 'createdAt'>) => {

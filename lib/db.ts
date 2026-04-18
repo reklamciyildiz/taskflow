@@ -291,6 +291,8 @@ export const projectDb = {
     organization_id: string;
     team_id?: string | null;
     column_config?: unknown;
+    visibility?: 'team' | 'restricted' | 'private';
+    created_by?: string | null;
   }) {
     const { data, error } = await db
       .from('projects')
@@ -299,6 +301,8 @@ export const projectDb = {
         organization_id: projectData.organization_id,
         team_id: projectData.team_id ?? null,
         column_config: projectData.column_config ?? [],
+        visibility: projectData.visibility ?? 'team',
+        created_by: projectData.created_by ?? null,
       })
       .select('*')
       .single();
@@ -311,6 +315,7 @@ export const projectDb = {
     name?: string;
     team_id?: string | null;
     column_config?: unknown;
+    visibility?: 'team' | 'restricted' | 'private';
   }) {
     const { data, error } = await db
       .from('projects')
@@ -318,6 +323,7 @@ export const projectDb = {
         name: updates.name,
         team_id: updates.team_id,
         column_config: updates.column_config,
+        visibility: updates.visibility,
       })
       .eq('id', id)
       .select('*')
@@ -357,6 +363,99 @@ export const projectDb = {
 
     if (error) throw error;
     return data;
+  },
+
+  async getVisibleForUser(input: {
+    organizationId: string;
+    teamId: string | null;
+    userId: string;
+    isOrgAdmin: boolean;
+  }) {
+    // Note: We intentionally keep this in two queries for clarity and predictable behavior.
+    // 1) Fetch candidate projects scoped to org and (teamId or general).
+    // 2) If org admin: return candidates. Else filter by visibility / membership.
+    const { data: candidates, error } = await db
+      .from('projects')
+      .select('*')
+      .eq('organization_id', input.organizationId)
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
+    const all = candidates ?? [];
+    const scoped = input.teamId
+      ? all.filter((p: any) => !p.team_id || p.team_id === input.teamId)
+      : all;
+
+    if (input.isOrgAdmin) return scoped;
+
+    const restrictedIds = scoped
+      .filter((p: any) => p.visibility === 'restricted')
+      .map((p: any) => p.id);
+
+    const privateIds = scoped
+      .filter((p: any) => p.visibility === 'private')
+      .map((p: any) => p.id);
+
+    const needMembership = [...restrictedIds, ...privateIds].filter(
+      (id: string, idx: number, arr: string[]) => arr.indexOf(id) === idx
+    );
+    let memberSet = new Set<string>();
+
+    if (needMembership.length) {
+      const { data: members, error: memErr } = await db
+        .from('project_members')
+        .select('project_id')
+        .in('project_id', needMembership)
+        .eq('user_id', input.userId);
+      if (memErr) throw memErr;
+      memberSet = new Set((members ?? []).map((m: any) => m.project_id));
+    }
+
+    return scoped.filter((p: any) => {
+      const vis = p.visibility ?? 'team';
+      if (vis === 'team') return true;
+      if (vis === 'restricted') return memberSet.has(p.id);
+      if (vis === 'private') return p.created_by === input.userId || memberSet.has(p.id);
+      return true;
+    });
+  },
+};
+
+// =============================================
+// PROJECT MEMBERS (visibility ACL)
+// =============================================
+
+export const projectMemberDb = {
+  async list(projectId: string) {
+    const { data, error } = await db
+      .from('project_members')
+      .select(`
+        *,
+        user:users (
+          id,
+          email,
+          name,
+          avatar_url
+        )
+      `)
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: true });
+    if (error) throw error;
+    return data ?? [];
+  },
+
+  async replaceMembers(projectId: string, userIds: string[]) {
+    // Replace is easiest as: delete then insert.
+    // In production you might wrap in a transaction via RPC; keep simple here.
+    const { error: delErr } = await db.from('project_members').delete().eq('project_id', projectId);
+    if (delErr) throw delErr;
+    const rows = (userIds ?? [])
+      .filter((x) => typeof x === 'string' && x)
+      .map((user_id) => ({ project_id: projectId, user_id, role: 'viewer' }));
+    if (rows.length === 0) return [];
+    const { data, error: insErr } = await db.from('project_members').insert(rows).select('*');
+    if (insErr) throw insErr;
+    return data ?? [];
   },
 };
 

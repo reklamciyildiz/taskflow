@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
 import { usePathname, useRouter } from 'next/navigation';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -70,6 +70,42 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId }
         ? editingProject.columnConfig.map((c) => ({ ...c }))
         : PRESETS[0]?.columns.map((c) => ({ ...c })) ?? FALLBACK_BOARD_COLUMNS.map((c) => ({ ...c }))
   );
+
+  const [visibility, setVisibility] = useState<'team' | 'restricted' | 'private'>(() => {
+    if (editingProject?.visibility === 'restricted' || editingProject?.visibility === 'private') return editingProject.visibility;
+    return 'team';
+  });
+  const [restrictedUserIds, setRestrictedUserIds] = useState<string[]>([]);
+
+  // Load members for restricted/private projects when editing.
+  useEffect(() => {
+    if (!open) return;
+    if (mode !== 'edit' || !editingProject) {
+      setVisibility('team');
+      setRestrictedUserIds([]);
+      return;
+    }
+    setVisibility(
+      editingProject.visibility === 'restricted' || editingProject.visibility === 'private'
+        ? editingProject.visibility
+        : 'team'
+    );
+    // Always fetch explicit members; server may return empty for team-visible projects.
+    (async () => {
+      try {
+        const res = await fetch(`/api/projects/${editingProject.id}/members`);
+        const json = await res.json();
+        const ids =
+          json?.success && Array.isArray(json.data)
+            ? json.data.map((r: any) => r.user_id).filter((x: any) => typeof x === 'string')
+            : [];
+        setRestrictedUserIds(ids);
+      } catch {
+        setRestrictedUserIds([]);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- when modal opens/editingProject changes
+  }, [open, editingProject?.id, mode]);
 
   const effectiveTeamId = useMemo(() => {
     if (teamId === '__none__') return null;
@@ -189,6 +225,7 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId }
         name: name.trim(),
         teamId: effectiveTeamId,
         columnConfig: finalColumns,
+        visibility,
       };
 
       const res = await fetch(
@@ -207,6 +244,20 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId }
           data?.error || (mode === 'edit' ? 'Process update failed' : 'Process creation failed')
         );
       const createdId = (data?.data as { id?: string } | undefined)?.id;
+
+      const targetProjectId = mode === 'edit' && editingProject ? editingProject.id : createdId;
+      if (targetProjectId && (visibility === 'restricted' || visibility === 'private')) {
+        // Replace members (team-admins only); include creator by default for new restricted/private projects.
+        const nextIds = Array.from(new Set(restrictedUserIds));
+        await fetch(`/api/projects/${targetProjectId}/members`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userIds: nextIds }),
+        }).then(async (r) => {
+          const j = await r.json().catch(() => null);
+          if (!r.ok || !j?.success) throw new Error(j?.error || 'Failed to update project members');
+        });
+      }
 
       if (mode === 'create') {
         setName('');
@@ -282,6 +333,53 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId }
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Visibility</Label>
+            <Select value={visibility} onValueChange={(v) => setVisibility(v as any)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Choose visibility" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="team">Team — everyone in the team can see it</SelectItem>
+                <SelectItem value="restricted">Restricted — only selected members</SelectItem>
+                <SelectItem value="private">Private — only you (and admins)</SelectItem>
+              </SelectContent>
+            </Select>
+            {(visibility === 'restricted' || visibility === 'private') && (
+              <div className="rounded-md border bg-muted/30 p-3 space-y-2">
+                <p className="text-xs text-muted-foreground">
+                  {visibility === 'restricted'
+                    ? 'Pick which team members can see this process. Actions in this process will be hidden from others.'
+                    : 'Private processes are visible only to you. Admins may still manage them.'}
+                </p>
+                {effectiveTeamId && effectiveTeamId !== '__none__' ? (
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {(currentTeam?.members ?? []).map((m) => (
+                      <label key={m.id} className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4"
+                          checked={restrictedUserIds.includes(m.id)}
+                          onChange={(e) => {
+                            const on = e.target.checked;
+                            setRestrictedUserIds((prev) =>
+                              on ? Array.from(new Set([...prev, m.id])) : prev.filter((x) => x !== m.id)
+                            );
+                          }}
+                        />
+                        <span className="truncate">{m.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Assign this process to a team to use restricted visibility.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="space-y-3">

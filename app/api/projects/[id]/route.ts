@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { projectDb, userDb } from '@/lib/db';
+import { projectDb, teamMemberDb, userDb } from '@/lib/db';
 import { ApiResponse } from '@/lib/types';
 
 // PATCH /api/projects/[id] — update existing project (name, team, column_config)
@@ -36,6 +36,10 @@ export async function PATCH(
           : null
         : undefined;
     const columnConfig = body?.columnConfig;
+    const visibility =
+      body?.visibility === 'team' || body?.visibility === 'restricted' || body?.visibility === 'private'
+        ? body.visibility
+        : undefined;
 
     // Optional: shallow authorization by organization
     const user: any = await userDb.getByEmail(session.user.email);
@@ -46,10 +50,30 @@ export async function PATCH(
       );
     }
 
+    // Only org admins or (if project is team-scoped) team admins can update a project.
+    const isOrgAdmin = user?.role === 'admin' || user?.role === 'owner';
+    if (!isOrgAdmin) {
+      const teamId = existing.team_id ?? null;
+      if (!teamId) {
+        return NextResponse.json<ApiResponse<null>>(
+          { success: false, error: 'Forbidden' },
+          { status: 403 }
+        );
+      }
+      const mem = await teamMemberDb.getMembership(teamId, user.id);
+      if (mem?.role !== 'admin') {
+        return NextResponse.json<ApiResponse<null>>(
+          { success: false, error: 'Forbidden' },
+          { status: 403 }
+        );
+      }
+    }
+
     const updated = await projectDb.update(params.id, {
       name: rawName,
       team_id: rawTeamId,
       column_config: Array.isArray(columnConfig) ? columnConfig : undefined,
+      visibility,
     });
 
     return NextResponse.json<ApiResponse<unknown>>({
@@ -93,6 +117,24 @@ export async function DELETE(
         { success: false, error: 'Forbidden' },
         { status: 403 }
       );
+    }
+
+    const isOrgAdmin = user?.role === 'admin' || user?.role === 'owner';
+    if (!isOrgAdmin) {
+      const teamId = existing.team_id ?? null;
+      if (!teamId) {
+        return NextResponse.json<ApiResponse<null>>(
+          { success: false, error: 'Forbidden' },
+          { status: 403 }
+        );
+      }
+      const mem = await teamMemberDb.getMembership(teamId, user.id);
+      if (mem?.role !== 'admin') {
+        return NextResponse.json<ApiResponse<null>>(
+          { success: false, error: 'Forbidden' },
+          { status: 403 }
+        );
+      }
     }
 
     await projectDb.delete(params.id);

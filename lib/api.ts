@@ -109,10 +109,15 @@ export const teamApi = {
 
 // Projects (pipelines / processes)
 export const projectApi = {
-  getAll: (organizationId?: string) =>
-    fetchApi<Project[]>(
-      organizationId ? `/projects?organizationId=${encodeURIComponent(organizationId)}` : '/projects'
-    ),
+  getAll: (input?: { organizationId?: string; teamId?: string | null }) => {
+    const org = input?.organizationId;
+    const teamId = input?.teamId;
+    const qs = new URLSearchParams();
+    if (org) qs.set('organizationId', org);
+    if (teamId) qs.set('teamId', teamId);
+    const q = qs.toString();
+    return fetchApi<Project[]>(q ? `/projects?${q}` : '/projects');
+  },
 
   create: (body: { name: string; teamId?: string | null; organizationId?: string; columnConfig?: unknown }) =>
     fetchApi<Project>('/projects', {

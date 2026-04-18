@@ -12,7 +12,7 @@ import { Layers, Plus, Search, Settings2, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function ProcessesClient() {
-  const { projects, currentTeam, refreshData, currentProject, setCurrentProjectId, setBoardScope } =
+  const { projects, currentTeam, refreshData, currentProject, setCurrentProjectId, setBoardScope, currentUserRole } =
     useTaskContext();
   const [query, setQuery] = useState('');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -46,10 +46,16 @@ export default function ProcessesClient() {
             Manage processes (pipelines) here: create, edit, delete. Changes instantly affect board columns.
           </p>
         </div>
-        <Button onClick={() => setIsCreateOpen(true)} className="gap-2">
-          <Plus className="h-4 w-4" />
-          New process
-        </Button>
+        {currentUserRole === 'admin' ? (
+          <Button onClick={() => setIsCreateOpen(true)} className="gap-2">
+            <Plus className="h-4 w-4" />
+            New process
+          </Button>
+        ) : (
+          <Badge variant="outline" className="h-9 px-3 text-xs text-muted-foreground">
+            Only team admins can manage processes
+          </Badge>
+        )}
       </div>
 
       <Card className="border-border/70">
@@ -125,26 +131,30 @@ export default function ProcessesClient() {
                       <Settings2 className="h-4 w-4" />
                       Select on board
                     </Button>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      className="gap-2"
-                      onClick={() => setEditingProjectId(p.id)}
-                    >
-                      <Settings2 className="h-4 w-4" />
-                      Edit
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="gap-2 text-red-600 hover:text-red-700"
-                      onClick={() => setDeletingProjectId(p.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      Delete
-                    </Button>
+                    {currentUserRole === 'admin' ? (
+                      <>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          className="gap-2"
+                          onClick={() => setEditingProjectId(p.id)}
+                        >
+                          <Settings2 className="h-4 w-4" />
+                          Edit
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="gap-2 text-red-600 hover:text-red-700"
+                          onClick={() => setDeletingProjectId(p.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Delete
+                        </Button>
+                      </>
+                    ) : null}
                   </div>
                 </div>
               ))}
@@ -153,7 +163,9 @@ export default function ProcessesClient() {
         </CardContent>
       </Card>
 
-      <CreateProjectModal open={isCreateOpen} onClose={() => setIsCreateOpen(false)} />
+      {currentUserRole === 'admin' ? (
+        <CreateProjectModal open={isCreateOpen} onClose={() => setIsCreateOpen(false)} />
+      ) : null}
       {editingProjectId && (
         <CreateProjectModal
           open={!!editingProjectId}

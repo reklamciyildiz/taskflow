@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { taskDb, userDb, notificationDb, teamMemberDb } from '@/lib/db';
+import { taskDb, userDb, notificationDb, teamMemberDb, projectDb } from '@/lib/db';
 import { ApiResponse } from '@/lib/types';
 import { triggerWebhook } from '@/lib/webhook-trigger';
 import { TaskUpdatedPayload, TaskDeletedPayload, TaskCompletedPayload, TaskAssignedPayload } from '@/lib/webhooks';
@@ -19,6 +19,22 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.email) {
+      return NextResponse.json<ApiResponse<null>>(
+        { success: false, error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    const user: any = await userDb.getByEmail(session.user.email);
+    if (!user) {
+      return NextResponse.json<ApiResponse<null>>(
+        { success: false, error: 'User not found' },
+        { status: 404 }
+      );
+    }
+
     const task = await taskDb.getById(params.id);
 
     if (!task) {
@@ -26,6 +42,41 @@ export async function GET(
         { success: false, error: 'Task not found' },
         { status: 404 }
       );
+    }
+
+    // Org boundary
+    if (user.organization_id !== (task as any).organization_id) {
+      return NextResponse.json<ApiResponse<null>>(
+        { success: false, error: 'Forbidden' },
+        { status: 403 }
+      );
+    }
+
+    const isOrgAdmin = user.role === 'admin' || user.role === 'owner';
+    const membership = await teamMemberDb.getMembership((task as any).team_id, user.id);
+    if (!membership && !isOrgAdmin) {
+      return NextResponse.json<ApiResponse<null>>(
+        { success: false, error: 'Forbidden' },
+        { status: 403 }
+      );
+    }
+
+    // Project visibility (v1: project_id null remains team-wide)
+    const projectId = (task as any).project_id ?? null;
+    if (projectId && !isOrgAdmin) {
+      const visibleProjects = await projectDb.getVisibleForUser({
+        organizationId: user.organization_id,
+        teamId: (task as any).team_id,
+        userId: user.id,
+        isOrgAdmin,
+      });
+      if (!visibleProjects.some((p: any) => p.id === projectId)) {
+        // Don't leak existence
+        return NextResponse.json<ApiResponse<null>>(
+          { success: false, error: 'Task not found' },
+          { status: 404 }
+        );
+      }
     }
 
     return NextResponse.json<ApiResponse<any>>({
@@ -50,6 +101,21 @@ export async function PATCH(
     const session = await getServerSession(authOptions);
     const body = await request.json();
 
+    if (!session?.user?.email) {
+      return NextResponse.json<ApiResponse<null>>(
+        { success: false, error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    const actor: any = await userDb.getByEmail(session.user.email);
+    if (!actor) {
+      return NextResponse.json<ApiResponse<null>>(
+        { success: false, error: 'User not found' },
+        { status: 404 }
+      );
+    }
+
     // Get original task for comparison
     const originalTask = await taskDb.getById(params.id);
     if (!originalTask) {
@@ -57,6 +123,60 @@ export async function PATCH(
         { success: false, error: 'Task not found' },
         { status: 404 }
       );
+    }
+
+    // Org boundary + team membership
+    if (actor.organization_id !== (originalTask as any).organization_id) {
+      return NextResponse.json<ApiResponse<null>>(
+        { success: false, error: 'Forbidden' },
+        { status: 403 }
+      );
+    }
+
+    const isOrgAdmin = actor.role === 'admin' || actor.role === 'owner';
+    const membership = await teamMemberDb.getMembership((originalTask as any).team_id, actor.id);
+    if (!membership && !isOrgAdmin) {
+      return NextResponse.json<ApiResponse<null>>(
+        { success: false, error: 'Forbidden' },
+        { status: 403 }
+      );
+    }
+
+    // If this task belongs to a restricted/private project, require visibility to edit.
+    const currentProjectId = (originalTask as any).project_id ?? null;
+    if (currentProjectId && !isOrgAdmin) {
+      const visibleProjects = await projectDb.getVisibleForUser({
+        organizationId: actor.organization_id,
+        teamId: (originalTask as any).team_id,
+        userId: actor.id,
+        isOrgAdmin,
+      });
+      if (!visibleProjects.some((p: any) => p.id === currentProjectId)) {
+        return NextResponse.json<ApiResponse<null>>(
+          { success: false, error: 'Task not found' },
+          { status: 404 }
+        );
+      }
+    }
+
+    // If the update attempts to move the task to a new project, enforce visibility on the target.
+    const nextProjectId =
+      body && Object.prototype.hasOwnProperty.call(body, 'projectId')
+        ? (body.projectId || null)
+        : undefined;
+    if (nextProjectId !== undefined && nextProjectId !== null && !isOrgAdmin) {
+      const visibleProjects = await projectDb.getVisibleForUser({
+        organizationId: actor.organization_id,
+        teamId: (originalTask as any).team_id,
+        userId: actor.id,
+        isOrgAdmin,
+      });
+      if (!visibleProjects.some((p: any) => p.id === nextProjectId)) {
+        return NextResponse.json<ApiResponse<null>>(
+          { success: false, error: 'Forbidden' },
+          { status: 403 }
+        );
+      }
     }
 
     const journalPayload =
@@ -337,6 +457,20 @@ export async function DELETE(
 ) {
   try {
     const session = await getServerSession(authOptions);
+    if (!session?.user?.email) {
+      return NextResponse.json<ApiResponse<null>>(
+        { success: false, error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    const actor: any = await userDb.getByEmail(session.user.email);
+    if (!actor) {
+      return NextResponse.json<ApiResponse<null>>(
+        { success: false, error: 'User not found' },
+        { status: 404 }
+      );
+    }
 
     // Get task before deletion for webhook
     const task = await taskDb.getById(params.id);
@@ -345,6 +479,38 @@ export async function DELETE(
         { success: false, error: 'Task not found' },
         { status: 404 }
       );
+    }
+
+    if (actor.organization_id !== (task as any).organization_id) {
+      return NextResponse.json<ApiResponse<null>>(
+        { success: false, error: 'Forbidden' },
+        { status: 403 }
+      );
+    }
+
+    const isOrgAdmin = actor.role === 'admin' || actor.role === 'owner';
+    const membership = await teamMemberDb.getMembership((task as any).team_id, actor.id);
+    if (!membership && !isOrgAdmin) {
+      return NextResponse.json<ApiResponse<null>>(
+        { success: false, error: 'Forbidden' },
+        { status: 403 }
+      );
+    }
+
+    const projectId = (task as any).project_id ?? null;
+    if (projectId && !isOrgAdmin) {
+      const visibleProjects = await projectDb.getVisibleForUser({
+        organizationId: actor.organization_id,
+        teamId: (task as any).team_id,
+        userId: actor.id,
+        isOrgAdmin,
+      });
+      if (!visibleProjects.some((p: any) => p.id === projectId)) {
+        return NextResponse.json<ApiResponse<null>>(
+          { success: false, error: 'Task not found' },
+          { status: 404 }
+        );
+      }
     }
 
     await deleteGoogleCalendarEventsForTaskEverywhere(params.id);

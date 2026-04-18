@@ -16,11 +16,33 @@ export async function GET(request: NextRequest) {
     if (userId) {
       teams = await teamDb.getByUser(userId);
     } else if (organizationId) {
+      // Only org admins can list all teams in an org.
+      if (!session?.user?.email) {
+        return NextResponse.json<ApiResponse<null>>(
+          { success: false, error: 'Authentication required' },
+          { status: 401 }
+        );
+      }
+      const user: any = await userDb.getByEmail(session.user.email);
+      if (!user?.organization_id || user.organization_id !== organizationId) {
+        return NextResponse.json<ApiResponse<null>>(
+          { success: false, error: 'Forbidden' },
+          { status: 403 }
+        );
+      }
+      if (user.role !== 'admin' && user.role !== 'owner') {
+        return NextResponse.json<ApiResponse<null>>(
+          { success: false, error: 'Forbidden' },
+          { status: 403 }
+        );
+      }
       teams = await teamDb.getByOrganization(organizationId);
     } else if (session?.user?.email) {
       const user: any = await userDb.getByEmail(session.user.email);
       if (user) {
-        teams = await teamDb.getByOrganization(user.organization_id);
+        // Default: only list teams this user is actually a member of.
+        // Org admins can still see all via ?organizationId=.
+        teams = await teamDb.getByUser(user.id);
       }
     }
 
