@@ -14,7 +14,7 @@ interface DeleteCustomerModalProps {
 }
 
 export function DeleteCustomerModal({ customer, open, onClose }: DeleteCustomerModalProps) {
-  const { deleteCustomer } = useTaskContext();
+  const { deleteCustomer, customerSingularLabel } = useTaskContext();
   const [loading, setLoading] = useState(false);
 
   const handleDelete = async () => {
@@ -26,7 +26,7 @@ export function DeleteCustomerModal({ customer, open, onClose }: DeleteCustomerM
       toast.success('Customer deleted successfully');
       onClose();
     } catch (error: any) {
-      toast.error(error.message || 'Failed to delete customer');
+      toast.error(error.message || `Failed to delete ${customerSingularLabel.toLowerCase()}`);
     } finally {
       setLoading(false);
     }
@@ -38,11 +38,11 @@ export function DeleteCustomerModal({ customer, open, onClose }: DeleteCustomerM
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <AlertTriangle className="h-5 w-5 text-red-500" />
-            Delete Customer
+            Delete {customerSingularLabel}
           </DialogTitle>
           <DialogDescription>
-            Are you sure you want to delete <strong>{customer?.name}</strong>? 
-            This action cannot be undone. Tasks associated with this customer will no longer have a customer assigned.
+            Are you sure you want to delete <strong>{customer?.name}</strong>? This action cannot be undone. Actions
+            linked to this {customerSingularLabel.toLowerCase()} will no longer have one assigned.
           </DialogDescription>
         </DialogHeader>
 
@@ -61,7 +61,7 @@ export function DeleteCustomerModal({ customer, open, onClose }: DeleteCustomerM
                 Deleting...
               </>
             ) : (
-              'Delete Customer'
+              `Delete ${customerSingularLabel}`
             )}
           </Button>
         </div>

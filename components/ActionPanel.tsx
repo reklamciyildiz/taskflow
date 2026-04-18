@@ -57,7 +57,15 @@ function journalLogsFromTask(logs: JournalLogEntry[] | undefined): JournalLogEnt
 }
 
 export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanelProps) {
-  const { updateTask, currentTeam, canEditTask, customers, boardColumns, tasks } = useTaskContext();
+  const {
+    updateTask,
+    currentTeam,
+    canEditTask,
+    customers,
+    boardColumns,
+    tasks,
+    customerSingularLabel,
+  } = useTaskContext();
   const canEdit = task ? canEditTask(task.createdBy, task.assigneeId) : false;
 
   const [isNarrow, setIsNarrow] = useState(
@@ -566,7 +574,7 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
                               </Popover>
                             </div>
                             <div className="space-y-1.5 sm:col-span-2">
-                              <Label className="text-[11px] uppercase text-muted-foreground">Customer</Label>
+                              <Label className="text-[11px] uppercase text-muted-foreground">{customerSingularLabel}</Label>
                               <Select
                                 value={customerId}
                                 onValueChange={(v) => {
@@ -581,7 +589,7 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
                                   <SelectValue placeholder="None" />
                                 </SelectTrigger>
                                 <SelectContent className="z-[200]">
-                                  <SelectItem value="none">None</SelectItem>
+                                  <SelectItem value="none">No {customerSingularLabel}</SelectItem>
                                   {customers.map((customer) => (
                                     <SelectItem key={customer.id} value={customer.id}>
                                       {customer.name}

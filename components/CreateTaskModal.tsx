@@ -35,6 +35,7 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
     currentTeam,
     currentUser,
     customers,
+    customerSingularLabel,
     projects,
     currentProject,
     boardScope,
@@ -276,13 +277,15 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
           </div>
 
           <div className="space-y-2">
-            <Label>Customer (Optional)</Label>
+            <Label>
+              {customerSingularLabel} <span className="text-muted-foreground font-normal">(optional)</span>
+            </Label>
             <Select value={customerId} onValueChange={setCustomerId}>
               <SelectTrigger>
-                <SelectValue placeholder="Select customer" />
+                <SelectValue placeholder={`Select ${customerSingularLabel.toLowerCase()}`} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">No Customer</SelectItem>
+                <SelectItem value="none">No {customerSingularLabel}</SelectItem>
                 {customers.map((customer) => (
                   <SelectItem key={customer.id} value={customer.id}>
                     {customer.name}

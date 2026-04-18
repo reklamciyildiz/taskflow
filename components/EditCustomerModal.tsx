@@ -17,7 +17,7 @@ interface EditCustomerModalProps {
 }
 
 export function EditCustomerModal({ customer, open, onClose }: EditCustomerModalProps) {
-  const { updateCustomer } = useTaskContext();
+  const { updateCustomer, customerSingularLabel } = useTaskContext();
   const [loading, setLoading] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -51,7 +51,7 @@ export function EditCustomerModal({ customer, open, onClose }: EditCustomerModal
       toast.success('Customer updated successfully');
       onClose();
     } catch (error: any) {
-      toast.error(error.message || 'Failed to update customer');
+      toast.error(error.message || `Failed to update ${customerSingularLabel.toLowerCase()}`);
     } finally {
       setLoading(false);
     }
@@ -115,7 +115,7 @@ export function EditCustomerModal({ customer, open, onClose }: EditCustomerModal
               id="edit-notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Additional notes about this customer"
+              placeholder={`Additional notes about this ${customerSingularLabel.toLowerCase()}`}
               rows={3}
             />
           </div>

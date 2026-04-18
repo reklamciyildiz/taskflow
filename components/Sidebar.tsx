@@ -108,6 +108,7 @@ export function Sidebar({ mobileOpen, onCloseMobile, desktopCollapsed }: Sidebar
     filter,
     updateTeam,
     organizationName,
+    customerDirectoryLabel,
     boardScope,
     boardColumns,
   } = useTaskContext();
@@ -185,20 +186,23 @@ export function Sidebar({ mobileOpen, onCloseMobile, desktopCollapsed }: Sidebar
     onCloseMobile();
   };
 
-  const menuItems: MenuItem[] = [
+  const menuItems: MenuItem[] = useMemo(
+    () => [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'board', label: 'Projects / Board', icon: Columns3, count: teamTasks.length },
     { id: 'list', label: 'List View', icon: List, count: teamTasks.length },
     { id: 'processes', label: 'Process Center', icon: Library },
     { id: 'knowledge-hub', label: 'Knowledge Hub', icon: Brain },
-    { id: 'customers', label: 'Customers', icon: Building2 },
+    { id: 'customers', label: customerDirectoryLabel, icon: Building2 },
     { id: 'integrations', label: 'Integrations', icon: Webhook },
     { id: 'analytics', label: 'Analytics', icon: BarChart3 },
     { id: 'achievements', label: 'Achievements', icon: Trophy },
     { id: 'team', label: 'Team', icon: Users },
     { id: 'profile', label: 'Profile', icon: UserPlus },
     { id: 'settings', label: 'Settings', icon: Settings },
-  ];
+    ],
+    [customerDirectoryLabel, teamTasks.length]
+  );
 
   const navBtnClass = (isActive: boolean, itemId: ViewType) =>
     cn(

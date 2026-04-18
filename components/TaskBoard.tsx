@@ -50,6 +50,8 @@ export function TaskBoard() {
     customers,
     customerFilter,
     setCustomerFilter,
+    customerDirectoryLabel,
+    customerSingularLabel,
     openTaskEditor,
     currentUserRole,
     applyTaskUpdates,
@@ -222,12 +224,12 @@ export function TaskBoard() {
             >
               <SelectTrigger
                 className="h-10 w-full min-w-[180px] sm:w-auto"
-                aria-label="Filter by customer"
+                aria-label={`Filter by ${customerSingularLabel.toLowerCase()}`}
               >
-                <SelectValue placeholder="All Customers" />
+                <SelectValue placeholder={`All ${customerDirectoryLabel}`} />
               </SelectTrigger>
               <SelectContent className="z-[200]">
-                <SelectItem value="__all_customers__">All Customers</SelectItem>
+                <SelectItem value="__all_customers__">All {customerDirectoryLabel}</SelectItem>
                 {customers.map((customer) => (
                   <SelectItem key={customer.id} value={customer.id}>
                     {customer.name}

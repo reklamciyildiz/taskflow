@@ -29,7 +29,13 @@ import { DeleteCustomerModal } from '@/components/DeleteCustomerModal';
 import { toast } from 'sonner';
 
 export function Customers() {
-  const { customers, fetchCustomers, permissions } = useTaskContext();
+  const {
+    customers,
+    fetchCustomers,
+    permissions,
+    customerDirectoryLabel,
+    customerSingularLabel,
+  } = useTaskContext();
   const [searchQuery, setSearchQuery] = useState('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
@@ -50,9 +56,9 @@ export function Customers() {
   return (
     <div className="h-full">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Customers</h1>
+        <h1 className="text-2xl font-bold text-foreground">{customerDirectoryLabel}</h1>
         <p className="text-muted-foreground mt-1">
-          Manage your client companies and track their tasks
+          Manage {customerDirectoryLabel.toLowerCase()} and track related actions
         </p>
       </div>
 
@@ -62,7 +68,7 @@ export function Customers() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search customers..."
+              placeholder={`Search ${customerDirectoryLabel.toLowerCase()}…`}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10"
@@ -82,18 +88,20 @@ export function Customers() {
         <div className="text-center py-12">
           <Building2 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
           <h3 className="text-lg font-medium text-foreground mb-2">
-            {searchQuery ? 'No customers found' : 'No customers yet'}
+            {searchQuery
+              ? `No ${customerDirectoryLabel.toLowerCase()} found`
+              : `No ${customerDirectoryLabel.toLowerCase()} yet`}
           </h3>
           <p className="text-muted-foreground mb-4">
             {searchQuery 
               ? 'Try adjusting your search query'
-              : 'Add your first customer to start tracking their tasks'
+              : `Add your first ${customerSingularLabel.toLowerCase()} to start tracking related actions`
             }
           </p>
           {!searchQuery && canManageCustomers && (
             <Button onClick={() => setIsCreateModalOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
-              Add Customer
+              Add {customerSingularLabel}
             </Button>
           )}
         </div>

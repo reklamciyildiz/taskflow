@@ -21,6 +21,15 @@ import {
   parseColumnConfigFromJson,
 } from '@/lib/types';
 import { formatDueDateYmdLocal, parseDueDateFromApi } from '@/lib/due-date';
+import {
+  DEFAULT_CUSTOMER_DIRECTORY_LABEL,
+  DEFAULT_CUSTOMER_SINGULAR_LABEL,
+  readCustomerTerminology,
+  sanitizeCustomerDirectoryLabel,
+  sanitizeCustomerSingularLabel,
+  writeCustomerTerminology,
+  type CustomerTerminology,
+} from '@/lib/customer-directory-label';
 
 export type {
   Task,
@@ -66,6 +75,12 @@ interface TaskContextType {
   permissions: Permission;
   organizationName: string;
   organizationId: string | null;
+  /** Plural label for the /customers area and nav (e.g. "Clients", "Accounts"). */
+  customerDirectoryLabel: string;
+  /** Singular label for forms and inline copy (e.g. "Client"). */
+  customerSingularLabel: string;
+  /** Persisted per organization (localStorage). Admin/owner can edit in Settings. */
+  updateCustomerTerminology: (next: CustomerTerminology) => void;
   loading: boolean;
   error: string | null;
   filter: FilterType;
@@ -232,6 +247,8 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<TeamMember | null>(null);
   const [organizationName, setOrganizationName] = useState<string>('My Organization');
   const [organizationId, setOrganizationId] = useState<string | null>(null);
+  const [customerDirectoryLabel, setCustomerDirectoryLabel] = useState(DEFAULT_CUSTOMER_DIRECTORY_LABEL);
+  const [customerSingularLabel, setCustomerSingularLabel] = useState(DEFAULT_CUSTOMER_SINGULAR_LABEL);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   /** After first successful load, background refreshes (e.g. session refetch on tab focus) avoid clearing the UI. */
@@ -337,6 +354,30 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       router.push(`/board?project=${encodeURIComponent(projectId)}`);
     },
     [projects, setBoardScope, router]
+  );
+
+  useEffect(() => {
+    if (!organizationId) {
+      setCustomerDirectoryLabel(DEFAULT_CUSTOMER_DIRECTORY_LABEL);
+      setCustomerSingularLabel(DEFAULT_CUSTOMER_SINGULAR_LABEL);
+      return;
+    }
+    const t = readCustomerTerminology(organizationId);
+    setCustomerDirectoryLabel(t.directory);
+    setCustomerSingularLabel(t.singular);
+  }, [organizationId]);
+
+  const updateCustomerTerminology = useCallback(
+    (next: CustomerTerminology) => {
+      if (!organizationId) return;
+      const directory = sanitizeCustomerDirectoryLabel(next.directory);
+      const singular = sanitizeCustomerSingularLabel(next.singular);
+      const payload: CustomerTerminology = { directory, singular };
+      setCustomerDirectoryLabel(directory);
+      setCustomerSingularLabel(singular);
+      writeCustomerTerminology(organizationId, payload);
+    },
+    [organizationId]
   );
 
   const setGeneralBoardColumns = useCallback(
@@ -1129,6 +1170,9 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       permissions,
       organizationName,
       organizationId,
+      customerDirectoryLabel,
+      customerSingularLabel,
+      updateCustomerTerminology,
       loading,
       error,
       filter,

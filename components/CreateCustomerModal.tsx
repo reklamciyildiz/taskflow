@@ -16,7 +16,7 @@ interface CreateCustomerModalProps {
 }
 
 export function CreateCustomerModal({ open, onClose }: CreateCustomerModalProps) {
-  const { addCustomer } = useTaskContext();
+  const { addCustomer, customerSingularLabel } = useTaskContext();
   const [loading, setLoading] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -40,7 +40,7 @@ export function CreateCustomerModal({ open, onClose }: CreateCustomerModalProps)
       toast.success('Customer created successfully');
       handleClose();
     } catch (error: any) {
-      toast.error(error.message || 'Failed to create customer');
+      toast.error(error.message || `Failed to create ${customerSingularLabel.toLowerCase()}`);
     } finally {
       setLoading(false);
     }
@@ -59,7 +59,7 @@ export function CreateCustomerModal({ open, onClose }: CreateCustomerModalProps)
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Add New Customer</DialogTitle>
+          <DialogTitle>Add new {customerSingularLabel.toLowerCase()}</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">

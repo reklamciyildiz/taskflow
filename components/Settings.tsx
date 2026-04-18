@@ -48,7 +48,11 @@ export function Settings() {
     currentUser,
     removeMember,
     organizationName,
+    organizationId,
     updateOrganization,
+    customerDirectoryLabel,
+    customerSingularLabel,
+    updateCustomerTerminology,
     teams,
     createTeam,
     updateTeam,
@@ -74,6 +78,14 @@ export function Settings() {
   const [isEditingOrg, setIsEditingOrg] = useState(false);
   const [newOrgName, setNewOrgName] = useState('');
   const [orgUpdateLoading, setOrgUpdateLoading] = useState(false);
+  const [customerDirDraft, setCustomerDirDraft] = useState(customerDirectoryLabel);
+  const [customerSingDraft, setCustomerSingDraft] = useState(customerSingularLabel);
+  const [terminologySaving, setTerminologySaving] = useState(false);
+
+  useEffect(() => {
+    setCustomerDirDraft(customerDirectoryLabel);
+    setCustomerSingDraft(customerSingularLabel);
+  }, [organizationId, customerDirectoryLabel, customerSingularLabel]);
   
   // Notification settings state
   const [emailNotifications, setEmailNotifications] = useState(true);
@@ -462,6 +474,23 @@ export function Settings() {
     setNewOrgName('');
   };
 
+  const handleSaveCustomerTerminology = () => {
+    if (!organizationId) {
+      toast.error('Organization not loaded yet');
+      return;
+    }
+    setTerminologySaving(true);
+    try {
+      updateCustomerTerminology({
+        directory: customerDirDraft,
+        singular: customerSingDraft,
+      });
+      toast.success('Directory labels saved for this organization');
+    } finally {
+      setTerminologySaving(false);
+    }
+  };
+
   const handleLeaveSoloWorkspace = async () => {
     if (
       !confirm(
@@ -555,6 +584,70 @@ export function Settings() {
                       </Button>
                     </div>
                   )}
+                </div>
+
+                <Separator />
+
+                <div>
+                  <Label className="text-sm font-medium">Customer directory labels</Label>
+                  <p className="text-xs text-muted-foreground mt-1 mb-3">
+                    Rename the sidebar entry and the /customers page without changing routes or data. Stored on this
+                    device for the workspace (per organization).
+                  </p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="cust-dir" className="text-xs text-muted-foreground">
+                        Plural (navigation & page title)
+                      </Label>
+                      <Input
+                        id="cust-dir"
+                        value={customerDirDraft}
+                        onChange={(e) => setCustomerDirDraft(e.target.value)}
+                        placeholder="e.g. Clients, Accounts"
+                        maxLength={48}
+                        disabled={terminologySaving}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="cust-sing" className="text-xs text-muted-foreground">
+                        Singular (buttons & forms)
+                      </Label>
+                      <Input
+                        id="cust-sing"
+                        value={customerSingDraft}
+                        onChange={(e) => setCustomerSingDraft(e.target.value)}
+                        placeholder="e.g. Client, Account"
+                        maxLength={48}
+                        disabled={terminologySaving}
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={handleSaveCustomerTerminology}
+                      disabled={
+                        terminologySaving ||
+                        (customerDirDraft.trim() === customerDirectoryLabel &&
+                          customerSingDraft.trim() === customerSingularLabel)
+                      }
+                    >
+                      Save labels
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setCustomerDirDraft(customerDirectoryLabel);
+                        setCustomerSingDraft(customerSingularLabel);
+                      }}
+                      disabled={terminologySaving}
+                    >
+                      Reset to current
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
