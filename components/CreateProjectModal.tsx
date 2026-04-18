@@ -1,7 +1,6 @@
 'use client';
 
 import { useMemo, useState, type FormEvent } from 'react';
-import { createPortal } from 'react-dom';
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
 import { usePathname, useRouter } from 'next/navigation';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -12,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useTaskContext } from '@/components/TaskContext';
 import { FALLBACK_BOARD_COLUMNS, type ProjectColumnConfig } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { portalDndRowToBody } from '@/lib/dnd-body-portal';
 import { Layers, CheckCircle2, Trash2, GripVertical } from 'lucide-react';
 
 interface CreateProjectModalProps {
@@ -47,12 +47,6 @@ const COLUMN_COLOR_OPTIONS: { id: string; label: string; className: string }[] =
   { id: 'emerald', label: 'Emerald', className: 'bg-emerald-50 dark:bg-emerald-500/10' },
   { id: 'rose', label: 'Rose', className: 'bg-rose-50 dark:bg-rose-500/10' },
 ];
-
-function maybePortal(children: React.ReactNode, enabled: boolean) {
-  if (!enabled) return children;
-  if (typeof document === 'undefined') return children;
-  return createPortal(children, document.body);
-}
 
 export function CreateProjectModal({ open, onClose, mode = 'create', projectId }: CreateProjectModalProps) {
   const router = useRouter();
@@ -350,7 +344,7 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId }
                         columnsDraft.map((col, index) => (
                           <Draggable key={col.id} draggableId={col.id} index={index}>
                             {(draggableProvided, snapshot) =>
-                              maybePortal(
+                              portalDndRowToBody(
                                 <div
                                   ref={draggableProvided.innerRef}
                                   {...draggableProvided.draggableProps}

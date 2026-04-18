@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { useTaskContext } from '@/components/TaskContext';
 import { FALLBACK_BOARD_COLUMNS, type ProjectColumnConfig } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { portalDndRowToBody } from '@/lib/dnd-body-portal';
 import { Settings2, CheckCircle2, Trash2, GripVertical } from 'lucide-react';
 
 interface EditGeneralBoardModalProps {
@@ -171,12 +172,17 @@ export function EditGeneralBoardModal({ open, onClose }: EditGeneralBoardModalPr
                     ) : (
                       columnsDraft.map((col, index) => (
                         <Draggable key={`${col.id}-${index}`} draggableId={`${col.id}-${index}`} index={index}>
-                          {(draggableProvided) => (
-                            <div
-                              ref={draggableProvided.innerRef}
-                              {...draggableProvided.draggableProps}
-                              className="flex flex-col gap-2 px-3 py-2 sm:flex-row sm:items-center"
-                            >
+                          {(draggableProvided, snapshot) =>
+                            portalDndRowToBody(
+                              <div
+                                ref={draggableProvided.innerRef}
+                                {...draggableProvided.draggableProps}
+                                className={cn(
+                                  'flex flex-col gap-2 px-3 py-2 sm:flex-row sm:items-center',
+                                  snapshot.isDragging &&
+                                    'z-[500] rounded-md border border-border bg-background shadow-md ring-1 ring-black/5 dark:ring-white/10'
+                                )}
+                              >
                               <span className="cursor-grab text-muted-foreground/70" {...draggableProvided.dragHandleProps}>
                                 <GripVertical className="h-4 w-4" aria-hidden />
                               </span>
@@ -228,8 +234,10 @@ export function EditGeneralBoardModal({ open, onClose }: EditGeneralBoardModalPr
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
                               </div>
-                            </div>
-                          )}
+                            </div>,
+                            snapshot.isDragging
+                          )
+                          }
                         </Draggable>
                       ))
                     )}

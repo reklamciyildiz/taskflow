@@ -5,6 +5,7 @@ import { DragDropContext, Draggable, Droppable, type DropResult } from '@hello-p
 import { GripVertical } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
+import { portalDndRowToBody } from '@/lib/dnd-body-portal';
 import { ACTION_CHECKLIST_QUICK_ROW_ID } from '@/lib/action-checklist';
 import type { JournalLogEntry } from '@/lib/types';
 
@@ -238,16 +239,18 @@ export function ActionChecklist({ items, disabled, onItemsChange }: ActionCheckl
             >
               {bodyRows.map((row, bodyIndex) => (
                 <Draggable key={row.id} draggableId={row.id} index={bodyIndex} isDragDisabled={disabled}>
-                  {(dragProvided, snapshot) => (
-                    <div
-                      ref={dragProvided.innerRef}
-                      {...dragProvided.draggableProps}
-                      className={cn(
-                        'group flex items-start gap-2 rounded-md border border-transparent px-1 py-1.5 transition-colors',
-                        'hover:border-border/80 hover:bg-muted/30',
-                        snapshot.isDragging && 'bg-muted/50 shadow-sm'
-                      )}
-                    >
+                  {(dragProvided, snapshot) =>
+                    portalDndRowToBody(
+                      <div
+                        ref={dragProvided.innerRef}
+                        {...dragProvided.draggableProps}
+                        className={cn(
+                          'group flex items-start gap-2 rounded-md border border-transparent px-1 py-1.5 transition-colors',
+                          'hover:border-border/80 hover:bg-muted/30',
+                          snapshot.isDragging &&
+                            'z-[500] border-border bg-muted/50 shadow-md ring-1 ring-black/5 dark:ring-white/10'
+                        )}
+                      >
                       <button
                         type="button"
                         className={cn(
@@ -311,8 +314,10 @@ export function ActionChecklist({ items, disabled, onItemsChange }: ActionCheckl
                         )}
                         aria-label="Checklist item"
                       />
-                    </div>
-                  )}
+                      </div>,
+                      snapshot.isDragging
+                    )
+                  }
                 </Draggable>
               ))}
               {dropProvided.placeholder}
