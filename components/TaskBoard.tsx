@@ -10,6 +10,13 @@ import { Button } from '@/components/ui/button';
 import { CreateTaskModal } from '@/components/CreateTaskModal';
 import { VoiceToTaskButton } from '@/components/ai/VoiceToTaskButton';
 import { cn } from '@/lib/utils';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { isToday } from 'date-fns';
 import { isTerminalBoardColumn } from '@/lib/types';
 import { orderedColumnTasks, computeBoardDropPatches } from '@/lib/board-reorder';
@@ -134,23 +141,28 @@ export function TaskBoard() {
           <h2 className="text-2xl font-bold">Pano</h2>
           {projectsForTeam.length > 0 && (
             <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-              <select
+              <Select
                 value={boardScope.type === 'general' ? '__general__' : boardScope.projectId}
-                onChange={(e) => {
-                  const v = e.target.value;
+                onValueChange={(v) => {
                   if (v === '__general__') setBoardScope({ type: 'general' });
                   else setBoardScope({ type: 'project', projectId: v });
                 }}
-                className="h-10 w-full sm:w-auto sm:min-w-[200px] px-3 py-2 text-sm border rounded-md bg-background"
-                aria-label="Active process / project"
               >
-                <option value="__general__">General actions</option>
-                {projectsForTeam.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger
+                  className="h-10 w-full sm:w-auto sm:min-w-[200px]"
+                  aria-label="Active process / project"
+                >
+                  <SelectValue placeholder="Choose process" />
+                </SelectTrigger>
+                <SelectContent className="z-[200]">
+                  <SelectItem value="__general__">General actions</SelectItem>
+                  {projectsForTeam.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               {currentUserRole === 'admin' && (
                 <>
                   <Button
@@ -202,18 +214,27 @@ export function TaskBoard() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {customers.length > 0 && (
-            <select
-              value={customerFilter || ''}
-              onChange={(e) => setCustomerFilter(e.target.value || null)}
-              className="h-10 px-3 py-2 text-sm border rounded-md bg-background"
+            <Select
+              value={customerFilter ?? '__all_customers__'}
+              onValueChange={(v) =>
+                setCustomerFilter(v === '__all_customers__' ? null : v)
+              }
             >
-              <option value="">All Customers</option>
-              {customers.map((customer) => (
-                <option key={customer.id} value={customer.id}>
-                  {customer.name}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger
+                className="h-10 w-full min-w-[180px] sm:w-auto"
+                aria-label="Filter by customer"
+              >
+                <SelectValue placeholder="All Customers" />
+              </SelectTrigger>
+              <SelectContent className="z-[200]">
+                <SelectItem value="__all_customers__">All Customers</SelectItem>
+                {customers.map((customer) => (
+                  <SelectItem key={customer.id} value={customer.id}>
+                    {customer.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           )}
           {permissions.canCreateTask && (
             <>

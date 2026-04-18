@@ -37,6 +37,13 @@ import {
 import { cn } from '@/lib/utils';
 import { format, isToday, isPast } from 'date-fns';
 import { Card } from '@/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 /** Badge fallbacks for known ids when a column has no `color` configured. */
 const LEGACY_COLUMN_BADGE: Record<string, string> = {
@@ -178,23 +185,28 @@ export function TaskList() {
         </div>
         {projectsForTeam.length > 0 && (
           <div className="flex flex-wrap items-center gap-2">
-            <select
+            <Select
               value={boardScope.type === 'general' ? '__general__' : boardScope.projectId}
-              onChange={(e) => {
-                const v = e.target.value;
+              onValueChange={(v) => {
                 if (v === '__general__') setBoardScope({ type: 'general' });
                 else setBoardScope({ type: 'project', projectId: v });
               }}
-              className="h-10 w-full min-w-[200px] max-w-md px-3 py-2 text-sm border rounded-md bg-background sm:w-auto"
-              aria-label="List scope — process or general actions"
             >
-              <option value="__general__">General actions</option>
-              {projectsForTeam.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger
+                className="h-10 w-full min-w-[200px] max-w-md sm:w-auto"
+                aria-label="List scope — process or general actions"
+              >
+                <SelectValue placeholder="Choose process" />
+              </SelectTrigger>
+              <SelectContent className="z-[200]">
+                <SelectItem value="__general__">General actions</SelectItem>
+                {projectsForTeam.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             {currentUserRole === 'admin' && (
               <>
                 <Button
