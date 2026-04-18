@@ -63,12 +63,11 @@ export async function GET(
 
     // Project visibility (v1: project_id null remains team-wide)
     const projectId = (task as any).project_id ?? null;
-    if (projectId && !isOrgAdmin) {
+    if (projectId) {
       const visibleProjects = await projectDb.getVisibleForUser({
         organizationId: user.organization_id,
         teamId: (task as any).team_id,
         userId: user.id,
-        isOrgAdmin,
       });
       if (!visibleProjects.some((p: any) => p.id === projectId)) {
         // Don't leak existence
@@ -144,12 +143,11 @@ export async function PATCH(
 
     // If this task belongs to a restricted/private project, require visibility to edit.
     const currentProjectId = (originalTask as any).project_id ?? null;
-    if (currentProjectId && !isOrgAdmin) {
+    if (currentProjectId) {
       const visibleProjects = await projectDb.getVisibleForUser({
         organizationId: actor.organization_id,
         teamId: (originalTask as any).team_id,
         userId: actor.id,
-        isOrgAdmin,
       });
       if (!visibleProjects.some((p: any) => p.id === currentProjectId)) {
         return NextResponse.json<ApiResponse<null>>(
@@ -164,12 +162,11 @@ export async function PATCH(
       body && Object.prototype.hasOwnProperty.call(body, 'projectId')
         ? (body.projectId || null)
         : undefined;
-    if (nextProjectId !== undefined && nextProjectId !== null && !isOrgAdmin) {
+    if (nextProjectId !== undefined && nextProjectId !== null) {
       const visibleProjects = await projectDb.getVisibleForUser({
         organizationId: actor.organization_id,
         teamId: (originalTask as any).team_id,
         userId: actor.id,
-        isOrgAdmin,
       });
       if (!visibleProjects.some((p: any) => p.id === nextProjectId)) {
         return NextResponse.json<ApiResponse<null>>(
@@ -498,12 +495,11 @@ export async function DELETE(
     }
 
     const projectId = (task as any).project_id ?? null;
-    if (projectId && !isOrgAdmin) {
+    if (projectId) {
       const visibleProjects = await projectDb.getVisibleForUser({
         organizationId: actor.organization_id,
         teamId: (task as any).team_id,
         userId: actor.id,
-        isOrgAdmin,
       });
       if (!visibleProjects.some((p: any) => p.id === projectId)) {
         return NextResponse.json<ApiResponse<null>>(

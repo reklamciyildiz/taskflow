@@ -46,7 +46,6 @@ export async function GET(request: NextRequest) {
         organizationId: user.organization_id,
         teamId,
         userId: user.id,
-        isOrgAdmin,
       });
       const visibleProjectIds = new Set<string>(visibleProjects.map((p: any) => p.id));
 

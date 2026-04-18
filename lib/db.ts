@@ -369,11 +369,11 @@ export const projectDb = {
     organizationId: string;
     teamId: string | null;
     userId: string;
-    isOrgAdmin: boolean;
   }) {
     // Note: We intentionally keep this in two queries for clarity and predictable behavior.
     // 1) Fetch candidate projects scoped to org and (teamId or general).
-    // 2) If org admin: return candidates. Else filter by visibility / membership.
+    // 2) Apply visibility / membership for everyone — including org admins.
+    //    Restricted/private are explicit ACLs; org-wide admin must not bypass them in normal listings.
     const { data: candidates, error } = await db
       .from('projects')
       .select('*')
@@ -385,8 +385,6 @@ export const projectDb = {
     const scoped = input.teamId
       ? all.filter((p: any) => !p.team_id || p.team_id === input.teamId)
       : all;
-
-    if (input.isOrgAdmin) return scoped;
 
     const restrictedIds = scoped
       .filter((p: any) => p.visibility === 'restricted')

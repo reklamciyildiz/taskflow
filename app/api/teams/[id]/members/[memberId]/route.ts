@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { teamMemberDb, userDb } from '@/lib/db';
 import { ApiResponse } from '@/lib/types';
+import { requireAuthedUser, requireTeamAdminOrOrgAdmin } from '@/lib/server-authz';
 
 // PATCH /api/teams/[id]/members/[memberId] - Update a team member's role
 export async function PATCH(
@@ -8,11 +9,22 @@ export async function PATCH(
   { params }: { params: { id: string; memberId: string } }
 ) {
   try {
+    const authed = await requireAuthedUser();
+    if (authed instanceof NextResponse) return authed;
+    const access = await requireTeamAdminOrOrgAdmin(params.id, authed);
+    if (access instanceof NextResponse) return access;
+
     const body = await request.json();
 
     if (!body.role) {
       return NextResponse.json<ApiResponse<null>>(
         { success: false, error: 'Role is required' },
+        { status: 400 }
+      );
+    }
+    if (!['admin', 'member', 'viewer'].includes(body.role)) {
+      return NextResponse.json<ApiResponse<null>>(
+        { success: false, error: 'Invalid role. Must be admin, member, or viewer' },
         { status: 400 }
       );
     }
@@ -39,6 +51,11 @@ export async function DELETE(
   { params }: { params: { id: string; memberId: string } }
 ) {
   try {
+    const authed = await requireAuthedUser();
+    if (authed instanceof NextResponse) return authed;
+    const access = await requireTeamAdminOrOrgAdmin(params.id, authed);
+    if (access instanceof NextResponse) return access;
+
     // Get user info to check if they have other teams in this organization
     const user = await userDb.getById(params.memberId);
     if (!user) {
@@ -49,6 +66,16 @@ export async function DELETE(
     }
 
     // Remove from team
+    // Guard: do not allow removing the last team admin.
+    const members = await teamMemberDb.getByTeam(params.id);
+    const adminCount = (members ?? []).filter((m: any) => m?.role === 'admin').length;
+    const removingIsAdmin = (members ?? []).some((m: any) => m?.user_id === params.memberId && m?.role === 'admin');
+    if (removingIsAdmin && adminCount <= 1) {
+      return NextResponse.json<ApiResponse<null>>(
+        { success: false, error: 'Cannot remove the last team admin' },
+        { status: 400 }
+      );
+    }
     await teamMemberDb.remove(params.id, params.memberId);
 
     // Check if user has any other teams in this organization

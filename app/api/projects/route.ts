@@ -62,7 +62,6 @@ export async function GET(request: NextRequest) {
       organizationId,
       teamId,
       userId,
-      isOrgAdmin,
     });
 
     return NextResponse.json<ApiResponse<unknown>>({

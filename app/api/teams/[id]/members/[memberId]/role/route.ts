@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { teamMemberDb } from '@/lib/db';
 import { ApiResponse } from '@/lib/types';
+import { requireAuthedUser, requireTeamAdminOrOrgAdmin } from '@/lib/server-authz';
 
 // PATCH /api/teams/[id]/members/[memberId]/role - Update member role
 export async function PATCH(
@@ -10,14 +9,10 @@ export async function PATCH(
   { params }: { params: { id: string; memberId: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session?.user?.email) {
-      return NextResponse.json<ApiResponse<null>>(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    const authed = await requireAuthedUser();
+    if (authed instanceof NextResponse) return authed;
+    const access = await requireTeamAdminOrOrgAdmin(params.id, authed);
+    if (access instanceof NextResponse) return access;
 
     const { role } = await request.json();
 
