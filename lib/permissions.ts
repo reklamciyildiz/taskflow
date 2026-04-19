@@ -142,6 +142,6 @@ export const roleDisplayNames: Record<Role, string> = {
 // Role descriptions
 export const roleDescriptions: Record<Role, string> = {
   admin: 'Full access to all features including team management',
-  member: 'Can create and collaborate on team actions; delete mainly own work',
+  member: 'Can create, edit, complete, and delete team actions in processes they can access',
   viewer: 'Read-only access to view actions and analytics',
 };

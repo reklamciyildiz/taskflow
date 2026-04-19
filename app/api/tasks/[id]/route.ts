@@ -516,24 +516,6 @@ export async function DELETE(
       }
     }
 
-    // Delete is stricter than edit: team members may remove mainly their own work;
-    // team admins (and org admins) may delete any action in the team.
-    if (!isOrgAdmin) {
-      const teamRole = String(membership?.role ?? '')
-        .trim()
-        .toLowerCase() || 'member';
-      if (teamRole === 'member') {
-        const createdBy = (task as any).created_by ?? (task as any).createdBy;
-        const assigneeId = (task as any).assignee_id ?? (task as any).assigneeId;
-        if (actor.id !== createdBy && actor.id !== assigneeId) {
-          return NextResponse.json<ApiResponse<null>>(
-            { success: false, error: 'Forbidden' },
-            { status: 403 }
-          );
-        }
-      }
-    }
-
     await deleteGoogleCalendarEventsForTaskEverywhere(params.id);
 
     await taskDb.delete(params.id);
