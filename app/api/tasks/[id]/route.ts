@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { taskDb, userDb, notificationDb, teamMemberDb, projectDb } from '@/lib/db';
 import { ApiResponse } from '@/lib/types';
+import { canMutateTeamTasks, viewerCannotMutateTasksResponse } from '@/lib/server-authz';
 import { triggerWebhook } from '@/lib/webhook-trigger';
 import { TaskUpdatedPayload, TaskDeletedPayload, TaskCompletedPayload, TaskAssignedPayload } from '@/lib/webhooks';
 import { sendPushToUser } from '@/lib/push';
@@ -139,6 +140,9 @@ export async function PATCH(
         { success: false, error: 'Forbidden' },
         { status: 403 }
       );
+    }
+    if (!canMutateTeamTasks(membership, isOrgAdmin)) {
+      return viewerCannotMutateTasksResponse();
     }
 
     // If this task belongs to a restricted/private project, require visibility to edit.
@@ -493,6 +497,9 @@ export async function DELETE(
         { status: 403 }
       );
     }
+    if (!canMutateTeamTasks(membership, isOrgAdmin)) {
+      return viewerCannotMutateTasksResponse();
+    }
 
     const projectId = (task as any).project_id ?? null;
     if (projectId) {
@@ -506,6 +513,24 @@ export async function DELETE(
           { success: false, error: 'Task not found' },
           { status: 404 }
         );
+      }
+    }
+
+    // Delete is stricter than edit: team members may remove mainly their own work;
+    // team admins (and org admins) may delete any action in the team.
+    if (!isOrgAdmin) {
+      const teamRole = String(membership?.role ?? '')
+        .trim()
+        .toLowerCase() || 'member';
+      if (teamRole === 'member') {
+        const createdBy = (task as any).created_by ?? (task as any).createdBy;
+        const assigneeId = (task as any).assignee_id ?? (task as any).assigneeId;
+        if (actor.id !== createdBy && actor.id !== assigneeId) {
+          return NextResponse.json<ApiResponse<null>>(
+            { success: false, error: 'Forbidden' },
+            { status: 403 }
+          );
+        }
       }
     }
 

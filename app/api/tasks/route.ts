@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { taskDb, notificationDb, userDb, teamMemberDb, projectDb } from '@/lib/db';
 import { ApiResponse } from '@/lib/types';
+import { canMutateTeamTasks, viewerCannotMutateTasksResponse } from '@/lib/server-authz';
 import { triggerWebhook } from '@/lib/webhook-trigger';
 import { TaskCreatedPayload, TaskAssignedPayload } from '@/lib/webhooks';
 import { sendPushToUser } from '@/lib/push';
@@ -137,6 +138,9 @@ export async function POST(request: NextRequest) {
           { success: false, error: 'Forbidden' },
           { status: 403 }
         );
+      }
+      if (!canMutateTeamTasks(mem, isOrgAdmin)) {
+        return viewerCannotMutateTasksResponse();
       }
     }
 

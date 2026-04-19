@@ -81,3 +81,31 @@ export async function requireTeamAdminOrOrgAdmin(
   return { team, orgAdmin: false };
 }
 
+/**
+ * Task mutations (create / update / delete / comments) follow team role:
+ * - `admin` and `member` may mutate actions in processes they can access.
+ * - `viewer` is read-only for actions.
+ * - Org `admin` / `owner` bypasses team viewer (operational override).
+ */
+export function canMutateTeamTasks(
+  teamMembership: { role?: string } | null | undefined,
+  orgAdmin: boolean
+): boolean {
+  if (orgAdmin) return true;
+  const r = String(teamMembership?.role ?? '')
+    .trim()
+    .toLowerCase();
+  if (r === 'viewer') return false;
+  if (r === 'admin' || r === 'member') return true;
+  // Align with TaskContext default when role is missing on a membership row (`|| 'member'`).
+  if (r === '') return true;
+  return false;
+}
+
+export function viewerCannotMutateTasksResponse(): NextResponse<ApiResponse<null>> {
+  return NextResponse.json<ApiResponse<null>>(
+    { success: false, error: 'Read-only: team viewers cannot modify actions' },
+    { status: 403 }
+  );
+}
+

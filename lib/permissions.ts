@@ -47,12 +47,14 @@ export const rolePermissions: Record<Role, Permission> = {
   },
   member: {
     canCreateTask: true,
-    canEditAnyTask: false,
+    // Team members may collaborate on any action in processes they can access
+    // (visibility gates who sees the process; team role gates write vs viewer read-only).
+    canEditAnyTask: true,
     canEditOwnTask: true,
-    canDeleteAnyTask: false,
+    canDeleteAnyTask: true,
     canDeleteOwnTask: true,
     canAssignTask: true,
-    canCompleteAnyTask: false,
+    canCompleteAnyTask: true,
     canCompleteAssignedTask: true,
     canEditTeam: false,
     canDeleteTeam: false,
@@ -140,6 +142,6 @@ export const roleDisplayNames: Record<Role, string> = {
 // Role descriptions
 export const roleDescriptions: Record<Role, string> = {
   admin: 'Full access to all features including team management',
-  member: 'Can create and manage own tasks, complete assigned tasks',
+  member: 'Can create and collaborate on team actions; delete mainly own work',
   viewer: 'Read-only access to view actions and analytics',
 };
