@@ -20,7 +20,12 @@ export interface NotificationsPayload {
 export async function fetchNotificationsList(
   limit = 20
 ): Promise<NotificationsPayload | null> {
-  const response = await fetch(`/api/notifications?limit=${limit}`);
+  let response: Response;
+  try {
+    response = await fetch(`/api/notifications?limit=${limit}`);
+  } catch {
+    return null;
+  }
   let data: { success?: boolean; data?: NotificationsPayload };
   try {
     data = await response.json();
@@ -34,11 +39,16 @@ export async function fetchNotificationsList(
 export async function markNotificationReadApi(
   notificationId: string
 ): Promise<boolean> {
-  const response = await fetch('/api/notifications', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'markRead', notificationId }),
-  });
+  let response: Response;
+  try {
+    response = await fetch('/api/notifications', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'markRead', notificationId }),
+    });
+  } catch {
+    return false;
+  }
   let data: { success?: boolean };
   try {
     data = await response.json();
@@ -49,11 +59,16 @@ export async function markNotificationReadApi(
 }
 
 export async function markAllNotificationsReadApi(): Promise<boolean> {
-  const response = await fetch('/api/notifications', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'markAllRead' }),
-  });
+  let response: Response;
+  try {
+    response = await fetch('/api/notifications', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'markAllRead' }),
+    });
+  } catch {
+    return false;
+  }
   let data: { success?: boolean };
   try {
     data = await response.json();
