@@ -319,7 +319,7 @@ export function ActionChecklist({
                         }}
                         {...dragProvided.draggableProps}
                         className={cn(
-                          'group flex items-start gap-2 rounded-md border border-transparent px-1 py-1.5 transition-colors',
+                          'group flex items-start gap-1.5 rounded-md border border-transparent px-0.5 py-1.5 transition-colors',
                           'transition-[background-color,border-color,box-shadow] duration-300',
                           'hover:border-border/80 hover:bg-muted/30',
                           highlightRowId === row.id &&
@@ -358,7 +358,7 @@ export function ActionChecklist({
                           className="border-muted-foreground/40"
                         />
                       </div>
-                      <div className="min-w-0 flex-1 flex items-start gap-2">
+                      <div className="min-w-0 flex-1 flex items-start gap-1">
                         <textarea
                           ref={(el) => {
                             itemInputRefs.current[bodyIndex] = el;
@@ -412,7 +412,7 @@ export function ActionChecklist({
                                       variant="ghost"
                                       size="icon"
                                       className={cn(
-                                        'h-7 w-7 rounded-md',
+                                        'h-6 w-6 rounded-md',
                                         row.assigneeId && 'bg-muted/40 text-foreground'
                                       )}
                                       disabled={disabled}
@@ -420,7 +420,7 @@ export function ActionChecklist({
                                     >
                                       {(() => {
                                         const m = row.assigneeId ? membersById.get(row.assigneeId) : null;
-                                        if (!m) return <UserRound className="h-4 w-4" aria-hidden />;
+                                        if (!m) return <UserRound className="h-3.5 w-3.5" aria-hidden />;
                                         return (
                                           <span
                                             className="grid h-5 w-5 place-items-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary"
@@ -488,13 +488,13 @@ export function ActionChecklist({
                                       variant="ghost"
                                       size="icon"
                                       className={cn(
-                                        'h-7 w-7 rounded-md',
+                                        'h-6 w-6 rounded-md',
                                         row.dueDate && 'bg-muted/40 text-foreground'
                                       )}
                                       disabled={disabled}
                                       aria-label="Set due date"
                                     >
-                                      <CalendarIcon className="h-4 w-4" aria-hidden />
+                                      <CalendarIcon className="h-3.5 w-3.5" aria-hidden />
                                     </Button>
                                   </TooltipTrigger>
                                 </PopoverTrigger>
