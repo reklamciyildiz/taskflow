@@ -242,8 +242,11 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
   }, []);
 
   const onJournalChange = useCallback(
-    (next: JournalLogEntry[]) => {
-      setJournalLogs(ensureQuickRowFirst(next));
+    (next: JournalLogEntry[] | ((prev: JournalLogEntry[]) => JournalLogEntry[])) => {
+      setJournalLogs((prev) => {
+        const resolved = typeof next === 'function' ? next(prev) : next;
+        return ensureQuickRowFirst(resolved);
+      });
       scheduleJournalPersist();
     },
     [scheduleJournalPersist]

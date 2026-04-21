@@ -91,10 +91,12 @@ function syncTextareaHeight(el: HTMLTextAreaElement | null) {
   el.style.overflowY = el.scrollHeight > TEXTAREA_MAX_PX ? 'auto' : 'hidden';
 }
 
+export type JournalItemsUpdater = JournalLogEntry[] | ((prev: JournalLogEntry[]) => JournalLogEntry[]);
+
 export interface ActionChecklistProps {
   items: JournalLogEntry[];
   disabled: boolean;
-  onItemsChange: (next: JournalLogEntry[]) => void;
+  onItemsChange: (next: JournalItemsUpdater) => void;
   /** Team members shown in per-row assignee picker (current team). */
   memberOptions?: { id: string; name: string }[];
   /** If set, scroll + highlight this checklist row id (body rows only). */
@@ -188,10 +190,9 @@ export function ActionChecklist({
   const updateBodyRow = useCallback(
     (bodyIndex: number, patch: Partial<JournalLogEntry>) => {
       const i = bodyIndex + 1;
-      const next = items.map((row, idx) => (idx === i ? { ...row, ...patch } : row));
-      onItemsChange(next);
+      onItemsChange((prev) => prev.map((row, idx) => (idx === i ? { ...row, ...patch } : row)));
     },
-    [items, onItemsChange]
+    [onItemsChange]
   );
 
   const commitQuickRowAndFocusTop = useCallback(() => {

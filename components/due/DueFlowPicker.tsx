@@ -1,9 +1,10 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, Clock, Bell, X } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { REMINDER_PRESETS, computeReminderInstantsUtcIso, detectReminderPreset, type ReminderPresetId } from '@/lib/reminder-presets';
 
@@ -57,6 +58,60 @@ function applyTime(base: Date, hhmm: string): Date {
   return new Date(base.getFullYear(), base.getMonth(), base.getDate(), Number(m[1]), Number(m[2]), 0, 0);
 }
 
+/** Parse free-form time; returns `HH:mm`, `''` (no time / date-only noon), or `null` (invalid). */
+function parseCustomTimeToHhmm(input: string): string | null {
+  const raw = input.trim();
+  if (!raw) return null;
+  if (/^(none|no\s*time|clear|-|n\/a)$/i.test(raw)) return '';
+
+  const compact = raw.toLowerCase().replace(/\s+/g, '');
+  let mer: 'am' | 'pm' | null = null;
+  let s = compact;
+  if (s.endsWith('am')) {
+    mer = 'am';
+    s = s.slice(0, -2);
+  } else if (s.endsWith('pm')) {
+    mer = 'pm';
+    s = s.slice(0, -2);
+  }
+
+  let h: number;
+  let m: number;
+
+  const sep = /^(\d{1,2})[:.](\d{1,2})$/.exec(s);
+  if (sep) {
+    h = Number(sep[1]);
+    m = Number(sep[2]);
+  } else if (/^\d{4}$/.test(s)) {
+    h = Number(s.slice(0, 2));
+    m = Number(s.slice(2, 4));
+  } else if (/^\d{3}$/.test(s)) {
+    h = Number(s[0]);
+    m = Number(s.slice(1));
+  } else if (/^\d{1,2}$/.test(s)) {
+    h = Number(s);
+    m = 0;
+  } else {
+    return null;
+  }
+
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
+  if (m < 0 || m > 59) return null;
+
+  if (mer) {
+    if (h < 1 || h > 12) return null;
+    if (mer === 'pm') {
+      h = h === 12 ? 12 : h + 12;
+    } else {
+      h = h === 12 ? 0 : h;
+    }
+  } else if (h < 0 || h > 23) {
+    return null;
+  }
+
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
 export type DueFlowPickerProps = {
   value: Date | null;
   reminders: string[] | null;
@@ -68,9 +123,17 @@ export type DueFlowPickerProps = {
 
 export function DueFlowPicker({ value, reminders, disabled, onChange, onRemindersChange, onRequestClose }: DueFlowPickerProps) {
   const [view, setView] = useState<View>('main');
+  const [customTimeDraft, setCustomTimeDraft] = useState('');
+  const [customTimeInvalid, setCustomTimeInvalid] = useState(false);
 
   const timeKey = useMemo(() => dueToTimeKey(value), [value]);
   const preset = useMemo(() => detectReminderPreset({ dueAt: value, reminders }), [value, reminders]);
+
+  useEffect(() => {
+    if (view !== 'time') return;
+    setCustomTimeDraft(timeKey);
+    setCustomTimeInvalid(false);
+  }, [view, timeKey]);
 
   const setDueAndRecomputeReminders = useCallback(
     (nextDue: Date | null, keepPreset: ReminderPresetId | null) => {
@@ -83,6 +146,19 @@ export function DueFlowPicker({ value, reminders, disabled, onChange, onReminder
     },
     [onChange, onRemindersChange]
   );
+
+  const applyCustomTypedTime = useCallback(() => {
+    const parsed = parseCustomTimeToHhmm(customTimeDraft);
+    if (parsed === null) {
+      setCustomTimeInvalid(true);
+      return;
+    }
+    setCustomTimeInvalid(false);
+    const base = value ? startOfLocalDay(value) : startOfLocalDay(new Date());
+    const next = applyTime(base, parsed);
+    setDueAndRecomputeReminders(next, preset);
+    setView('main');
+  }, [customTimeDraft, value, preset, setDueAndRecomputeReminders]);
 
   const header = useMemo(() => {
     const title = view === 'main' ? 'Due' : view === 'time' ? 'Time' : 'Remind me';
@@ -206,7 +282,37 @@ export function DueFlowPicker({ value, reminders, disabled, onChange, onReminder
 
   const time = (
     <div className="px-3 py-2">
-      <div className="space-y-1">
+      <div className="space-y-2 border-b border-border/50 pb-3">
+        <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Custom time</p>
+        <div className="flex gap-2">
+          <Input
+            value={customTimeDraft}
+            onChange={(e) => {
+              setCustomTimeDraft(e.target.value);
+              setCustomTimeInvalid(false);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                applyCustomTypedTime();
+              }
+            }}
+            placeholder="14:30, 2:30pm, 930, none"
+            disabled={disabled}
+            aria-invalid={customTimeInvalid}
+            className={cn('h-9', customTimeInvalid && 'border-destructive focus-visible:ring-destructive')}
+          />
+          <Button type="button" size="sm" className="h-9 shrink-0 px-3" disabled={disabled} onClick={() => applyCustomTypedTime()}>
+            Set
+          </Button>
+        </div>
+        <p className={cn('text-[11px]', customTimeInvalid ? 'text-destructive' : 'text-muted-foreground')}>
+          {customTimeInvalid
+            ? 'Could not parse that time.'
+            : '24h or 12h with am/pm. Short form 930 = 9:30. Type none for no time.'}
+        </p>
+      </div>
+      <div className="space-y-1 pt-2">
         {timeSlots(30).map((t) => (
           <button
             key={t || '__none__'}

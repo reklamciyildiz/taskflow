@@ -48,12 +48,15 @@ export type ScheduledReminderRunStats = {
  *
  * Note: We intentionally do NOT mutate tasks to delete fired reminders in v1.
  * Windowing + dedupe prevents repeats while keeping the feature low-risk.
+ *
+ * Task-level reminders notify `assignee_id` when set; otherwise `created_by`
+ * (the user who created the action) so "Remind me" works for unassigned tasks.
  */
 export async function processScheduledReminders(input?: {
-  /** Sliding window to consider reminders as "due". Default: 8 minutes. */
+  /** Sliding window to consider reminders as "due" (missed cron / deploy gaps). Default: 24h. */
   lookbackMs?: number;
 }): Promise<ScheduledReminderRunStats> {
-  const lookbackMs = Number.isFinite(input?.lookbackMs) ? Math.max(60_000, input!.lookbackMs!) : 8 * 60_000;
+  const lookbackMs = Number.isFinite(input?.lookbackMs) ? Math.max(60_000, input!.lookbackMs!) : 24 * 60 * 60_000;
   const now = Date.now();
   const minMs = now - lookbackMs;
 
@@ -68,9 +71,11 @@ export async function processScheduledReminders(input?: {
     const title = String(t.title ?? 'Action');
     const projectId = t.project_id ? String(t.project_id) : null;
     const taskAssignee = t.assignee_id ? String(t.assignee_id) : null;
+    const taskCreator = t.created_by ? String(t.created_by) : null;
+    const taskReminderRecipient = taskAssignee || taskCreator;
 
-    // Task-level scheduled reminders (require assignee).
-    if (taskAssignee) {
+    // Task-level scheduled reminders (assignee, else creator of the action).
+    if (taskReminderRecipient) {
       for (const iso of taskReminders(t.reminders)) {
         const ms = isoToMs(iso);
         if (ms == null) continue;
@@ -85,7 +90,7 @@ export async function processScheduledReminders(input?: {
         });
 
         const dup = await notificationDb.hasRecentDuplicate({
-          user_id: taskAssignee,
+          user_id: taskReminderRecipient,
           type: 'task_reminder',
           link: dedupeLink,
           withinHours: 48,
@@ -93,14 +98,14 @@ export async function processScheduledReminders(input?: {
         if (dup) continue;
 
         await notificationDb.create({
-          user_id: taskAssignee,
+          user_id: taskReminderRecipient,
           organization_id: orgId,
           type: 'task_reminder',
           title: 'Reminder',
           message: `"${title}"`,
           link: openLink,
         });
-        await sendPushToUser(taskAssignee, {
+        await sendPushToUser(taskReminderRecipient, {
           title: 'Reminder',
           body: title,
           url: openLink,
@@ -122,7 +127,7 @@ export async function processScheduledReminders(input?: {
       const assignee =
         typeof rowAssigneeRaw === 'string' && rowAssigneeRaw
           ? rowAssigneeRaw
-          : taskAssignee;
+          : taskAssignee || taskCreator;
       if (!assignee) continue;
 
       for (const iso of rowReminders(row)) {

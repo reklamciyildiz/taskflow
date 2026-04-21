@@ -736,7 +736,7 @@ export const taskDb = {
   async listForDueReminders(limit = 4000) {
     const { data, error } = await db
       .from('tasks')
-      .select('id, title, due_date, reminders, assignee_id, journal_logs, project_id, organization_id, team_id')
+      .select('id, title, due_date, reminders, assignee_id, created_by, journal_logs, project_id, organization_id, team_id')
       .limit(limit);
     if (error) throw error;
     return data ?? [];
