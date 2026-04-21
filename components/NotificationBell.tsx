@@ -171,6 +171,12 @@ export function NotificationBell() {
         return '💭';
       case 'task_updated':
         return '🔄';
+      case 'checklist_assigned':
+        return '📝';
+      case 'task_due_reminder':
+        return '⏰';
+      case 'checklist_due_reminder':
+        return '⏳';
       default:
         return '🔔';
     }

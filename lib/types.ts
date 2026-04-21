@@ -18,6 +18,10 @@ export interface JournalLogEntry {
   updatedAt?: string;
   /** Checklist completion — stored inside `journal_logs` JSON. */
   done?: boolean;
+  /** Optional team member responsible for this checklist row (in-app notify on change). */
+  assigneeId?: string | null;
+  /** Optional due date for this row (`YYYY-MM-DD`, same convention as task due dates). */
+  dueDate?: string | null;
 }
 
 export interface ProjectColumnConfig {

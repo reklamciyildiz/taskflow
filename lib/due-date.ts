@@ -35,3 +35,17 @@ export function parseYmdDateInput(ymd: string): Date | undefined {
   if (!y || !m || !d) return undefined;
   return new Date(y, m - 1, d, 12, 0, 0, 0);
 }
+
+/** Normalize DB/API due values to strict `YYYY-MM-DD` when possible. */
+export function tryYmdFromStoredDue(value: unknown): string | null {
+  const s = String(value ?? '').trim();
+  if (!s) return null;
+  if (DATE_ONLY_YMD.test(s)) return s;
+  const d = parseDueDateFromApi(s);
+  return d ? formatDueDateYmdLocal(d) : null;
+}
+
+/** UTC calendar day `YYYY-MM-DD` (for cron bucketing; stable on servers). */
+export function utcYmdToday(): string {
+  return new Date().toISOString().slice(0, 10);
+}

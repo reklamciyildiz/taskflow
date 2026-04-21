@@ -193,6 +193,10 @@ export async function PATCH(
                 updatedAt?: string;
                 updated_at?: string;
                 done?: boolean;
+                assigneeId?: string | null;
+                assignee_id?: string | null;
+                dueDate?: string | null;
+                due_date?: string | null;
               }) => {
                 const created_at = e.createdAt ?? e.created_at;
                 const updated_at = e.updatedAt ?? e.updated_at;
@@ -206,6 +210,14 @@ export async function PATCH(
                 }
                 if (typeof updated_at === 'string' && updated_at.length > 0) {
                   row.updated_at = updated_at;
+                }
+                if (Object.prototype.hasOwnProperty.call(e, 'assigneeId') || Object.prototype.hasOwnProperty.call(e, 'assignee_id')) {
+                  const a = e.assigneeId ?? e.assignee_id;
+                  row.assignee_id = typeof a === 'string' && a ? a : null;
+                }
+                if (Object.prototype.hasOwnProperty.call(e, 'dueDate') || Object.prototype.hasOwnProperty.call(e, 'due_date')) {
+                  const d = e.dueDate ?? e.due_date;
+                  row.due_date = typeof d === 'string' && d ? d : null;
                 }
                 return row;
               }
@@ -231,6 +243,83 @@ export async function PATCH(
         { success: false, error: 'Task not found' },
         { status: 404 }
       );
+    }
+
+    // Checklist row assignee changes → in-app + push (deduped).
+    if (Array.isArray(body.journalLogs) && actor?.id) {
+      const oldArr = Array.isArray((originalTask as any).journal_logs)
+        ? ((originalTask as any).journal_logs as any[])
+        : [];
+      const oldMap = new Map<string, any>(oldArr.map((r) => [String(r?.id ?? ''), r]));
+      const orgId = String(actor.organization_id ?? '');
+      const actorUserId = String(actor.id);
+      const actorName = String(actor.name ?? 'Someone');
+      const projectId = (updatedTask as any).project_id ? String((updatedTask as any).project_id) : null;
+      const taskTitle = String(updatedTask.title ?? 'Action');
+
+      for (const e of body.journalLogs as any[]) {
+        const id = String(e?.id ?? '');
+        if (!id || id.startsWith('__')) continue;
+        const prev = oldMap.get(id);
+        const nextAssignee =
+          e && Object.prototype.hasOwnProperty.call(e, 'assigneeId')
+            ? (e.assigneeId as string | null) ?? null
+            : e && Object.prototype.hasOwnProperty.call(e, 'assignee_id')
+              ? (e.assignee_id as string | null) ?? null
+              : undefined;
+        if (nextAssignee === undefined) continue;
+        const prevAssignee =
+          prev == null
+            ? null
+            : typeof (prev as any).assignee_id === 'string' && (prev as any).assignee_id
+              ? String((prev as any).assignee_id)
+              : typeof (prev as any).assigneeId === 'string' && (prev as any).assigneeId
+                ? String((prev as any).assigneeId)
+                : null;
+        const nextNorm = nextAssignee || null;
+        const prevNorm = prevAssignee || null;
+        if (!nextNorm || nextNorm === prevNorm || nextNorm === actorUserId) continue;
+
+        const openLink = `/board?${new URLSearchParams({
+          task: String(updatedTask.id),
+          checklist: id,
+          ...(projectId ? { project: projectId } : {}),
+        }).toString()}`;
+        const dedupeLink = `/board?${new URLSearchParams({
+          task: String(updatedTask.id),
+          checklist: id,
+          ...(projectId ? { project: projectId } : {}),
+          r: 'chkAssign',
+          from: actorUserId,
+        }).toString()}`;
+
+        try {
+          const dup = await notificationDb.hasRecentDuplicate({
+            user_id: nextNorm,
+            type: 'checklist_assigned',
+            link: dedupeLink,
+            withinHours: 24,
+          });
+          if (dup) continue;
+          const snippet = String(e?.text ?? '').trim().slice(0, 140);
+          await notificationDb.create({
+            user_id: nextNorm,
+            organization_id: orgId,
+            type: 'checklist_assigned',
+            title: 'Checklist item assigned to you',
+            message: `${actorName} assigned you in “${taskTitle}”${snippet ? `: ${snippet}` : ''}`,
+            link: openLink,
+          });
+          await sendPushToUser(nextNorm, {
+            title: 'Checklist item assigned',
+            body: `${actorName}: ${taskTitle}`,
+            url: openLink,
+            tag: `checklist_assigned:${updatedTask.id}:${id}:${actorUserId}`,
+          });
+        } catch (err) {
+          console.error('checklist assign notify failed', err);
+        }
+      }
     }
 
     // Trigger webhooks

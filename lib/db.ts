@@ -732,6 +732,16 @@ export const taskDb = {
     return data;
   },
 
+  /** For cron reminders (due dates + checklist row due dates in `journal_logs`). */
+  async listForDueReminders(limit = 4000) {
+    const { data, error } = await db
+      .from('tasks')
+      .select('id, title, due_date, assignee_id, journal_logs, project_id, organization_id, team_id')
+      .limit(limit);
+    if (error) throw error;
+    return data ?? [];
+  },
+
   async update(id: string, updates: Partial<TasksUpdate>) {
     const payload = pickDefinedTaskUpdates(updates);
     if (Object.keys(payload).length === 0) {
@@ -986,7 +996,16 @@ export const notificationDb = {
   async create(notification: {
     user_id: string;
     organization_id: string;
-    type: 'task_assigned' | 'task_completed' | 'invitation' | 'mention' | 'comment' | 'task_updated';
+    type:
+      | 'task_assigned'
+      | 'task_completed'
+      | 'invitation'
+      | 'mention'
+      | 'comment'
+      | 'task_updated'
+      | 'checklist_assigned'
+      | 'task_due_reminder'
+      | 'checklist_due_reminder';
     title: string;
     message?: string;
     link?: string;
@@ -999,6 +1018,26 @@ export const notificationDb = {
     
     if (error) throw error;
     return data;
+  },
+
+  /** Dedupe window for cron / repeat reminders (default 20h). */
+  async hasRecentDuplicate(input: {
+    user_id: string;
+    type: string;
+    link: string;
+    withinHours?: number;
+  }): Promise<boolean> {
+    const hours = Number.isFinite(input.withinHours) ? Math.max(1, input.withinHours!) : 20;
+    const since = new Date(Date.now() - hours * 3600 * 1000).toISOString();
+    const { count, error } = await db
+      .from('notifications')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', input.user_id)
+      .eq('type', input.type)
+      .eq('link', input.link)
+      .gte('created_at', since);
+    if (error) throw error;
+    return (count ?? 0) > 0;
   },
 
   async getByUser(userId: string, limit = 20) {

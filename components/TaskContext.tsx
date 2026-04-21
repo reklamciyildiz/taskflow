@@ -126,6 +126,11 @@ interface TaskContextType {
   closeTaskEditor: () => void;
   /** Prevent accidental editor opens (e.g. click-through after menu close). */
   suppressTaskEditorOpenFor: (ms: number) => void;
+  /**
+   * When landing on `/board?task=...&checklist=...`, the provider will open the action panel
+   * and store a one-time checklist row focus target. Consumers (ActionPanel) can claim it.
+   */
+  consumeChecklistFocusForTask: (taskId: string) => string | null;
 }
 
 const TaskContext = createContext<TaskContextType | undefined>(undefined);
@@ -166,6 +171,10 @@ function mapJournalLogs(raw: unknown): Task['journalLogs'] {
   if (!Array.isArray(raw)) return [];
   return raw.map((item: Record<string, unknown>, i: number) => {
     const updatedRaw = item.updated_at ?? item.updatedAt;
+    const hasAssigneeKey = 'assignee_id' in item || 'assigneeId' in item;
+    const assigneeRaw = item.assignee_id ?? item.assigneeId;
+    const hasDueKey = 'due_date' in item || 'dueDate' in item;
+    const dueRaw = item.due_date ?? item.dueDate;
     return {
       id: String(item.id ?? `jl-${i}`),
       text: String(item.text ?? ''),
@@ -174,6 +183,10 @@ function mapJournalLogs(raw: unknown): Task['journalLogs'] {
       ...(typeof updatedRaw === 'string' && updatedRaw
         ? { updatedAt: updatedRaw }
         : {}),
+      ...(hasAssigneeKey
+        ? { assigneeId: typeof assigneeRaw === 'string' && assigneeRaw ? assigneeRaw : null }
+        : {}),
+      ...(hasDueKey ? { dueDate: typeof dueRaw === 'string' && dueRaw ? dueRaw : null } : {}),
     };
   });
 }
@@ -268,6 +281,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   const searchParams = useSearchParams();
   const projectQueryParam = searchParams.get('project');
   const taskQueryParam = searchParams.get('task');
+  const checklistQueryParam = searchParams.get('checklist');
   const [tasks, setTasks] = useState<Task[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -301,6 +315,15 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   const [customerFilter, setCustomerFilter] = useState<string | null>(null);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const suppressTaskEditorOpenUntilRef = useRef<number>(0);
+  const pendingChecklistFocusRef = useRef<{ taskId: string; checklistId: string } | null>(null);
+
+  const consumeChecklistFocusForTask = useCallback((taskId: string) => {
+    const cur = pendingChecklistFocusRef.current;
+    if (!cur) return null;
+    if (cur.taskId !== taskId) return null;
+    pendingChecklistFocusRef.current = null;
+    return cur.checklistId;
+  }, []);
 
   const suppressTaskEditorOpenFor = useCallback((ms: number) => {
     const dur = Number.isFinite(ms) ? Math.max(0, ms) : 0;
@@ -707,6 +730,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     const task = tasks.find((t) => t.id === taskQueryParam);
     const params = new URLSearchParams(searchParams.toString());
     params.delete('task');
+    params.delete('checklist');
 
     if (!task) {
       const q = params.toString();
@@ -728,12 +752,16 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     }
 
     openTaskEditor(task.id);
+    if (checklistQueryParam) {
+      pendingChecklistFocusRef.current = { taskId: task.id, checklistId: checklistQueryParam };
+    }
 
     const q = params.toString();
     router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false });
   }, [
     pathname,
     taskQueryParam,
+    checklistQueryParam,
     loading,
     tasks,
     projects,
@@ -1306,6 +1334,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       openActionEditor: openTaskEditor,
       closeTaskEditor,
       suppressTaskEditorOpenFor,
+      consumeChecklistFocusForTask,
     }}>
       {children}
     </TaskContext.Provider>

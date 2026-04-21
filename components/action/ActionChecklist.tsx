@@ -1,9 +1,21 @@
 'use client';
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { DragDropContext, Draggable, Droppable, type DropResult } from '@hello-pangea/dnd';
-import { GripVertical } from 'lucide-react';
+import { Calendar as CalendarIcon, GripVertical, UserRound, X } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { portalDndRowToBody } from '@/lib/dnd-body-portal';
 import { ACTION_CHECKLIST_QUICK_ROW_ID } from '@/lib/action-checklist';
@@ -20,6 +32,34 @@ function newId(): string {
 
 function nowIso(): string {
   return new Date().toISOString();
+}
+
+function initials(name: string): string {
+  const parts = String(name || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  const a = parts[0]?.[0] ?? '';
+  const b = parts.length > 1 ? parts[parts.length - 1]?.[0] ?? '' : parts[0]?.[1] ?? '';
+  return (a + b).toUpperCase() || '?';
+}
+
+function parseYmdLocal(ymd: string | null | undefined): Date | undefined {
+  if (!ymd) return undefined;
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd);
+  if (!m) return undefined;
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+  if (!y || !mo || !d) return undefined;
+  return new Date(y, mo - 1, d);
+}
+
+function toYmdLocal(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 function isEnterLike(e: React.KeyboardEvent<HTMLElement>): boolean {
@@ -48,19 +88,34 @@ export interface ActionChecklistProps {
   items: JournalLogEntry[];
   disabled: boolean;
   onItemsChange: (next: JournalLogEntry[]) => void;
+  /** Team members shown in per-row assignee picker (current team). */
+  memberOptions?: { id: string; name: string }[];
+  /** If set, scroll + highlight this checklist row id (body rows only). */
+  focusRowId?: string | null;
 }
 
-export function ActionChecklist({ items, disabled, onItemsChange }: ActionChecklistProps) {
+export function ActionChecklist({
+  items,
+  disabled,
+  onItemsChange,
+  memberOptions = [],
+  focusRowId = null,
+}: ActionChecklistProps) {
   const quickInputRef = useRef<HTMLTextAreaElement | null>(null);
   const itemInputRefs = useRef<Array<HTMLTextAreaElement | null>>([]);
+  const rowContainerRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [focusItemIndex, setFocusItemIndex] = useState<number | null>(null);
   const [focusQuick, setFocusQuick] = useState(false);
+  const [highlightRowId, setHighlightRowId] = useState<string | null>(null);
+  const [assigneeOpenRowId, setAssigneeOpenRowId] = useState<string | null>(null);
+  const [dueOpenRowId, setDueOpenRowId] = useState<string | null>(null);
 
   const quickRow = items[0];
   const bodyRows = items.slice(1);
   const quickIdOk = quickRow?.id === ACTION_CHECKLIST_QUICK_ROW_ID;
 
   const sizeSignature = items.map((r) => r.text).join('\u0001');
+  const membersById = useMemo(() => new Map(memberOptions.map((m) => [m.id, m])), [memberOptions]);
 
   useLayoutEffect(() => {
     syncTextareaHeight(quickInputRef.current);
@@ -88,6 +143,20 @@ export function ActionChecklist({ items, disabled, onItemsChange }: ActionCheckl
     }
     setFocusItemIndex(null);
   }, [focusItemIndex, bodyRows.length]);
+
+  useEffect(() => {
+    if (!focusRowId) return;
+    const el = rowContainerRefs.current[focusRowId];
+    if (!el) return;
+    try {
+      el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    } catch {
+      // ignore
+    }
+    setHighlightRowId(focusRowId);
+    const t = setTimeout(() => setHighlightRowId((cur) => (cur === focusRowId ? null : cur)), 1600);
+    return () => clearTimeout(t);
+  }, [focusRowId, bodyRows.length]);
 
   const updateQuick = useCallback(
     (text: string) => {
@@ -183,8 +252,10 @@ export function ActionChecklist({ items, disabled, onItemsChange }: ActionCheckl
   }
 
   const textareaClass = cn(
-    'min-w-0 flex-1 resize-none border-0 bg-transparent py-1 text-[15px] leading-relaxed outline-none',
+    // Checklist rows render in a flex layout; keep textarea taking remaining width.
+    'min-w-0 flex-1 w-full resize-none border-0 bg-transparent py-1 text-[15px] leading-relaxed outline-none',
     'placeholder:text-muted-foreground/50',
+    // Keep natural wrapping; long unbroken tokens may still wrap (expected).
     'break-words [overflow-wrap:anywhere] whitespace-pre-wrap'
   );
 
@@ -242,11 +313,22 @@ export function ActionChecklist({ items, disabled, onItemsChange }: ActionCheckl
                   {(dragProvided, snapshot) =>
                     portalDndRowToBody(
                       <div
-                        ref={dragProvided.innerRef}
+                        ref={(el) => {
+                          dragProvided.innerRef(el);
+                          rowContainerRefs.current[row.id] = el;
+                        }}
                         {...dragProvided.draggableProps}
                         className={cn(
                           'group flex items-start gap-2 rounded-md border border-transparent px-1 py-1.5 transition-colors',
+                          'transition-[background-color,border-color,box-shadow] duration-300',
                           'hover:border-border/80 hover:bg-muted/30',
+                          highlightRowId === row.id &&
+                            [
+                              // Superlist-ish deep link focus: soft background + focus ring + subtle pulse.
+                              'border-primary/50 bg-primary/10 shadow-sm',
+                              'ring-2 ring-primary/25 ring-offset-2 ring-offset-background',
+                              'motion-safe:animate-pulse',
+                            ].join(' '),
                           snapshot.isDragging &&
                             'z-[500] border-border bg-muted/50 shadow-md ring-1 ring-black/5 dark:ring-white/10'
                         )}
@@ -276,44 +358,190 @@ export function ActionChecklist({ items, disabled, onItemsChange }: ActionCheckl
                           className="border-muted-foreground/40"
                         />
                       </div>
-                      <textarea
-                        ref={(el) => {
-                          itemInputRefs.current[bodyIndex] = el;
-                        }}
-                        rows={1}
-                        value={row.text}
-                        disabled={disabled}
-                        enterKeyHint="done"
-                        placeholder="Checklist item…"
-                        onChange={(e) => {
-                          const t = e.target.value;
-                          updateBodyRow(bodyIndex, {
-                            text: t,
-                            ...(row.text !== t ? { updatedAt: nowIso() } : {}),
-                          });
-                          requestAnimationFrame(() => syncTextareaHeight(itemInputRefs.current[bodyIndex]));
-                        }}
-                        onKeyDown={(e) => {
-                          if (shouldCommitNewItem(e)) {
-                            e.preventDefault();
-                            insertAfterBody(bodyIndex);
-                            return;
-                          }
-                          if (e.key === 'Backspace' && row.text === '') {
-                            e.preventDefault();
-                            removeBodyRow(bodyIndex);
-                          }
-                        }}
-                        onKeyUp={(e) => {
-                          if (isEnterLike(e) && !e.shiftKey) e.preventDefault();
-                        }}
-                        className={cn(
-                          textareaClass,
-                          row.done === true &&
-                            'text-muted-foreground line-through decoration-muted-foreground/60'
-                        )}
-                        aria-label="Checklist item"
-                      />
+                      <div className="min-w-0 flex-1 flex items-start gap-2">
+                        <textarea
+                          ref={(el) => {
+                            itemInputRefs.current[bodyIndex] = el;
+                          }}
+                          rows={1}
+                          value={row.text}
+                          disabled={disabled}
+                          enterKeyHint="done"
+                          placeholder="Checklist item…"
+                          onChange={(e) => {
+                            const t = e.target.value;
+                            updateBodyRow(bodyIndex, {
+                              text: t,
+                              ...(row.text !== t ? { updatedAt: nowIso() } : {}),
+                            });
+                            requestAnimationFrame(() => syncTextareaHeight(itemInputRefs.current[bodyIndex]));
+                          }}
+                          onKeyDown={(e) => {
+                            if (shouldCommitNewItem(e)) {
+                              e.preventDefault();
+                              insertAfterBody(bodyIndex);
+                              return;
+                            }
+                            if (e.key === 'Backspace' && row.text === '') {
+                              e.preventDefault();
+                              removeBodyRow(bodyIndex);
+                            }
+                          }}
+                          onKeyUp={(e) => {
+                            if (isEnterLike(e) && !e.shiftKey) e.preventDefault();
+                          }}
+                          className={cn(
+                            textareaClass,
+                            row.done === true &&
+                              'text-muted-foreground line-through decoration-muted-foreground/60'
+                          )}
+                          aria-label="Checklist item"
+                        />
+                        <div className="mt-0.5 shrink-0">
+                          <TooltipProvider delayDuration={250}>
+                            <div className="flex flex-col items-center gap-1 opacity-90 transition-opacity group-hover:opacity-100">
+                            <Popover
+                              open={assigneeOpenRowId === row.id}
+                              onOpenChange={(v) => setAssigneeOpenRowId(v ? row.id : null)}
+                            >
+                              <Tooltip>
+                                <PopoverTrigger asChild>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      className={cn(
+                                        'h-7 w-7 rounded-md',
+                                        row.assigneeId && 'bg-muted/40 text-foreground'
+                                      )}
+                                      disabled={disabled}
+                                      aria-label="Assign checklist item"
+                                    >
+                                      {(() => {
+                                        const m = row.assigneeId ? membersById.get(row.assigneeId) : null;
+                                        if (!m) return <UserRound className="h-4 w-4" aria-hidden />;
+                                        return (
+                                          <span
+                                            className="grid h-5 w-5 place-items-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary"
+                                            aria-hidden
+                                          >
+                                            {initials(m.name)}
+                                          </span>
+                                        );
+                                      })()}
+                                    </Button>
+                                  </TooltipTrigger>
+                                </PopoverTrigger>
+                                <TooltipContent>Assignee</TooltipContent>
+                              </Tooltip>
+                              <PopoverContent
+                                align="end"
+                                side="bottom"
+                                className="w-72 p-0"
+                                onOpenAutoFocus={(e) => e.preventDefault()}
+                              >
+                                <Command>
+                                  <CommandInput placeholder="Search member…" />
+                                  <CommandList>
+                                    <CommandEmpty>No results.</CommandEmpty>
+                                    <CommandGroup>
+                                      <CommandItem
+                                        onSelect={() => {
+                                          updateBodyRow(bodyIndex, { assigneeId: null });
+                                          setAssigneeOpenRowId(null);
+                                        }}
+                                      >
+                                        <span className="text-sm">Unassigned</span>
+                                      </CommandItem>
+                                    </CommandGroup>
+                                    <CommandGroup>
+                                      {memberOptions.map((m) => (
+                                        <CommandItem
+                                          key={m.id}
+                                          onSelect={() => {
+                                            updateBodyRow(bodyIndex, { assigneeId: m.id });
+                                            setAssigneeOpenRowId(null);
+                                          }}
+                                        >
+                                          <span className="mr-2 grid h-6 w-6 place-items-center rounded-full bg-muted text-[11px] font-semibold text-foreground/80">
+                                            {initials(m.name)}
+                                          </span>
+                                          <span className="truncate">{m.name}</span>
+                                        </CommandItem>
+                                      ))}
+                                    </CommandGroup>
+                                  </CommandList>
+                                </Command>
+                              </PopoverContent>
+                            </Popover>
+
+                            <Popover
+                              open={dueOpenRowId === row.id}
+                              onOpenChange={(v) => setDueOpenRowId(v ? row.id : null)}
+                            >
+                              <Tooltip>
+                                <PopoverTrigger asChild>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      className={cn(
+                                        'h-7 w-7 rounded-md',
+                                        row.dueDate && 'bg-muted/40 text-foreground'
+                                      )}
+                                      disabled={disabled}
+                                      aria-label="Set due date"
+                                    >
+                                      <CalendarIcon className="h-4 w-4" aria-hidden />
+                                    </Button>
+                                  </TooltipTrigger>
+                                </PopoverTrigger>
+                                <TooltipContent>
+                                  {row.dueDate ? `Due: ${row.dueDate}` : 'Due date'}
+                                </TooltipContent>
+                              </Tooltip>
+                              <PopoverContent
+                                align="end"
+                                side="bottom"
+                                className="w-auto p-2"
+                                onOpenAutoFocus={(e) => e.preventDefault()}
+                              >
+                                <div className="flex items-center justify-between gap-2 px-1 pb-2">
+                                  <p className="text-xs font-medium text-muted-foreground">Due date</p>
+                                  {row.dueDate && (
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-7 px-2 text-xs"
+                                      onClick={() => {
+                                        updateBodyRow(bodyIndex, { dueDate: null });
+                                        setDueOpenRowId(null);
+                                      }}
+                                    >
+                                      <X className="mr-1 h-3.5 w-3.5" />
+                                      Clear
+                                    </Button>
+                                  )}
+                                </div>
+                                <Calendar
+                                  mode="single"
+                                  selected={parseYmdLocal(row.dueDate)}
+                                  onSelect={(d) => {
+                                    if (!d) return;
+                                    updateBodyRow(bodyIndex, { dueDate: toYmdLocal(d) });
+                                    setDueOpenRowId(null);
+                                  }}
+                                  initialFocus
+                                />
+                              </PopoverContent>
+                            </Popover>
+                            </div>
+                          </TooltipProvider>
+                        </div>
+                      </div>
                       </div>,
                       snapshot.isDragging
                     )

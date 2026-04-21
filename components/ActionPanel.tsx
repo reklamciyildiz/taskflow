@@ -65,6 +65,7 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
     boardColumns,
     tasks,
     customerSingularLabel,
+    consumeChecklistFocusForTask,
   } = useTaskContext();
   const canEdit = task ? canEditTask(task.createdBy, task.assigneeId) : false;
 
@@ -87,6 +88,7 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
   const [customerId, setCustomerId] = useState<string>('none');
   const [dueDate, setDueDate] = useState(''); // YYYY-MM-DD
   const [journalLogs, setJournalLogs] = useState<JournalLogEntry[]>([]);
+  const [deepLinkChecklistRowId, setDeepLinkChecklistRowId] = useState<string | null>(null);
   const [learnings, setLearnings] = useState('');
   const [learningsOpen, setLearningsOpen] = useState(false);
   const [focusMode, setFocusMode] = useState<'none' | 'checklist' | 'learnings'>('none');
@@ -144,6 +146,7 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
     const jl = journalLogsFromTask(src.journalLogs);
     setJournalLogs(jl);
     journalRef.current = jl;
+    setDeepLinkChecklistRowId(consumeChecklistFocusForTask(src.id));
     const learningsVal = src.learnings ?? '';
     setLearnings(learningsVal);
     lastPersistedLearnings.current = learningsVal.trim();
@@ -163,7 +166,12 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
     if (!task || !canEdit) return;
     const cleaned = journalRef.current
       .filter((x) => x.id !== ACTION_CHECKLIST_QUICK_ROW_ID)
-      .map((x) => ({ ...x, text: x.text.trim() }))
+      .map((x) => ({
+        ...x,
+        text: x.text.trim(),
+        assigneeId: x.assigneeId ?? null,
+        dueDate: x.dueDate ?? null,
+      }))
       .filter((x) => x.text.length > 0);
     await updateTask(task.id, { journalLogs: cleaned });
   }, [task, canEdit, updateTask]);
@@ -664,7 +672,13 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
                     )}
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <ActionChecklist items={journalLogs} disabled={!canEdit} onItemsChange={onJournalChange} />
+                    <ActionChecklist
+                      items={journalLogs}
+                      disabled={!canEdit}
+                      onItemsChange={onJournalChange}
+                      memberOptions={(currentTeam?.members ?? []).map((m) => ({ id: m.id, name: m.name }))}
+                      focusRowId={deepLinkChecklistRowId}
+                    />
                   </div>
                 </div>
 
@@ -819,7 +833,13 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
             {zenTab === 'checklist' ? (
               <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
                 <div className="rounded-xl border border-border/40 bg-card/40 px-2 py-3">
-                  <ActionChecklist items={journalLogs} disabled={!canEdit} onItemsChange={onJournalChange} />
+                  <ActionChecklist
+                    items={journalLogs}
+                    disabled={!canEdit}
+                    onItemsChange={onJournalChange}
+                    memberOptions={(currentTeam?.members ?? []).map((m) => ({ id: m.id, name: m.name }))}
+                    focusRowId={deepLinkChecklistRowId}
+                  />
                 </div>
               </div>
             ) : (
