@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, type Variants } from 'framer-motion';
-import { CalendarIcon, ChevronDown, X, Lightbulb, Maximize2, Minimize2, NotebookPen } from 'lucide-react';
+import { CalendarIcon, Check, ChevronDown, UserRound, X, Lightbulb, Maximize2, Minimize2, NotebookPen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -16,8 +16,11 @@ import { cn } from '@/lib/utils';
 import { formatDueDateYmdLocal, parseYmdDateInput } from '@/lib/due-date';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { format } from 'date-fns';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { DueFlowPicker } from '@/components/due/DueFlowPicker';
+import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
+import { Drawer, DrawerContent, DrawerTrigger } from '@/components/ui/drawer';
 
 export interface ActionPanelProps {
   task: Task | null;
@@ -29,6 +32,16 @@ export interface ActionPanelProps {
 
 function nowIso(): string {
   return new Date().toISOString();
+}
+
+function initials(name: string): string {
+  const parts = String(name || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  const a = parts[0]?.[0] ?? '';
+  const b = parts.length > 1 ? parts[parts.length - 1]?.[0] ?? '' : parts[0]?.[1] ?? '';
+  return (a + b).toUpperCase() || '?';
 }
 
 /** First row is always a UI-only quick-capture row; filters persisted rows and inserts an empty first row. */
@@ -87,6 +100,8 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
   const [assigneeId, setAssigneeId] = useState<string>('unassigned');
   const [customerId, setCustomerId] = useState<string>('none');
   const [dueDate, setDueDate] = useState(''); // YYYY-MM-DD
+  const [taskReminders, setTaskReminders] = useState<string[]>([]);
+  const [taskDueOpen, setTaskDueOpen] = useState(false);
   const [journalLogs, setJournalLogs] = useState<JournalLogEntry[]>([]);
   const [deepLinkChecklistRowId, setDeepLinkChecklistRowId] = useState<string | null>(null);
   const [learnings, setLearnings] = useState('');
@@ -143,6 +158,7 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
     setAssigneeId(src.assigneeId || 'unassigned');
     setCustomerId(src.customerId || 'none');
     setDueDate(src.dueDate ? formatDueDateYmdLocal(src.dueDate) : '');
+    setTaskReminders(Array.isArray(src.reminders) ? src.reminders : []);
     const jl = journalLogsFromTask(src.journalLogs);
     setJournalLogs(jl);
     journalRef.current = jl;
@@ -171,6 +187,7 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
         text: x.text.trim(),
         assigneeId: x.assigneeId ?? null,
         dueDate: x.dueDate ?? null,
+        reminders: x.reminders ?? null,
       }))
       .filter((x) => x.text.length > 0);
     await updateTask(task.id, { journalLogs: cleaned });
@@ -263,6 +280,8 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
   );
 
   const selectedDueDate = dueDate ? parseYmdDateInput(dueDate) : undefined;
+
+  const dueAtDraft = useMemo(() => (dueDate ? parseYmdDateInput(dueDate) ?? null : null), [dueDate]);
   const learningsPreview = useMemo(() => {
     const t = learningsRef.current.trim();
     if (!t) return '';
@@ -505,31 +524,6 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
                             </div>
                             <div className="space-y-1.5">
                               <Label className="text-[11px] uppercase text-muted-foreground">Assignee</Label>
-                              <Select
-                                value={assigneeId}
-                                onValueChange={(v) => {
-                                  setAssigneeId(v);
-                                  if (task && canEdit) {
-                                    void updateTask(task.id, { assigneeId: v === 'unassigned' ? null : v });
-                                  }
-                                }}
-                                disabled={!canEdit}
-                              >
-                                <SelectTrigger className="h-9 border-border/60 bg-background/80">
-                                  <SelectValue placeholder="Unassigned" />
-                                </SelectTrigger>
-                                <SelectContent className="z-[200]">
-                                  <SelectItem value="unassigned">Unassigned</SelectItem>
-                                  {currentTeam?.members.map((member) => (
-                                    <SelectItem key={member.id} value={member.id}>
-                                      {member.name}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div className="space-y-1.5">
-                              <Label className="text-[11px] uppercase text-muted-foreground">Due date</Label>
                               <Popover>
                                 <PopoverTrigger asChild>
                                   <Button
@@ -537,49 +531,167 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
                                     variant="outline"
                                     disabled={!canEdit}
                                     className={cn(
-                                      'h-9 w-full justify-start border-border/60 bg-background/80 text-left font-normal',
-                                      !selectedDueDate && 'text-muted-foreground'
+                                      'h-9 w-full justify-between border-border/60 bg-background/80 text-left font-normal',
+                                      assigneeId === 'unassigned' && 'text-muted-foreground'
                                     )}
                                   >
-                                    <CalendarIcon className="mr-2 h-4 w-4" aria-hidden />
-                                    {selectedDueDate ? format(selectedDueDate, 'PPP') : 'Select date'}
+                                    <span className="flex min-w-0 items-center gap-2">
+                                      {assigneeId === 'unassigned' ? (
+                                        <span className="grid h-6 w-6 place-items-center rounded-full bg-muted text-[11px] font-semibold text-foreground/70">
+                                          <UserRound className="h-3.5 w-3.5" aria-hidden />
+                                        </span>
+                                      ) : (
+                                        <span className="grid h-6 w-6 place-items-center rounded-full bg-primary/10 text-[11px] font-semibold text-primary">
+                                          {initials(
+                                            currentTeam?.members.find((m) => m.id === assigneeId)?.name ?? ''
+                                          )}
+                                        </span>
+                                      )}
+                                      <span className="truncate">
+                                        {assigneeId === 'unassigned'
+                                          ? 'Unassigned'
+                                          : currentTeam?.members.find((m) => m.id === assigneeId)?.name ?? 'Assignee'}
+                                      </span>
+                                    </span>
+                                    <ChevronDown className="h-4 w-4 opacity-60" aria-hidden />
                                   </Button>
                                 </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0 z-[200]" align="start">
-                                  <div className="p-2">
-                                    <Calendar
-                                      mode="single"
-                                      selected={selectedDueDate}
-                                      onSelect={(d) => {
-                                        if (!task || !canEdit) return;
-                                        if (!d) {
-                                          setDueDate('');
-                                          void updateTask(task.id, { dueDate: null });
-                                          return;
-                                        }
-                                        setDueDate(formatDueDateYmdLocal(d));
-                                        void updateTask(task.id, { dueDate: d });
-                                      }}
-                                      initialFocus
-                                    />
-                                    <div className="flex justify-end border-t border-border/50 px-2 py-2">
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        disabled={!canEdit || !selectedDueDate}
-                                        onClick={() => {
-                                          if (!task || !canEdit) return;
-                                          setDueDate('');
-                                          void updateTask(task.id, { dueDate: null });
-                                        }}
-                                      >
-                                        Clear
-                                      </Button>
-                                    </div>
+                                <PopoverContent
+                                  className="w-72 p-0 z-[200]"
+                                  align="start"
+                                  onOpenAutoFocus={(e) => e.preventDefault()}
+                                >
+                                  <div className="border-b border-border/60 px-3 py-2">
+                                    <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                                      Assignee
+                                    </p>
                                   </div>
+                                  <Command className="rounded-none">
+                                    <CommandInput placeholder="Search member…" />
+                                    <CommandList>
+                                      <CommandEmpty>No results.</CommandEmpty>
+                                      <CommandGroup heading=" ">
+                                        <CommandItem
+                                          className="flex items-center gap-2"
+                                          onSelect={() => {
+                                            setAssigneeId('unassigned');
+                                            if (task && canEdit) void updateTask(task.id, { assigneeId: null });
+                                          }}
+                                        >
+                                          <span className="grid h-6 w-6 place-items-center rounded-full bg-muted text-[11px] font-semibold text-foreground/70">
+                                            <UserRound className="h-3.5 w-3.5" aria-hidden />
+                                          </span>
+                                          <span className="flex-1 truncate text-sm">Unassigned</span>
+                                          {assigneeId === 'unassigned' && (
+                                            <Check className="h-4 w-4 text-primary" aria-hidden />
+                                          )}
+                                        </CommandItem>
+                                      </CommandGroup>
+                                      <CommandGroup heading=" ">
+                                        {(currentTeam?.members ?? []).map((member) => (
+                                          <CommandItem
+                                            key={member.id}
+                                            className="flex items-center gap-2"
+                                            onSelect={() => {
+                                              setAssigneeId(member.id);
+                                              if (task && canEdit) {
+                                                void updateTask(task.id, { assigneeId: member.id });
+                                              }
+                                            }}
+                                          >
+                                            <span className="grid h-6 w-6 place-items-center rounded-full bg-muted text-[11px] font-semibold text-foreground/80">
+                                              {initials(member.name)}
+                                            </span>
+                                            <span className="flex-1 truncate">{member.name}</span>
+                                            {assigneeId === member.id && (
+                                              <Check className="h-4 w-4 text-primary" aria-hidden />
+                                            )}
+                                          </CommandItem>
+                                        ))}
+                                      </CommandGroup>
+                                    </CommandList>
+                                  </Command>
                                 </PopoverContent>
                               </Popover>
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-[11px] uppercase text-muted-foreground">Due date</Label>
+                              {isNarrow ? (
+                                <Drawer open={taskDueOpen} onOpenChange={setTaskDueOpen}>
+                                  <DrawerTrigger asChild>
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      disabled={!canEdit}
+                                      className={cn(
+                                        'h-9 w-full justify-start border-border/60 bg-background/80 text-left font-normal',
+                                        !selectedDueDate && 'text-muted-foreground'
+                                      )}
+                                      onClick={() => setTaskDueOpen(true)}
+                                    >
+                                      <CalendarIcon className="mr-2 h-4 w-4" aria-hidden />
+                                      {selectedDueDate ? format(selectedDueDate, 'PPP') : 'Select date'}
+                                    </Button>
+                                  </DrawerTrigger>
+                                  <DrawerContent className="p-0">
+                                    <div className="px-2 pb-3 pt-2">
+                                      <DueFlowPicker
+                                        value={task?.dueDate ?? null}
+                                        reminders={taskReminders}
+                                        disabled={!canEdit}
+                                        onChange={(next) => {
+                                          if (!task || !canEdit) return;
+                                          setDueDate(next ? formatDueDateYmdLocal(next) : '');
+                                          void updateTask(task.id, { dueDate: next, reminders: taskReminders });
+                                        }}
+                                        onRemindersChange={(next) => {
+                                          if (!task || !canEdit) return;
+                                          const arr = Array.isArray(next) ? next : [];
+                                          setTaskReminders(arr);
+                                          void updateTask(task.id, { reminders: arr });
+                                        }}
+                                        onRequestClose={() => setTaskDueOpen(false)}
+                                      />
+                                    </div>
+                                  </DrawerContent>
+                                </Drawer>
+                              ) : (
+                                <Dialog open={taskDueOpen} onOpenChange={setTaskDueOpen}>
+                                  <DialogTrigger asChild>
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      disabled={!canEdit}
+                                      className={cn(
+                                        'h-9 w-full justify-start border-border/60 bg-background/80 text-left font-normal',
+                                        !selectedDueDate && 'text-muted-foreground'
+                                      )}
+                                    >
+                                      <CalendarIcon className="mr-2 h-4 w-4" aria-hidden />
+                                      {selectedDueDate ? format(selectedDueDate, 'PPP') : 'Select date'}
+                                    </Button>
+                                  </DialogTrigger>
+                                  <DialogContent className="flex max-h-[92dvh] min-h-0 w-[min(92vw,380px)] max-w-[min(92vw,380px)] flex-col gap-0 overflow-hidden p-0">
+                                    <DueFlowPicker
+                                      value={task?.dueDate ?? null}
+                                      reminders={taskReminders}
+                                      disabled={!canEdit}
+                                      onChange={(next) => {
+                                        if (!task || !canEdit) return;
+                                        setDueDate(next ? formatDueDateYmdLocal(next) : '');
+                                        void updateTask(task.id, { dueDate: next, reminders: taskReminders });
+                                      }}
+                                      onRemindersChange={(next) => {
+                                        if (!task || !canEdit) return;
+                                        const arr = Array.isArray(next) ? next : [];
+                                        setTaskReminders(arr);
+                                        void updateTask(task.id, { reminders: arr });
+                                      }}
+                                      onRequestClose={() => setTaskDueOpen(false)}
+                                    />
+                                  </DialogContent>
+                                </Dialog>
+                              )}
                             </div>
                             <div className="space-y-1.5 sm:col-span-2">
                               <Label className="text-[11px] uppercase text-muted-foreground">{customerSingularLabel}</Label>

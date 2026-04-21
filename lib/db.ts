@@ -736,7 +736,7 @@ export const taskDb = {
   async listForDueReminders(limit = 4000) {
     const { data, error } = await db
       .from('tasks')
-      .select('id, title, due_date, assignee_id, journal_logs, project_id, organization_id, team_id')
+      .select('id, title, due_date, reminders, assignee_id, journal_logs, project_id, organization_id, team_id')
       .limit(limit);
     if (error) throw error;
     return data ?? [];
@@ -1005,7 +1005,9 @@ export const notificationDb = {
       | 'task_updated'
       | 'checklist_assigned'
       | 'task_due_reminder'
-      | 'checklist_due_reminder';
+      | 'checklist_due_reminder'
+      | 'task_reminder'
+      | 'checklist_reminder';
     title: string;
     message?: string;
     link?: string;

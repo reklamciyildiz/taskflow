@@ -150,6 +150,7 @@ export async function POST(request: NextRequest) {
       status: body.status || 'todo',
       priority: body.priority || 'medium',
       due_date: body.dueDate || null,
+      reminders: Array.isArray(body.reminders) ? body.reminders : [],
       assignee_id: body.assigneeId || null,
       customer_id: body.customerId || null,
       project_id: body.projectId ?? null,

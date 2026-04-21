@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { DragDropContext, Draggable, Droppable, type DropResult } from '@hello-pangea/dnd';
-import { Calendar as CalendarIcon, GripVertical, UserRound, X } from 'lucide-react';
+import { Calendar as CalendarIcon, Check, GripVertical, UserRound, X } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -20,6 +20,9 @@ import { cn } from '@/lib/utils';
 import { portalDndRowToBody } from '@/lib/dnd-body-portal';
 import { ACTION_CHECKLIST_QUICK_ROW_ID } from '@/lib/action-checklist';
 import type { JournalLogEntry } from '@/lib/types';
+import { DueFlowPicker } from '@/components/due/DueFlowPicker';
+import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
+import { Drawer, DrawerContent, DrawerTrigger } from '@/components/ui/drawer';
 
 const TEXTAREA_MAX_PX = 280;
 const TEXTAREA_MIN_PX = 40;
@@ -44,15 +47,19 @@ function initials(name: string): string {
   return (a + b).toUpperCase() || '?';
 }
 
-function parseYmdLocal(ymd: string | null | undefined): Date | undefined {
-  if (!ymd) return undefined;
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd);
-  if (!m) return undefined;
-  const y = Number(m[1]);
-  const mo = Number(m[2]);
-  const d = Number(m[3]);
-  if (!y || !mo || !d) return undefined;
-  return new Date(y, mo - 1, d);
+function parseDueDateLocal(value: string | null | undefined): Date | undefined {
+  if (!value) return undefined;
+  const s = value.trim();
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  if (m) {
+    const y = Number(m[1]);
+    const mo = Number(m[2]);
+    const d = Number(m[3]);
+    if (!y || !mo || !d) return undefined;
+    return new Date(y, mo - 1, d, 12, 0, 0, 0);
+  }
+  const dt = new Date(s);
+  return Number.isNaN(dt.getTime()) ? undefined : dt;
 }
 
 function toYmdLocal(date: Date): string {
@@ -109,6 +116,9 @@ export function ActionChecklist({
   const [highlightRowId, setHighlightRowId] = useState<string | null>(null);
   const [assigneeOpenRowId, setAssigneeOpenRowId] = useState<string | null>(null);
   const [dueOpenRowId, setDueOpenRowId] = useState<string | null>(null);
+  const [isNarrow, setIsNarrow] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
+  );
 
   const quickRow = items[0];
   const bodyRows = items.slice(1);
@@ -116,6 +126,14 @@ export function ActionChecklist({
 
   const sizeSignature = items.map((r) => r.text).join('\u0001');
   const membersById = useMemo(() => new Map(memberOptions.map((m) => [m.id, m])), [memberOptions]);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)');
+    const sync = () => setIsNarrow(mq.matches);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
 
   useLayoutEffect(() => {
     syncTextareaHeight(quickInputRef.current);
@@ -438,27 +456,42 @@ export function ActionChecklist({
                               <PopoverContent
                                 align="end"
                                 side="bottom"
+                                sideOffset={8}
+                                collisionPadding={12}
+                                  sticky="always"
+                                  avoidCollisions
                                 className="w-72 p-0"
                                 onOpenAutoFocus={(e) => e.preventDefault()}
                               >
-                                <Command>
+                                <div className="border-b border-border/60 px-3 py-2">
+                                  <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                                    Assignee
+                                  </p>
+                                </div>
+                                <Command className="rounded-none">
                                   <CommandInput placeholder="Search member…" />
                                   <CommandList>
                                     <CommandEmpty>No results.</CommandEmpty>
-                                    <CommandGroup>
+                                    <CommandGroup heading=" ">
                                       <CommandItem
+                                        className="flex items-center gap-2"
                                         onSelect={() => {
                                           updateBodyRow(bodyIndex, { assigneeId: null });
                                           setAssigneeOpenRowId(null);
                                         }}
                                       >
-                                        <span className="text-sm">Unassigned</span>
+                                        <span className="grid h-6 w-6 place-items-center rounded-full bg-muted text-[11px] font-semibold text-foreground/70">
+                                          <UserRound className="h-3.5 w-3.5" aria-hidden />
+                                        </span>
+                                        <span className="flex-1 truncate text-sm">Unassigned</span>
+                                        {!row.assigneeId && <Check className="h-4 w-4 text-primary" aria-hidden />}
                                       </CommandItem>
                                     </CommandGroup>
-                                    <CommandGroup>
+                                    <CommandGroup heading=" ">
                                       {memberOptions.map((m) => (
                                         <CommandItem
                                           key={m.id}
+                                          className="flex items-center gap-2"
                                           onSelect={() => {
                                             updateBodyRow(bodyIndex, { assigneeId: m.id });
                                             setAssigneeOpenRowId(null);
@@ -467,7 +500,10 @@ export function ActionChecklist({
                                           <span className="mr-2 grid h-6 w-6 place-items-center rounded-full bg-muted text-[11px] font-semibold text-foreground/80">
                                             {initials(m.name)}
                                           </span>
-                                          <span className="truncate">{m.name}</span>
+                                          <span className="flex-1 truncate">{m.name}</span>
+                                          {row.assigneeId === m.id && (
+                                            <Check className="h-4 w-4 text-primary" aria-hidden />
+                                          )}
                                         </CommandItem>
                                       ))}
                                     </CommandGroup>
@@ -476,68 +512,99 @@ export function ActionChecklist({
                               </PopoverContent>
                             </Popover>
 
-                            <Popover
-                              open={dueOpenRowId === row.id}
-                              onOpenChange={(v) => setDueOpenRowId(v ? row.id : null)}
-                            >
-                              <Tooltip>
-                                <PopoverTrigger asChild>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="icon"
-                                      className={cn(
-                                        'h-6 w-6 rounded-md',
-                                        row.dueDate && 'bg-muted/40 text-foreground'
-                                      )}
-                                      disabled={disabled}
-                                      aria-label="Set due date"
-                                    >
-                                      <CalendarIcon className="h-3.5 w-3.5" aria-hidden />
-                                    </Button>
-                                  </TooltipTrigger>
-                                </PopoverTrigger>
-                                <TooltipContent>
-                                  {row.dueDate ? `Due: ${row.dueDate}` : 'Due date'}
-                                </TooltipContent>
-                              </Tooltip>
-                              <PopoverContent
-                                align="end"
-                                side="bottom"
-                                className="w-auto p-2"
-                                onOpenAutoFocus={(e) => e.preventDefault()}
+                            {isNarrow ? (
+                              <Drawer
+                                open={dueOpenRowId === row.id}
+                                onOpenChange={(v) => setDueOpenRowId(v ? row.id : null)}
                               >
-                                <div className="flex items-center justify-between gap-2 px-1 pb-2">
-                                  <p className="text-xs font-medium text-muted-foreground">Due date</p>
-                                  {row.dueDate && (
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-7 px-2 text-xs"
-                                      onClick={() => {
-                                        updateBodyRow(bodyIndex, { dueDate: null });
-                                        setDueOpenRowId(null);
+                                <Tooltip>
+                                  <DrawerTrigger asChild>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className={cn(
+                                          'h-6 w-6 rounded-md',
+                                          row.dueDate && 'bg-muted/40 text-foreground'
+                                        )}
+                                        disabled={disabled}
+                                        aria-label="Set due date"
+                                        onClick={() => setDueOpenRowId(row.id)}
+                                      >
+                                        <CalendarIcon className="h-3.5 w-3.5" aria-hidden />
+                                      </Button>
+                                    </TooltipTrigger>
+                                  </DrawerTrigger>
+                                  <TooltipContent>
+                                    {row.dueDate ? `Due: ${row.dueDate}` : 'Due date'}
+                                  </TooltipContent>
+                                </Tooltip>
+                                <DrawerContent className="p-0">
+                                  <div className="px-2 pb-3 pt-2">
+                                    <DueFlowPicker
+                                      value={parseDueDateLocal(row.dueDate) ?? null}
+                                      reminders={Array.isArray(row.reminders) ? row.reminders : []}
+                                      disabled={disabled}
+                                      onChange={(next) => {
+                                        updateBodyRow(bodyIndex, {
+                                          dueDate: next ? next.toISOString() : null,
+                                        });
                                       }}
-                                    >
-                                      <X className="mr-1 h-3.5 w-3.5" />
-                                      Clear
-                                    </Button>
-                                  )}
-                                </div>
-                                <Calendar
-                                  mode="single"
-                                  selected={parseYmdLocal(row.dueDate)}
-                                  onSelect={(d) => {
-                                    if (!d) return;
-                                    updateBodyRow(bodyIndex, { dueDate: toYmdLocal(d) });
-                                    setDueOpenRowId(null);
-                                  }}
-                                  initialFocus
-                                />
-                              </PopoverContent>
-                            </Popover>
+                                      onRemindersChange={(next) => {
+                                        updateBodyRow(bodyIndex, {
+                                          reminders: next,
+                                        });
+                                      }}
+                                      onRequestClose={() => setDueOpenRowId(null)}
+                                    />
+                                  </div>
+                                </DrawerContent>
+                              </Drawer>
+                            ) : (
+                              <Dialog open={dueOpenRowId === row.id} onOpenChange={(v) => setDueOpenRowId(v ? row.id : null)}>
+                                <Tooltip>
+                                  <DialogTrigger asChild>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className={cn(
+                                          'h-6 w-6 rounded-md',
+                                          row.dueDate && 'bg-muted/40 text-foreground'
+                                        )}
+                                        disabled={disabled}
+                                        aria-label="Set due date"
+                                      >
+                                        <CalendarIcon className="h-3.5 w-3.5" aria-hidden />
+                                      </Button>
+                                    </TooltipTrigger>
+                                  </DialogTrigger>
+                                  <TooltipContent>
+                                    {row.dueDate ? `Due: ${row.dueDate}` : 'Due date'}
+                                  </TooltipContent>
+                                </Tooltip>
+                                <DialogContent className="flex max-h-[92dvh] min-h-0 w-[min(92vw,380px)] max-w-[min(92vw,380px)] flex-col gap-0 overflow-hidden p-0">
+                                  <DueFlowPicker
+                                    value={parseDueDateLocal(row.dueDate) ?? null}
+                                    reminders={Array.isArray(row.reminders) ? row.reminders : []}
+                                    disabled={disabled}
+                                    onChange={(next) => {
+                                      updateBodyRow(bodyIndex, {
+                                        dueDate: next ? next.toISOString() : null,
+                                      });
+                                    }}
+                                    onRemindersChange={(next) => {
+                                      updateBodyRow(bodyIndex, {
+                                        reminders: next,
+                                      });
+                                    }}
+                                    onRequestClose={() => setDueOpenRowId(null)}
+                                  />
+                                </DialogContent>
+                              </Dialog>
+                            )}
                             </div>
                           </TooltipProvider>
                         </div>

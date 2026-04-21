@@ -22,6 +22,11 @@ export interface JournalLogEntry {
   assigneeId?: string | null;
   /** Optional due date for this row (`YYYY-MM-DD`, same convention as task due dates). */
   dueDate?: string | null;
+  /**
+   * Optional scheduled reminder instants (UTC ISO strings).
+   * Example: ["2026-04-21T08:55:00.000Z"].
+   */
+  reminders?: string[] | null;
 }
 
 export interface ProjectColumnConfig {
@@ -107,6 +112,8 @@ export interface Task {
   status: TaskStatus;
   priority: TaskPriority;
   dueDate?: Date;
+  /** Scheduled reminders (UTC ISO strings) for this action. */
+  reminders?: string[];
   assigneeId?: string | null;
   customerId?: string | null;
   customerName?: string;
@@ -198,6 +205,8 @@ export interface UpdateTaskRequest {
   priority?: TaskPriority;
   /** `YYYY-MM-DD` for date-only, or legacy ISO datetime. `null` clears. */
   dueDate?: string | null;
+  /** Scheduled reminders (UTC ISO strings). `null` clears. */
+  reminders?: string[] | null;
   assigneeId?: string | null;
   customerId?: string | null;
   projectId?: string | null;

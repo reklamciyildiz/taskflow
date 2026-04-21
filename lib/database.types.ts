@@ -153,6 +153,7 @@ export interface Database {
           status: string
           priority: 'low' | 'medium' | 'high' | 'urgent'
           due_date: string | null
+          reminders: Json
           assignee_id: string | null
           customer_id: string | null
           project_id: string | null
@@ -172,6 +173,7 @@ export interface Database {
           status?: string
           priority?: 'low' | 'medium' | 'high' | 'urgent'
           due_date?: string | null
+          reminders?: Json
           assignee_id?: string | null
           customer_id?: string | null
           project_id?: string | null
@@ -191,6 +193,7 @@ export interface Database {
           status?: string
           priority?: 'low' | 'medium' | 'high' | 'urgent'
           due_date?: string | null
+          reminders?: Json
           assignee_id?: string | null
           customer_id?: string | null
           project_id?: string | null

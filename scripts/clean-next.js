@@ -5,18 +5,32 @@
 const fs = require('fs');
 const path = require('path');
 
-const nextDir = path.join(__dirname, '..', '.next');
-
-if (!fs.existsSync(nextDir)) {
-  console.log('.next yok; zaten temiz.');
-  process.exit(0);
-}
+const repoRoot = path.join(__dirname, '..');
+const nextDir = path.join(repoRoot, '.next');
+const turboDir = path.join(repoRoot, '.turbo');
+const nodeCacheDir = path.join(repoRoot, 'node_modules', '.cache');
 
 const opts = { recursive: true, force: true, maxRetries: 20, retryDelay: 250 };
 
 try {
-  fs.rmSync(nextDir, opts);
-  console.log('.next silindi.');
+  if (fs.existsSync(nextDir)) {
+    fs.rmSync(nextDir, opts);
+    console.log('.next silindi.');
+  } else {
+    console.log('.next yok; zaten temiz.');
+  }
+
+  // Optional caches that can keep stale dependency snapshots on Windows.
+  if (fs.existsSync(turboDir)) {
+    fs.rmSync(turboDir, opts);
+    console.log('.turbo silindi.');
+  }
+
+  if (fs.existsSync(nodeCacheDir)) {
+    fs.rmSync(nodeCacheDir, opts);
+    console.log('node_modules/.cache silindi.');
+  }
+
   process.exit(0);
 } catch (err) {
   console.error('\n.next silinemedi — genelde dosya kilitli (trace).');

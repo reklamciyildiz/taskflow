@@ -175,6 +175,8 @@ function mapJournalLogs(raw: unknown): Task['journalLogs'] {
     const assigneeRaw = item.assignee_id ?? item.assigneeId;
     const hasDueKey = 'due_date' in item || 'dueDate' in item;
     const dueRaw = item.due_date ?? item.dueDate;
+    const hasRemindersKey = 'reminders' in item;
+    const remRaw = item.reminders;
     return {
       id: String(item.id ?? `jl-${i}`),
       text: String(item.text ?? ''),
@@ -187,6 +189,13 @@ function mapJournalLogs(raw: unknown): Task['journalLogs'] {
         ? { assigneeId: typeof assigneeRaw === 'string' && assigneeRaw ? assigneeRaw : null }
         : {}),
       ...(hasDueKey ? { dueDate: typeof dueRaw === 'string' && dueRaw ? dueRaw : null } : {}),
+      ...(hasRemindersKey
+        ? {
+            reminders: Array.isArray(remRaw)
+              ? (remRaw.filter((x): x is string => typeof x === 'string' && x.length > 0) as string[])
+              : null,
+          }
+        : {}),
     };
   });
 }
@@ -199,8 +208,9 @@ function partialTaskToUpdateRequest(updates: TaskUpdateFields): UpdateTaskReques
   if (updates.priority !== undefined) api.priority = updates.priority;
   if (Object.prototype.hasOwnProperty.call(updates, 'dueDate')) {
     const d = updates.dueDate;
-    api.dueDate = d == null ? null : formatDueDateYmdLocal(d);
+    api.dueDate = d == null ? null : d.toISOString();
   }
+  if (updates.reminders !== undefined) api.reminders = updates.reminders ?? null;
   if (updates.assigneeId !== undefined) api.assigneeId = updates.assigneeId;
   if (updates.customerId !== undefined) api.customerId = updates.customerId;
   if (updates.projectId !== undefined) api.projectId = updates.projectId;
@@ -220,6 +230,9 @@ function transformTask(apiTask: any): Task {
     status: String(apiTask.status ?? 'todo'),
     priority: apiTask.priority as TaskPriority,
     dueDate: apiTask.due_date ? new Date(apiTask.due_date) : undefined,
+    reminders: Array.isArray(apiTask.reminders)
+      ? (apiTask.reminders.filter((x: any) => typeof x === 'string' && x) as string[])
+      : [],
     assigneeId: apiTask.assignee_id,
     customerId: apiTask.customer_id,
     customerName: apiTask.customer?.name,

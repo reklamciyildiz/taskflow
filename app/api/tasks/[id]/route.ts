@@ -197,6 +197,7 @@ export async function PATCH(
                 assignee_id?: string | null;
                 dueDate?: string | null;
                 due_date?: string | null;
+                reminders?: string[] | null;
               }) => {
                 const created_at = e.createdAt ?? e.created_at;
                 const updated_at = e.updatedAt ?? e.updated_at;
@@ -219,6 +220,11 @@ export async function PATCH(
                   const d = e.dueDate ?? e.due_date;
                   row.due_date = typeof d === 'string' && d ? d : null;
                 }
+                if (Object.prototype.hasOwnProperty.call(e, 'reminders')) {
+                  row.reminders = Array.isArray(e.reminders)
+                    ? e.reminders.filter((x) => typeof x === 'string' && x.length > 0)
+                    : null;
+                }
                 return row;
               }
             )
@@ -230,6 +236,7 @@ export async function PATCH(
       status: body.status,
       priority: body.priority,
       due_date: body.dueDate,
+      reminders: body.reminders,
       assignee_id: body.assigneeId === undefined ? undefined : (body.assigneeId || null),
       customer_id: body.customerId === undefined ? undefined : (body.customerId || null),
       project_id: body.projectId === undefined ? undefined : (body.projectId || null),
