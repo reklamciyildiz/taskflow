@@ -14,12 +14,6 @@ function startOfLocalDay(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0, 0);
 }
 
-function addLocalDays(base: Date, delta: number) {
-  const d = new Date(base);
-  d.setDate(d.getDate() + delta);
-  return d;
-}
-
 function formatTimeLabel(hhmm: string) {
   if (!hhmm) return 'No time';
   const m = /^(\d{2}):(\d{2})$/.exec(hhmm);
@@ -198,36 +192,6 @@ export function DueFlowPicker({ value, reminders, disabled, onChange, onReminder
 
   const main = (
     <div className="px-3 py-2">
-      <div className="flex flex-wrap gap-2 pb-2">
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          disabled={disabled}
-          onClick={() => setDueAndRecomputeReminders(startOfLocalDay(new Date()), preset)}
-        >
-          Today
-        </Button>
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          disabled={disabled}
-          onClick={() => setDueAndRecomputeReminders(startOfLocalDay(addLocalDays(new Date(), 1)), preset)}
-        >
-          Tomorrow
-        </Button>
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          disabled={disabled}
-          onClick={() => setDueAndRecomputeReminders(startOfLocalDay(addLocalDays(new Date(), 7)), preset)}
-        >
-          Next week
-        </Button>
-      </div>
-
       <div className="rounded-lg border border-border/50 bg-background/40">
         <Calendar
           mode="single"
