@@ -133,7 +133,7 @@ export function MarketingInsights() {
         <div className="mt-10 overflow-hidden rounded-3xl border border-white/[0.06] bg-zinc-950/60 ring-1 ring-white/[0.04]">
           <Image
             src="/marketing/screens/deep-dive.png"
-            alt="TaskFlow analytics preview (placeholder)"
+            alt="Axiom analytics preview (placeholder)"
             width={1920}
             height={1080}
             sizes="(min-width: 1024px) 960px, 92vw"

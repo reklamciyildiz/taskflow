@@ -1,5 +1,5 @@
 -- Faz 1: Projects (süreç / boru hattı), task journaling, dinamik status (TEXT)
--- Requires: organizations, teams, tasks tables (existing TaskFlow schema)
+-- Requires: organizations, teams, tasks tables (existing Axiom schema)
 
 -- ---------------------------------------------------------------------------
 -- 1) projects: organization-scoped pipeline; optional link to a team

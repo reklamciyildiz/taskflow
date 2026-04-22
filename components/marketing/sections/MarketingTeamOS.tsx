@@ -32,7 +32,7 @@ export function MarketingTeamOS() {
             Personal for you, powerful for teams.
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-base text-zinc-500">
-            TaskFlow keeps the “personal OS” feel — while still behaving like a real team system: roles,
+            Axiom keeps the “personal OS” feel — while still behaving like a real team system: roles,
             permissions, assignments, and shared visibility.
           </p>
         </div>

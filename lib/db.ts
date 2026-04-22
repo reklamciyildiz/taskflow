@@ -559,6 +559,29 @@ export const teamMemberDb = {
     return true;
   },
 
+  /** Returns distinct user ids across all teams in an organization (seat counting). */
+  async listDistinctUsersForOrganization(organizationId: string): Promise<Array<{ user_id: string }>> {
+    const { data: teams, error: teamsError } = await db
+      .from('teams')
+      .select('id')
+      .eq('organization_id', organizationId);
+    if (teamsError) throw teamsError;
+    const teamIds = (teams ?? []).map((t: any) => String(t.id)).filter(Boolean);
+    if (teamIds.length === 0) return [];
+
+    const { data, error } = await db
+      .from('team_members')
+      .select('user_id')
+      .in('team_id', teamIds);
+    if (error) throw error;
+    const seen = new Set<string>();
+    for (const r of data ?? []) {
+      const id = String((r as any).user_id ?? '');
+      if (id) seen.add(id);
+    }
+    return Array.from(seen).map((user_id) => ({ user_id }));
+  },
+
   async getMembership(teamId: string, userId: string) {
     const { data, error } = await db
       .from('team_members')
@@ -1098,6 +1121,28 @@ export const notificationDb = {
     
     if (error) throw error;
     return true;
+  },
+};
+
+// =============================================
+// LEMON SQUEEZY WEBHOOK EVENTS (idempotency)
+// =============================================
+
+export const lemonWebhookEventDb = {
+  async tryMarkSeen(payload_hash: string, event_name: string): Promise<boolean> {
+    // Returns true if inserted (first time), false if already exists.
+    const { data, error } = await db
+      .from('lemon_webhook_events')
+      .insert({ payload_hash, event_name })
+      .select('id')
+      .single();
+    if (!error && data?.id) return true;
+
+    // Unique conflict → already processed
+    const code = (error as any)?.code;
+    if (code === '23505') return false;
+    if (error) throw error;
+    return false;
   },
 };
 

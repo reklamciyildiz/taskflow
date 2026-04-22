@@ -32,7 +32,7 @@ const cases: Record<
   },
   home: {
     title: 'Keep personal workflows in sync',
-    body: 'Use TaskFlow as a personal OS: checklists, learnings, and a second brain tied to what you do.',
+    body: 'Use Axiom as a personal OS: checklists, learnings, and a second brain tied to what you do.',
     icon: Home,
     shotSrc: '/marketing/screens/section.png',
   },
@@ -100,7 +100,7 @@ export function MarketingUseCasesShowcase() {
             >
               <Image
                 src={activeCase.shotSrc}
-                alt={`TaskFlow ${activeCase.title} preview (placeholder)`}
+                alt={`Axiom ${activeCase.title} preview (placeholder)`}
                 width={1600}
                 height={1000}
                 sizes="(min-width: 1024px) 560px, 92vw"

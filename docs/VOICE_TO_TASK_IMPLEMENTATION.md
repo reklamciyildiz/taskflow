@@ -44,7 +44,7 @@ User → VoiceToTaskButton → API Endpoint → Voice-to-Task Service
 ## 📁 File Structure
 
 ```
-TaskFlow/
+Axiom/
 ├── lib/ai/
 │   ├── types/
 │   │   ├── ai-config.ts          ✅ AI configuration types

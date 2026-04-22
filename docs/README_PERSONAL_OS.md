@@ -1,4 +1,4 @@
-# TaskFlow — Kişisel İşletim Sistemi (Personal OS)
+# Axiom — Kişisel İşletim Sistemi (Personal OS)
 
 Bu belge, projeyi **dinamik süreç panosu**, **günlük (journaling)** ve **Bilgi Merkezi (Knowledge Hub)** olarak nasıl kullandığınızı ve teknik olarak nasıl çalıştığını özetler. Başkasına anlatırken veya aylar sonra hatırlamak için referans.
 

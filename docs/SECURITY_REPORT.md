@@ -1,4 +1,4 @@
-# 🔒 TaskFlow Güvenlik Raporu
+# 🔒 Axiom Güvenlik Raporu
 ## NextAuth + Supabase Auth Entegrasyonu
 
 **Tarih:** 16 Ocak 2026  
@@ -9,7 +9,7 @@
 
 ## 📊 Özet
 
-TaskFlow uygulaması, **NextAuth** ve **Supabase Auth** entegrasyonu ile **iki katmanlı güvenlik** modeline yükseltildi. Bu rapor, her iki sistemin güvenlik özelliklerini, veri koruma mekanizmalarını ve mevcut güvenlik seviyemizi detaylı olarak açıklamaktadır.
+Axiom uygulaması, **NextAuth** ve **Supabase Auth** entegrasyonu ile **iki katmanlı güvenlik** modeline yükseltildi. Bu rapor, her iki sistemin güvenlik özelliklerini, veri koruma mekanizmalarını ve mevcut güvenlik seviyemizi detaylı olarak açıklamaktadır.
 
 ---
 
@@ -600,7 +600,7 @@ CREATE POLICY "users_select_own"
 
 ### **Güvenlik Seviyesi: ⭐⭐⭐⭐⭐ (5/5) - Enterprise Grade**
 
-TaskFlow uygulaması, NextAuth ve Supabase Auth entegrasyonu ile **enterprise-grade güvenlik** seviyesine ulaştı.
+Axiom uygulaması, NextAuth ve Supabase Auth entegrasyonu ile **enterprise-grade güvenlik** seviyesine ulaştı.
 
 **Güçlü Yönler:**
 - ✅ İki katmanlı güvenlik (Defense in Depth)

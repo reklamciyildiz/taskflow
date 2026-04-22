@@ -30,7 +30,7 @@ export function MarketingProductShots() {
             >
               <Image
                 src="/marketing/screens/hero.png"
-                alt="TaskFlow product preview (placeholder)"
+                alt="Axiom product preview (placeholder)"
                 width={1920}
                 height={1080}
                 sizes="(min-width: 1024px) 960px, 92vw"
@@ -61,7 +61,7 @@ export function MarketingProductShots() {
           </div>
 
           <p className="mt-6 text-center text-xs text-zinc-500">
-            Screenshots are placeholders for now — you’ll swap them with real TaskFlow screens.
+            Screenshots are placeholders for now — you’ll swap them with real Axiom screens.
           </p>
         </div>
       </MarketingReveal>

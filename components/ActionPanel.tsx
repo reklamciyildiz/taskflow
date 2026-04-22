@@ -79,8 +79,32 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
     tasks,
     customerSingularLabel,
     consumeChecklistFocusForTask,
+    organizationId,
   } = useTaskContext();
   const canEdit = task ? canEditTask(task.createdBy, task.assigneeId) : false;
+
+  const [canUseAdvancedReminderPresets, setCanUseAdvancedReminderPresets] = useState(true);
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      if (!organizationId) return;
+      try {
+        const res = await fetch(`/api/organizations/${organizationId}`);
+        const json = await res.json();
+        const plan = String(json?.data?.plan_name ?? 'free').toLowerCase();
+        const status = String(json?.data?.subscription_status ?? 'active').toLowerCase();
+        const paid = plan !== 'free' && (status === 'active' || status === 'trialing' || status === 'past_due');
+        if (!cancelled) setCanUseAdvancedReminderPresets(paid);
+      } catch {
+        // fail open: avoid blocking UX if billing is not configured yet
+        if (!cancelled) setCanUseAdvancedReminderPresets(true);
+      }
+    }
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [organizationId]);
 
   const [isNarrow, setIsNarrow] = useState(
     () => typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
@@ -641,6 +665,7 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
                                       <DueFlowPicker
                                         value={task?.dueDate ?? null}
                                         reminders={taskReminders}
+                                        canUseAdvancedReminderPresets={canUseAdvancedReminderPresets}
                                         disabled={!canEdit}
                                         onChange={(next) => {
                                           if (!task || !canEdit) return;
@@ -681,6 +706,7 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
                                     <DueFlowPicker
                                       value={task?.dueDate ?? null}
                                       reminders={taskReminders}
+                                      canUseAdvancedReminderPresets={canUseAdvancedReminderPresets}
                                       disabled={!canEdit}
                                       onChange={(next) => {
                                         if (!task || !canEdit) return;
@@ -957,6 +983,7 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
                     onItemsChange={onJournalChange}
                     memberOptions={(currentTeam?.members ?? []).map((m) => ({ id: m.id, name: m.name }))}
                     focusRowId={deepLinkChecklistRowId}
+                    canUseAdvancedReminderPresets={canUseAdvancedReminderPresets}
                   />
                 </div>
               </div>

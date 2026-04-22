@@ -25,7 +25,7 @@ export function MarketingEnterprise() {
               Customers & webhooks — connected to the outside world.
             </h2>
             <p className="mt-4 text-base text-zinc-500">
-              TaskFlow supports customer management and an organization-scoped webhook system so your
+              Axiom supports customer management and an organization-scoped webhook system so your
               workflows can trigger automations in external tools. Secure by design, built for real B2B
               operations.
             </p>
@@ -101,7 +101,7 @@ export function MarketingEnterprise() {
             <div className="mt-5 overflow-hidden rounded-2xl border border-white/[0.06] bg-zinc-950/60 ring-1 ring-white/[0.04]">
               <Image
                 src="/marketing/screens/section.png"
-                alt="TaskFlow integrations preview (placeholder)"
+                alt="Axiom integrations preview (placeholder)"
                 width={1600}
                 height={1000}
                 sizes="(min-width: 1024px) 560px, 92vw"

@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { Providers } from './providers';
 
 export const metadata: Metadata = {
-  title: 'TaskFlow - Premium Team Productivity',
+  title: 'Axiom - Team & Personal Productivity',
   description: 'Advanced task management with team collaboration, analytics, and AI-powered insights',
   icons: {
     icon: '/favicon.ico',

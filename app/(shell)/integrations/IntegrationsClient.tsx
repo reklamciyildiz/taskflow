@@ -168,7 +168,7 @@ export default function IntegrationsClient() {
         <div>
           <h1 className="text-3xl font-bold text-foreground">Integrations</h1>
           <p className="text-muted-foreground mt-1">
-            Connect TaskFlow with external services using webhooks
+            Connect Axiom with external services using webhooks
           </p>
         </div>
         <Button onClick={() => setIsCreateOpen(true)}>
@@ -180,7 +180,7 @@ export default function IntegrationsClient() {
       <Card className="p-6 mb-6 bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
         <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">🔗 What are Webhooks?</h3>
         <p className="text-sm text-blue-800 dark:text-blue-200 mb-3">
-          Webhooks send real-time notifications to your apps when events happen in TaskFlow. Perfect for Zapier,
+          Webhooks send real-time notifications to your apps when events happen in Axiom. Perfect for Zapier,
           n8n, Make.com, or custom integrations!
         </p>
         <div className="flex gap-2 flex-wrap">

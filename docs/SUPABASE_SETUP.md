@@ -1,4 +1,4 @@
-# TaskFlow SaaS - Supabase Kurulum Rehberi
+# Axiom SaaS - Supabase Kurulum Rehberi
 
 ## ✅ Tamamlanan İşler
 

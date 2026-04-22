@@ -242,13 +242,13 @@ export function Sidebar({ mobileOpen, onCloseMobile, desktopCollapsed }: Sidebar
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary/80">
                   <LayoutDashboard className="h-4 w-4 text-primary-foreground" />
                 </div>
-                <h1 className="text-xl font-bold">TaskFlow</h1>
+                <h1 className="text-xl font-bold">Axiom</h1>
               </div>
               <p className="pl-11 text-xs text-muted-foreground">{organizationName}</p>
             </div>
           ) : (
             <div className="flex justify-center border-b p-3">
-              <NavTip label={`TaskFlow — ${organizationName}`} narrow={narrow}>
+              <NavTip label={`Axiom — ${organizationName}`} narrow={narrow}>
                 <Button variant="ghost" size="sm" className="h-10 w-10 shrink-0 p-0" asChild>
                   <Link href="/" prefetch scroll={false} onClick={() => onCloseMobile()}>
                     <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary/80">

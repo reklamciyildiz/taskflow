@@ -1,4 +1,4 @@
-# 🤖 TaskFlow AI Features - Profesyonel Yol Haritası ve Teknoloji Stack
+# 🤖 Axiom AI Features - Profesyonel Yol Haritası ve Teknoloji Stack
 
 **Tarih:** 16 Ocak 2026  
 **Versiyon:** 1.0 - Strategic Planning Document  
@@ -8,7 +8,7 @@
 
 ## 📋 Executive Summary
 
-Bu dokuman, TaskFlow uygulamasına eklenecek AI özelliklerinin detaylı yol haritasını, teknoloji stack'ini, mimari kararlarını ve uygulama stratejisini içermektedir.
+Bu dokuman, Axiom uygulamasına eklenecek AI özelliklerinin detaylı yol haritasını, teknoloji stack'ini, mimari kararlarını ve uygulama stratejisini içermektedir.
 
 **Hedef:** AI-powered task management ile competitive advantage sağlamak  
 **Süre:** 6-8 hafta (3 fazlı implementasyon)  
@@ -136,7 +136,7 @@ Bu dokuman, TaskFlow uygulamasına eklenecek AI özelliklerinin detaylı yol har
 #### **Folder Structure**
 
 ```
-TaskFlow/
+Axiom/
 ├── app/
 │   └── api/
 │       └── ai/
@@ -1085,7 +1085,7 @@ Enterprise: Custom limits
 
 ## 💡 Conclusion
 
-Bu roadmap, TaskFlow'a enterprise-grade AI capabilities kazandıracak profesyonel bir plandır.
+Bu roadmap, Axiom'a enterprise-grade AI capabilities kazandıracak profesyonel bir plandır.
 
 **Key Highlights:**
 - ✅ 15 AI features (3 fazda)

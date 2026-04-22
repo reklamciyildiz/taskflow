@@ -15,7 +15,7 @@ export function MarketingUseCases() {
             Built for real days — not just tasks.
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-base text-zinc-500">
-            TaskFlow is a complete operating system for action: capture, process, ship — alone or with a
+            Axiom is a complete operating system for action: capture, process, ship — alone or with a
             team.
           </p>
         </div>

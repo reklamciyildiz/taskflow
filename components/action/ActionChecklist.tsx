@@ -101,6 +101,8 @@ export interface ActionChecklistProps {
   memberOptions?: { id: string; name: string }[];
   /** If set, scroll + highlight this checklist row id (body rows only). */
   focusRowId?: string | null;
+  /** Gates advanced reminder presets in the due picker (Free vs Pro/Team). */
+  canUseAdvancedReminderPresets?: boolean;
 }
 
 export function ActionChecklist({
@@ -109,6 +111,7 @@ export function ActionChecklist({
   onItemsChange,
   memberOptions = [],
   focusRowId = null,
+  canUseAdvancedReminderPresets = true,
 }: ActionChecklistProps) {
   const quickInputRef = useRef<HTMLTextAreaElement | null>(null);
   const itemInputRefs = useRef<Array<HTMLTextAreaElement | null>>([]);
@@ -546,6 +549,7 @@ export function ActionChecklist({
                                     <DueFlowPicker
                                       value={parseDueDateLocal(row.dueDate) ?? null}
                                       reminders={Array.isArray(row.reminders) ? row.reminders : []}
+                                      canUseAdvancedReminderPresets={canUseAdvancedReminderPresets}
                                       disabled={disabled}
                                       onChange={(next) => {
                                         updateBodyRow(bodyIndex, {
@@ -593,6 +597,7 @@ export function ActionChecklist({
                                   <DueFlowPicker
                                     value={parseDueDateLocal(row.dueDate) ?? null}
                                     reminders={Array.isArray(row.reminders) ? row.reminders : []}
+                                    canUseAdvancedReminderPresets={canUseAdvancedReminderPresets}
                                     disabled={disabled}
                                     onChange={(next) => {
                                       updateBodyRow(bodyIndex, {

@@ -1,4 +1,4 @@
-# TaskFlow - Production Deployment Guide
+# Axiom - Production Deployment Guide
 
 ## Prerequisites
 
@@ -62,7 +62,7 @@ All tables are already created. Verify these tables exist:
 1. Create OAuth credentials (Web application).
 2. Add Authorized redirect URI: `https://your-domain.com/api/integrations/google/callback`
 3. Enable Google Calendar API for the project.
-4. Scopes used by TaskFlow include Calendar event read/write (`calendar.events`) and calendar list read (`calendar.readonly`) plus basic OpenID profile/email.
+4. Scopes used by Axiom include Calendar event read/write (`calendar.events`) and calendar list read (`calendar.readonly`) plus basic OpenID profile/email.
 
 ---
 

@@ -12,6 +12,8 @@ export async function middleware(request: NextRequest) {
     '/auth/error',
     '/manifest.webmanifest',
     '/api/auth',
+    // Cron route handlers enforce CRON_SECRET (or Vercel Cron UA) themselves.
+    '/api/cron',
     '/marketing',
     '/onboarding',
     '/invite',

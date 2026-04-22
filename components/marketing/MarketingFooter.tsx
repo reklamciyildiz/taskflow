@@ -5,7 +5,7 @@ export function MarketingFooter() {
     <footer className="border-t border-white/[0.06] bg-[#050505] px-4 py-12 sm:px-6">
       <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-8 sm:flex-row">
         <p className="text-sm text-zinc-500">
-          © {new Date().getFullYear()} TaskFlow.{' '}
+          © {new Date().getFullYear()} Axiom.{' '}
           <span className="text-zinc-400">From chaos to clarity.</span>
         </p>
         <div className="flex flex-wrap items-center justify-center gap-6 text-sm">

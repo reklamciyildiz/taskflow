@@ -13,7 +13,7 @@ export function MarketingHeader() {
           <span className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-zinc-900 shadow-[0_0_20px_-6px_rgba(16,185,129,0.35)] transition-shadow group-hover:border-emerald-500/30 group-hover:shadow-[0_0_28px_-4px_rgba(16,185,129,0.45)]">
             <Image
               src="/icon-192x192.png"
-              alt="TaskFlow"
+              alt="Axiom"
               width={36}
               height={36}
               sizes="36px"
@@ -24,7 +24,7 @@ export function MarketingHeader() {
               <LayoutDashboard className="h-4 w-4 text-emerald-400" aria-hidden />
             </span>
           </span>
-          <span className="text-lg tracking-tight">TaskFlow</span>
+          <span className="text-lg tracking-tight">Axiom</span>
         </Link>
         <nav className="flex items-center gap-1 sm:gap-2">
           <Link

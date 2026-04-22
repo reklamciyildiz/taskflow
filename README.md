@@ -1,4 +1,4 @@
-# TaskFlow - Premium Team Productivity App
+# Axiom - Premium Team Productivity App
 
 A sophisticated task management application built with Next.js, featuring advanced team collaboration, analytics, and modern UI design.
 

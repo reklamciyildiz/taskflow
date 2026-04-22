@@ -23,7 +23,7 @@ export function MarketingHeroSection({ children }: { children: ReactNode }) {
           </span>
         </h1>
         <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-zinc-400 sm:text-lg">
-          TaskFlow is a personal and team productivity OS — dynamic processes, roles & assignments,
+          Axiom is a personal and team productivity OS — dynamic processes, roles & assignments,
           customer-ready workflows, webhooks to the outside world, and a second brain that keeps context
           attached to real work.
         </p>

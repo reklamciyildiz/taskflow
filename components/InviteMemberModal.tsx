@@ -14,12 +14,59 @@ export function InviteMemberModal({ isOpen, onClose, teamId }: InviteMemberModal
   const [role, setRole] = useState<'member' | 'admin' | 'viewer'>('member');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showUpgrade, setShowUpgrade] = useState(false);
+  const [upgradeBusy, setUpgradeBusy] = useState(false);
   const [inviteResult, setInviteResult] = useState<{
     token: string;
     inviteLink: string;
     emailSent?: boolean;
   } | null>(null);
   const [copied, setCopied] = useState(false);
+
+  const ensureLemon = async () => {
+    if (typeof window === 'undefined') return;
+    const w = window as any;
+    if (w.LemonSqueezy?.Url?.Open) return;
+    await new Promise<void>((resolve, reject) => {
+      const existing = document.querySelector('script[data-lemonsqueezy="lemonjs"]') as HTMLScriptElement | null;
+      if (existing) {
+        existing.addEventListener('load', () => resolve());
+        existing.addEventListener('error', () => reject(new Error('Failed to load lemon.js')));
+        return;
+      }
+      const s = document.createElement('script');
+      s.src = 'https://app.lemonsqueezy.com/js/lemon.js';
+      s.defer = true;
+      s.dataset.lemonsqueezy = 'lemonjs';
+      s.onload = () => resolve();
+      s.onerror = () => reject(new Error('Failed to load lemon.js'));
+      document.head.appendChild(s);
+    });
+    (window as any).createLemonSqueezy?.();
+  };
+
+  const openTeamUpgrade = async () => {
+    setUpgradeBusy(true);
+    try {
+      const resp = await fetch('/api/billing/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan: 'team', seats: 2 }),
+      });
+      const json = await resp.json();
+      if (!resp.ok || !json?.success) throw new Error(json?.error || 'Could not start checkout');
+      const url = json?.data?.url;
+      if (typeof url !== 'string' || !url) throw new Error('Checkout URL missing');
+      await ensureLemon();
+      const w = window as any;
+      if (w.LemonSqueezy?.Url?.Open) w.LemonSqueezy.Url.Open(url);
+      else window.location.href = url;
+    } catch (e: any) {
+      setError(e?.message || 'Could not start checkout');
+    } finally {
+      setUpgradeBusy(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,6 +78,7 @@ export function InviteMemberModal({ isOpen, onClose, teamId }: InviteMemberModal
 
     setLoading(true);
     setError(null);
+    setShowUpgrade(false);
 
     try {
       const response = await fetch('/api/invitations', {
@@ -46,6 +94,9 @@ export function InviteMemberModal({ isOpen, onClose, teamId }: InviteMemberModal
       const data = await response.json();
 
       if (!response.ok) {
+        if (response.status === 402 && data?.code === 'PAYWALL_TEAM_INVITES') {
+          setShowUpgrade(true);
+        }
         throw new Error(data.error || 'Failed to create invitation');
       }
 
@@ -88,6 +139,8 @@ export function InviteMemberModal({ isOpen, onClose, teamId }: InviteMemberModal
     setEmail('');
     setRole('member');
     setError(null);
+    setShowUpgrade(false);
+    setUpgradeBusy(false);
     setInviteResult(null);
     setCopied(false);
     onClose();
@@ -97,6 +150,8 @@ export function InviteMemberModal({ isOpen, onClose, teamId }: InviteMemberModal
     setEmail('');
     setRole('member');
     setError(null);
+    setShowUpgrade(false);
+    setUpgradeBusy(false);
     setInviteResult(null);
     setCopied(false);
   };
@@ -177,6 +232,26 @@ export function InviteMemberModal({ isOpen, onClose, teamId }: InviteMemberModal
                 <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-600 dark:text-red-400 text-sm">
                   {error}
                 </div>
+              )}
+              {showUpgrade && (
+                <button
+                  type="button"
+                  disabled={upgradeBusy}
+                  onClick={openTeamUpgrade}
+                  className="w-full py-2.5 px-4 bg-gray-900 hover:bg-gray-800 disabled:bg-gray-700 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+                >
+                  {upgradeBusy ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Opening checkout...
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus className="w-5 h-5" />
+                      Upgrade to Team
+                    </>
+                  )}
+                </button>
               )}
 
               {/* Submit Button */}

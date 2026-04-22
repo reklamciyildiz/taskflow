@@ -1,6 +1,6 @@
-# 🚀 TaskFlow İçin Entegrasyon Önerileri ve Stratejik Planlama
+# 🚀 Axiom İçin Entegrasyon Önerileri ve Stratejik Planlama
 
-**Proje:** TaskFlow - Next.js 13 + Supabase Task Management System  
+**Proje:** Axiom - Next.js 13 + Supabase Task Management System
 **Tarih:** 13 Ocak 2026  
 **Teknoloji Stack:** Next.js 13, TypeScript, Supabase, Tailwind CSS
 
@@ -310,7 +310,7 @@
 
 ## 📝 NOTLAR
 
-- Bu doküman TaskFlow projesinin entegrasyon stratejisini içerir
+- Bu doküman Axiom projesinin entegrasyon stratejisini içerir
 - Her entegrasyon için detaylı implementasyon planı ayrıca hazırlanmalıdır
 - Öncelik sırası proje ihtiyaçlarına göre değiştirilebilir
 - Tüm entegrasyonlar için güvenlik ve performans testleri yapılmalıdır

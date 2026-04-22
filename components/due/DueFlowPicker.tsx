@@ -110,13 +110,22 @@ function parseCustomTimeToHhmm(input: string): string | null {
 export type DueFlowPickerProps = {
   value: Date | null;
   reminders: string[] | null;
+  canUseAdvancedReminderPresets?: boolean;
   disabled?: boolean;
   onChange: (nextDueAt: Date | null) => void;
   onRemindersChange: (next: string[] | null) => void;
   onRequestClose?: () => void;
 };
 
-export function DueFlowPicker({ value, reminders, disabled, onChange, onRemindersChange, onRequestClose }: DueFlowPickerProps) {
+export function DueFlowPicker({
+  value,
+  reminders,
+  canUseAdvancedReminderPresets = true,
+  disabled,
+  onChange,
+  onRemindersChange,
+  onRequestClose,
+}: DueFlowPickerProps) {
   const [view, setView] = useState<View>('main');
   const [customTimeDraft, setCustomTimeDraft] = useState('');
   const [customTimeInvalid, setCustomTimeInvalid] = useState(false);
@@ -307,16 +316,23 @@ export function DueFlowPicker({ value, reminders, disabled, onChange, onReminder
     <div className="px-3 py-2">
       <div className="space-y-1">
         {REMINDER_PRESETS.map((p) => (
+          // Gate all presets except "when_due" behind Pro/Team.
+          // Keep "when_due" available so Free users can still benefit from basic reminders.
           <button
             key={p.id}
             type="button"
             className={cn(
               'flex w-full items-center justify-between rounded-md px-2 py-2 text-left text-sm transition-colors',
               preset === p.id ? 'bg-primary/10 text-foreground' : 'hover:bg-muted/40 text-muted-foreground',
-              (disabled || !value) && 'pointer-events-none opacity-50'
+              (disabled || !value) && 'pointer-events-none opacity-50',
+              p.id !== 'when_due' && !canUseAdvancedReminderPresets && 'opacity-50'
             )}
             onClick={() => {
               if (disabled || !value) return;
+              if (p.id !== 'when_due' && !canUseAdvancedReminderPresets) {
+                toast.message('Upgrade to Pro to unlock advanced reminders.', { duration: 4500 });
+                return;
+              }
               onRemindersChange(computeReminderInstantsUtcIso({ dueAt: value, preset: p.id }));
               setView('main');
               toast.success('Reminder saved', { description: p.label, duration: 4500 });

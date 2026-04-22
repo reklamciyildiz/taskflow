@@ -15,7 +15,7 @@ function getMetadataBase(): URL {
 }
 
 const base = getMetadataBase();
-const title = 'TaskFlow — From chaos to clarity';
+const title = 'Axiom — From chaos to clarity';
 const description =
   'Turn mental noise into actionable workflows. Process boards, Knowledge Hub, voice capture, and a personal productivity OS for teams.';
 
@@ -36,7 +36,7 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'en_US',
     url: '/marketing',
-    siteName: 'TaskFlow',
+    siteName: 'Axiom',
     title,
     description:
       'Action-first task system with dynamic pipelines, second brain, and frictionless capture.',
@@ -45,7 +45,7 @@ export const metadata: Metadata = {
         url: '/icon-512x512.png',
         width: 512,
         height: 512,
-        alt: 'TaskFlow',
+        alt: 'Axiom',
       },
     ],
   },
@@ -64,7 +64,7 @@ export const metadata: Metadata = {
 const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'SoftwareApplication',
-  name: 'TaskFlow',
+  name: 'Axiom',
   applicationCategory: 'BusinessApplication',
   applicationSubCategory: 'Personal and team productivity operating system',
   operatingSystem: 'Web',

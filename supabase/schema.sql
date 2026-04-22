@@ -1,4 +1,4 @@
--- TaskFlow SaaS Database Schema
+-- Axiom SaaS Database Schema
 -- Run this in Supabase SQL Editor: https://supabase.com/dashboard/project/ujryiwlfzgdnwgvylzqe/sql
 
 -- Enable UUID extension

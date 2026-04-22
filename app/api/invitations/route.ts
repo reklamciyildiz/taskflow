@@ -4,6 +4,8 @@ import { authOptions } from '@/lib/auth';
 import { invitationDb, userDb, organizationDb } from '@/lib/db';
 import { randomBytes } from 'crypto';
 import { sendInvitationEmail } from '@/lib/email';
+import { canInviteMembers, getOrganizationEntitlements } from '@/lib/entitlements';
+import { getOrganizationSeatUsage } from '@/lib/entitlements';
 
 // GET - List all invitations for the organization
 export async function GET(request: NextRequest) {
@@ -76,6 +78,40 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Paywall (Team): invitations are only available on active Team subscriptions.
+    if (user.organization_id) {
+      const ent = await getOrganizationEntitlements(user.organization_id);
+      if (!canInviteMembers(ent)) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Inviting members is available on the Team plan.',
+            code: 'PAYWALL_TEAM_INVITES',
+            plan: ent.plan,
+          },
+          { status: 402 }
+        );
+      }
+
+      // Seat enforcement: do not allow inviting beyond the purchased seat limit.
+      // (Seat usage counts distinct users across org teams; invites are blocked once full.)
+      if (Number.isFinite(ent.seatLimit) && ent.seatLimit !== Number.POSITIVE_INFINITY) {
+        const used = await getOrganizationSeatUsage(user.organization_id);
+        if (used >= ent.seatLimit) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: `Your Team plan has reached its seat limit (${ent.seatLimit}). Upgrade to add more seats.`,
+              code: 'PAYWALL_TEAM_SEATS',
+              seatLimit: ent.seatLimit,
+              seatsUsed: used,
+            },
+            { status: 402 }
+          );
+        }
+      }
+    }
+
     const { email, teamId, role = 'member' } = await request.json();
 
     if (!email || typeof email !== 'string') {
@@ -113,7 +149,7 @@ export async function POST(request: NextRequest) {
 
     // Get organization name for the email
     const organization = await organizationDb.getById(user.organization_id);
-    const organizationName = organization?.name || 'TaskFlow Organization';
+    const organizationName = organization?.name || 'Axiom Organization';
     const inviterName = user.name || session.user.name || 'A team member';
 
     // Send invitation email (don't block on failure)

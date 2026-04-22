@@ -1,4 +1,4 @@
-# TaskFlow Copy Style Guide
+# Axiom Copy Style Guide
 
 This project intentionally uses consistent terms across the UI to reduce cognitive load.
 

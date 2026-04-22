@@ -77,13 +77,13 @@ export default function SignUpPage() {
           <div className="flex justify-center">
             <div className="flex items-center gap-2 text-primary">
               <CheckSquare className="h-8 w-8" />
-              <span className="text-2xl font-bold">TaskFlow</span>
+              <span className="text-2xl font-bold">Axiom</span>
             </div>
           </div>
           <div>
             <CardTitle className="text-2xl">Create an account</CardTitle>
             <CardDescription className="mt-2">
-              Get started with TaskFlow today
+              Get started with Axiom today
             </CardDescription>
           </div>
         </CardHeader>

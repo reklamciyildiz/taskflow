@@ -1,4 +1,4 @@
-# 🔔 TaskFlow Webhook & API Documentation
+# 🔔 Axiom Webhook & API Documentation
 
 **Version:** 1.0  
 **Last Updated:** 13 Ocak 2026
@@ -21,7 +21,7 @@
 
 ## 🎯 Overview
 
-TaskFlow Webhook & API sistemi, uygulamanızdaki önemli olayları (task oluşturma, güncelleme, silme vb.) gerçek zamanlı olarak dış sistemlere bildirmenizi sağlar.
+Axiom Webhook & API sistemi, uygulamanızdaki önemli olayları (task oluşturma, güncelleme, silme vb.) gerçek zamanlı olarak dış sistemlere bildirmenizi sağlar.
 
 ### Key Features:
 - ✅ **12 farklı event tipi** (task, customer, team events)
@@ -230,7 +230,7 @@ Cookie: next-auth.session-token=<your-session-token>
 
 ## 📡 Webhook Events
 
-TaskFlow aşağıdaki event'leri destekler:
+Axiom aşağıdaki event'leri destekler:
 
 ### Task Events
 
@@ -479,7 +479,7 @@ Webhook delivery başarısız olursa, otomatik retry mekanizması devreye girer:
 ### Example 1: Zapier Integration
 
 ```javascript
-// Zapier webhook URL'inizi TaskFlow'a ekleyin
+// Zapier webhook URL'inizi Axiom'a ekleyin
 POST /api/webhooks
 {
   "name": "Zapier - Slack Notification",
@@ -489,7 +489,7 @@ POST /api/webhooks
 
 // Zapier'da:
 // 1. Webhook by Zapier trigger seçin
-// 2. URL'i kopyalayın ve TaskFlow'a ekleyin
+// 2. URL'i kopyalayın ve Axiom'a ekleyin
 // 3. Slack action ekleyin
 // 4. Task oluşturulduğunda Slack'te bildirim alın!
 ```
@@ -556,7 +556,7 @@ app.listen(3000, () => {
 2. "Webhooks" modülünü seçin
 3. "Custom webhook" oluşturun
 4. URL'i kopyalayın
-5. TaskFlow'da webhook oluşturun:
+5. Axiom'da webhook oluşturun:
    - URL: Make.com webhook URL'i
    - Events: İstediğiniz event'ler
 6. Make.com'da istediğiniz action'ları ekleyin
@@ -587,7 +587,7 @@ app.listen(3000, () => {
 ## 📞 Support
 
 Webhook entegrasyonu ile ilgili sorularınız için:
-- GitHub Issues: [TaskFlow Repository]
+- GitHub Issues: [Axiom Repository]
 - Email: support@taskflow.com
 - Documentation: [Full API Docs]
 

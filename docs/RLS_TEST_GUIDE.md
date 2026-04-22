@@ -8,7 +8,7 @@
 
 1. **Yeni Test Project Oluştur:**
    - https://supabase.com/dashboard
-   - "New Project" → "TaskFlow-Test"
+   - "New Project" → "Axiom-Test"
    - Region seç, şifre belirle
    - Create Project (2-3 dk bekle)
 

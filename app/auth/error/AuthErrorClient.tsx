@@ -44,7 +44,7 @@ export function AuthErrorClient({ error }: { error: string | null }) {
           <div className="flex justify-center">
             <div className="flex items-center gap-2 text-primary">
               <CheckSquare className="h-8 w-8" />
-              <span className="text-2xl font-bold">TaskFlow</span>
+              <span className="text-2xl font-bold">Axiom</span>
             </div>
           </div>
           <div className="flex justify-center">

@@ -1,4 +1,4 @@
-// Webhook types and utilities for TaskFlow
+// Webhook types and utilities for Axiom
 
 export type WebhookEvent = 
   | 'task.created'
