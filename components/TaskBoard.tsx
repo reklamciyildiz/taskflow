@@ -156,7 +156,7 @@ export function TaskBoard() {
                 >
                   <SelectValue placeholder="Choose process" />
                 </SelectTrigger>
-                <SelectContent className="z-[200]">
+                <SelectContent>
                   <SelectItem value="__general__">General actions</SelectItem>
                   {projectsForTeam.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
@@ -228,7 +228,7 @@ export function TaskBoard() {
               >
                 <SelectValue placeholder={`All ${customerDirectoryLabel}`} />
               </SelectTrigger>
-              <SelectContent className="z-[200]">
+              <SelectContent>
                 <SelectItem value="__all_customers__">All {customerDirectoryLabel}</SelectItem>
                 {customers.map((customer) => (
                   <SelectItem key={customer.id} value={customer.id}>

@@ -586,7 +586,10 @@ export function ActionChecklist({
                                     {row.dueDate ? `Due: ${row.dueDate}` : 'Due date'}
                                   </TooltipContent>
                                 </Tooltip>
-                                <DialogContent className="flex max-h-[92dvh] min-h-0 w-[min(92vw,380px)] max-w-[min(92vw,380px)] flex-col gap-0 overflow-hidden p-0">
+                                <DialogContent
+                                  hideClose
+                                  className="flex max-h-[92dvh] min-h-0 w-[min(92vw,380px)] max-w-[min(92vw,380px)] flex-col gap-0 overflow-hidden p-0"
+                                >
                                   <DueFlowPicker
                                     value={parseDueDateLocal(row.dueDate) ?? null}
                                     reminders={Array.isArray(row.reminders) ? row.reminders : []}

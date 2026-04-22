@@ -6,6 +6,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 import { REMINDER_PRESETS, computeReminderInstantsUtcIso, detectReminderPreset, type ReminderPresetId } from '@/lib/reminder-presets';
 
 type View = 'main' | 'time' | 'remind';
@@ -318,6 +319,7 @@ export function DueFlowPicker({ value, reminders, disabled, onChange, onReminder
               if (disabled || !value) return;
               onRemindersChange(computeReminderInstantsUtcIso({ dueAt: value, preset: p.id }));
               setView('main');
+              toast.success('Reminder saved', { description: p.label, duration: 4500 });
             }}
           >
             <span>{p.label}</span>
@@ -334,6 +336,7 @@ export function DueFlowPicker({ value, reminders, disabled, onChange, onReminder
           onClick={() => {
             onRemindersChange([]);
             setView('main');
+            toast.message('Reminder off', { duration: 3500 });
           }}
         >
           <span>Clear reminder</span>
@@ -359,6 +362,7 @@ export function DueFlowPicker({ value, reminders, disabled, onChange, onReminder
             setView('main');
             onChange(null);
             onRemindersChange([]);
+            toast.message('Due date and reminders cleared', { duration: 3500 });
           }}
         >
           Clear

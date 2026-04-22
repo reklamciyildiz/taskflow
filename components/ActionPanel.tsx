@@ -495,7 +495,7 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
                                 <SelectTrigger className="h-9 border-border/60 bg-background/80">
                                   <SelectValue />
                                 </SelectTrigger>
-                                <SelectContent className="z-[200]">
+                                <SelectContent>
                                   {statusSelectOptions.map((col) => (
                                     <SelectItem key={col.id} value={col.id}>
                                       {col.title}
@@ -517,7 +517,7 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
                                 <SelectTrigger className="h-9 border-border/60 bg-background/80">
                                   <SelectValue />
                                 </SelectTrigger>
-                                <SelectContent className="z-[200]">
+                                <SelectContent>
                                   <SelectItem value="low">Low</SelectItem>
                                   <SelectItem value="medium">Medium</SelectItem>
                                   <SelectItem value="high">High</SelectItem>
@@ -560,7 +560,7 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
                                   </Button>
                                 </PopoverTrigger>
                                 <PopoverContent
-                                  className="w-72 p-0 z-[200]"
+                                  className="w-72 p-0"
                                   align="start"
                                   onOpenAutoFocus={(e) => e.preventDefault()}
                                 >
@@ -674,7 +674,10 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
                                       {selectedDueDate ? format(selectedDueDate, 'PPP') : 'Select date'}
                                     </Button>
                                   </DialogTrigger>
-                                  <DialogContent className="flex max-h-[92dvh] min-h-0 w-[min(92vw,380px)] max-w-[min(92vw,380px)] flex-col gap-0 overflow-hidden p-0">
+                                  <DialogContent
+                                    hideClose
+                                    className="flex max-h-[92dvh] min-h-0 w-[min(92vw,380px)] max-w-[min(92vw,380px)] flex-col gap-0 overflow-hidden p-0"
+                                  >
                                     <DueFlowPicker
                                       value={task?.dueDate ?? null}
                                       reminders={taskReminders}
@@ -711,7 +714,7 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
                                 <SelectTrigger className="h-9 border-border/60 bg-background/80">
                                   <SelectValue placeholder="None" />
                                 </SelectTrigger>
-                                <SelectContent className="z-[200]">
+                                <SelectContent>
                                   <SelectItem value="none">No {customerSingularLabel}</SelectItem>
                                   {customers.map((customer) => (
                                     <SelectItem key={customer.id} value={customer.id}>
@@ -913,7 +916,7 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
           else setZenOpen(true);
         }}
       >
-        <DialogContent className="z-[300] w-[calc(100vw-1rem)] max-w-5xl p-0 sm:w-[min(96vw,1100px)] [&>button.absolute]:hidden">
+        <DialogContent className="w-[calc(100vw-1rem)] max-w-5xl p-0 sm:w-[min(96vw,1100px)] [&>button.absolute]:hidden">
           <div className="flex h-[min(92dvh,920px)] flex-col overflow-hidden rounded-lg border border-border/60 bg-background">
             <div className="flex items-center justify-between gap-3 border-b border-border/50 bg-muted/10 px-4 py-3">
               <div className="min-w-0">

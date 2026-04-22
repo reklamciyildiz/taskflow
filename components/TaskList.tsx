@@ -198,7 +198,7 @@ export function TaskList() {
               >
                 <SelectValue placeholder="Choose process" />
               </SelectTrigger>
-              <SelectContent className="z-[200]">
+              <SelectContent>
                 <SelectItem value="__general__">General actions</SelectItem>
                 {projectsForTeam.map((p) => (
                   <SelectItem key={p.id} value={p.id}>

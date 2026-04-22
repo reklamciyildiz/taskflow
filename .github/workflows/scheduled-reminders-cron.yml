@@ -1,0 +1,47 @@
+# External cron for /api/cron/scheduled-reminders (Hobby-safe).
+#
+# Vercel Hobby only allows daily cron in vercel.json. For "Remind me" presets
+# (absolute instants), run this workflow on a short interval and call production
+# with the same CRON_SECRET you set on Vercel.
+#
+# Repo → Settings → Secrets and variables → Actions → tab "Secrets"
+# → "New repository secret" (NOT Environments / environment secrets, unless
+# you add `environment: ...` to the job below).
+#   CRON_BASE_URL   e.g. https://your-app.vercel.app  (no trailing slash)
+#   CRON_SECRET     exact same string as Vercel + .env.local (do not commit .env.local)
+#
+# The route is idempotent (notification dedupe); overlapping Vercel + GHA is OK.
+
+name: Cron — scheduled reminders
+
+on:
+  schedule:
+    # Every 10 minutes UTC (GitHub may delay a few minutes under load).
+    # Private repos: if you approach Actions minute limits, loosen to */15 or */30.
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: scheduled-reminders-external-cron
+  cancel-in-progress: false
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Call scheduled-reminders API
+        env:
+          CRON_BASE_URL: ${{ secrets.CRON_BASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CRON_BASE_URL:-}" ] || [ -z "${CRON_SECRET:-}" ]; then
+            echo "CRON_BASE_URL or CRON_SECRET not set — skipping (configure Action secrets for production)."
+            exit 0
+          fi
+          BASE="${CRON_BASE_URL%/}"
+          echo "Triggering scheduled reminders…"
+          curl -sfS -X GET \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "${BASE}/api/cron/scheduled-reminders"
