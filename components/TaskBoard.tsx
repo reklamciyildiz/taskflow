@@ -140,7 +140,7 @@ export function TaskBoard() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-3">
-          <h2 className="text-2xl font-bold">Pano</h2>
+          <h2 className="text-2xl font-bold">Panel</h2>
           {projectsForTeam.length > 0 && (
             <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
               <Select
