@@ -18,6 +18,9 @@ export function MarketingFooter() {
           <Link href="/marketing#features" className="text-zinc-500 transition-colors hover:text-zinc-200">
             Features
           </Link>
+          <Link href="/marketing#pricing" className="text-zinc-500 transition-colors hover:text-zinc-200">
+            Pricing
+          </Link>
         </div>
       </div>
     </footer>

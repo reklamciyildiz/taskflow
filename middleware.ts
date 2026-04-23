@@ -40,6 +40,11 @@ export async function middleware(request: NextRequest) {
     secret: process.env.NEXTAUTH_SECRET,
   });
 
+  // Logged-out visitors hit `/` → marketing site (Lemon / SEO expect a real landing URL).
+  if (!token && (pathname === '/' || pathname === '')) {
+    return NextResponse.redirect(new URL('/marketing', request.url));
+  }
+
   if (!token) {
     const signInUrl = new URL('/auth/signin', request.url);
     signInUrl.searchParams.set('callbackUrl', pathname);

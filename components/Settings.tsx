@@ -1,6 +1,6 @@
 'use client';
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -27,6 +27,7 @@ import {
   LogOut,
   Calendar,
   CreditCard,
+  ArrowRight,
 } from 'lucide-react';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
@@ -42,6 +43,8 @@ import { CreateTeamModal } from '@/components/CreateTeamModal';
 import { EditTeamModal } from '@/components/EditTeamModal';
 import { DeleteTeamModal } from '@/components/DeleteTeamModal';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import Link from 'next/link';
+import { useOrganizationBilling } from '@/hooks/useOrganizationBilling';
 
 export function Settings() {
   const {
@@ -106,131 +109,15 @@ export function Settings() {
   const [googleBusy, setGoogleBusy] = useState(false);
   // Processes are managed in Process Center (/dashboard/processes)
 
-  // Billing (Lemon Squeezy)
-  const [billingPlan, setBillingPlan] = useState<'free' | 'pro' | 'team'>('free');
-  const [billingStatus, setBillingStatus] = useState<'active' | 'past_due' | 'cancelled' | 'trialing'>('active');
-  const [billingLoading, setBillingLoading] = useState(false);
-  const [checkoutBusy, setCheckoutBusy] = useState<'pro' | 'team' | null>(null);
-  const [seatLimit, setSeatLimit] = useState<number>(1);
-  const [seatsUsed, setSeatsUsed] = useState<number>(1);
-
-  const ensureLemon = useCallback(async () => {
-    if (typeof window === 'undefined') return;
-    const w = window as any;
-    if (w.LemonSqueezy?.Url?.Open) return;
-    await new Promise<void>((resolve, reject) => {
-      const existing = document.querySelector('script[data-lemonsqueezy=\"lemonjs\"]') as HTMLScriptElement | null;
-      if (existing) {
-        existing.addEventListener('load', () => resolve());
-        existing.addEventListener('error', () => reject(new Error('Failed to load lemon.js')));
-        return;
-      }
-      const s = document.createElement('script');
-      s.src = 'https://app.lemonsqueezy.com/js/lemon.js';
-      s.defer = true;
-      s.dataset.lemonsqueezy = 'lemonjs';
-      s.onload = () => resolve();
-      s.onerror = () => reject(new Error('Failed to load lemon.js'));
-      document.head.appendChild(s);
-    });
-    (window as any).createLemonSqueezy?.();
-  }, []);
-
-  const refreshBilling = useCallback(async () => {
-    if (!organizationId) return;
-    setBillingLoading(true);
-    try {
-      const res = await fetch('/api/billing/summary');
-      const json = await res.json();
-      if (json?.success && json?.data) {
-        const plan = String(json.data.plan ?? 'free').toLowerCase();
-        const status = String(json.data.subscriptionStatus ?? 'active').toLowerCase();
-        setBillingPlan(plan === 'team' ? 'team' : plan === 'pro' ? 'pro' : 'free');
-        setBillingStatus(
-          status === 'past_due'
-            ? 'past_due'
-            : status === 'cancelled'
-              ? 'cancelled'
-              : status === 'trialing'
-                ? 'trialing'
-                : 'active'
-        );
-        setSeatLimit(Number(json.data.seatLimit ?? 1) || 1);
-        setSeatsUsed(Number(json.data.seatsUsed ?? 1) || 1);
-      }
-    } catch {
-      // ignore
-    } finally {
-      setBillingLoading(false);
-    }
-  }, [organizationId]);
-
-  useEffect(() => {
-    void refreshBilling();
-  }, [refreshBilling]);
-
-  const openCheckout = useCallback(
-    async (plan: 'pro' | 'team') => {
-      setCheckoutBusy(plan);
-      try {
-        const resp = await fetch('/api/billing/checkout', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(plan === 'team' ? { plan: 'team', seats: 2 } : { plan: 'pro' }),
-        });
-        const json = await resp.json();
-        if (!resp.ok || !json?.success) throw new Error(json?.error || 'Could not start checkout');
-        const url = json?.data?.url;
-        if (typeof url !== 'string' || !url) throw new Error('Checkout URL missing');
-
-        await ensureLemon();
-        const w = window as any;
-        if (w.LemonSqueezy?.Url?.Open) w.LemonSqueezy.Url.Open(url);
-        else window.location.href = url;
-      } catch (e: any) {
-        toast.error(e?.message || 'Could not start checkout');
-      } finally {
-        setCheckoutBusy(null);
-      }
-    },
-    [ensureLemon]
-  );
-
-  const openCustomerPortal = useCallback(async () => {
-    try {
-      const resp = await fetch('/api/billing/portal');
-      const json = await resp.json();
-      if (!resp.ok || !json?.success) throw new Error(json?.error || 'Could not open customer portal');
-      const url = json?.data?.customerPortalUrl || json?.data?.updatePaymentMethodUrl;
-      if (typeof url !== 'string' || !url) throw new Error('Customer portal URL missing');
-      await ensureLemon();
-      const w = window as any;
-      if (w.LemonSqueezy?.Url?.Open) w.LemonSqueezy.Url.Open(url);
-      else window.location.href = url;
-    } catch (e: any) {
-      toast.error(e?.message || 'Could not open customer portal');
-    }
-  }, [ensureLemon]);
-
-  const openSeatUpgrade = useCallback(async () => {
-    try {
-      const resp = await fetch('/api/billing/portal');
-      const json = await resp.json();
-      if (!resp.ok || !json?.success) throw new Error(json?.error || 'Could not open subscription management');
-      // Prefer the "update subscription" portal when present; fallback to full portal.
-      const url =
-        json?.data?.customerPortalUpdateSubscriptionUrl ||
-        json?.data?.customerPortalUrl ||
-        json?.data?.updatePaymentMethodUrl;
-      if (typeof url !== 'string' || !url) throw new Error('Subscription management URL missing');
-      await ensureLemon();
-      const w = window as any;
-      if (w.LemonSqueezy?.Url?.Open) w.LemonSqueezy.Url.Open(url);
-      else window.location.href = url;
-    } catch (e: any) {
-      toast.error(e?.message || 'Could not open subscription management');
-    }
-  }, [ensureLemon]);
+  const {
+    billingPlan,
+    billingStatus,
+    billingLoading,
+    checkoutBusy,
+    seatLimit,
+    seatsUsed,
+    refreshBilling,
+  } = useOrganizationBilling(organizationId);
 
   const browserTimeZone = useMemo(() => {
     try {
@@ -849,86 +736,63 @@ export function Settings() {
             </Card>
           )}
 
-          {/* Billing (Admin/Owner) */}
+          {/* Billing (Admin/Owner) — full dashboard at /settings/billing */}
           {isAdmin && organizationId && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <CreditCard className="h-5 w-5" />
-                  Billing
-                  <Badge variant={billingPlan === 'free' ? 'secondary' : 'default'} className="ml-2">
-                    {billingPlan.toUpperCase()}
-                  </Badge>
-                </CardTitle>
+            <Card className="border-border/80">
+              <CardHeader className="pb-3">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <CardTitle className="flex flex-wrap items-center gap-2 text-lg">
+                      <CreditCard className="h-5 w-5" aria-hidden />
+                      Billing
+                      <Badge variant={billingPlan === 'free' ? 'secondary' : 'default'} className="uppercase">
+                        {billingPlan}
+                      </Badge>
+                    </CardTitle>
+                    <CardDescription className="mt-1.5">
+                      Plans, checkout, invoices, and seats — managed via Lemon Squeezy.
+                    </CardDescription>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={checkoutBusy !== null}
+                    onClick={() => void refreshBilling()}
+                    className="shrink-0"
+                  >
+                    {billingLoading ? 'Refreshing…' : 'Refresh'}
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="space-y-1">
-                    <Label className="text-sm font-medium">Status</Label>
-                    <p className="text-xs text-muted-foreground">
-                      {billingLoading ? 'Loading…' : billingStatus.replace('_', ' ')}
+                <div className="flex flex-col gap-3 rounded-xl border bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="space-y-1 text-sm">
+                    <p>
+                      <span className="text-muted-foreground">Status</span>{' '}
+                      <span className="font-medium capitalize">
+                        {billingLoading ? '…' : billingStatus.replace('_', ' ')}
+                      </span>
                     </p>
                     {billingPlan === 'team' ? (
-                      <p className="text-xs text-muted-foreground">
-                        Seats: {billingLoading ? '…' : `${seatsUsed} / ${seatLimit}`}
+                      <p className="text-muted-foreground">
+                        Seats:{' '}
+                        <span className="font-medium text-foreground">
+                          {billingLoading ? '…' : `${seatsUsed} / ${seatLimit}`}
+                        </span>
                       </p>
-                    ) : null}
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        Open the billing page to compare plans, upgrade, or open the customer portal.
+                      </p>
+                    )}
                   </div>
-                  <div className="flex gap-2">
-                    <Button type="button" variant="outline" size="sm" disabled={checkoutBusy !== null} onClick={() => void refreshBilling()}>
-                      Refresh
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={checkoutBusy !== null || billingPlan === 'free'}
-                      onClick={() => void openCustomerPortal()}
-                      title={billingPlan === 'free' ? 'No subscription yet' : 'Manage subscription'}
-                    >
-                      Manage
-                    </Button>
-                    {billingPlan === 'team' ? (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={checkoutBusy !== null}
-                        onClick={() => void openSeatUpgrade()}
-                        title="Upgrade seats"
-                      >
-                        Add seats
-                      </Button>
-                    ) : null}
-                    <Button
-                      type="button"
-                      size="sm"
-                      disabled={checkoutBusy !== null}
-                      onClick={() => void openCheckout(billingPlan === 'free' ? 'pro' : 'team')}
-                    >
-                      {checkoutBusy ? 'Opening…' : billingPlan === 'free' ? 'Upgrade to Pro' : 'Upgrade to Team'}
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="rounded-lg border border-border/60 bg-muted/20 p-3 text-xs text-muted-foreground">
-                  {billingPlan === 'free' ? (
-                    <ul className="space-y-1">
-                      <li><strong>Free</strong>: core tasks + checklist.</li>
-                      <li><strong>Pro</strong>: advanced reminders + integrations.</li>
-                      <li><strong>Team</strong>: invites + per-seat collaboration.</li>
-                    </ul>
-                  ) : billingPlan === 'pro' ? (
-                    <ul className="space-y-1">
-                      <li><strong>Pro</strong>: 1 user (power user).</li>
-                      <li>Upgrade to <strong>Team</strong> for 2+ seats and invites.</li>
-                    </ul>
-                  ) : (
-                    <ul className="space-y-1">
-                      <li><strong>Team</strong>: invites and collaboration enabled.</li>
-                      <li>Charged per seat (user).</li>
-                    </ul>
-                  )}
+                  <Button asChild className="gap-2 sm:shrink-0">
+                    <Link href="/settings/billing">
+                      Billing & plans
+                      <ArrowRight className="h-4 w-4" aria-hidden />
+                    </Link>
+                  </Button>
                 </div>
               </CardContent>
             </Card>

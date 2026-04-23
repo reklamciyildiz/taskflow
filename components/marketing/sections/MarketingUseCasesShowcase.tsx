@@ -2,12 +2,12 @@
 
 import { useMemo, useState } from 'react';
 import Image from 'next/image';
-import { CalendarDays, Briefcase, Home } from 'lucide-react';
+import { CalendarDays, BookOpen, Home } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import type { LucideIcon } from 'lucide-react';
 
-type UseCaseKey = 'day' | 'work' | 'home';
+type UseCaseKey = 'day' | 'knowledge' | 'home';
 
 const cases: Record<
   UseCaseKey,
@@ -24,11 +24,11 @@ const cases: Record<
     icon: CalendarDays,
     shotSrc: '/marketing/screens/use-cases.png',
   },
-  work: {
-    title: 'Stay on top of work',
-    body: 'Run projects with dynamic pipelines, assignments, and shared visibility — board + list in sync.',
-    icon: Briefcase,
-    shotSrc: '/marketing/screens/features-grid.png',
+  knowledge: {
+    title: 'Knowledge Hub',
+    body: 'Search learnings, notes, and checklist context across projects — a living playbook tied to real work, not a dusty wiki.',
+    icon: BookOpen,
+    shotSrc: '/marketing/screens/knowledge-hub.png',
   },
   home: {
     title: 'Keep personal workflows in sync',
@@ -38,7 +38,7 @@ const cases: Record<
   },
 };
 
-const order: UseCaseKey[] = ['day', 'work', 'home'];
+const order: UseCaseKey[] = ['day', 'knowledge', 'home'];
 
 export function MarketingUseCasesShowcase() {
   const [active, setActive] = useState<UseCaseKey>('day');

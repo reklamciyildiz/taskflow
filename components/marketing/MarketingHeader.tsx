@@ -34,6 +34,12 @@ export function MarketingHeader() {
             Features
           </Link>
           <Link
+            href="/marketing#pricing"
+            className="hidden rounded-md px-3 py-2 text-sm text-zinc-400 transition-colors hover:bg-white/[0.05] hover:text-zinc-100 sm:inline-block"
+          >
+            Pricing
+          </Link>
+          <Link
             href="/auth/signin"
             className="rounded-md px-3 py-2 text-sm font-medium text-zinc-400 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
           >
