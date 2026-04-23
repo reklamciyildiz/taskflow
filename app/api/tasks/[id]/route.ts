@@ -13,6 +13,9 @@ import {
   removeGoogleCalendarForUserTask,
   syncGoogleCalendarForTaskForRelevantUsers,
 } from '@/lib/google-calendar-sync';
+import { canUseAdvancedReminders, getOrganizationEntitlements } from '@/lib/entitlements';
+import { computeReminderInstantsUtcIso } from '@/lib/reminder-presets';
+import { parseDueDateFromApi } from '@/lib/due-date';
 
 // GET /api/tasks/[id] - Get a specific task
 export async function GET(
@@ -229,6 +232,61 @@ export async function PATCH(
               }
             )
           : undefined;
+
+    // Server-side paywall: Free cannot set advanced scheduled reminders.
+    // We enforce this for both task-level reminders and checklist-row reminders inside journal_logs.
+    {
+      const ent = await getOrganizationEntitlements(String(actor.organization_id));
+      const canAdvanced = canUseAdvancedReminders(ent);
+
+      // Task-level reminders: if present in payload, allow only "when due" on Free.
+      if (!canAdvanced && Object.prototype.hasOwnProperty.call(body ?? {}, 'reminders')) {
+        const nextReminders = Array.isArray(body.reminders)
+          ? body.reminders.filter((x: any) => typeof x === 'string' && x.length > 0)
+          : [];
+        if (nextReminders.length > 0) {
+          const dueSource = Object.prototype.hasOwnProperty.call(body ?? {}, 'dueDate')
+            ? body.dueDate
+            : (originalTask as any).due_date;
+          const dueAt = parseDueDateFromApi(dueSource ?? null);
+          const allowed = dueAt ? computeReminderInstantsUtcIso({ dueAt, preset: 'when_due' })[0] : null;
+          if (!allowed || String(nextReminders[0]) !== allowed) {
+            return NextResponse.json<ApiResponse<null>>(
+              {
+                success: false,
+                error: 'Advanced reminders are available on the Pro plan.',
+                code: 'PAYWALL_PRO_REMINDERS' as any,
+              } as any,
+              { status: 402 }
+            );
+          }
+        }
+      }
+
+      // Checklist-row reminders: only allow "when due" for rows where due_date exists.
+      if (!canAdvanced && Array.isArray(body.journalLogs)) {
+        for (const row of body.journalLogs as any[]) {
+          if (!row || typeof row !== 'object') continue;
+          if (!Object.prototype.hasOwnProperty.call(row, 'reminders')) continue;
+          const next = Array.isArray(row.reminders)
+            ? row.reminders.filter((x: any) => typeof x === 'string' && x.length > 0)
+            : [];
+          if (next.length === 0) continue;
+          const dueAt = parseDueDateFromApi((row.dueDate ?? row.due_date) ?? null);
+          const allowed = dueAt ? computeReminderInstantsUtcIso({ dueAt, preset: 'when_due' })[0] : null;
+          if (!allowed || String(next[0]) !== allowed) {
+            return NextResponse.json<ApiResponse<null>>(
+              {
+                success: false,
+                error: 'Advanced reminders are available on the Pro plan.',
+                code: 'PAYWALL_PRO_REMINDERS' as any,
+              } as any,
+              { status: 402 }
+            );
+          }
+        }
+      }
+    }
 
     const updatedTask = await taskDb.update(params.id, {
       title: body.title,

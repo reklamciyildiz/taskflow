@@ -18,6 +18,16 @@ export async function GET(
       );
     }
 
+    const actor: any = await userDb.getByEmail(session.user.email);
+    if (!actor?.organization_id) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+    }
+
+    // Only allow reading your own organization (or org admin for their org).
+    if (String(actor.organization_id) !== String(params.id)) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+    }
+
     const organization = await organizationDb.getById(params.id);
     
     if (!organization) {

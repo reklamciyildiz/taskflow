@@ -83,21 +83,22 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
   } = useTaskContext();
   const canEdit = task ? canEditTask(task.createdBy, task.assigneeId) : false;
 
-  const [canUseAdvancedReminderPresets, setCanUseAdvancedReminderPresets] = useState(true);
+  const [canUseAdvancedReminderPresets, setCanUseAdvancedReminderPresets] = useState(false);
   useEffect(() => {
     let cancelled = false;
     async function load() {
       if (!organizationId) return;
       try {
-        const res = await fetch(`/api/organizations/${organizationId}`);
+        // Single source of truth: billing summary is backed by getOrganizationEntitlements() on the server.
+        const res = await fetch(`/api/billing/summary`);
         const json = await res.json();
-        const plan = String(json?.data?.plan_name ?? 'free').toLowerCase();
-        const status = String(json?.data?.subscription_status ?? 'active').toLowerCase();
+        const plan = String(json?.data?.plan ?? 'free').toLowerCase();
+        const status = String(json?.data?.subscriptionStatus ?? 'active').toLowerCase();
         const paid = plan !== 'free' && (status === 'active' || status === 'trialing' || status === 'past_due');
         if (!cancelled) setCanUseAdvancedReminderPresets(paid);
       } catch {
-        // fail open: avoid blocking UX if billing is not configured yet
-        if (!cancelled) setCanUseAdvancedReminderPresets(true);
+        // Fail closed: server-side routes also gate paid features.
+        if (!cancelled) setCanUseAdvancedReminderPresets(false);
       }
     }
     void load();

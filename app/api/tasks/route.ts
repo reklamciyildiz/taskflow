@@ -8,6 +8,9 @@ import { triggerWebhook } from '@/lib/webhook-trigger';
 import { TaskCreatedPayload, TaskAssignedPayload } from '@/lib/webhooks';
 import { sendPushToUser } from '@/lib/push';
 import { syncGoogleCalendarForTaskForRelevantUsers } from '@/lib/google-calendar-sync';
+import { canUseAdvancedReminders, getOrganizationEntitlements } from '@/lib/entitlements';
+import { computeReminderInstantsUtcIso } from '@/lib/reminder-presets';
+import { parseDueDateFromApi } from '@/lib/due-date';
 
 // GET /api/tasks - Get all tasks (optionally filtered by teamId or organizationId)
 export async function GET(request: NextRequest) {
@@ -126,6 +129,29 @@ export async function POST(request: NextRequest) {
         { success: false, error: 'User authentication required' },
         { status: 401 }
       );
+    }
+
+    // Server-side paywall: Free cannot set advanced scheduled reminders.
+    // Allow only the basic "when due" reminder (exact instant) and only when a due date is present.
+    {
+      const ent = await getOrganizationEntitlements(String(organizationId));
+      const wantsReminders = Array.isArray(body.reminders) && body.reminders.length > 0;
+      if (wantsReminders && !canUseAdvancedReminders(ent)) {
+        const dueAt = parseDueDateFromApi(body.dueDate ?? null);
+        const allowed = dueAt ? computeReminderInstantsUtcIso({ dueAt, preset: 'when_due' })[0] : null;
+        const first = typeof body.reminders?.[0] === 'string' ? String(body.reminders[0]) : '';
+        if (!allowed || first !== allowed) {
+          return NextResponse.json<ApiResponse<null>>(
+            {
+              success: false,
+              error: 'Advanced reminders are available on the Pro plan.',
+              // Client can treat 402 as paywall and show upgrade UI.
+              code: 'PAYWALL_PRO_REMINDERS' as any,
+            } as any,
+            { status: 402 }
+          );
+        }
+      }
     }
 
     // Require that the actor is a member of the team they are creating a task in (or org admin).
