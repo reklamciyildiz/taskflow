@@ -184,7 +184,7 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
         debounceRef.current = null;
       }
       // Flush *previous* action's checklist using the current snapshot (before we hydrate next action).
-      void flushJournalSave(prevChecklistHydrated, journalRef.current);
+      void flushJournalSave(prevChecklistHydrated, journalRef.current, 'switch');
     }
     checklistHydratedTaskIdRef.current = task.id;
 
@@ -230,10 +230,14 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
   }
 
   const flushJournalSave = useCallback(
-    async (taskId: string, snapshot?: JournalLogEntry[]) => {
+    async (taskId: string, snapshot?: JournalLogEntry[], reason?: 'debounce' | 'close' | 'switch') => {
       if (!taskId || !canEdit) return;
       const source = snapshot ?? journalRef.current;
       const cleaned = cleanJournalRows(source);
+      if (process.env.NODE_ENV !== 'production') {
+        // eslint-disable-next-line no-console
+        console.debug('[journal_logs persist]', { taskId, count: cleaned.length, reason: reason ?? 'unknown' });
+      }
       await updateTask(taskId, { journalLogs: cleaned });
     },
     [canEdit, updateTask]
@@ -245,7 +249,7 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
     const taskId = task.id;
     debounceRef.current = setTimeout(() => {
       debounceRef.current = null;
-      void flushJournalSave(taskId);
+      void flushJournalSave(taskId, undefined, 'debounce');
     }, 550);
   }, [task, canEdit, flushJournalSave]);
 
@@ -259,7 +263,7 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
       clearTimeout(debounceRef.current);
       debounceRef.current = null;
     }
-    if (task?.id) void flushJournalSave(task.id);
+    if (task?.id) void flushJournalSave(task.id, undefined, 'close');
   }, [flushJournalSave, task?.id]);
 
   const LEARNINGS_SAVE_MS = 280;
