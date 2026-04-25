@@ -103,7 +103,12 @@ export async function POST(request: NextRequest) {
       const existingCount = await teamDb.countByOrganization(organizationId);
       if (existingCount >= limits.maxTeams) {
         return NextResponse.json<ApiResponse<null>>(
-          { success: false, error: `Team limit reached (${limits.maxTeams}). Upgrade to create more workspaces.` },
+          {
+            success: false,
+            error: `Team limit reached (${limits.maxTeams}). Upgrade to create more workspaces.`,
+            code: 'PAYWALL_TEAMS',
+            recommendedPlan: ent.plan === 'free' ? 'pro' : 'team',
+          },
           { status: 402 }
         );
       }

@@ -137,7 +137,12 @@ export async function POST(request: NextRequest) {
       const existingCount = await projectDb.countByOrganization(organizationId);
       if (existingCount >= limits.maxProcesses) {
         return NextResponse.json<ApiResponse<null>>(
-          { success: false, error: `Process limit reached (${limits.maxProcesses}). Upgrade to create more processes.` },
+          {
+            success: false,
+            error: `Process limit reached (${limits.maxProcesses}). Upgrade to create more processes.`,
+            code: 'PAYWALL_PROCESSES',
+            recommendedPlan: ent.plan === 'free' ? 'pro' : 'team',
+          },
           { status: 402 }
         );
       }

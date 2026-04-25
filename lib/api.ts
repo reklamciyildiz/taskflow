@@ -36,6 +36,10 @@ async function fetchApi<T>(
       return {
         success: false,
         error: data.error || 'An error occurred',
+        code: typeof data?.code === 'string' ? data.code : undefined,
+        recommendedPlan:
+          data?.recommendedPlan === 'pro' || data?.recommendedPlan === 'team' ? data.recommendedPlan : undefined,
+        status: response.status,
       };
     }
 

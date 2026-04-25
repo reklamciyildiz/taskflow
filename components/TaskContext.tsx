@@ -1171,7 +1171,11 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
         setTeams(prev => [...prev, newTeam]);
         setCurrentTeamState(newTeam);
       } else {
-        throw new Error(response.error || 'Failed to create team');
+        const err = new Error(response.error || 'Failed to create team');
+        (err as any).code = response.code;
+        (err as any).status = response.status;
+        (err as any).recommendedPlan = response.recommendedPlan;
+        throw err;
       }
     } catch (err: any) {
       console.error('Error creating team:', err);

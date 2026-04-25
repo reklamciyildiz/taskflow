@@ -7,6 +7,7 @@ import { StickyNote } from 'lucide-react';
 import { ensureInboxProjectId } from '@/lib/inbox-project';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import Link from 'next/link';
 
 export function QuickCapture() {
   const { addTask, currentTeam, currentUser, projects, organizationId } = useTaskContext();
@@ -18,13 +19,25 @@ export function QuickCapture() {
     if (!title || !currentTeam || busy) return;
     setBusy(true);
     try {
-      const inboxId = await ensureInboxProjectId({
+      const inbox = await ensureInboxProjectId({
         projects,
         currentTeam,
         organizationId,
       });
-      if (!inboxId) {
-        toast.error('Could not create the Inbox process. Please check your organization connection.');
+      if (!inbox.ok) {
+        if (inbox.status === 402) {
+          const plan = inbox.recommendedPlan === 'team' ? 'team' : 'pro';
+          toast.error(
+            <span className="inline-flex items-center gap-2">
+              <span>{inbox.error}</span>
+              <Link href={`/settings/billing?plan=${plan}`} className="underline underline-offset-2">
+                Upgrade
+              </Link>
+            </span>
+          );
+          return;
+        }
+        toast.error(inbox.error || 'Could not create the Inbox process.');
         return;
       }
       await addTask({
@@ -33,7 +46,7 @@ export function QuickCapture() {
         status: 'todo',
         priority: 'medium',
         teamId: currentTeam.id,
-        projectId: inboxId,
+        projectId: inbox.projectId,
         createdBy: currentUser?.id || '',
         assigneeId: null,
         customerId: null,

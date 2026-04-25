@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useTaskContext } from '@/components/TaskContext';
 import { Loader2, Users } from 'lucide-react';
+import Link from 'next/link';
 
 interface CreateTeamModalProps {
   open: boolean;
@@ -20,6 +21,7 @@ export function CreateTeamModal({ open, onClose }: CreateTeamModalProps): JSX.El
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [upgradePlan, setUpgradePlan] = useState<'pro' | 'team' | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,6 +29,7 @@ export function CreateTeamModal({ open, onClose }: CreateTeamModalProps): JSX.El
 
     setLoading(true);
     setError('');
+    setUpgradePlan(null);
 
     try {
       await createTeam(name.trim(), description.trim());
@@ -35,6 +38,9 @@ export function CreateTeamModal({ open, onClose }: CreateTeamModalProps): JSX.El
       onClose();
     } catch (err: any) {
       setError(err.message || 'Failed to create team');
+      if (err?.status === 402 || err?.code === 'PAYWALL_TEAMS') {
+        setUpgradePlan(err?.recommendedPlan === 'team' ? 'team' : 'pro');
+      }
     } finally {
       setLoading(false);
     }
@@ -44,6 +50,7 @@ export function CreateTeamModal({ open, onClose }: CreateTeamModalProps): JSX.El
     setName('');
     setDescription('');
     setError('');
+    setUpgradePlan(null);
     onClose();
   };
 
@@ -86,7 +93,16 @@ export function CreateTeamModal({ open, onClose }: CreateTeamModalProps): JSX.El
           </div>
 
           {error && (
-            <p className="text-sm text-red-500">{error}</p>
+            <div className="space-y-2">
+              <p className="text-sm text-red-500">{error}</p>
+              {upgradePlan ? (
+                <Button asChild variant="secondary" className="w-full">
+                  <Link href={`/settings/billing?plan=${upgradePlan}`}>
+                    Upgrade to {upgradePlan === 'team' ? 'Team' : 'Pro'}
+                  </Link>
+                </Button>
+              ) : null}
+            </div>
           )}
 
           <div className="flex justify-end gap-2 pt-2">

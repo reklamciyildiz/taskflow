@@ -184,6 +184,12 @@ export interface ApiResponse<T> {
   data?: T;
   error?: string;
   message?: string;
+  /** Optional machine code for paywalls/limits/etc. */
+  code?: string;
+  /** HTTP status if available (client wrapper can pass it through). */
+  status?: number;
+  /** Suggested upgrade plan for paywalls (e.g. 'pro' or 'team'). */
+  recommendedPlan?: 'pro' | 'team';
 }
 
 export interface CreateTaskRequest {
