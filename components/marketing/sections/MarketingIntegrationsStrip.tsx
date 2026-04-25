@@ -51,7 +51,7 @@ function accentClasses(accent: (typeof cards)[number]['accent']) {
 
 export function MarketingIntegrationsStrip() {
   return (
-    <section className="border-t border-white/[0.04] bg-[#050505] px-4 py-20 sm:px-6">
+    <section id="integrations" className="scroll-mt-24 border-t border-white/[0.04] bg-[#050505] px-4 py-20 sm:px-6">
       <MarketingReveal className="mx-auto max-w-6xl">
         <div className="mx-auto max-w-3xl text-center">
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-500/80">Integrations</p>

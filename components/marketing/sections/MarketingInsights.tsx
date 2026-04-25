@@ -13,6 +13,35 @@ function MiniBars() {
           Analytics
         </span>
       </div>
+      <div className="mt-3 grid grid-cols-3 gap-2">
+        {[
+          { label: 'This week', value: '+18%', tone: 'emerald' as const },
+          { label: 'Shipped', value: '42', tone: 'zinc' as const },
+          { label: 'At risk', value: '3', tone: 'amber' as const },
+        ].map((m) => (
+          <div
+            key={m.label}
+            className={cn(
+              'rounded-lg border border-white/[0.06] bg-zinc-900/40 px-3 py-2',
+              m.tone === 'emerald' && 'border-emerald-500/15 bg-emerald-500/5',
+              m.tone === 'amber' && 'border-amber-500/15 bg-amber-500/5'
+            )}
+          >
+            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-500">{m.label}</p>
+            <p
+              className={cn(
+                'mt-1 text-sm font-semibold tracking-tight',
+                m.tone === 'emerald' && 'text-emerald-200',
+                m.tone === 'amber' && 'text-amber-200',
+                m.tone === 'zinc' && 'text-zinc-200'
+              )}
+            >
+              {m.value}
+            </p>
+          </div>
+        ))}
+      </div>
+
       <div className="mt-4 flex items-end gap-2">
         {bars.map((h, idx) => (
           <div
@@ -42,6 +71,17 @@ function MiniBadges() {
         <span className="rounded-full bg-blue-500/10 px-2 py-1 text-[11px] font-medium text-blue-200">
           Achievements
         </span>
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        {[
+          { label: 'Streak', value: '9 days' },
+          { label: 'Focus', value: '3 deep blocks' },
+        ].map((m) => (
+          <div key={m.label} className="rounded-lg border border-white/[0.06] bg-zinc-900/40 px-3 py-2">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-500">{m.label}</p>
+            <p className="mt-1 text-sm font-semibold tracking-tight text-zinc-200">{m.value}</p>
+          </div>
+        ))}
       </div>
       <div className="mt-4 flex flex-wrap gap-2">
         {badges.map((b) => (

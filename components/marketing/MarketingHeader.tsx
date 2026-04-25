@@ -34,6 +34,12 @@ export function MarketingHeader() {
             Features
           </Link>
           <Link
+            href="/marketing#integrations"
+            className="hidden rounded-md px-3 py-2 text-sm text-zinc-400 transition-colors hover:bg-white/[0.05] hover:text-zinc-100 sm:inline-block"
+          >
+            Integrations
+          </Link>
+          <Link
             href="/marketing#pricing"
             className="hidden rounded-md px-3 py-2 text-sm text-zinc-400 transition-colors hover:bg-white/[0.05] hover:text-zinc-100 sm:inline-block"
           >

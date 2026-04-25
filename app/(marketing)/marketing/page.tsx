@@ -12,7 +12,6 @@ import { MarketingInsights } from '@/components/marketing/sections/MarketingInsi
 import { MarketingEverythingYouGet } from '@/components/marketing/sections/MarketingEverythingYouGet';
 import { MarketingPricing } from '@/components/marketing/sections/MarketingPricing';
 import { MarketingSocialProof } from '@/components/marketing/sections/MarketingSocialProof';
-import { MarketingTrustStrip } from '@/components/marketing/MarketingTrustStrip';
 import { MarketingPwaNote } from '@/components/marketing/sections/MarketingPwaNote';
 import { MarketingFooter } from '@/components/marketing/MarketingFooter';
 
@@ -35,7 +34,6 @@ export default function MarketingPage() {
         <MarketingEverythingYouGet />
         <MarketingPricing />
         <MarketingSocialProof />
-        <MarketingTrustStrip />
         <MarketingPwaNote />
         <MarketingFooter />
       </main>
