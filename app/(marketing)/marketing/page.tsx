@@ -7,6 +7,7 @@ import { MarketingCoreLoop } from '@/components/marketing/sections/MarketingCore
 import { MarketingTeamOS } from '@/components/marketing/sections/MarketingTeamOS';
 import { MarketingUseCases } from '@/components/marketing/sections/MarketingUseCases';
 import { MarketingEnterprise } from '@/components/marketing/sections/MarketingEnterprise';
+import { MarketingIntegrationsStrip } from '@/components/marketing/sections/MarketingIntegrationsStrip';
 import { MarketingInsights } from '@/components/marketing/sections/MarketingInsights';
 import { MarketingEverythingYouGet } from '@/components/marketing/sections/MarketingEverythingYouGet';
 import { MarketingPricing } from '@/components/marketing/sections/MarketingPricing';
@@ -29,6 +30,7 @@ export default function MarketingPage() {
         <MarketingTeamOS />
         <MarketingUseCases />
         <MarketingEnterprise />
+        <MarketingIntegrationsStrip />
         <MarketingInsights />
         <MarketingEverythingYouGet />
         <MarketingPricing />
