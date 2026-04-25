@@ -19,6 +19,15 @@ export function getGoogleOAuthClient(): OAuth2Client {
   return new google.auth.OAuth2(clientId, clientSecret, redirectUri);
 }
 
+export function isGoogleInvalidGrantError(e: unknown): boolean {
+  const err = e as any;
+  const top = String(err?.message ?? '').toLowerCase();
+  const dataErr = String(err?.response?.data?.error ?? err?.response?.data?.error?.error ?? '').toLowerCase();
+  const desc = String(err?.response?.data?.error_description ?? '').toLowerCase();
+  // google oauth token endpoint commonly returns { error: 'invalid_grant', error_description: 'Token has been expired or revoked.' }
+  return dataErr === 'invalid_grant' || top.includes('invalid_grant') || desc.includes('expired or revoked');
+}
+
 export async function listCalendars(refreshToken: string) {
   const oauth2 = getGoogleOAuthClient();
   oauth2.setCredentials({ refresh_token: refreshToken });

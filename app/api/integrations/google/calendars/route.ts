@@ -4,13 +4,21 @@ import { authOptions } from '@/lib/auth';
 import { userDb } from '@/lib/db';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { decryptString } from '@/lib/crypto-app';
-import { listCalendars } from '@/lib/google-calendar';
+import { isGoogleInvalidGrantError, listCalendars } from '@/lib/google-calendar';
 
 function calendarListFailureMessage(e: unknown): { code?: string; message: string; status: number } {
   const err = e as any;
   const first = err?.errors?.[0] ?? err?.response?.data?.error?.errors?.[0];
   const reason = first?.reason as string | undefined;
   const apiMessage = first?.message as string | undefined;
+
+  if (isGoogleInvalidGrantError(e)) {
+    return {
+      code: 'google_reauth_required',
+      message: 'Google connection expired or was revoked. Please reconnect Google Calendar.',
+      status: 401,
+    };
+  }
 
   if (reason === 'accessNotConfigured' || (apiMessage && apiMessage.includes('Google Calendar API'))) {
     return {
@@ -54,6 +62,13 @@ export async function GET() {
     return NextResponse.json({ success: true, data: { calendars } });
   } catch (e: any) {
     console.error('Failed to list calendars:', e);
+    if (isGoogleInvalidGrantError(e)) {
+      // Mark connection as revoked so the UI can fall back to "Not connected".
+      await supabaseAdmin
+        .from('google_calendar_connections')
+        .update({ revoked_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+        .eq('user_id', user.id);
+    }
     const { code, message, status } = calendarListFailureMessage(e);
     return NextResponse.json({ success: false, error: message, ...(code ? { code } : {}) }, { status });
   }

@@ -209,6 +209,14 @@ export function Settings() {
       const json = await res.json();
       if (!json?.success) {
         setGoogleCalendars([]);
+        if (res.status === 401 && json?.code === 'google_reauth_required') {
+          // Connection is no longer valid; refresh status so UI shows "Not connected".
+          setGoogleConnected(false);
+          setGoogleEmail(null);
+          toast.error('Google connection expired. Please reconnect Google Calendar.');
+          void loadGoogleStatus();
+          return;
+        }
         if (typeof json?.error === 'string' && json.error.length > 0) {
           toast.error(json.error);
         }

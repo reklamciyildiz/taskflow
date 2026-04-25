@@ -1,6 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { decryptString } from '@/lib/crypto-app';
-import { deleteEvent, upsertAllDayTaskEvent, upsertTimedTaskEvent } from '@/lib/google-calendar';
+import { deleteEvent, isGoogleInvalidGrantError, upsertAllDayTaskEvent, upsertTimedTaskEvent } from '@/lib/google-calendar';
 import { getPublicAppUrl } from '@/lib/app-url';
 
 type TaskLike = {
@@ -139,8 +139,13 @@ async function deleteLinkAndEvent(userId: string, taskId: string) {
   if (refresh) {
     try {
       await deleteEvent(refresh, link.calendar_id, link.google_event_id);
-    } catch {
-      // best-effort
+    } catch (e) {
+      if (isGoogleInvalidGrantError(e)) {
+        await supabaseAdmin
+          .from('google_calendar_connections')
+          .update({ revoked_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+          .eq('user_id', userId);
+      }
     }
   }
   await supabaseAdmin.from('google_calendar_event_links').delete().eq('user_id', userId).eq('task_id', taskId);
@@ -216,6 +221,13 @@ export async function syncGoogleCalendarForUserTask(args: { userId: string; task
       { onConflict: 'user_id,task_id' }
     );
   } catch (e) {
+    if (isGoogleInvalidGrantError(e)) {
+      await supabaseAdmin
+        .from('google_calendar_connections')
+        .update({ revoked_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+        .eq('user_id', args.userId);
+      return;
+    }
     console.error('Google Calendar sync failed:', e);
   }
 }
