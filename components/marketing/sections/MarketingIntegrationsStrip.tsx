@@ -97,13 +97,22 @@ export function MarketingIntegrationsStrip() {
         </div>
 
         <div className="mt-10 flex justify-center">
-          <Link
-            href="/auth/signup?callbackUrl=%2Fsettings%2Fbilling"
-            className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-semibold text-zinc-100 transition-colors hover:border-emerald-500/25 hover:bg-white/[0.07]"
-          >
-            See plans & unlock integrations
-            <ChevronRight className="h-4 w-4" aria-hidden />
-          </Link>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <Link
+              href="/auth/signup?callbackUrl=%2Fsettings%2Fbilling"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-5 py-3 text-sm font-semibold text-zinc-950 shadow-[0_0_26px_-10px_rgba(16,185,129,0.65)] transition-transform hover:scale-[1.02] active:scale-[0.98]"
+            >
+              See plans
+              <ChevronRight className="h-4 w-4" aria-hidden />
+            </Link>
+            <Link
+              href="/auth/signup?callbackUrl=%2Fintegrations"
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-semibold text-zinc-100 transition-colors hover:border-emerald-500/25 hover:bg-white/[0.07]"
+            >
+              Explore integrations
+              <ChevronRight className="h-4 w-4" aria-hidden />
+            </Link>
+          </div>
         </div>
       </MarketingReveal>
     </section>
