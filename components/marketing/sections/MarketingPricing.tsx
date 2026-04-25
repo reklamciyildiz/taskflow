@@ -27,6 +27,7 @@ const freeFeatures = [
   '1 team / workspace',
   '2 processes',
   'Knowledge Hub (second brain)',
+  'Roles & permissions (all plans)',
 ] as const;
 
 const proFeatures = [
@@ -34,14 +35,14 @@ const proFeatures = [
   'Per-seat pricing',
   'Up to 3 teams / workspaces',
   'Up to 10 processes',
-  'Advanced reminders + Google Calendar',
+  'Advanced reminders + Google Calendar sync',
 ] as const;
 
 const teamFeatures = [
   'Everything in Pro, plus:',
   'Unlimited teams / workspaces',
   'Unlimited processes',
-  'Webhooks',
+  'Webhooks (signed + logs)',
 ] as const;
 
 export function MarketingPricing() {

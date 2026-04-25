@@ -59,10 +59,6 @@ export function MarketingProductShots() {
               />
             </div>
           </div>
-
-          <p className="mt-6 text-center text-xs text-zinc-500">
-            Screenshots are placeholders for now — you’ll swap them with real Axiom screens.
-          </p>
         </div>
       </MarketingReveal>
     </section>
