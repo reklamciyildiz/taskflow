@@ -13,7 +13,7 @@ import { FALLBACK_BOARD_COLUMNS, type ProjectColumnConfig } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { portalDndRowToBody } from '@/lib/dnd-body-portal';
 import { Layers, CheckCircle2, Trash2, GripVertical } from 'lucide-react';
-import Link from 'next/link';
+import { UpgradePlanModal } from '@/components/billing/UpgradePlanModal';
 
 interface CreateProjectModalProps {
   open: boolean;
@@ -66,6 +66,7 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId }
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [upgradePlan, setUpgradePlan] = useState<'pro' | 'team' | null>(null);
+  const [showUpgrade, setShowUpgrade] = useState(false);
   const [columnsDraft, setColumnsDraft] = useState<ProjectColumnConfig[]>(
     () =>
       editingProject?.columnConfig?.length
@@ -206,6 +207,7 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId }
     e.preventDefault();
     setError(null);
     setUpgradePlan(null);
+    setShowUpgrade(false);
 
     if (!organizationId) {
       setError('Organization not found (session/profile may not be loaded).');
@@ -245,6 +247,7 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId }
       if (!data?.success) {
         if (res.status === 402 && (data?.code === 'PAYWALL_PROCESSES' || data?.code === 'PAYWALL_TEAMS')) {
           setUpgradePlan(data?.recommendedPlan === 'team' ? 'team' : 'pro');
+          setShowUpgrade(true);
         }
         throw new Error(data?.error || (mode === 'edit' ? 'Process update failed' : 'Process creation failed'));
       }
@@ -554,18 +557,7 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId }
             </div>
           </div>
 
-          {error && (
-            <div className="space-y-2">
-              <p className="text-sm text-destructive">{error}</p>
-              {upgradePlan ? (
-                <Button asChild variant="secondary" className="w-full sm:w-auto">
-                  <Link href={`/settings/billing?plan=${upgradePlan}`}>
-                    Upgrade to {upgradePlan === 'team' ? 'Team' : 'Pro'}
-                  </Link>
-                </Button>
-              ) : null}
-            </div>
-          )}
+          {error && <p className="text-sm text-destructive">{error}</p>}
 
           <div className="flex flex-col-reverse gap-2 justify-end sm:flex-row">
             <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
@@ -577,6 +569,12 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId }
           </div>
         </form>
       </DialogContent>
+      <UpgradePlanModal
+        open={showUpgrade}
+        onClose={() => setShowUpgrade(false)}
+        reason="processes"
+        recommendedPlan={upgradePlan}
+      />
     </Dialog>
   );
 }

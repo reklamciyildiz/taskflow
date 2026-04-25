@@ -35,10 +35,12 @@ const DialogContent = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
     /** When true, omits the default top-right close control (e.g. custom headers that already provide one). */
     hideClose?: boolean;
+    /** Optional styling override for the overlay (useful when stacking dialogs). */
+    overlayClassName?: string;
   }
->(({ className, children, hideClose, ...props }, ref) => (
+>(({ className, children, hideClose, overlayClassName, ...props }, ref) => (
   <DialogPortal>
-    <DialogOverlay />
+    <DialogOverlay className={overlayClassName} />
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
