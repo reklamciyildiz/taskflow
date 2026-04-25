@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { UpgradePlanModal } from '@/components/billing/UpgradePlanModal';
 
 interface Webhook {
   id: string;
@@ -49,6 +50,8 @@ export default function IntegrationsClient() {
   const [newWebhookSecret, setNewWebhookSecret] = useState('');
   const [copiedSecret, setCopiedSecret] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showUpgrade, setShowUpgrade] = useState(false);
+  const [webhooksPaywalled, setWebhooksPaywalled] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -66,6 +69,12 @@ export default function IntegrationsClient() {
       const data = await res.json();
       if (data.success) {
         setWebhooks(data.data);
+        setWebhooksPaywalled(false);
+        return;
+      }
+      if (res.status === 402) {
+        setWebhooksPaywalled(true);
+        setShowUpgrade(true);
       }
     } catch (error) {
       console.error('Failed to fetch webhooks:', error);
@@ -94,6 +103,11 @@ export default function IntegrationsClient() {
         setNewWebhookSecret(data.data.secret);
         setIsSecretOpen(true);
       } else {
+        if (res.status === 402) {
+          setWebhooksPaywalled(true);
+          setShowUpgrade(true);
+          return;
+        }
         alert('Failed to create webhook: ' + data.error);
       }
     } catch (error) {
@@ -171,7 +185,15 @@ export default function IntegrationsClient() {
             Connect Axiom with external services using webhooks
           </p>
         </div>
-        <Button onClick={() => setIsCreateOpen(true)}>
+        <Button
+          onClick={() => {
+            if (webhooksPaywalled) {
+              setShowUpgrade(true);
+              return;
+            }
+            setIsCreateOpen(true);
+          }}
+        >
           <Plus className="w-4 h-4 mr-2" />
           Create Webhook
         </Button>
@@ -206,7 +228,15 @@ export default function IntegrationsClient() {
           <p className="text-muted-foreground mb-4">
             Create your first webhook to start receiving real-time notifications
           </p>
-          <Button onClick={() => setIsCreateOpen(true)}>
+          <Button
+            onClick={() => {
+              if (webhooksPaywalled) {
+                setShowUpgrade(true);
+                return;
+              }
+              setIsCreateOpen(true);
+            }}
+          >
             <Plus className="w-4 h-4 mr-2" />
             Create Webhook
           </Button>
@@ -440,6 +470,13 @@ export default function IntegrationsClient() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <UpgradePlanModal
+        open={showUpgrade}
+        onClose={() => setShowUpgrade(false)}
+        reason="webhooks"
+        recommendedPlan="team"
+      />
     </div>
   );
 }
