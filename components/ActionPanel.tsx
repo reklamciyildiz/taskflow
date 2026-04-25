@@ -142,6 +142,8 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
   learningsRef.current = learnings;
   /** Track which action the `learnings` state belongs to (persist previous on action change). */
   const learningsHydratedTaskIdRef = useRef<string | null>(null);
+  /** Track which action the checklist state belongs to (persist previous on action change). */
+  const checklistHydratedTaskIdRef = useRef<string | null>(null);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const metaDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -175,6 +177,17 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
     }
     learningsHydratedTaskIdRef.current = task.id;
 
+    const prevChecklistHydrated = checklistHydratedTaskIdRef.current;
+    if (prevChecklistHydrated && prevChecklistHydrated !== task.id && canEdit) {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+        debounceRef.current = null;
+      }
+      // Flush *previous* action's checklist using the current snapshot (before we hydrate next action).
+      void flushJournalSave(prevChecklistHydrated, journalRef.current);
+    }
+    checklistHydratedTaskIdRef.current = task.id;
+
     const src = tasks.find((t) => t.id === task.id) ?? task;
     setTitle(src.title);
     setDescription(src.description || '');
@@ -203,9 +216,8 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
     journalRef.current = journalLogs;
   }, [journalLogs]);
 
-  const flushJournalSave = useCallback(async () => {
-    if (!task || !canEdit) return;
-    const cleaned = journalRef.current
+  function cleanJournalRows(rows: JournalLogEntry[]) {
+    return rows
       .filter((x) => x.id !== ACTION_CHECKLIST_QUICK_ROW_ID)
       .map((x) => ({
         ...x,
@@ -215,17 +227,40 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
         reminders: x.reminders ?? null,
       }))
       .filter((x) => x.text.length > 0);
-    await updateTask(task.id, { journalLogs: cleaned });
-  }, [task, canEdit, updateTask]);
+  }
+
+  const flushJournalSave = useCallback(
+    async (taskId: string, snapshot?: JournalLogEntry[]) => {
+      if (!taskId || !canEdit) return;
+      const source = snapshot ?? journalRef.current;
+      const cleaned = cleanJournalRows(source);
+      await updateTask(taskId, { journalLogs: cleaned });
+    },
+    [canEdit, updateTask]
+  );
 
   const scheduleJournalPersist = useCallback(() => {
     if (!task || !canEdit) return;
     if (debounceRef.current) clearTimeout(debounceRef.current);
+    const taskId = task.id;
     debounceRef.current = setTimeout(() => {
       debounceRef.current = null;
-      void flushJournalSave();
+      void flushJournalSave(taskId);
     }, 550);
   }, [task, canEdit, flushJournalSave]);
+
+  /**
+   * Senior safety net: checklist edits are debounced; if the user navigates away,
+   * closes the panel, or switches actions quickly, flush pending journal changes
+   * so notes don't "disappear" after a refresh.
+   */
+  const flushJournalNow = useCallback(() => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+    }
+    if (task?.id) void flushJournalSave(task.id);
+  }, [flushJournalSave, task?.id]);
 
   const LEARNINGS_SAVE_MS = 280;
 
@@ -257,6 +292,14 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
     if (normalized === lastPersistedLearnings.current) return;
     void persistLearningsForId(tid, learningsRef.current);
   }, [open, task?.id, canEdit, persistLearningsForId]);
+
+  /** Flush pending checklist edits when the panel closes. */
+  useEffect(() => {
+    if (open) return;
+    if (!task?.id || !canEdit) return;
+    flushJournalNow();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- flushJournalNow already captures latest
+  }, [open, task?.id, canEdit]);
 
   useEffect(() => {
     return () => {

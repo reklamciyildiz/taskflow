@@ -203,7 +203,7 @@ export function UpgradePlanModal(props: {
               </DialogDescription>
             </DialogHeader>
 
-            <div className="mt-6 text-sm text-zinc-400">
+            <div className="mt-6 text-sm leading-relaxed text-zinc-200/70">
               Faster, smarter, and more collaborative.
             </div>
 
@@ -236,7 +236,7 @@ export function UpgradePlanModal(props: {
                   key={p}
                   className={cn(
                     // Softer surfaces: lower-contrast border + slightly dimmer card fill.
-                    'relative overflow-hidden rounded-3xl border border-white/[0.08] bg-white/[0.025] p-5',
+                    'relative overflow-hidden rounded-3xl border border-white/[0.10] bg-white/[0.035] p-5',
                     'shadow-[0_20px_70px_-40px_rgba(0,0,0,0.9)]',
                     isRecommended && 'ring-1 ring-violet-400/30'
                   )}
@@ -249,19 +249,21 @@ export function UpgradePlanModal(props: {
                         <p className="text-sm font-semibold text-zinc-50">{p === 'pro' ? 'Pro' : 'Team'}</p>
                         {p === 'team' ? <Sparkles className="h-4 w-4 text-emerald-400" aria-hidden /> : null}
                         {isRecommended ? (
-                          <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-medium text-zinc-200/80">
+                          <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-medium text-zinc-100/85">
                             Recommended
                           </span>
                         ) : null}
                       </div>
-                      <p className="mt-1 text-xs text-zinc-300/70">{p === 'pro' ? 'Small teams' : 'Scale + webhooks'}</p>
+                      <p className="mt-1 text-xs leading-snug text-zinc-100/60">
+                        {p === 'pro' ? 'Small teams' : 'Scale + webhooks'}
+                      </p>
                     </div>
                     <div className="text-right">
                       <div className="flex items-baseline justify-end gap-1">
                         <p className="text-[42px] leading-none font-semibold tabular-nums text-zinc-50">${price}</p>
-                        <p className="text-xs leading-none text-zinc-300/65">
+                        <p className="text-xs leading-none text-zinc-100/55">
                           {suffix}
-                          <span className="text-zinc-300/55">{period}</span>
+                          <span className="text-zinc-100/45">{period}</span>
                         </p>
                       </div>
                     </div>
@@ -281,13 +283,13 @@ export function UpgradePlanModal(props: {
                     {busy === p ? 'Opening checkout…' : 'Upgrade'}
                   </Button>
 
-                  <ul className="relative mt-4 space-y-2 text-xs leading-relaxed text-zinc-200/80">
+                  <ul className="relative mt-4 space-y-2.5 text-xs leading-relaxed text-zinc-100/75">
                     {FEATURES[p].map((f) => (
                       <li key={f} className="flex gap-2">
                         <Check
                           className={cn(
                             'mt-0.5 h-3.5 w-3.5 shrink-0',
-                            isHighlightedFeature(reason, p, f) ? 'text-emerald-300' : 'text-zinc-300/70'
+                            isHighlightedFeature(reason, p, f) ? 'text-emerald-300' : 'text-zinc-100/45'
                           )}
                           aria-hidden
                         />
