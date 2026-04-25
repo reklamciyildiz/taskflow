@@ -78,15 +78,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Paywall (Team): invitations are only available on active Team subscriptions.
+    // Invitations are plan-gated.
     if (user.organization_id) {
       const ent = await getOrganizationEntitlements(user.organization_id);
       if (!canInviteMembers(ent)) {
         return NextResponse.json(
           {
             success: false,
-            error: 'Inviting members is available on the Team plan.',
-            code: 'PAYWALL_TEAM_INVITES',
+            error: 'Inviting members is available on paid plans.',
+            code: 'PAYWALL_INVITES',
             plan: ent.plan,
           },
           { status: 402 }
@@ -101,8 +101,8 @@ export async function POST(request: NextRequest) {
           return NextResponse.json(
             {
               success: false,
-              error: `Your Team plan has reached its seat limit (${ent.seatLimit}). Upgrade to add more seats.`,
-              code: 'PAYWALL_TEAM_SEATS',
+              error: `Your plan has reached its seat limit (${ent.seatLimit}). Upgrade to add more seats.`,
+              code: 'PAYWALL_SEATS',
               seatLimit: ent.seatLimit,
               seatsUsed: used,
             },

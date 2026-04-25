@@ -5,10 +5,13 @@ import { useMemo, useState } from 'react';
 import { Check, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-/** Lemon Squeezy published prices (USD) — keep in sync with your store. */
+/**
+ * Pricing copy (USD) — keep in sync with Lemon Squeezy.
+ * Pro + Team are per-seat; yearly equals the effective annual price per seat.
+ */
 const PRICES = {
-  pro: { monthly: 5, yearly: 50 },
-  team: { monthly: 17, yearly: 170 },
+  pro: { monthly: 8, yearly: 72 }, // $6/seat/mo billed annually
+  team: { monthly: 15, yearly: 144 }, // $12/seat/mo billed annually
 } as const;
 
 type Interval = 'monthly' | 'yearly';
@@ -20,24 +23,25 @@ function yearlySavingsVsMonthly(monthly: number, yearly: number): number {
 }
 
 const freeFeatures = [
-  'Boards, tasks & checklists',
-  'Due dates & “when due” reminder',
-  'Single-user workspace',
-  'Web app — fast, keyboard-friendly',
+  '2 seats included',
+  '1 team / workspace',
+  '2 processes',
+  'Knowledge Hub (second brain)',
 ] as const;
 
 const proFeatures = [
   'Everything in Free, plus:',
-  'Advanced reminder presets',
-  'Integrations & calendar depth',
-  'Solo workspace (1 seat)',
+  'Per-seat pricing',
+  'Up to 3 teams / workspaces',
+  'Up to 10 processes',
+  'Advanced reminders + Google Calendar',
 ] as const;
 
 const teamFeatures = [
   'Everything in Pro, plus:',
-  'Invite members & roles',
-  'Per-seat billing (2+ seats)',
-  'Shared org workspace',
+  'Unlimited teams / workspaces',
+  'Unlimited processes',
+  'Webhooks',
 ] as const;
 
 export function MarketingPricing() {
@@ -61,8 +65,7 @@ export function MarketingPricing() {
           .
         </h2>
         <p className="mx-auto mt-4 max-w-2xl text-center text-base leading-relaxed text-zinc-400">
-          Clear tiers for individuals and teams. Checkout runs on Lemon Squeezy — tax and receipts handled at
-          payment time.
+          Simple, seat-based pricing. Checkout runs on Lemon Squeezy — tax and receipts handled at payment time.
         </p>
 
         {/* Interval toggle */}
@@ -112,7 +115,7 @@ export function MarketingPricing() {
             <div className="flex items-start justify-between gap-3 border-b border-white/[0.06] pb-6">
               <div>
                 <h3 className="text-lg font-semibold text-zinc-100">Free</h3>
-                <p className="mt-1 text-sm text-zinc-500">Start with essentials</p>
+                <p className="mt-1 text-sm text-zinc-500">Try Axiom with a partner</p>
               </div>
               <div className="text-right">
                 <p className="text-3xl font-semibold tracking-tight text-zinc-50 sm:text-4xl">$0</p>
@@ -128,7 +131,7 @@ export function MarketingPricing() {
               ))}
             </ul>
             <Link
-              href="/auth/signup"
+              href="/auth/signup?callbackUrl=%2Fsettings%2Fbilling"
               className="mt-8 inline-flex h-11 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-sm font-semibold text-zinc-100 transition-colors hover:border-violet-400/25 hover:bg-white/[0.07]"
             >
               Create account
@@ -143,19 +146,19 @@ export function MarketingPricing() {
             <div className="flex items-start justify-between gap-3 border-b border-violet-400/20 pb-6">
               <div>
                 <h3 className="text-lg font-semibold text-zinc-50">Pro</h3>
-                <p className="mt-1 text-sm text-violet-100/70">Power features, solo seat</p>
+                <p className="mt-1 text-sm text-violet-100/70">For small teams</p>
               </div>
               <div className="text-right">
                 <p className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">
                   ${interval === 'monthly' ? PRICES.pro.monthly : PRICES.pro.yearly}
                 </p>
                 <p className="text-xs text-violet-100/65">
-                  {interval === 'monthly' ? '/ month' : '/ year'}
+                  {interval === 'monthly' ? '/ seat / month' : '/ seat / year'}
                 </p>
                 <p className="mt-1 text-[11px] text-violet-200/80">
                   {interval === 'monthly'
-                    ? `That's $${PRICES.pro.yearly} if billed yearly`
-                    : `Equals ~$${(PRICES.pro.yearly / 12).toFixed(2)}/mo billed annually`}
+                    ? `$${PRICES.pro.yearly}/seat if billed yearly`
+                    : `~$${(PRICES.pro.yearly / 12).toFixed(2)}/seat/mo annually`}
                 </p>
               </div>
             </div>
@@ -168,7 +171,7 @@ export function MarketingPricing() {
               ))}
             </ul>
             <Link
-              href="/auth/signup"
+              href="/auth/signup?callbackUrl=%2Fsettings%2Fbilling%3Fplan%3Dpro"
               className="mt-8 inline-flex h-11 items-center justify-center rounded-xl bg-violet-500 text-sm font-semibold text-white shadow-lg shadow-violet-500/25 transition-transform hover:scale-[1.02] active:scale-[0.98]"
             >
               Get Pro
@@ -183,7 +186,7 @@ export function MarketingPricing() {
                   Team
                   <Sparkles className="h-4 w-4 text-emerald-400/90" aria-hidden />
                 </h3>
-                <p className="mt-1 text-sm text-zinc-500">Per seat · invites & roles</p>
+                <p className="mt-1 text-sm text-zinc-500">Unlimited workspaces, processes & webhooks</p>
               </div>
               <div className="text-right">
                 <p className="text-3xl font-semibold tracking-tight text-zinc-50 sm:text-4xl">
@@ -197,6 +200,7 @@ export function MarketingPricing() {
                     ? `$${PRICES.team.yearly}/seat if billed yearly`
                     : `~$${(PRICES.team.yearly / 12).toFixed(2)}/seat/mo annually`}
                 </p>
+                <p className="mt-1 text-[11px] text-zinc-500">Starts at 2 seats</p>
               </div>
             </div>
             <ul className="mt-6 flex flex-1 flex-col gap-3 text-sm text-zinc-400">
@@ -212,7 +216,7 @@ export function MarketingPricing() {
               ))}
             </ul>
             <Link
-              href="/auth/signup"
+              href="/auth/signup?callbackUrl=%2Fsettings%2Fbilling%3Fplan%3Dteam"
               className="mt-8 inline-flex h-11 items-center justify-center rounded-xl border border-emerald-500/40 bg-emerald-500/10 text-sm font-semibold text-emerald-100 transition-colors hover:border-emerald-400/60 hover:bg-emerald-500/15"
             >
               Get Team

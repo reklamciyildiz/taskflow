@@ -16,8 +16,14 @@ export type OrganizationBilling = {
 export type Entitlements = {
   plan: PlanName;
   subscriptionStatus: SubscriptionStatus;
-  /** For Team plan only; for Free/Pro this is always 1. */
+  /** Maximum allowed seats for this organization (used for invites / access caps). */
   seatLimit: number;
+};
+
+export type PlanLimits = {
+  maxTeams: number;
+  maxProcesses: number;
+  canUseWebhooks: boolean;
 };
 
 function normalizePlan(plan: unknown): PlanName {
@@ -41,8 +47,9 @@ export function isPaidActive(status: SubscriptionStatus): boolean {
 }
 
 export function getSeatLimitFromPlan(plan: PlanName): number {
-  if (plan === 'team') return Number.POSITIVE_INFINITY; // overridden by org.seat_limit when present
-  return 1;
+  if (plan === 'free') return 2;
+  if (plan === 'pro') return Number.POSITIVE_INFINITY; // Pro is per-seat; enforcement is handled via billing later.
+  return Number.POSITIVE_INFINITY; // Team overridden by org.seat_limit when present
 }
 
 export function canUseAdvancedReminders(ent: Pick<Entitlements, 'plan' | 'subscriptionStatus'>): boolean {
@@ -51,8 +58,23 @@ export function canUseAdvancedReminders(ent: Pick<Entitlements, 'plan' | 'subscr
 }
 
 export function canInviteMembers(ent: Pick<Entitlements, 'plan' | 'subscriptionStatus'>): boolean {
-  if (ent.plan !== 'team') return false;
+  if (ent.plan === 'free') return true; // capped by seatLimit (=2)
+  if (ent.plan === 'pro') return isPaidActive(ent.subscriptionStatus);
   return isPaidActive(ent.subscriptionStatus);
+}
+
+export function getPlanLimits(ent: Pick<Entitlements, 'plan' | 'subscriptionStatus'>): PlanLimits {
+  // Note: we treat Pro/Team access as active only when paid is active.
+  // Free can always use free limits.
+  const paid = isPaidActive(ent.subscriptionStatus);
+  if (ent.plan === 'team' && paid) {
+    return { maxTeams: Number.POSITIVE_INFINITY, maxProcesses: Number.POSITIVE_INFINITY, canUseWebhooks: true };
+  }
+  if (ent.plan === 'pro' && paid) {
+    return { maxTeams: 3, maxProcesses: 10, canUseWebhooks: false };
+  }
+  // Default: Free
+  return { maxTeams: 1, maxProcesses: 2, canUseWebhooks: false };
 }
 
 export async function getOrganizationEntitlements(organizationId: string): Promise<Entitlements> {

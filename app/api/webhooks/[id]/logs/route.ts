@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { webhookDb } from '@/lib/db';
 import { ApiResponse } from '@/lib/types';
+import { getOrganizationEntitlements, getPlanLimits } from '@/lib/entitlements';
 
 // GET /api/webhooks/[id]/logs - Get webhook logs
 export async function GET(
@@ -19,6 +20,14 @@ export async function GET(
     }
 
     const organizationId = (session.user as any).organizationId;
+    const ent = await getOrganizationEntitlements(organizationId);
+    const limits = getPlanLimits(ent);
+    if (!limits.canUseWebhooks) {
+      return NextResponse.json<ApiResponse<null>>(
+        { success: false, error: 'Webhooks are available on the Team plan.' },
+        { status: 402 }
+      );
+    }
 
     // Verify webhook belongs to user's organization
     const webhook = await webhookDb.getById(params.id);

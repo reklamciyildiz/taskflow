@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { webhookDb } from '@/lib/db';
 import { ApiResponse } from '@/lib/types';
+import { getOrganizationEntitlements, getPlanLimits } from '@/lib/entitlements';
 
 // GET /api/webhooks/[id] - Get webhook by ID
 export async function GET(
@@ -18,6 +19,16 @@ export async function GET(
       );
     }
 
+    const organizationId = (session.user as any).organizationId;
+    const ent = await getOrganizationEntitlements(organizationId);
+    const limits = getPlanLimits(ent);
+    if (!limits.canUseWebhooks) {
+      return NextResponse.json<ApiResponse<null>>(
+        { success: false, error: 'Webhooks are available on the Team plan.' },
+        { status: 402 }
+      );
+    }
+
     const webhook = await webhookDb.getById(params.id);
 
     if (!webhook) {
@@ -28,7 +39,6 @@ export async function GET(
     }
 
     // Check if user has access to this webhook's organization
-    const organizationId = (session.user as any).organizationId;
     if (webhook.organization_id !== organizationId) {
       return NextResponse.json<ApiResponse<null>>(
         { success: false, error: 'Forbidden' },
@@ -65,6 +75,14 @@ export async function PATCH(
 
     const userRole = (session.user as any).role;
     const organizationId = (session.user as any).organizationId;
+    const ent = await getOrganizationEntitlements(organizationId);
+    const limits = getPlanLimits(ent);
+    if (!limits.canUseWebhooks) {
+      return NextResponse.json<ApiResponse<null>>(
+        { success: false, error: 'Webhooks are available on the Team plan.' },
+        { status: 402 }
+      );
+    }
 
     // Check permissions
     if (userRole !== 'admin' && userRole !== 'owner') {
@@ -142,6 +160,14 @@ export async function DELETE(
 
     const userRole = (session.user as any).role;
     const organizationId = (session.user as any).organizationId;
+    const ent = await getOrganizationEntitlements(organizationId);
+    const limits = getPlanLimits(ent);
+    if (!limits.canUseWebhooks) {
+      return NextResponse.json<ApiResponse<null>>(
+        { success: false, error: 'Webhooks are available on the Team plan.' },
+        { status: 402 }
+      );
+    }
 
     // Check permissions
     if (userRole !== 'admin' && userRole !== 'owner') {

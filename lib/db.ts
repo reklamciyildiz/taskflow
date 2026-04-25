@@ -232,6 +232,16 @@ export const teamDb = {
     return data;
   },
 
+  /** Lightweight count for entitlement gates. */
+  async countByOrganization(organizationId: string): Promise<number> {
+    const { count, error } = await db
+      .from('teams')
+      .select('*', { count: 'exact', head: true })
+      .eq('organization_id', organizationId);
+    if (error) throw error;
+    return Number(count ?? 0) || 0;
+  },
+
   async getByUser(userId: string) {
     const { data, error } = await db
       .from('team_members')
@@ -352,6 +362,16 @@ export const projectDb = {
 
     if (error) throw error;
     return data;
+  },
+
+  /** Lightweight count for entitlement gates. */
+  async countByOrganization(organizationId: string): Promise<number> {
+    const { count, error } = await db
+      .from('projects')
+      .select('*', { count: 'exact', head: true })
+      .eq('organization_id', organizationId);
+    if (error) throw error;
+    return Number(count ?? 0) || 0;
   },
 
   async getById(id: string) {

@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { projectDb, teamMemberDb, userDb } from '@/lib/db';
 import { ApiResponse } from '@/lib/types';
+import { getOrganizationEntitlements, getPlanLimits } from '@/lib/entitlements';
 
 // GET /api/projects — list projects for the signed-in user's organization
 export async function GET(request: NextRequest) {
@@ -127,6 +128,19 @@ export async function POST(request: NextRequest) {
         { success: false, error: 'Forbidden' },
         { status: 403 }
       );
+    }
+
+    // Entitlement gate: max processes per plan (Free/Pro limited; Team unlimited).
+    const ent = await getOrganizationEntitlements(organizationId);
+    const limits = getPlanLimits(ent);
+    if (Number.isFinite(limits.maxProcesses) && limits.maxProcesses !== Number.POSITIVE_INFINITY) {
+      const existingCount = await projectDb.countByOrganization(organizationId);
+      if (existingCount >= limits.maxProcesses) {
+        return NextResponse.json<ApiResponse<null>>(
+          { success: false, error: `Process limit reached (${limits.maxProcesses}). Upgrade to create more processes.` },
+          { status: 402 }
+        );
+      }
     }
 
     // Authorization:

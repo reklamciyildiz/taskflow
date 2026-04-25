@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { webhookDb } from '@/lib/db';
 import { generateWebhookSecret } from '@/lib/webhooks';
 import { ApiResponse } from '@/lib/types';
+import { getOrganizationEntitlements, getPlanLimits } from '@/lib/entitlements';
 
 // GET /api/webhooks - List all webhooks for organization
 export async function GET(request: NextRequest) {
@@ -21,6 +22,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json<ApiResponse<null>>(
         { success: false, error: 'No organization found' },
         { status: 400 }
+      );
+    }
+
+    const ent = await getOrganizationEntitlements(organizationId);
+    const limits = getPlanLimits(ent);
+    if (!limits.canUseWebhooks) {
+      return NextResponse.json<ApiResponse<null>>(
+        { success: false, error: 'Webhooks are available on the Team plan.' },
+        { status: 402 }
       );
     }
 
@@ -58,6 +68,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json<ApiResponse<null>>(
         { success: false, error: 'No organization found' },
         { status: 400 }
+      );
+    }
+
+    const ent = await getOrganizationEntitlements(organizationId);
+    const limits = getPlanLimits(ent);
+    if (!limits.canUseWebhooks) {
+      return NextResponse.json<ApiResponse<null>>(
+        { success: false, error: 'Webhooks are available on the Team plan.' },
+        { status: 402 }
       );
     }
 

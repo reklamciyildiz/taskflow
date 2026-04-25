@@ -94,7 +94,7 @@ export function InviteMemberModal({ isOpen, onClose, teamId }: InviteMemberModal
       const data = await response.json();
 
       if (!response.ok) {
-        if (response.status === 402 && data?.code === 'PAYWALL_TEAM_INVITES') {
+        if (response.status === 402 && (data?.code === 'PAYWALL_INVITES' || data?.code === 'PAYWALL_SEATS')) {
           setShowUpgrade(true);
         }
         throw new Error(data.error || 'Failed to create invitation');

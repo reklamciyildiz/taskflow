@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,6 +14,8 @@ import Link from 'next/link';
 
 export default function SignUpPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get('callbackUrl') || '/';
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -49,7 +52,7 @@ export default function SignUpPage() {
       if (result?.error) {
         setError('Failed to create account. Please try again.');
       } else if (result?.ok) {
-        router.push('/');
+        router.push(callbackUrl);
         router.refresh();
       }
     } catch (error) {
@@ -63,7 +66,7 @@ export default function SignUpPage() {
   const handleGoogleSignIn = async () => {
     setIsGoogleLoading(true);
     try {
-      await signIn('google', { callbackUrl: '/' });
+      await signIn('google', { callbackUrl });
     } catch (error) {
       console.error('Google sign in error:', error);
       setIsGoogleLoading(false);

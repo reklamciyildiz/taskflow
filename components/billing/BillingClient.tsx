@@ -1,6 +1,8 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   ArrowLeft,
   CreditCard,
@@ -34,12 +36,13 @@ function statusBadgeVariant(status: string): 'default' | 'secondary' | 'destruct
 }
 
 const PLAN_FEATURES = {
-  free: ['Core board & tasks', 'Checklists & due dates', 'Basic “when due” reminder'],
-  pro: ['Everything in Free', 'Advanced reminder presets', 'Integrations & power features', 'Single seat (solo)'],
-  team: ['Everything in Pro', 'Invite members & roles', 'Per-seat billing', 'Shared workspace'],
+  free: ['2 seats included', '1 team / workspace', '2 processes', 'Knowledge Hub (second brain)'],
+  pro: ['Everything in Free', 'Up to 3 teams / workspaces', 'Up to 10 processes', 'Advanced reminders + Google Calendar'],
+  team: ['Everything in Pro', 'Unlimited teams / workspaces', 'Unlimited processes', 'Webhooks'],
 } as const;
 
 export function BillingClient({ organizationId, showBackLink = true }: Props) {
+  const searchParams = useSearchParams();
   const {
     billingPlan,
     billingStatus,
@@ -53,6 +56,22 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
     openCustomerPortal,
     openSeatUpgrade,
   } = useOrganizationBilling(organizationId);
+
+  const requestedPlan = useMemo(() => {
+    const p = (searchParams.get('plan') || '').toLowerCase();
+    return p === 'pro' ? 'pro' : p === 'team' ? 'team' : null;
+  }, [searchParams]);
+
+  const [selectedPlan, setSelectedPlan] = useState<'pro' | 'team' | null>(null);
+  const proRef = useRef<HTMLDivElement | null>(null);
+  const teamRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!requestedPlan) return;
+    setSelectedPlan(requestedPlan);
+    const el = requestedPlan === 'pro' ? proRef.current : teamRef.current;
+    el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [requestedPlan]);
 
   const busy = checkoutBusy !== null;
   const statusLabel = billingStatus.replace('_', ' ');
@@ -84,6 +103,34 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
           </p>
         </div>
       )}
+
+      {selectedPlan ? (
+        <Card className="border-border/80 bg-muted/20">
+          <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-sm">
+              <p className="font-medium">
+                Selected plan:{' '}
+                <span className="capitalize">{selectedPlan}</span>
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Continue to secure checkout when you’re ready.
+              </p>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <Button
+                type="button"
+                disabled={busy || (selectedPlan === 'pro' && billingPlan === 'team')}
+                onClick={() => void openCheckout(selectedPlan)}
+              >
+                Continue to checkout
+              </Button>
+              <Button type="button" variant="outline" disabled={busy} onClick={() => setSelectedPlan(null)}>
+                Clear selection
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
 
       {/* Current subscription */}
       <Card className="overflow-hidden border-border/80 shadow-sm">
@@ -196,15 +243,24 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
               key === 'free'
                 ? 'Get started with core workflows.'
                 : key === 'pro'
-                  ? 'Solo operators who want power features.'
-                  : 'Small teams with invites and seats.';
+                  ? 'Power features for small teams.'
+                  : 'Unlimited workspaces, processes, and webhooks.';
+
+            const requested = selectedPlan === key;
+            const ref =
+              key === 'pro'
+                ? proRef
+                : key === 'team'
+                  ? teamRef
+                  : undefined;
 
             return (
               <Card
                 key={key}
+                ref={ref as any}
                 className={cn(
                   'relative flex flex-col border-border/80 transition-shadow',
-                  current && 'ring-2 ring-primary/40 shadow-md'
+                  (current || requested) && 'ring-2 ring-primary/40 shadow-md'
                 )}
               >
                 {current ? (

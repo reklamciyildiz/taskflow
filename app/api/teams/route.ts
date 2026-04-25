@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { teamDb, teamMemberDb, userDb } from '@/lib/db';
 import { ApiResponse } from '@/lib/types';
+import { getOrganizationEntitlements, getPlanLimits, isPaidActive } from '@/lib/entitlements';
 
 // GET /api/teams - Get all teams (optionally filtered by userId or organizationId)
 export async function GET(request: NextRequest) {
@@ -89,6 +90,23 @@ export async function POST(request: NextRequest) {
         { success: false, error: 'User authentication required' },
         { status: 401 }
       );
+    }
+
+    // Entitlement gate: max teams per plan (Free/Pro limited; Team unlimited).
+    const ent = await getOrganizationEntitlements(organizationId);
+    const limits = getPlanLimits(ent);
+    if (!isPaidActive(ent.subscriptionStatus) && ent.plan !== 'free') {
+      // Defensive: if plan_name says paid but subscription isn't active, treat as Free limits.
+      // getPlanLimits already does this, but keep message clear for edge cases.
+    }
+    if (Number.isFinite(limits.maxTeams) && limits.maxTeams !== Number.POSITIVE_INFINITY) {
+      const existingCount = await teamDb.countByOrganization(organizationId);
+      if (existingCount >= limits.maxTeams) {
+        return NextResponse.json<ApiResponse<null>>(
+          { success: false, error: `Team limit reached (${limits.maxTeams}). Upgrade to create more workspaces.` },
+          { status: 402 }
+        );
+      }
     }
 
     // Create team
