@@ -34,27 +34,32 @@ export default function SignUpPage() {
       return;
     }
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters');
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters');
       return;
     }
 
     setIsLoading(true);
 
     try {
-      // For demo purposes, we'll use the credentials provider which auto-creates users
-      const result = await signIn('credentials', {
-        email,
-        password,
-        redirect: false,
+      const reg = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, name, password }),
       });
-
-      if (result?.error) {
-        setError('Failed to create account. Please try again.');
-      } else if (result?.ok) {
-        router.push(callbackUrl);
-        router.refresh();
+      const regJson = await reg.json();
+      if (!reg.ok || !regJson?.success) {
+        setError(regJson?.error || 'Failed to create account. Please try again.');
+        return;
       }
+
+      const result = await signIn('credentials', { email, password, redirect: false });
+      if (result?.error) {
+        setError('Account created, but sign-in failed. Please try signing in.');
+        return;
+      }
+      router.push(callbackUrl);
+      router.refresh();
     } catch (error) {
       console.error('Sign up error:', error);
       setError('An unexpected error occurred');

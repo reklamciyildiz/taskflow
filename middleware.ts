@@ -45,6 +45,11 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/marketing', request.url));
   }
 
+  // API routes should not redirect to HTML sign-in (breaks JSON clients).
+  if (!token && pathname.startsWith('/api/')) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  }
+
   if (!token) {
     const signInUrl = new URL('/auth/signin', request.url);
     signInUrl.searchParams.set('callbackUrl', pathname);

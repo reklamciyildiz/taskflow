@@ -1,17 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createUserWithOrganization, joinOrganizationViaInvitation, userDb } from '@/lib/db';
 import { ApiResponse } from '@/lib/types';
+import bcrypt from 'bcryptjs';
 
 // POST /api/auth/register - Register a new user
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    const { email, name, organizationName, invitationToken } = body;
+    const { email, name, organizationName, invitationToken, password } = body;
 
     if (!email || !name) {
       return NextResponse.json<ApiResponse<null>>(
         { success: false, error: 'Email and name are required' },
+        { status: 400 }
+      );
+    }
+
+    if (!password || typeof password !== 'string' || password.length < 8) {
+      return NextResponse.json<ApiResponse<null>>(
+        { success: false, error: 'Password must be at least 8 characters' },
         { status: 400 }
       );
     }
@@ -30,14 +38,19 @@ export async function POST(request: NextRequest) {
     if (invitationToken) {
       // Join existing organization via invitation
       result = await joinOrganizationViaInvitation(email, name, invitationToken);
-    } else if (organizationName) {
-      // Create new organization
-      result = await createUserWithOrganization(email, name, organizationName);
     } else {
-      return NextResponse.json<ApiResponse<null>>(
-        { success: false, error: 'Organization name or invitation token is required' },
-        { status: 400 }
-      );
+      // Create new organization (default naming if none provided).
+      const orgName =
+        typeof organizationName === 'string' && organizationName.trim().length > 0
+          ? organizationName.trim()
+          : `${String(name).trim() || 'My'} Workspace`;
+      result = await createUserWithOrganization(email, name, orgName);
+    }
+
+    // Persist password hash for credentials sign-in (safe even if connection is via invite).
+    if (result?.user?.id) {
+      const hash = await bcrypt.hash(password, 10);
+      await userDb.update(result.user.id, { password_hash: hash });
     }
 
     return NextResponse.json<ApiResponse<any>>({

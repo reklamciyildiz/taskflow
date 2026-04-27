@@ -2,6 +2,7 @@ import { NextAuthOptions } from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import { syncUserToSupabaseAuth } from '@/lib/supabase-auth';
+import bcrypt from 'bcryptjs';
 
 // Lazy import - only load at runtime
 function getUserDb() {
@@ -29,7 +30,9 @@ export const authOptions: NextAuthOptions = {
           const userDb = getUserDb();
           const user: any = await userDb.getByEmail(credentials.email);
           
-          if (user) {
+          if (user && typeof user.password_hash === 'string' && user.password_hash.length > 0) {
+            const ok = await bcrypt.compare(credentials.password, user.password_hash);
+            if (!ok) return null;
             return {
               id: user.id,
               email: user.email,
