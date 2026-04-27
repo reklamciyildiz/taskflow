@@ -1508,12 +1508,16 @@ export async function joinOrganizationViaInvitation(
     throw new Error('Invalid or expired invitation');
   }
 
+  const normalizedUserRole: 'admin' | 'member' =
+    invitation.role === 'admin' ? 'admin' : 'member';
+
   // Create user
   const user = await userDb.create({
     email,
     name,
     organization_id: invitation.organization_id,
-    role: 'member',
+    // Note: `viewer` is a team-level role; org-level roles are owner/admin/member.
+    role: normalizedUserRole,
     avatar_url: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`,
   });
 

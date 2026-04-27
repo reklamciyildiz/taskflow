@@ -8,6 +8,12 @@ function normalizeInviteTeamRole(role: string | null | undefined): 'admin' | 'me
   return 'member';
 }
 
+function normalizeInviteOrgRole(role: string | null | undefined): 'admin' | 'member' {
+  // Org-level roles are owner/admin/member. `viewer` is team-level only.
+  if (role === 'admin') return 'admin';
+  return 'member';
+}
+
 async function ensureUserInInviteTeams(
   userId: string,
   invitation: { organization_id: string; team_id: string | null; role: string | null }
@@ -88,7 +94,7 @@ export async function POST(request: NextRequest) {
         // User exists but has no organization - update their organization
         await userDb.update(existingUser.id, {
           organization_id: invitation.organization_id,
-          role: invitation.role || 'member',
+          role: normalizeInviteOrgRole(invitation.role ?? undefined),
         });
 
         await ensureUserInInviteTeams(existingUser.id, invitation);

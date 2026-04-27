@@ -16,6 +16,10 @@ export default function SignUpPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get('callbackUrl') || '/';
+  const shouldReturnToCallback =
+    callbackUrl.startsWith('/invite') ||
+    callbackUrl.startsWith('/onboarding') ||
+    callbackUrl.startsWith('/settings/billing');
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -58,7 +62,9 @@ export default function SignUpPage() {
         setError('Account created, but sign-in failed. Please try signing in.');
         return;
       }
-      router.push(callbackUrl);
+      // Prevent a brief "dashboard flash" for brand new users.
+      // If user is coming from an invite or a deep-link, respect callbackUrl.
+      router.push(shouldReturnToCallback ? callbackUrl : '/onboarding');
       router.refresh();
     } catch (error) {
       console.error('Sign up error:', error);
@@ -192,7 +198,7 @@ export default function SignUpPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   className="pl-10"
                   required
-                  minLength={6}
+                  minLength={8}
                 />
               </div>
             </div>
@@ -209,7 +215,7 @@ export default function SignUpPage() {
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   className="pl-10"
                   required
-                  minLength={6}
+                  minLength={8}
                 />
               </div>
             </div>

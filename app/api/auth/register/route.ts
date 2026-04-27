@@ -39,18 +39,27 @@ export async function POST(request: NextRequest) {
       // Join existing organization via invitation
       result = await joinOrganizationViaInvitation(email, name, invitationToken);
     } else {
-      // Create new organization (default naming if none provided).
-      const orgName =
-        typeof organizationName === 'string' && organizationName.trim().length > 0
-          ? organizationName.trim()
-          : `${String(name).trim() || 'My'} Workspace`;
-      result = await createUserWithOrganization(email, name, orgName);
+      // Create user without an organization; onboarding will create/join a workspace.
+      // NOTE: the DB schema allows `organization_id` to be null in practice (onboarding depends on it).
+      const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(String(name))}&background=random`;
+      const user = await userDb.create({
+        email,
+        name,
+        organization_id: null,
+        role: 'member',
+        avatar_url: avatarUrl,
+      });
+      result = { user };
     }
 
-    // Persist password hash for credentials sign-in (safe even if connection is via invite).
+    // Persist password hash for credentials sign-in.
     if (result?.user?.id) {
       const hash = await bcrypt.hash(password, 10);
       await userDb.update(result.user.id, { password_hash: hash });
+
+      // Keep Supabase Auth in sync (RLS compatibility).
+      const { syncUserToSupabaseAuth } = await import('@/lib/supabase-auth');
+      await syncUserToSupabaseAuth(result.user.id, email, name);
     }
 
     return NextResponse.json<ApiResponse<any>>({
