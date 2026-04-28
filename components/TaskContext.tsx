@@ -715,6 +715,22 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     }
   }, [boardScope, projects]);
 
+  // Axiom principle: processes are user-designed. If processes exist, avoid defaulting into the legacy
+  // "general actions" scope (unscoped tasks). This keeps first-run behavior focused on selecting/creating a process.
+  useEffect(() => {
+    if (!currentTeam?.id) return;
+    if (projects.length === 0) return;
+    if (boardScope.type !== 'general') return;
+
+    const firstForTeam =
+      projects.find((p) => !p.teamId || p.teamId === currentTeam.id) ?? projects[0] ?? null;
+    if (!firstForTeam) return;
+
+    setBoardScope({ type: 'project', projectId: firstForTeam.id });
+    setCurrentProjectState(firstForTeam);
+    replaceProjectQuery(firstForTeam.id);
+  }, [boardScope.type, currentTeam?.id, projects, replaceProjectQuery, setBoardScope]);
+
   // Sync current project from ?project= when projects load or URL changes
   useEffect(() => {
     if (projects.length === 0) {

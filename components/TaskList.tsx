@@ -155,10 +155,7 @@ export function TaskList() {
     boardColumns,
   ]);
 
-  const listSubtitle =
-    boardScope.type === 'general'
-      ? 'General actions (not tied to a process) — shared process selection with the board'
-      : `Process: ${boardProject?.name ?? 'Selected process'} — shared filters with the board`;
+  const listSubtitle = `Process: ${boardProject?.name ?? 'Selected process'} — shared filters with the board`;
 
   const toggleTaskComplete = (
     taskId: string,
@@ -186,10 +183,9 @@ export function TaskList() {
         {projectsForTeam.length > 0 && (
           <div className="flex flex-wrap items-center gap-2">
             <Select
-              value={boardScope.type === 'general' ? '__general__' : boardScope.projectId}
+              value={boardScope.type === 'project' ? boardScope.projectId : ''}
               onValueChange={(v) => {
-                if (v === '__general__') setBoardScope({ type: 'general' });
-                else setBoardScope({ type: 'project', projectId: v });
+                setBoardScope({ type: 'project', projectId: v });
               }}
             >
               <SelectTrigger
@@ -199,7 +195,6 @@ export function TaskList() {
                 <SelectValue placeholder="Choose process" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="__general__">General actions</SelectItem>
                 {projectsForTeam.map((p) => (
                   <SelectItem key={p.id} value={p.id}>
                     {p.name}
@@ -226,16 +221,11 @@ export function TaskList() {
                   size="icon"
                   className="h-10 w-10"
                   onClick={() => {
-                    if (boardScope.type === 'general') setEditGeneralOpen(true);
-                    else setEditingProjectId(boardProject?.id ?? null);
+                    setEditingProjectId(boardProject?.id ?? null);
                   }}
-                  disabled={boardScope.type !== 'general' && !boardProject}
-                  title={
-                    boardScope.type === 'general' ? 'Edit general columns' : 'Edit selected process'
-                  }
-                  aria-label={
-                    boardScope.type === 'general' ? 'Edit general columns' : 'Edit selected process'
-                  }
+                  disabled={!boardProject}
+                  title="Edit selected process"
+                  aria-label="Edit selected process"
                 >
                   <Settings2 className="h-4 w-4" />
                 </Button>

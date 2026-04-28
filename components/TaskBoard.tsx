@@ -67,6 +67,7 @@ export function TaskBoard() {
     if (!currentTeam) return projects;
     return projects.filter((p) => !p.teamId || p.teamId === currentTeam.id);
   }, [projects, currentTeam?.id]);
+  const hasProcesses = projectsForTeam.length > 0;
 
   const handleCreateTask = () => {
     setIsCreateModalOpen(true);
@@ -141,13 +142,12 @@ export function TaskBoard() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-3">
           <h2 className="text-2xl font-bold">Panel</h2>
-          {projectsForTeam.length > 0 && (
+          {hasProcesses && (
             <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
               <Select
-                value={boardScope.type === 'general' ? '__general__' : boardScope.projectId}
+                value={boardScope.type === 'project' ? boardScope.projectId : ''}
                 onValueChange={(v) => {
-                  if (v === '__general__') setBoardScope({ type: 'general' });
-                  else setBoardScope({ type: 'project', projectId: v });
+                  setBoardScope({ type: 'project', projectId: v });
                 }}
               >
                 <SelectTrigger
@@ -157,7 +157,6 @@ export function TaskBoard() {
                   <SelectValue placeholder="Choose process" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__general__">General actions</SelectItem>
                   {projectsForTeam.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
                       {p.name}
@@ -184,12 +183,11 @@ export function TaskBoard() {
                     size="icon"
                     className="h-10 w-10"
                     onClick={() => {
-                      if (boardScope.type === 'general') setEditGeneralOpen(true);
-                      else setEditingProjectId(boardProject?.id ?? null);
+                      setEditingProjectId(boardProject?.id ?? null);
                     }}
-                    disabled={boardScope.type !== 'general' && !boardProject}
-                    title={boardScope.type === 'general' ? 'Edit general columns' : 'Edit selected process'}
-                    aria-label={boardScope.type === 'general' ? 'Edit general columns' : 'Edit selected process'}
+                    disabled={!boardProject}
+                    title="Edit selected process"
+                    aria-label="Edit selected process"
                   >
                     <Settings2 className="h-4 w-4" />
                   </Button>
@@ -238,7 +236,7 @@ export function TaskBoard() {
               </SelectContent>
             </Select>
           )}
-          {permissions.canCreateTask && (
+          {hasProcesses && permissions.canCreateTask && (
             <>
               <VoiceToTaskButton 
                 onTaskCreated={(task) => {
@@ -255,149 +253,171 @@ export function TaskBoard() {
           )}
         </div>
       </div>
-      
-      <div className="-mx-1 mb-4 flex gap-2 overflow-x-auto px-1 pb-1 overscroll-x-contain [scrollbar-width:thin]">
-        <Button 
-          variant={!statusFilter ? 'default' : 'outline'}
-          onClick={() => setStatusFilter(null)}
-          size="sm"
-          className="shrink-0"
-        >
-          All
-        </Button>
-        {boardColumns.map((column) => (
-          <Button 
-            key={column.id}
-            variant={statusFilter === column.id ? 'default' : 'outline'}
-            onClick={() => setStatusFilter(column.id)}
-            size="sm"
-            className="shrink-0"
-          >
-            {column.title}
-          </Button>
-        ))}
-      </div>
 
-      <DragDropContext onDragEnd={onDragEnd}>
+      {/* First-run empty state: no processes yet */}
+      {!hasProcesses ? (
+        <div className="rounded-lg border border-dashed p-8 text-center space-y-2 bg-muted/30">
+          <p className="text-sm font-medium text-foreground">No processes yet</p>
+          <p className="text-sm text-muted-foreground">
+            Create your first process, then select it on the board to link actions to that flow.
+          </p>
+          {currentUserRole === 'admin' ? (
+            <Button variant="outline" onClick={() => setIsCreateProjectOpen(true)} className="gap-2">
+              <Layers className="h-4 w-4" />
+              New process
+            </Button>
+          ) : (
+            <Badge variant="outline" className="mx-auto h-9 px-3 text-xs text-muted-foreground">
+              Only team admins can create processes
+            </Badge>
+          )}
+        </div>
+      ) : (
         <>
-          {/* Mobile: horizontal scroll across all columns (snap); drag between columns is unreliable on touch — use ⋮ → Change status */}
-          <div className="md:hidden">
-            <p className="mb-2 px-0.5 text-xs text-muted-foreground">
-              Swipe horizontally between columns. On mobile, move a card between columns from the ⋮ menu using
-              <span className="font-medium text-foreground"> Change status</span> (drag & drop is disabled to
-              avoid scroll/drag conflicts).
-            </p>
-            <div className="-mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-3 pt-0.5 overscroll-x-contain [scrollbar-width:thin] [-webkit-overflow-scrolling:touch]">
-              {boardColumns.map((column) => {
-                const columnTasks = orderedColumnTasks(filteredTasks, column.id, boardColumns);
-                return (
-                  <div
-                    key={column.id}
-                    className="w-[min(88vw,300px)] max-w-[min(88vw,300px)] shrink-0 snap-center snap-always flex flex-col gap-2"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <h3 className="min-w-0 truncate font-medium">{column.title}</h3>
-                      <Badge variant="secondary" className="shrink-0">
-                        {columnTasks.length}
-                      </Badge>
-                    </div>
-                    <Droppable droppableId={column.id}>
-                      {(provided) => (
-                        <div
-                          ref={provided.innerRef}
-                          {...provided.droppableProps}
-                          className={cn(
-                            'max-h-[min(58dvh,520px)] min-h-[200px] overflow-y-auto rounded-lg p-3 transition-colors touch-pan-y',
-                            column.color ?? 'bg-muted/40'
-                          )}
-                        >
-                          {columnTasks.map((task, index) => (
-                            <Draggable
-                              key={task.id}
-                              draggableId={task.id}
-                              index={index}
-                              isDragDisabled={isMobileBoard}
-                            >
-                              {(provided) => (
-                                <div
-                                  ref={provided.innerRef}
-                                  {...provided.draggableProps}
-                                  className="mb-2"
-                                >
-                                  <TaskCard
-                                    task={task}
-                                    dragHandleProps={isMobileBoard ? undefined : provided.dragHandleProps}
-                                    onTaskClick={(t) => openTaskEditor(t.id)}
-                                  />
-                                </div>
-                              )}
-                            </Draggable>
-                          ))}
-                          {provided.placeholder}
-                        </div>
-                      )}
-                    </Droppable>
-                  </div>
-                );
-              })}
-            </div>
+          <div className="-mx-1 mb-4 flex gap-2 overflow-x-auto px-1 pb-1 overscroll-x-contain [scrollbar-width:thin]">
+            <Button 
+              variant={!statusFilter ? 'default' : 'outline'}
+              onClick={() => setStatusFilter(null)}
+              size="sm"
+              className="shrink-0"
+            >
+              All
+            </Button>
+            {boardColumns.map((column) => (
+              <Button 
+                key={column.id}
+                variant={statusFilter === column.id ? 'default' : 'outline'}
+                onClick={() => setStatusFilter(column.id)}
+                size="sm"
+                className="shrink-0"
+              >
+                {column.title}
+              </Button>
+            ))}
           </div>
-
-          {/* Desktop: grid columns */}
-          <div
-            className="hidden md:grid gap-4"
-            style={{
-              gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))',
-            }}
-          >
-            {boardColumns.map((column) => {
-              const columnTasks = orderedColumnTasks(filteredTasks, column.id, boardColumns);
-              const shouldScroll = columnTasks.length >= DESKTOP_SCROLL_THRESHOLD;
-
-              return (
-                <div key={column.id} className="flex min-h-0 flex-col gap-2">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-medium">{column.title}</h3>
-                    <Badge variant="secondary">{columnTasks.length}</Badge>
-                  </div>
-                  <Droppable droppableId={column.id}>
-                    {(provided) => (
+      
+          <DragDropContext onDragEnd={onDragEnd}>
+            <>
+              {/* Mobile: horizontal scroll across all columns (snap); drag between columns is unreliable on touch — use ⋮ → Change status */}
+              <div className="md:hidden">
+                <p className="mb-2 px-0.5 text-xs text-muted-foreground">
+                  Swipe horizontally between columns. On mobile, move a card between columns from the ⋮ menu using
+                  <span className="font-medium text-foreground"> Change status</span> (drag & drop is disabled to
+                  avoid scroll/drag conflicts).
+                </p>
+                <div className="-mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-3 pt-0.5 overscroll-x-contain [scrollbar-width:thin] [-webkit-overflow-scrolling:touch]">
+                  {boardColumns.map((column) => {
+                    const columnTasks = orderedColumnTasks(filteredTasks, column.id, boardColumns);
+                    return (
                       <div
-                        ref={provided.innerRef}
-                        {...provided.droppableProps}
-                        className={cn(
-                          'p-4 rounded-lg min-h-[200px] transition-colors',
-                          shouldScroll && 'max-h-[min(72dvh,680px)] overflow-y-auto',
-                          column.color ?? 'bg-muted/40'
-                        )}
+                        key={column.id}
+                        className="w-[min(88vw,300px)] max-w-[min(88vw,300px)] shrink-0 snap-center snap-always flex flex-col gap-2"
                       >
-                        {columnTasks.map((task, index) => (
-                          <Draggable key={task.id} draggableId={task.id} index={index}>
-                            {(provided) => (
-                              <div
-                                ref={provided.innerRef}
-                                {...provided.draggableProps}
-                                className="mb-2"
-                              >
-                                <TaskCard
-                                  task={task}
-                                  dragHandleProps={provided.dragHandleProps}
-                                  onTaskClick={(t) => openTaskEditor(t.id)}
-                                />
-                              </div>
-                            )}
-                          </Draggable>
-                        ))}
-                        {provided.placeholder}
+                        <div className="flex items-center justify-between gap-2">
+                          <h3 className="min-w-0 truncate font-medium">{column.title}</h3>
+                          <Badge variant="secondary" className="shrink-0">
+                            {columnTasks.length}
+                          </Badge>
+                        </div>
+                        <Droppable droppableId={column.id}>
+                          {(provided) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.droppableProps}
+                              className={cn(
+                                'max-h-[min(58dvh,520px)] min-h-[200px] overflow-y-auto rounded-lg p-3 transition-colors touch-pan-y',
+                                column.color ?? 'bg-muted/40'
+                              )}
+                            >
+                              {columnTasks.map((task, index) => (
+                                <Draggable
+                                  key={task.id}
+                                  draggableId={task.id}
+                                  index={index}
+                                  isDragDisabled={isMobileBoard}
+                                >
+                                  {(provided) => (
+                                    <div
+                                      ref={provided.innerRef}
+                                      {...provided.draggableProps}
+                                      className="mb-2"
+                                    >
+                                      <TaskCard
+                                        task={task}
+                                        dragHandleProps={isMobileBoard ? undefined : provided.dragHandleProps}
+                                        onTaskClick={(t) => openTaskEditor(t.id)}
+                                      />
+                                    </div>
+                                  )}
+                                </Draggable>
+                              ))}
+                              {provided.placeholder}
+                            </div>
+                          )}
+                        </Droppable>
                       </div>
-                    )}
-                  </Droppable>
+                    );
+                  })}
                 </div>
-              );
-            })}
-          </div>
+              </div>
+
+              {/* Desktop: grid columns */}
+              <div
+                className="hidden md:grid gap-4"
+                style={{
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))',
+                }}
+              >
+                {boardColumns.map((column) => {
+                  const columnTasks = orderedColumnTasks(filteredTasks, column.id, boardColumns);
+                  const shouldScroll = columnTasks.length >= DESKTOP_SCROLL_THRESHOLD;
+
+                  return (
+                    <div key={column.id} className="flex min-h-0 flex-col gap-2">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-medium">{column.title}</h3>
+                        <Badge variant="secondary">{columnTasks.length}</Badge>
+                      </div>
+                      <Droppable droppableId={column.id}>
+                        {(provided) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.droppableProps}
+                            className={cn(
+                              'p-4 rounded-lg min-h-[200px] transition-colors',
+                              shouldScroll && 'max-h-[min(72dvh,680px)] overflow-y-auto',
+                              column.color ?? 'bg-muted/40'
+                            )}
+                          >
+                            {columnTasks.map((task, index) => (
+                              <Draggable key={task.id} draggableId={task.id} index={index}>
+                                {(provided) => (
+                                  <div
+                                    ref={provided.innerRef}
+                                    {...provided.draggableProps}
+                                    className="mb-2"
+                                  >
+                                    <TaskCard
+                                      task={task}
+                                      dragHandleProps={provided.dragHandleProps}
+                                      onTaskClick={(t) => openTaskEditor(t.id)}
+                                    />
+                                  </div>
+                                )}
+                              </Draggable>
+                            ))}
+                            {provided.placeholder}
+                          </div>
+                        )}
+                      </Droppable>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          </DragDropContext>
         </>
-      </DragDropContext>
+      )}
 
       <CreateTaskModal 
         open={isCreateModalOpen} 

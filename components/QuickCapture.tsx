@@ -16,7 +16,7 @@ export function QuickCapture() {
 
   const onSubmit = async () => {
     const title = value.trim();
-    if (!title || !currentTeam || busy) return;
+    if (!title || !currentTeam || !organizationId || busy) return;
     setBusy(true);
     try {
       const inbox = await ensureInboxProjectId({
@@ -65,23 +65,44 @@ export function QuickCapture() {
         'supports-[backdrop-filter]:backdrop-blur-sm'
       )}
     >
-      <div className="flex items-center gap-3">
+      <form
+        className="flex items-center gap-3"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void onSubmit();
+        }}
+      >
         <StickyNote className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
         <Input
           value={value}
-          disabled={busy || !currentTeam}
+          disabled={busy || !currentTeam || !organizationId}
           onChange={(e) => setValue(e.target.value)}
+          // Mobile virtual keyboards are inconsistent about firing keydown for "send/go".
+          // Use both Enter interception and form submit as a robust fallback.
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               e.preventDefault();
               void onSubmit();
             }
           }}
-          placeholder="Capture a note… (Press Enter to add it to Inbox as an action)"
+          onKeyUp={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              void onSubmit();
+            }
+          }}
+          placeholder={
+            currentTeam && organizationId
+              ? 'Capture a note… (Enter to add to Inbox)'
+              : 'Loading workspace…'
+          }
+          enterKeyHint="send"
           className="h-11 border-0 bg-transparent text-base shadow-none placeholder:text-muted-foreground/55 focus-visible:ring-0"
           aria-label="Quick capture"
         />
-      </div>
+        {/* Hidden submit for mobile keyboards / accessibility */}
+        <button type="submit" className="sr-only" aria-hidden />
+      </form>
     </div>
   );
 }
