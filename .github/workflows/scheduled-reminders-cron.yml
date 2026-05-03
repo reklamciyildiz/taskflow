@@ -1,8 +1,9 @@
-# External cron for /api/cron/scheduled-reminders (Hobby-safe).
+# Optional backup: calls GET /api/cron/reminders-tick (absolute + due-date reminders).
 #
-# Vercel Hobby only allows daily cron in vercel.json. For "Remind me" presets
-# (absolute instants), run this workflow on a short interval and call production
-# with the same CRON_SECRET you set on Vercel.
+# GitHub `schedule` is best-effort — */10 often runs MUCH less frequently in practice.
+# For predictable 5–10 minute ticks, use an external HTTP cron (see docs/REMINDERS_CRON.md),
+# e.g. cron-job.org with Authorization: Bearer CRON_SECRET. You can disable this workflow
+# once external cron is verified, to reduce duplicate invocations (dedupe still prevents most duplicate alerts).
 #
 # Repo → Settings → Secrets and variables → Actions → tab "Secrets"
 # → "New repository secret" (NOT Environments / environment secrets, unless
@@ -11,13 +12,14 @@
 #   CRON_SECRET     exact same string as Vercel + .env.local (do not commit .env.local)
 #
 # The route is idempotent (notification dedupe); overlapping Vercel + GHA is OK.
+# See docs/REMINDERS_CRON.md for Vercel Pro vs Hobby scheduling.
 
 name: Cron — scheduled reminders
 
 on:
   schedule:
-    # Every 10 minutes UTC (GitHub may delay a few minutes under load).
-    # Private repos: if you approach Actions minute limits, loosen to */15 or */30.
+    # Intended: every 10 minutes UTC. Actual spacing is often 40–90+ minutes (GitHub scheduler).
+    # Do not rely on this for "5 minutes before" SLA — use docs/REMINDERS_CRON.md external cron.
     - cron: '*/10 * * * *'
   workflow_dispatch:
 
@@ -30,7 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Call scheduled-reminders API
+      - name: Call reminders-tick API
         env:
           CRON_BASE_URL: ${{ secrets.CRON_BASE_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
@@ -41,7 +43,7 @@ jobs:
             exit 0
           fi
           BASE="${CRON_BASE_URL%/}"
-          echo "Triggering scheduled reminders…"
+          echo "Triggering reminders-tick…"
           curl -sfS -X GET \
             -H "Authorization: Bearer ${CRON_SECRET}" \
-            "${BASE}/api/cron/scheduled-reminders"
+            "${BASE}/api/cron/reminders-tick"

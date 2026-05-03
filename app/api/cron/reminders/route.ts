@@ -1,29 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { cronRemindersUnauthorizedResponse } from '@/lib/cron-reminders-guard';
 import { processTaskDueReminders } from '@/lib/process-task-reminders';
 
 /**
- * Scheduled reminders for task due dates + checklist row due dates.
+ * Due-date bucket reminders (task + checklist row due dates, UTC day granularity).
+ *
+ * Prefer `GET /api/cron/reminders-tick` for production (runs scheduled + due together).
+ * This route remains for backwards compatibility and external cron links.
  *
  * Configure `CRON_SECRET` and call with `Authorization: Bearer <CRON_SECRET>`.
- * On Vercel, add a Cron Job pointing at this route (see `vercel.json`).
  */
 export async function GET(request: NextRequest) {
-  const secret = process.env.CRON_SECRET;
-  const auth = request.headers.get('authorization');
-  const ua = request.headers.get('user-agent') || '';
-
-  if (secret) {
-    if (auth !== `Bearer ${secret}`) {
-      return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
-    }
-  } else if (process.env.NODE_ENV === 'production') {
-    // Without CRON_SECRET, restrict execution to Vercel's Cron invocations.
-    // Vercel documents `User-Agent: vercel-cron/1.0` for cron-triggered requests.
-    const isVercelCronUa = /^vercel-cron\/\d+/i.test(ua.trim());
-    if (!isVercelCronUa) {
-      return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
-    }
-  }
+  const denied = cronRemindersUnauthorizedResponse(request);
+  if (denied) return denied;
 
   try {
     const stats = await processTaskDueReminders();

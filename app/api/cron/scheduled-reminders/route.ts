@@ -1,27 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { cronRemindersUnauthorizedResponse } from '@/lib/cron-reminders-guard';
 import { processScheduledReminders } from '@/lib/process-scheduled-reminders';
 
 /**
- * Frequent scheduled reminders (absolute instants, "Remind me" presets).
+ * Absolute scheduled reminders (ISO instants on tasks + checklist rows).
  *
- * Configure `CRON_SECRET` and call with `Authorization: Bearer <CRON_SECRET>`.
- * Without CRON_SECRET in production, restrict to Vercel Cron UA.
+ * Prefer `/api/cron/reminders-tick` for production (runs scheduled + due together).
+ * This route remains for backwards compatibility and GitHub Actions links.
  */
 export async function GET(request: NextRequest) {
-  const secret = process.env.CRON_SECRET;
-  const auth = request.headers.get('authorization');
-  const ua = request.headers.get('user-agent') || '';
-
-  if (secret) {
-    if (auth !== `Bearer ${secret}`) {
-      return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
-    }
-  } else if (process.env.NODE_ENV === 'production') {
-    const isVercelCronUa = /^vercel-cron\/\d+/i.test(ua.trim());
-    if (!isVercelCronUa) {
-      return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
-    }
-  }
+  const denied = cronRemindersUnauthorizedResponse(request);
+  if (denied) return denied;
 
   try {
     const stats = await processScheduledReminders();
