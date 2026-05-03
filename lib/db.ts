@@ -1065,6 +1065,36 @@ export const notificationDb = {
     return data;
   },
 
+  /**
+   * Insert a notification; returns false if a row with the same (user_id, type, link) already exists
+   * (Postgres unique violation), e.g. concurrent cron ticks.
+   */
+  async tryInsert(notification: {
+    user_id: string;
+    organization_id: string;
+    type:
+      | 'task_assigned'
+      | 'task_completed'
+      | 'invitation'
+      | 'mention'
+      | 'comment'
+      | 'task_updated'
+      | 'checklist_assigned'
+      | 'task_due_reminder'
+      | 'checklist_due_reminder'
+      | 'task_reminder'
+      | 'checklist_reminder';
+    title: string;
+    message?: string;
+    link?: string;
+  }): Promise<boolean> {
+    const { error } = await db.from('notifications').insert(notification);
+    if (!error) return true;
+    const code = (error as { code?: string }).code;
+    if (code === '23505') return false;
+    throw error;
+  },
+
   /** Dedupe window for cron / repeat reminders (default 20h). */
   async hasRecentDuplicate(input: {
     user_id: string;
@@ -1081,18 +1111,6 @@ export const notificationDb = {
       .eq('type', input.type)
       .eq('link', input.link)
       .gte('created_at', since);
-    if (error) throw error;
-    return (count ?? 0) > 0;
-  },
-
-  /** True if a notification with this exact link was ever created (no time window). */
-  async existsWithLink(input: { user_id: string; type: string; link: string }): Promise<boolean> {
-    const { count, error } = await db
-      .from('notifications')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', input.user_id)
-      .eq('type', input.type)
-      .eq('link', input.link);
     if (error) throw error;
     return (count ?? 0) > 0;
   },

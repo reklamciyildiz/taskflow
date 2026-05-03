@@ -105,49 +105,42 @@ export async function processTaskDueReminders(): Promise<ReminderRunStats> {
           const secondAt = firstAt + OVERDUE_SECOND_NOTIFY_AFTER_HOURS * 3600000;
           const n1Link = boardLink({ ...baseQs, r: 'taskOverdue', w: '1' });
           const n2Link = boardLink({ ...baseQs, r: 'taskOverdue', w: '2' });
-          const has1 = await notificationDb.existsWithLink({
-            user_id: taskAssignee,
-            type: 'task_due_reminder',
-            link: n1Link,
-          });
-          const has2 = await notificationDb.existsWithLink({
-            user_id: taskAssignee,
-            type: 'task_due_reminder',
-            link: n2Link,
-          });
-          if (!has2) {
-            if (!has1 && now >= firstAt) {
-              await notificationDb.create({
-                user_id: taskAssignee,
-                organization_id: orgId,
-                type: 'task_due_reminder',
-                title: 'Action is overdue',
-                message: `"${title}"`,
-                link: openLink,
-              });
+          // Persist `link` = stable dedupe URL (must match DB unique index). Push still uses `openLink` for UX.
+          if (now >= firstAt) {
+            const ins1 = await notificationDb.tryInsert({
+              user_id: taskAssignee,
+              organization_id: orgId,
+              type: 'task_due_reminder',
+              title: 'Action is overdue',
+              message: `"${title}"`,
+              link: n1Link,
+            });
+            if (ins1) {
+              taskReminders += 1;
               await sendPushToUser(taskAssignee, {
                 title: 'Action overdue',
                 body: title,
                 url: openLink,
                 tag: `task_overdue:${taskId}:w1`,
               });
-              taskReminders += 1;
-            } else if (has1 && now >= secondAt) {
-              await notificationDb.create({
+            } else if (now >= secondAt) {
+              const ins2 = await notificationDb.tryInsert({
                 user_id: taskAssignee,
                 organization_id: orgId,
                 type: 'task_due_reminder',
                 title: 'Action still overdue',
                 message: `"${title}"`,
-                link: openLink,
+                link: n2Link,
               });
-              await sendPushToUser(taskAssignee, {
-                title: 'Action still overdue',
-                body: title,
-                url: openLink,
-                tag: `task_overdue:${taskId}:w2`,
-              });
-              taskReminders += 1;
+              if (ins2) {
+                taskReminders += 1;
+                await sendPushToUser(taskAssignee, {
+                  title: 'Action still overdue',
+                  body: title,
+                  url: openLink,
+                  tag: `task_overdue:${taskId}:w2`,
+                });
+              }
             }
           }
         }
@@ -161,28 +154,22 @@ export async function processTaskDueReminders(): Promise<ReminderRunStats> {
             r: 'taskDue',
             b: `${label}:${today}`,
           });
-          const dup = await notificationDb.hasRecentDuplicate({
+          const inserted = await notificationDb.tryInsert({
             user_id: taskAssignee,
+            organization_id: orgId,
             type: 'task_due_reminder',
+            title: label === 'due_today' ? 'Action due today' : 'Action due tomorrow',
+            message: `"${title}"`,
             link: dedupeLink,
-            withinHours: 22,
           });
-          if (!dup) {
-            await notificationDb.create({
-              user_id: taskAssignee,
-              organization_id: orgId,
-              type: 'task_due_reminder',
-              title: label === 'due_today' ? 'Action due today' : 'Action due tomorrow',
-              message: `"${title}"`,
-              link: openLink,
-            });
+          if (inserted) {
+            taskReminders += 1;
             await sendPushToUser(taskAssignee, {
               title: label === 'due_today' ? 'Action due today' : 'Action due tomorrow',
               body: title,
               url: openLink,
               tag: `task_due:${taskId}:${label}:${today}`,
             });
-            taskReminders += 1;
           }
         }
       }
@@ -214,49 +201,41 @@ export async function processTaskDueReminders(): Promise<ReminderRunStats> {
           const secondAt = firstAt + OVERDUE_SECOND_NOTIFY_AFTER_HOURS * 3600000;
           const n1Link = boardLink({ ...rowQs, r: 'chkOverdue', w: '1' });
           const n2Link = boardLink({ ...rowQs, r: 'chkOverdue', w: '2' });
-          const has1 = await notificationDb.existsWithLink({
-            user_id: assignee,
-            type: 'checklist_due_reminder',
-            link: n1Link,
-          });
-          const has2 = await notificationDb.existsWithLink({
-            user_id: assignee,
-            type: 'checklist_due_reminder',
-            link: n2Link,
-          });
-          if (!has2) {
-            if (!has1 && now >= firstAt) {
-              await notificationDb.create({
-                user_id: assignee,
-                organization_id: orgId,
-                type: 'checklist_due_reminder',
-                title: 'Checklist item is overdue',
-                message: `"${title}" — ${text}`,
-                link: openLink,
-              });
+          if (now >= firstAt) {
+            const ins1 = await notificationDb.tryInsert({
+              user_id: assignee,
+              organization_id: orgId,
+              type: 'checklist_due_reminder',
+              title: 'Checklist item is overdue',
+              message: `"${title}" — ${text}`,
+              link: n1Link,
+            });
+            if (ins1) {
+              checklistReminders += 1;
               await sendPushToUser(assignee, {
                 title: 'Checklist overdue',
                 body: text.slice(0, 120),
                 url: openLink,
                 tag: `chk_overdue:${taskId}:${rowId}:w1`,
               });
-              checklistReminders += 1;
-            } else if (has1 && now >= secondAt) {
-              await notificationDb.create({
+            } else if (now >= secondAt) {
+              const ins2 = await notificationDb.tryInsert({
                 user_id: assignee,
                 organization_id: orgId,
                 type: 'checklist_due_reminder',
                 title: 'Checklist item still overdue',
                 message: `"${title}" — ${text}`,
-                link: openLink,
+                link: n2Link,
               });
-              await sendPushToUser(assignee, {
-                title: 'Checklist still overdue',
-                body: text.slice(0, 120),
-                url: openLink,
-                tag: `chk_overdue:${taskId}:${rowId}:w2`,
-              });
-              checklistReminders += 1;
+              if (ins2) {
+                checklistReminders += 1;
+                await sendPushToUser(assignee, {
+                  title: 'Checklist still overdue',
+                  body: text.slice(0, 120),
+                  url: openLink,
+                  tag: `chk_overdue:${taskId}:${rowId}:w2`,
+                });
+              }
             }
           }
         }
@@ -273,29 +252,23 @@ export async function processTaskDueReminders(): Promise<ReminderRunStats> {
         r: 'chkDue',
         b: `${label}:${today}`,
       });
-      const dup = await notificationDb.hasRecentDuplicate({
-        user_id: assignee,
-        type: 'checklist_due_reminder',
-        link: dedupeLink,
-        withinHours: 22,
-      });
-      if (dup) continue;
-
-      await notificationDb.create({
+      const inserted = await notificationDb.tryInsert({
         user_id: assignee,
         organization_id: orgId,
         type: 'checklist_due_reminder',
         title: label === 'due_today' ? 'Checklist item due today' : 'Checklist item due tomorrow',
         message: `"${title}" — ${text}`,
-        link: openLink,
+        link: dedupeLink,
       });
+      if (!inserted) continue;
+
+      checklistReminders += 1;
       await sendPushToUser(assignee, {
         title: label === 'due_today' ? 'Checklist due today' : 'Checklist due tomorrow',
         body: text.slice(0, 120),
         url: openLink,
         tag: `chk_due:${taskId}:${rowId}:${label}:${today}`,
       });
-      checklistReminders += 1;
     }
   }
 
