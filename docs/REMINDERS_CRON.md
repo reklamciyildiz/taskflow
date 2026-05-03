@@ -70,4 +70,5 @@ Prefer **`reminders-tick`** so operators only maintain **one** URL.
 ## Behaviour notes
 
 - Absolute reminders fire when `reminder_time <= now` and within the processor **lookback** window (default 24h), with notification dedupe — they are **not** deleted from the task row after firing (v1).
-- Due-date reminders use **UTC dates**; “due today” is a **day** concept, not “1 hour before”.
+- Due-date reminders use **UTC dates**; “due today” / “due tomorrow” use a short dedupe window (~22h) per calendar day.
+- **Overdue** (task + checklist): at most **two** notifications **ever** per item — first **24h** after the UTC moment the item becomes overdue (midnight after the due date), second **48h** after that first window. No further overdue reminders for that item (until logic changes).

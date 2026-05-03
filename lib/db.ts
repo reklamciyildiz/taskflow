@@ -1085,6 +1085,18 @@ export const notificationDb = {
     return (count ?? 0) > 0;
   },
 
+  /** True if a notification with this exact link was ever created (no time window). */
+  async existsWithLink(input: { user_id: string; type: string; link: string }): Promise<boolean> {
+    const { count, error } = await db
+      .from('notifications')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', input.user_id)
+      .eq('type', input.type)
+      .eq('link', input.link);
+    if (error) throw error;
+    return (count ?? 0) > 0;
+  },
+
   async getByUser(userId: string, limit = 20) {
     const { data, error } = await db
       .from('notifications')
