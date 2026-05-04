@@ -776,11 +776,16 @@ export const taskDb = {
     return data;
   },
 
-  /** For cron reminders (due dates + checklist row due dates in `journal_logs`). */
+  /**
+   * For cron reminders (due dates + checklist row due dates in `journal_logs`, and scheduled
+   * `reminders`). Excludes completed actions so due/overdue nags and “remind me” do not run
+   * after the user marks the task done.
+   */
   async listForDueReminders(limit = 4000) {
     const { data, error } = await db
       .from('tasks')
       .select('id, title, due_date, reminders, assignee_id, created_by, journal_logs, project_id, organization_id, team_id')
+      .neq('status', 'done')
       .limit(limit);
     if (error) throw error;
     return data ?? [];
