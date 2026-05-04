@@ -13,6 +13,7 @@ import {
   markNotificationReadApi,
   type InAppNotification,
 } from '@/lib/notifications-client';
+import { notificationLinkForNavigation } from '@/lib/notification-nav-link';
 
 function notificationIcon(type: string): string {
   switch (type) {
@@ -104,7 +105,8 @@ export default function NotificationsPage() {
 
   const onRowActivate = (n: InAppNotification) => {
     if (!n.read) void markOneRead(n.id);
-    if (n.link) router.push(n.link);
+    const nav = notificationLinkForNavigation(n.link);
+    if (nav) router.push(nav, { scroll: false });
   };
 
   const relative = useMemo(

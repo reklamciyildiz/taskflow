@@ -10,6 +10,7 @@ import {
   markNotificationReadApi,
   type InAppNotification,
 } from '@/lib/notifications-client';
+import { notificationLinkForNavigation } from '@/lib/notification-nav-link';
 
 export function NotificationBell() {
   const [notifications, setNotifications] = useState<InAppNotification[]>([]);
@@ -66,7 +67,8 @@ export function NotificationBell() {
         } catch {
           // ignore
         }
-        if (newestUnreadAssignment.link) router.push(newestUnreadAssignment.link);
+        const nav = notificationLinkForNavigation(newestUnreadAssignment.link);
+        if (nav) router.push(nav, { scroll: false });
       };
     } catch {
       // ignore
@@ -151,8 +153,9 @@ export function NotificationBell() {
     if (!notification.read) {
       void markAsRead(notification.id);
     }
-    if (notification.link) {
-      router.push(notification.link);
+    const nav = notificationLinkForNavigation(notification.link);
+    if (nav) {
+      router.push(nav, { scroll: false });
       setIsOpen(false);
     }
   };
