@@ -4,6 +4,7 @@
 import { getSupabaseClient } from '@/lib/supabase';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import type { Database } from '@/lib/database.types';
+import { canonicalNotificationLink } from '@/lib/notification-nav-link';
 
 type TasksInsert = Database['public']['Tables']['tasks']['Insert'];
 type TasksUpdate = Database['public']['Tables']['tasks']['Update'];
@@ -1124,7 +1125,12 @@ export const notificationDb = {
       .limit(limit);
     
     if (error) throw error;
-    return data || [];
+    const rows = data || [];
+    return rows.map((row: { link?: string | null } & Record<string, unknown>) => {
+      if (row.link == null || typeof row.link !== 'string') return row;
+      const link = canonicalNotificationLink(row.link);
+      return link != null ? { ...row, link } : row;
+    });
   },
 
   async getUnreadCount(userId: string) {
