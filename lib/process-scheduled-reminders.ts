@@ -91,9 +91,11 @@ export async function processScheduledReminders(input?: {
   let checklistRemindersFired = 0;
 
   const tasks = await taskDb.listForDueReminders();
+  const entitlementsCache = new Map<string, Entitlements>();
 
   for (const t of tasks as any[]) {
     const orgId = String(t.organization_id ?? '');
+    const orgEnt = await entitlementsForOrg(orgId, entitlementsCache);
     const taskId = String(t.id ?? '');
     const title = String(t.title ?? 'Action');
     const projectId = t.project_id ? String(t.project_id) : null;
@@ -107,6 +109,7 @@ export async function processScheduledReminders(input?: {
         const ms = isoToMs(iso);
         if (ms == null) continue;
         if (ms > now || ms < minMs) continue;
+        if (!scheduledIsoAllowedForOrg(orgEnt, t.due_date ?? t.dueDate, iso)) continue;
 
         const openLink = boardLink({ task: taskId, ...(projectId ? { project: projectId } : {}) });
         const dedupeLink = boardLink({
