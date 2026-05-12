@@ -106,7 +106,7 @@ export function DemoActionDeck({ cards, onToggleItem }: DemoActionDeckProps) {
 
   if (cards.length === 0) {
     return (
-      <p className="mx-auto max-w-xl px-4 text-center text-sm leading-relaxed text-zinc-500">
+      <p className="mx-auto max-w-xl px-4 text-center text-sm leading-relaxed text-zinc-500 lg:max-w-2xl xl:max-w-3xl">
         Try the magnet above — an action card drops in with real weight. This is a{' '}
         <span className="text-zinc-300">local simulation</span>; nothing hits the server. Progress can
         persist in this browser after refresh.
@@ -115,7 +115,7 @@ export function DemoActionDeck({ cards, onToggleItem }: DemoActionDeckProps) {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 px-4">
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 px-4 lg:max-w-4xl xl:max-w-6xl 2xl:max-w-[min(85rem,100%)]">
       <AnimatePresence mode="popLayout">
         {cards.map((card) => (
           <motion.article

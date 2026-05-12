@@ -24,11 +24,11 @@ const DemoActionDeck = dynamic(
     ssr: false,
     loading: () => (
       <div
-        className="mx-auto min-h-[120px] w-full max-w-2xl rounded-2xl border border-white/[0.06] bg-zinc-900/30 px-4 py-8"
+        className="mx-auto min-h-[120px] w-full max-w-2xl rounded-2xl border border-white/[0.06] bg-zinc-900/30 px-4 py-8 lg:max-w-4xl xl:max-w-6xl 2xl:max-w-[min(85rem,100%)]"
         aria-hidden
       >
         <div className="mx-auto h-4 max-w-md animate-pulse rounded bg-zinc-800/80" />
-        <div className="mx-auto mt-4 h-24 max-w-lg animate-pulse rounded-xl bg-zinc-800/50" />
+        <div className="mx-auto mt-4 h-24 max-w-full animate-pulse rounded-xl bg-zinc-800/50 sm:max-w-lg" />
       </div>
     ),
   }
@@ -134,7 +134,7 @@ export function MarketingHeroInteractive() {
   }, []);
 
   return (
-    <div className="relative mt-12">
+    <div className="relative mx-auto mt-12 w-full max-w-[min(108rem,100%)]">
       <MarketingConfetti burstKey={confettiBurst} />
 
       <AnimatePresence>
@@ -153,12 +153,12 @@ export function MarketingHeroInteractive() {
         )}
       </AnimatePresence>
 
-      <div className="mx-auto max-w-6xl">
+      <div className="w-full">
         <DemoQuickCapture onCapture={onCapture} />
       </div>
 
       {cards.length > 0 ? (
-        <div className="mx-auto mt-4 flex max-w-2xl justify-end px-4">
+        <div className="mx-auto mt-4 flex max-w-2xl justify-end px-4 lg:max-w-4xl xl:max-w-6xl 2xl:max-w-[min(85rem,100%)]">
           <button
             type="button"
             onClick={clearDemo}

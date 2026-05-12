@@ -32,7 +32,8 @@ export function DemoQuickCapture({ onCapture, disabled }: DemoQuickCaptureProps)
       }}
       transition={{ type: 'spring', stiffness: 420, damping: 28 }}
       className={cn(
-        'group mx-auto max-w-2xl rounded-2xl border border-white/[0.08] bg-zinc-900/40 px-4 py-3',
+        'group mx-auto w-full max-w-2xl rounded-2xl border border-white/[0.08] bg-zinc-900/40 px-4 py-3',
+        'lg:max-w-4xl xl:max-w-6xl 2xl:max-w-[min(72rem,100%)]',
         'backdrop-blur-xl supports-[backdrop-filter]:backdrop-blur-xl',
         'ring-1 ring-white/[0.04]'
       )}
