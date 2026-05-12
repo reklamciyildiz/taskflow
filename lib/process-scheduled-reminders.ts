@@ -1,4 +1,7 @@
+import { parseDueDateFromApi } from '@/lib/due-date';
 import { notificationDb, taskDb } from '@/lib/db';
+import { canUseAdvancedReminders, getOrganizationEntitlements, type Entitlements } from '@/lib/entitlements';
+import { computeReminderInstantsUtcIso } from '@/lib/reminder-presets';
 import { sendPushToUser } from '@/lib/push';
 
 type JournalRow = Record<string, unknown>;
@@ -32,6 +35,26 @@ function taskReminders(raw: unknown): string[] {
   return raw.filter((x): x is string => typeof x === 'string' && x.length > 0);
 }
 
+/** Parity with task PATCH paywall: Free / lapsed paid may only fire the single `when_due` instant for a given due date. */
+function scheduledIsoAllowedForOrg(ent: Entitlements, dueRaw: unknown, iso: string): boolean {
+  if (canUseAdvancedReminders(ent)) return true;
+  const s = typeof dueRaw === 'string' ? dueRaw.trim() : '';
+  const dueAt = parseDueDateFromApi(s || null);
+  const allowed = dueAt ? computeReminderInstantsUtcIso({ dueAt, preset: 'when_due' })[0] : null;
+  return Boolean(allowed && allowed === iso);
+}
+
+const FALLBACK_FREE_ENT: Entitlements = { plan: 'free', subscriptionStatus: 'active', seatLimit: 2 };
+
+async function entitlementsForOrg(orgId: string, cache: Map<string, Entitlements>): Promise<Entitlements> {
+  if (!orgId) return FALLBACK_FREE_ENT;
+  const hit = cache.get(orgId);
+  if (hit) return hit;
+  const ent = await getOrganizationEntitlements(orgId);
+  cache.set(orgId, ent);
+  return ent;
+}
+
 export type ScheduledReminderRunStats = {
   taskRemindersFired: number;
   checklistRemindersFired: number;
@@ -51,6 +74,10 @@ export type ScheduledReminderRunStats = {
  *
  * Task-level reminders notify `assignee_id` when set; otherwise `created_by`
  * (the user who created the action) so "Remind me" works for unassigned tasks.
+ *
+ * Plan enforcement: matches API paywall — orgs without advanced entitlement only fire
+ * reminders whose ISO equals `when_due` for the row’s due date (stale Pro data after downgrade
+ * does not keep firing).
  */
 export async function processScheduledReminders(input?: {
   /** Sliding window to consider reminders as "due" (missed cron / deploy gaps). Default: 24h. */
@@ -134,6 +161,8 @@ export async function processScheduledReminders(input?: {
         const ms = isoToMs(iso);
         if (ms == null) continue;
         if (ms > now || ms < minMs) continue;
+        const rowDue = row.due_date ?? row.dueDate;
+        if (!scheduledIsoAllowedForOrg(orgEnt, rowDue, iso)) continue;
 
         const openLink = boardLink({
           task: taskId,
