@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { invitationDb, userDb, teamMemberDb, teamDb } from '@/lib/db';
+import { canInviteMembers, getOrganizationEntitlements, getOrganizationSeatUsage } from '@/lib/entitlements';
 
 function normalizeInviteTeamRole(role: string | null | undefined): 'admin' | 'member' | 'viewer' {
   if (role === 'admin' || role === 'viewer') return role;
@@ -27,6 +28,48 @@ async function ensureUserInInviteTeams(
   if (teams && teams.length > 0) {
     await teamMemberDb.ensureMember(teams[0].id, userId, tr);
   }
+}
+
+/** Re-check seats at accept time (avoids race when multiple invites were issued). */
+async function assertSeatAvailableForAccept(
+  organizationId: string,
+  joiningUserId: string | null
+): Promise<NextResponse | null> {
+  const ent = await getOrganizationEntitlements(organizationId);
+  if (!canInviteMembers(ent)) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'This organization cannot accept new members on the current plan.',
+        code: 'PAYWALL_INVITES',
+      },
+      { status: 402 }
+    );
+  }
+  if (!Number.isFinite(ent.seatLimit) || ent.seatLimit === Number.POSITIVE_INFINITY) {
+    return null;
+  }
+  const used = await getOrganizationSeatUsage(organizationId);
+  if (joiningUserId) {
+    const rows = await teamMemberDb.listDistinctUsersForOrganization(organizationId);
+    const alreadyInSeatCount = rows.some((r) => r.user_id === joiningUserId);
+    if (alreadyInSeatCount) {
+      return null;
+    }
+  }
+  if (used >= ent.seatLimit) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: `This organization has reached its seat limit (${ent.seatLimit}). Ask an admin to add seats in billing, then try again.`,
+        code: 'PAYWALL_SEATS',
+        seatLimit: ent.seatLimit,
+        seatsUsed: used,
+      },
+      { status: 402 }
+    );
+  }
+  return null;
 }
 
 export async function POST(request: NextRequest) {
@@ -70,6 +113,8 @@ export async function POST(request: NextRequest) {
     if (existingUser) {
       // User already exists - check their organization
       if (existingUser.organization_id === invitation.organization_id) {
+        const seatBlock = await assertSeatAvailableForAccept(invitation.organization_id, existingUser.id);
+        if (seatBlock) return seatBlock;
         await ensureUserInInviteTeams(existingUser.id, invitation);
         await invitationDb.accept(invitation.id);
         return NextResponse.json({
@@ -91,6 +136,8 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
       } else {
+        const seatBlock = await assertSeatAvailableForAccept(invitation.organization_id, existingUser.id);
+        if (seatBlock) return seatBlock;
         // User exists but has no organization - update their organization
         await userDb.update(existingUser.id, {
           organization_id: invitation.organization_id,
@@ -111,6 +158,9 @@ export async function POST(request: NextRequest) {
         });
       }
     }
+
+    const seatBlockNew = await assertSeatAvailableForAccept(invitation.organization_id, null);
+    if (seatBlockNew) return seatBlockNew;
 
     // Create new user in the organization
     const newUser = await userDb.create({

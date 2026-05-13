@@ -25,7 +25,7 @@ const FEATURES: Record<UpgradePlan, readonly string[]> = {
     'Unlimited teams / workspaces',
     'Unlimited processes',
     'Webhooks',
-    'Starts at 2 seats',
+    'Per-seat billing (matches org size at checkout)',
   ],
 } as const;
 
@@ -34,7 +34,7 @@ function isHighlightedFeature(reason: UpgradeReason | undefined, plan: UpgradePl
   if (reason === 'teams') return plan === 'team' && feature === 'Unlimited teams / workspaces';
   if (reason === 'processes') return plan === 'team' && feature === 'Unlimited processes';
   if (reason === 'webhooks') return plan === 'team' && feature === 'Webhooks';
-  if (reason === 'seats') return plan === 'team' && feature === 'Starts at 2 seats';
+  if (reason === 'seats') return plan === 'team' && feature === 'Per-seat billing (matches org size at checkout)';
   return false;
 }
 
@@ -60,11 +60,11 @@ async function ensureLemon(): Promise<void> {
   w.createLemonSqueezy?.();
 }
 
-async function openCheckout(plan: UpgradePlan): Promise<void> {
+async function openCheckout(plan: UpgradePlan, billingInterval: Interval): Promise<void> {
   const resp = await fetch('/api/billing/checkout', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(plan === 'team' ? { plan: 'team', seats: 2 } : { plan: 'pro' }),
+    body: JSON.stringify({ plan, billingInterval }),
   });
   const json = await resp.json().catch(() => null);
   if (!resp.ok || !json?.success) {
@@ -127,7 +127,7 @@ export function UpgradePlanModal(props: {
   const handleUpgrade = async (plan: UpgradePlan) => {
     setBusy(plan);
     try {
-      await openCheckout(plan);
+      await openCheckout(plan, interval);
     } finally {
       setBusy(null);
     }

@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuthedUser } from '@/lib/server-authz';
+import { getOrganizationSeatUsage } from '@/lib/entitlements';
 
 type CheckoutPlan = 'pro' | 'team';
+type BillingInterval = 'monthly' | 'yearly';
 
 function requiredEnv(name: string): string {
   const v = process.env[name];
@@ -9,19 +11,21 @@ function requiredEnv(name: string): string {
   return v;
 }
 
-function lemonVariantIdForPlan(plan: CheckoutPlan): string {
+/** Env: `monthlyId,yearlyId`. Yearly falls back to monthly if only one id is configured. */
+function lemonVariantIdForPlan(plan: CheckoutPlan, billingInterval: BillingInterval): string {
   const ids =
     plan === 'pro'
       ? (process.env.LEMON_VARIANT_PRO_IDS ?? '')
       : (process.env.LEMON_VARIANT_TEAM_IDS ?? '');
-  const first = ids
+  const parts = ids
     .split(',')
     .map((s) => s.trim())
-    .filter(Boolean)[0];
-  if (!first) {
+    .filter(Boolean);
+  if (!parts.length) {
     throw new Error(`Missing variant id for plan: ${plan} (set LEMON_VARIANT_${plan.toUpperCase()}_IDS)`);
   }
-  return first;
+  if (billingInterval === 'yearly' && parts.length >= 2) return parts[1];
+  return parts[0];
 }
 
 export async function POST(request: NextRequest) {
@@ -36,11 +40,23 @@ export async function POST(request: NextRequest) {
     const apiKey = requiredEnv('LEMONSQUEEZY_API_KEY');
     const storeId = requiredEnv('LEMONSQUEEZY_STORE_ID');
 
-    const body = (await request.json().catch(() => ({}))) as { plan?: CheckoutPlan; seats?: number };
+    const body = (await request.json().catch(() => ({}))) as {
+      plan?: CheckoutPlan;
+      seats?: number;
+      billingInterval?: BillingInterval;
+    };
     const plan = body.plan === 'team' ? 'team' : 'pro';
-    const seats = plan === 'team' ? Math.max(2, Math.min(500, Number(body.seats ?? 2) || 2)) : 1;
+    const billingInterval: BillingInterval = body.billingInterval === 'yearly' ? 'yearly' : 'monthly';
 
-    const variantId = lemonVariantIdForPlan(plan);
+    const headcountRaw = await getOrganizationSeatUsage(orgId);
+    const headcount = Math.max(1, headcountRaw);
+    const reqRaw = body.seats;
+    const reqNum = Number(reqRaw);
+    const requestedOk = reqRaw !== undefined && reqRaw !== null && Number.isFinite(reqNum) && reqNum >= 1;
+    const requestedSeats = requestedOk ? Math.floor(reqNum) : headcount;
+    const seats = Math.min(500, Math.max(1, headcount, requestedSeats));
+
+    const variantId = lemonVariantIdForPlan(plan, billingInterval);
     const variantIdNum = Number(variantId);
     if (!Number.isFinite(variantIdNum)) {
       return NextResponse.json({ success: false, error: 'Invalid variant id' }, { status: 500 });
@@ -50,10 +66,8 @@ export async function POST(request: NextRequest) {
     // Per-seat quantity uses checkout_data.variant_quantities — see create-checkout docs.
     const checkoutData: Record<string, unknown> = {
       custom: { organizationId: orgId },
+      variant_quantities: [{ variant_id: variantIdNum, quantity: seats }],
     };
-    if (plan === 'team') {
-      checkoutData.variant_quantities = [{ variant_id: variantIdNum, quantity: seats }];
-    }
 
     const payload = {
       data: {

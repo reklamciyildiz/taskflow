@@ -201,7 +201,7 @@ export function MarketingPricing() {
                     ? `$${PRICES.team.yearly}/seat if billed yearly`
                     : `~$${(PRICES.team.yearly / 12).toFixed(2)}/seat/mo annually`}
                 </p>
-                <p className="mt-1 text-[11px] text-zinc-500">Starts at 2 seats</p>
+                <p className="mt-1 text-[11px] text-zinc-500">Per-seat from checkout</p>
               </div>
             </div>
             <ul className="mt-6 flex flex-1 flex-col gap-3 text-sm text-zinc-400">

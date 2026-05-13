@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { teamMemberDb, userDb } from '@/lib/db';
 import { ApiResponse } from '@/lib/types';
 import { requireAuthedUser, requireTeamAdminOrOrgAdmin } from '@/lib/server-authz';
+import { syncLemonSubscriptionQuantityToOrgHeadcount } from '@/lib/lemon-sync-seats';
 
 // PATCH /api/teams/[id]/members/[memberId] - Update a team member's role
 export async function PATCH(
@@ -65,6 +66,8 @@ export async function DELETE(
       );
     }
 
+    const organizationIdLeft = user.organization_id ? String(user.organization_id) : '';
+
     // Remove from team
     // Guard: do not allow removing the last team admin.
     const members = await teamMemberDb.getByTeam(params.id);
@@ -86,13 +89,12 @@ export async function DELETE(
     });
 
     // If user has no other teams, remove from organization
-    if (userTeams.length === 0) {
-      // Properly remove user from organization by setting organization_id to null
-      // This requires the migration: 20240107_make_organization_id_nullable.sql
-      await userDb.update(params.memberId, { 
+    if (userTeams.length === 0 && organizationIdLeft) {
+      await userDb.update(params.memberId, {
         organization_id: null, // Properly remove from organization
-        role: 'member' // Reset role to member
+        role: 'member', // Reset role to member
       });
+      await syncLemonSubscriptionQuantityToOrgHeadcount(organizationIdLeft);
     }
 
     return NextResponse.json<ApiResponse<null>>({

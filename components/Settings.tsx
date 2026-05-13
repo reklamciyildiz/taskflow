@@ -782,7 +782,7 @@ export function Settings() {
                         {billingLoading ? '…' : billingStatus.replace('_', ' ')}
                       </span>
                     </p>
-                    {billingPlan === 'team' ? (
+                    {billingPlan === 'team' || billingPlan === 'pro' ? (
                       <p className="text-muted-foreground">
                         Seats:{' '}
                         <span className="font-medium text-foreground">

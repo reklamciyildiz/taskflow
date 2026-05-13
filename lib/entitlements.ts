@@ -46,10 +46,12 @@ export function isPaidActive(status: SubscriptionStatus): boolean {
   return status === 'active' || status === 'trialing' || status === 'past_due';
 }
 
+/** Default seat caps when org row has no stored `seat_limit` (e.g. legacy rows). Paid caps normally come from Lemon webhooks. */
 export function getSeatLimitFromPlan(plan: PlanName): number {
   if (plan === 'free') return 2;
-  if (plan === 'pro') return Number.POSITIVE_INFINITY; // Pro is per-seat; enforcement is handled via billing later.
-  return Number.POSITIVE_INFINITY; // Team overridden by org.seat_limit when present
+  if (plan === 'pro') return 1;
+  if (plan === 'team') return 1;
+  return 2;
 }
 
 export function canUseAdvancedReminders(ent: Pick<Entitlements, 'plan' | 'subscriptionStatus'>): boolean {
@@ -81,11 +83,24 @@ export async function getOrganizationEntitlements(organizationId: string): Promi
   const org: any = await organizationDb.getById(organizationId);
   const plan = normalizePlan(org?.plan_name);
   const subscriptionStatus = normalizeStatus(org?.subscription_status);
-  const baseSeatLimit = getSeatLimitFromPlan(plan);
-  const seatLimit =
-    plan === 'team' && Number.isFinite(Number(org?.seat_limit)) && Number(org?.seat_limit) > 0
-      ? Number(org.seat_limit)
-      : baseSeatLimit;
+  const paid = isPaidActive(subscriptionStatus);
+  const stored = Number(org?.seat_limit);
+  const storedOk = Number.isFinite(stored) && stored > 0;
+
+  let seatLimit: number;
+  if (plan === 'free') {
+    seatLimit = getSeatLimitFromPlan('free');
+  } else if (!paid) {
+    // Cancelled / inactive paid plan: align invite caps with Free until they resubscribe.
+    seatLimit = getSeatLimitFromPlan('free');
+  } else if (plan === 'team') {
+    seatLimit = storedOk && stored >= 1 ? Math.floor(stored) : getSeatLimitFromPlan('team');
+  } else if (plan === 'pro') {
+    seatLimit = storedOk ? Math.max(1, Math.floor(stored)) : getSeatLimitFromPlan('pro');
+  } else {
+    seatLimit = getSeatLimitFromPlan('free');
+  }
+
   return { plan, subscriptionStatus, seatLimit };
 }
 

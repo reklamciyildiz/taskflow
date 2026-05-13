@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { teamDb, teamMemberDb, userDb } from '@/lib/db';
 import { ApiResponse } from '@/lib/types';
 import { requireAuthedUser, requireTeamAdminOrOrgAdmin, requireTeamMemberOrOrgAdmin } from '@/lib/server-authz';
+import { canInviteMembers, getOrganizationEntitlements, getOrganizationSeatUsage } from '@/lib/entitlements';
 
 // GET /api/teams/[id]/members - Get all members of a team
 export async function GET(
@@ -58,6 +59,32 @@ export async function POST(
         { success: false, error: 'Cannot add user from a different organization' },
         { status: 403 }
       );
+    }
+
+    const orgId = String(access.team.organization_id ?? '');
+    const ent = await getOrganizationEntitlements(orgId);
+    if (!canInviteMembers(ent)) {
+      return NextResponse.json<ApiResponse<null>>(
+        { success: false, error: 'Adding members is not available on the current plan.', code: 'PAYWALL_INVITES' as any },
+        { status: 402 }
+      );
+    }
+    if (Number.isFinite(ent.seatLimit) && ent.seatLimit !== Number.POSITIVE_INFINITY) {
+      const rows = await teamMemberDb.listDistinctUsersForOrganization(orgId);
+      const alreadyCounted = rows.some((r) => r.user_id === body.userId);
+      if (!alreadyCounted) {
+        const used = await getOrganizationSeatUsage(orgId);
+        if (used >= ent.seatLimit) {
+          return NextResponse.json<ApiResponse<null>>(
+            {
+              success: false,
+              error: `Seat limit reached (${ent.seatLimit}). Add seats in billing before adding members.`,
+              code: 'PAYWALL_SEATS' as any,
+            },
+            { status: 402 }
+          );
+        }
+      }
     }
 
     // Check if member is already in this team

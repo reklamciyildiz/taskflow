@@ -51,7 +51,7 @@ export function InviteMemberModal({ isOpen, onClose, teamId }: InviteMemberModal
       const resp = await fetch('/api/billing/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan: 'team', seats: 2 }),
+        body: JSON.stringify({ plan: 'team', billingInterval: 'monthly' }),
       });
       const json = await resp.json();
       if (!resp.ok || !json?.success) throw new Error(json?.error || 'Could not start checkout');

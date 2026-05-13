@@ -73,13 +73,24 @@ export function useOrganizationBilling(organizationId: string | null) {
   }, [refreshBilling]);
 
   const openCheckout = useCallback(
-    async (plan: 'pro' | 'team') => {
+    async (
+      plan: 'pro' | 'team',
+      opts?: { billingInterval?: 'monthly' | 'yearly'; seats?: number }
+    ) => {
       setCheckoutBusy(plan);
       try {
+        const billingInterval = opts?.billingInterval === 'yearly' ? 'yearly' : 'monthly';
+        const payload: Record<string, unknown> = {
+          plan,
+          billingInterval,
+        };
+        if (opts?.seats != null && Number.isFinite(opts.seats) && opts.seats >= 1) {
+          payload.seats = Math.floor(opts.seats);
+        }
         const resp = await fetch('/api/billing/checkout', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(plan === 'team' ? { plan: 'team', seats: 2 } : { plan: 'pro' }),
+          body: JSON.stringify(payload),
         });
         const json = await resp.json();
         if (!resp.ok || !json?.success) throw new Error(json?.error || 'Could not start checkout');

@@ -63,6 +63,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
   }, [searchParams]);
 
   const [selectedPlan, setSelectedPlan] = useState<'pro' | 'team' | null>(null);
+  const [billingInterval, setBillingInterval] = useState<'monthly' | 'yearly'>('monthly');
   const proRef = useRef<HTMLDivElement | null>(null);
   const teamRef = useRef<HTMLDivElement | null>(null);
 
@@ -75,7 +76,10 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
 
   const busy = checkoutBusy !== null;
   const statusLabel = billingStatus.replace('_', ' ');
-  const seatPct = billingPlan === 'team' && seatLimit > 0 ? Math.round((seatsUsed / seatLimit) * 100) : 0;
+  const showSeatMeter =
+    (billingPlan === 'team' || billingPlan === 'pro') && billingStatus !== 'cancelled';
+  const seatPct =
+    showSeatMeter && seatLimit > 0 ? Math.min(100, Math.round((seatsUsed / seatLimit) * 100)) : 0;
 
   return (
     <div className="mx-auto max-w-4xl space-y-8 pb-10">
@@ -115,12 +119,34 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
               <p className="text-xs text-muted-foreground">
                 Continue to secure checkout when you’re ready.
               </p>
+              <div className="mt-3 inline-flex rounded-full border border-border bg-muted/40 p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setBillingInterval('monthly')}
+                  className={cn(
+                    'rounded-full px-3 py-1 text-[11px] font-medium transition-colors',
+                    billingInterval === 'monthly' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
+                  )}
+                >
+                  Monthly
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBillingInterval('yearly')}
+                  className={cn(
+                    'rounded-full px-3 py-1 text-[11px] font-medium transition-colors',
+                    billingInterval === 'yearly' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
+                  )}
+                >
+                  Yearly
+                </button>
+              </div>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <Button
                 type="button"
                 disabled={busy || (selectedPlan === 'pro' && billingPlan === 'team')}
-                onClick={() => void openCheckout(selectedPlan)}
+                onClick={() => void openCheckout(selectedPlan, { billingInterval })}
               >
                 Continue to checkout
               </Button>
@@ -162,12 +188,12 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                 <Receipt className="mr-1.5 h-3.5 w-3.5" aria-hidden />
                 Invoices & portal
               </Button>
-              {billingPlan === 'team' ? (
+              {(billingPlan === 'team' || billingPlan === 'pro') && subscriptionId ? (
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  disabled={busy}
+                  disabled={busy || billingStatus === 'cancelled'}
                   onClick={() => void openSeatUpgrade()}
                 >
                   <Users className="mr-1.5 h-3.5 w-3.5" aria-hidden />
@@ -178,7 +204,9 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                 type="button"
                 size="sm"
                 disabled={busy}
-                onClick={() => void openCheckout(billingPlan === 'free' ? 'pro' : 'team')}
+                onClick={() =>
+                  void openCheckout(billingPlan === 'free' ? 'pro' : 'team', { billingInterval })
+                }
               >
                 {busy ? 'Opening…' : billingPlan === 'free' ? 'Upgrade to Pro' : 'Upgrade to Team'}
               </Button>
@@ -198,18 +226,21 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
             </Badge>
           </div>
 
-          {billingPlan === 'team' ? (
+          {showSeatMeter ? (
             <div className="space-y-2 rounded-xl border bg-card p-4">
               <div className="flex items-center justify-between text-sm">
                 <span className="font-medium">Seat usage</span>
                 <span className="tabular-nums text-muted-foreground">
                   {billingLoading ? '…' : `${seatsUsed} / ${seatLimit} used`}
+                  {seatPct > 0 ? (
+                    <span className="ml-2 text-muted-foreground">({seatPct}%)</span>
+                  ) : null}
                 </span>
               </div>
               <Progress value={seatsUsed} max={Math.max(seatLimit, 1)} className="h-2" />
               <p className="text-xs text-muted-foreground">
-                Invites are blocked when you reach the seat limit. Add seats from the portal or upgrade quantity at
-                renewal.
+                Invites are blocked at your purchased seat limit. Add seats in the Lemon customer portal; changes
+                sync on the next webhook update (use Refresh).
               </p>
             </div>
           ) : null}
@@ -234,7 +265,31 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
 
       {/* Plan matrix */}
       <div>
-        <h2 className="mb-3 text-sm font-medium text-muted-foreground">Compare plans</h2>
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="text-sm font-medium text-muted-foreground">Compare plans</h2>
+          <div className="inline-flex w-fit rounded-full border border-border bg-muted/40 p-0.5">
+            <button
+              type="button"
+              onClick={() => setBillingInterval('monthly')}
+              className={cn(
+                'rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
+                billingInterval === 'monthly' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
+              )}
+            >
+              Monthly
+            </button>
+            <button
+              type="button"
+              onClick={() => setBillingInterval('yearly')}
+              className={cn(
+                'rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
+                billingInterval === 'yearly' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
+              )}
+            >
+              Yearly
+            </button>
+          </div>
+        </div>
         <div className="grid gap-4 md:grid-cols-3">
           {(['free', 'pro', 'team'] as const).map((key) => {
             const current = billingPlan === key;
@@ -296,7 +351,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                       variant={current ? 'secondary' : 'default'}
                       className="w-full"
                       disabled={busy || current || billingPlan === 'team'}
-                      onClick={() => void openCheckout('pro')}
+                      onClick={() => void openCheckout('pro', { billingInterval })}
                     >
                       {current ? 'On Pro' : billingPlan === 'team' ? 'Included in Team' : 'Choose Pro'}
                     </Button>
@@ -307,7 +362,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                       variant={current ? 'secondary' : 'default'}
                       className="w-full"
                       disabled={busy || current}
-                      onClick={() => void openCheckout('team')}
+                      onClick={() => void openCheckout('team', { billingInterval })}
                     >
                       {current ? 'On Team' : 'Choose Team'}
                     </Button>

@@ -31,7 +31,7 @@ function safePlanFromVariant(variantId: string | null): 'free' | 'pro' | 'team' 
 function safeStatus(input: unknown): 'active' | 'past_due' | 'cancelled' | 'trialing' {
   const s = String(input ?? '').trim().toLowerCase();
   if (s === 'past_due') return 'past_due';
-  if (s === 'cancelled') return 'cancelled';
+  if (s === 'cancelled' || s === 'expired') return 'cancelled';
   if (s === 'trialing') return 'trialing';
   return 'active';
 }
@@ -49,7 +49,9 @@ export async function POST(request: NextRequest) {
 
     const signature = Buffer.from(signatureHex, 'hex');
     const digest = Buffer.from(crypto.createHmac('sha256', secret).update(rawBody).digest('hex'), 'hex');
-    if (signature.length === 0 || signature.length !== digest.length || !crypto.timingSafeEqual(digest, signature)) {
+    const sigView = new Uint8Array(signature);
+    const digView = new Uint8Array(digest);
+    if (sigView.length === 0 || sigView.length !== digView.length || !crypto.timingSafeEqual(sigView, digView)) {
       return NextResponse.json({ ok: false, error: 'Invalid signature' }, { status: 400 });
     }
 
@@ -60,7 +62,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: false, error: 'Missing event name' }, { status: 400 });
     }
 
-    if (!['subscription_created', 'subscription_updated', 'subscription_cancelled'].includes(eventName)) {
+    if (
+      ![
+        'subscription_created',
+        'subscription_updated',
+        'subscription_cancelled',
+        'subscription_expired',
+      ].includes(eventName)
+    ) {
       return NextResponse.json({ ok: true, ignored: true });
     }
 
@@ -95,21 +104,30 @@ export async function POST(request: NextRequest) {
 
     const plan_name = safePlanFromVariant(variantId);
 
-    // Seat limit: for Team subscriptions, store quantity as seat_limit. Lemon exposes quantity either
-    // directly or via first_subscription_item.quantity depending on API version.
+    // Seat limit from Lemon quantity (per-seat products). Paths differ by API payload shape.
     const qtyRaw =
       (attrs as any).quantity ??
       (attrs as any).first_subscription_item?.quantity ??
       (attrs as any).first_subscription_item?.data?.attributes?.quantity ??
       null;
-    const seat_limit =
-      plan_name === 'team' && Number.isFinite(Number(qtyRaw)) && Number(qtyRaw) >= 2 ? Number(qtyRaw) : 1;
+    const qtyNum = Number(qtyRaw);
+    const qtyOk = Number.isFinite(qtyNum);
+
+    let seat_limit = 1;
+    if (plan_name === 'team') {
+      seat_limit = qtyOk && qtyNum >= 1 ? Math.floor(qtyNum) : 1;
+    } else if (plan_name === 'pro') {
+      seat_limit = qtyOk && qtyNum >= 1 ? Math.floor(qtyNum) : 1;
+    }
 
     await organizationDb.update(organizationId, {
       ls_subscription_id: subscriptionId,
       variant_id: variantId,
       plan_name,
-      subscription_status: eventName === 'subscription_cancelled' ? 'cancelled' : subscriptionStatus,
+      subscription_status:
+        eventName === 'subscription_cancelled' || eventName === 'subscription_expired'
+          ? 'cancelled'
+          : subscriptionStatus,
       seat_limit,
     });
 
