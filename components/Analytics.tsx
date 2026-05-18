@@ -1,6 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, PieChart, Pie, Cell,
+} from 'recharts';
+import { format, subDays } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -9,397 +14,563 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useTaskContext } from '@/components/TaskContext';
 import { Leaderboard } from '@/components/Leaderboard';
 import { ExportModal } from '@/components/ExportModal';
-import { 
-  TrendingUp, 
-  Clock, 
-  Target, 
-  Users,
-  CheckCircle2,
-  AlertTriangle,
-  Calendar,
-  Zap,
-  BarChart3,
-  Download
+import {
+  resolveTaskBoardColumnId,
+  isTerminalBoardColumn,
+  FALLBACK_BOARD_COLUMNS,
+  type Task,
+  type ProjectColumnConfig,
+} from '@/lib/types';
+import {
+  TrendingUp, Clock, Target, Users, CheckCircle2,
+  AlertTriangle, Zap, Download, Layers, AlertCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+// ─── Colour palettes ──────────────────────────────────────────────────────────
+
+const PRIORITY_COLORS: Record<string, string> = {
+  urgent: '#ef4444',
+  high:   '#f97316',
+  medium: '#eab308',
+  low:    '#22c55e',
+};
+
+const COL_COLORS = ['#6366f1', '#0ea5e9', '#8b5cf6', '#06b6d4', '#14b8a6', '#f59e0b'];
+const TERMINAL_COLOR = '#22c55e';
+const VELOCITY_COLOR = '#6366f1';
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+type Accent = 'blue' | 'emerald' | 'orange' | 'purple';
+
+const ACCENT: Record<Accent, { card: string; label: string; value: string; sub: string }> = {
+  blue:    { card: 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800',         label: 'text-blue-700 dark:text-blue-300',     value: 'text-blue-900 dark:text-blue-100',     sub: 'text-blue-600 dark:text-blue-400'    },
+  emerald: { card: 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800', label: 'text-emerald-700 dark:text-emerald-300', value: 'text-emerald-900 dark:text-emerald-100', sub: 'text-emerald-600 dark:text-emerald-400' },
+  orange:  { card: 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800',   label: 'text-orange-700 dark:text-orange-300',  value: 'text-orange-900 dark:text-orange-100',  sub: 'text-orange-600 dark:text-orange-400'  },
+  purple:  { card: 'bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800',   label: 'text-purple-700 dark:text-purple-300',  value: 'text-purple-900 dark:text-purple-100',  sub: 'text-purple-600 dark:text-purple-400'  },
+};
+
+function KpiCard({
+  label, value, sub, icon, accent, progress,
+}: {
+  label: string; value: string; sub: string;
+  icon: React.ReactNode; accent: Accent; progress?: number;
+}) {
+  const s = ACCENT[accent];
+  return (
+    <Card className={cn('border', s.card)}>
+      <CardContent className="p-5">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className={cn('text-xs font-medium', s.label)}>{label}</p>
+            <p className={cn('mt-1 text-2xl font-bold tabular-nums', s.value)}>{value}</p>
+          </div>
+          {icon}
+        </div>
+        <p className={cn('mt-1 text-xs', s.sub)}>{sub}</p>
+        {progress !== undefined && <Progress value={progress} className="mt-3 h-1.5" />}
+      </CardContent>
+    </Card>
+  );
+}
+
+interface ColStat extends ProjectColumnConfig { count: number }
+
+function ProcessCard({
+  name, colStats, total, terminalCount, bottleneck, overdueCount,
+}: {
+  name: string;
+  colStats: ColStat[];
+  total: number;
+  terminalCount: number;
+  bottleneck: ColStat | null;
+  overdueCount: number;
+}) {
+  const rate = total > 0 ? Math.round((terminalCount / total) * 100) : 0;
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <p className="truncate text-sm font-semibold">{name}</p>
+          <Badge variant={rate >= 70 ? 'default' : 'secondary'} className="shrink-0 text-xs">
+            {rate}% done
+          </Badge>
+        </div>
+
+        {total === 0 ? (
+          <p className="text-xs text-muted-foreground">No actions in this process yet.</p>
+        ) : (
+          <>
+            {/* Segmented progress bar */}
+            <div className="mb-3 flex h-2 w-full overflow-hidden rounded-full bg-muted">
+              {colStats.map((col, i) => {
+                if (col.count === 0) return null;
+                return (
+                  <div
+                    key={col.id}
+                    style={{
+                      width: `${(col.count / total) * 100}%`,
+                      background: col.isTerminal ? TERMINAL_COLOR : COL_COLORS[i % COL_COLORS.length],
+                    }}
+                    title={`${col.title}: ${col.count}`}
+                  />
+                );
+              })}
+            </div>
+
+            {/* Column legend */}
+            <div className="mb-3 flex flex-wrap gap-x-3 gap-y-1">
+              {colStats.map((col, i) => (
+                <span key={col.id} className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <span
+                    className="h-2 w-2 shrink-0 rounded-full"
+                    style={{ background: col.isTerminal ? TERMINAL_COLOR : COL_COLORS[i % COL_COLORS.length] }}
+                  />
+                  {col.title}
+                  <span className="font-medium text-foreground">{col.count}</span>
+                </span>
+              ))}
+            </div>
+
+            {/* Alert row */}
+            <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+              <span>{total} total</span>
+              {bottleneck && bottleneck.count >= 2 && (
+                <span className="flex items-center gap-1 font-medium text-orange-600 dark:text-orange-400">
+                  <AlertCircle className="h-3 w-3" />
+                  Bottleneck: {bottleneck.title} ({bottleneck.count})
+                </span>
+              )}
+              {overdueCount > 0 && (
+                <span className="flex items-center gap-1 font-medium text-red-600 dark:text-red-400">
+                  <AlertTriangle className="h-3 w-3" />
+                  {overdueCount} overdue
+                </span>
+              )}
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
+
 export function Analytics() {
-  const { tasks, currentTeam } = useTaskContext();
+  const { tasks, projects, currentTeam, generalBoardColumns } = useTaskContext();
   const [showExport, setShowExport] = useState(false);
 
-  const teamTasks = tasks.filter(task => task.teamId === currentTeam?.id);
-  const completedTasks = teamTasks.filter(task => task.status === 'done');
-  const overdueTasks = teamTasks.filter(task => 
-    task.dueDate && 
-    task.dueDate < new Date() && 
-    task.status !== 'done'
+  // ── Resolve column config for any task ─────────────────────────────────────
+  const columnsForTask = useMemo(() => {
+    const map = new Map<string, ProjectColumnConfig[]>(
+      projects.map(p => [p.id, p.columnConfig.length > 0 ? p.columnConfig : FALLBACK_BOARD_COLUMNS])
+    );
+    const fallbackGeneral = generalBoardColumns.length > 0 ? generalBoardColumns : FALLBACK_BOARD_COLUMNS;
+    return (task: Task): ProjectColumnConfig[] =>
+      task.projectId ? (map.get(task.projectId) ?? FALLBACK_BOARD_COLUMNS) : fallbackGeneral;
+  }, [projects, generalBoardColumns]);
+
+  const isComplete = useMemo(
+    () => (task: Task) => {
+      const cols = columnsForTask(task);
+      return isTerminalBoardColumn(resolveTaskBoardColumnId(task.status, cols), cols);
+    },
+    [columnsForTask]
   );
 
-  const completionRate = teamTasks.length > 0 
-    ? Math.round((completedTasks.length / teamTasks.length) * 100) 
+  // ── Base datasets ───────────────────────────────────────────────────────────
+  const teamTasks     = useMemo(() => tasks.filter(t => t.teamId === currentTeam?.id), [tasks, currentTeam?.id]);
+  const completedTasks = useMemo(() => teamTasks.filter(isComplete), [teamTasks, isComplete]);
+  const pendingTasks   = useMemo(() => teamTasks.filter(t => !isComplete(t)), [teamTasks, isComplete]);
+  const now            = useMemo(() => new Date(), []);
+
+  const overdueTasks = useMemo(
+    () => pendingTasks.filter(t => t.dueDate && t.dueDate < now),
+    [pendingTasks, now]
+  );
+
+  // ── KPIs ────────────────────────────────────────────────────────────────────
+  const completionRate = teamTasks.length > 0
+    ? Math.round((completedTasks.length / teamTasks.length) * 100)
     : 0;
 
-  const statusDistribution = {
-    todo: teamTasks.filter(t => t.status === 'todo').length,
-    progress: teamTasks.filter(t => t.status === 'progress').length,
-    review: teamTasks.filter(t => t.status === 'review').length,
-    done: teamTasks.filter(t => t.status === 'done').length,
-  };
+  const velocityThisWeek = useMemo(() => {
+    const weekAgo = subDays(now, 7);
+    return completedTasks.filter(t => t.updatedAt >= weekAgo).length;
+  }, [completedTasks, now]);
 
-  const priorityDistribution = {
-    urgent: teamTasks.filter(t => t.priority === 'urgent').length,
-    high: teamTasks.filter(t => t.priority === 'high').length,
-    medium: teamTasks.filter(t => t.priority === 'medium').length,
-    low: teamTasks.filter(t => t.priority === 'low').length,
-  };
+  const avgCompletionDays = useMemo(() => {
+    const valid = completedTasks.filter(t => t.createdAt && t.updatedAt);
+    if (!valid.length) return null;
+    return valid.reduce(
+      (s, t) => s + (t.updatedAt.getTime() - t.createdAt.getTime()) / 86_400_000,
+      0
+    ) / valid.length;
+  }, [completedTasks]);
 
-  // Calculate real productivity metrics
-  const now = new Date();
-  const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-  
-  const tasksCompletedThisWeek = completedTasks.filter(task => 
-    task.updatedAt >= oneWeekAgo
-  ).length;
+  // ── Velocity chart — last 12 weeks ──────────────────────────────────────────
+  const velocityData = useMemo(() => {
+    return Array.from({ length: 12 }, (_, i) => {
+      const weekEndBase = subDays(now, i * 7);
+      const weekEnd = new Date(weekEndBase);
+      weekEnd.setHours(23, 59, 59, 999);
+      const weekStart = subDays(weekEnd, 6);
+      weekStart.setHours(0, 0, 0, 0);
+      const count = completedTasks.filter(
+        t => t.updatedAt >= weekStart && t.updatedAt <= weekEnd
+      ).length;
+      return { week: format(weekStart, 'MMM d'), completed: count };
+    }).reverse();
+  }, [completedTasks, now]);
 
-  // Calculate average completion time (in days)
-  const completedWithDates = completedTasks.filter(task => task.createdAt && task.updatedAt);
-  const avgCompletionDays = completedWithDates.length > 0
-    ? completedWithDates.reduce((sum, task) => {
-        const days = (task.updatedAt.getTime() - task.createdAt.getTime()) / (1000 * 60 * 60 * 24);
-        return sum + days;
-      }, 0) / completedWithDates.length
-    : 0;
+  // ── Priority distribution ───────────────────────────────────────────────────
+  const priorityData = useMemo(() => {
+    const counts: Record<string, number> = { urgent: 0, high: 0, medium: 0, low: 0 };
+    teamTasks.forEach(t => { if (t.priority in counts) counts[t.priority]++; });
+    return Object.entries(counts)
+      .filter(([, v]) => v > 0)
+      .map(([name, value]) => ({ name, value, color: PRIORITY_COLORS[name] }));
+  }, [teamTasks]);
 
-  const productivityMetrics = {
-    tasksCompletedThisWeek,
-    averageCompletionTime: avgCompletionDays > 0 ? `${avgCompletionDays.toFixed(1)} days` : 'N/A',
-    onTimeDelivery: completedTasks.length > 0 ? Math.round((completedTasks.length - overdueTasks.length) / completedTasks.length * 100) : 100,
-    teamProductivity: completionRate
-  };
-
-  const getMemberProductivity = () => {
-    if (!currentTeam) return [];
-    
-    return currentTeam.members.map(member => {
-      const memberTasks = teamTasks.filter(task => task.assigneeId === member.id);
-      const memberCompleted = memberTasks.filter(task => task.status === 'done');
-      const completionRate = memberTasks.length > 0 
-        ? Math.round((memberCompleted.length / memberTasks.length) * 100) 
-        : 0;
-      
-      return {
-        ...member,
-        totalTasks: memberTasks.length,
-        completedTasks: memberCompleted.length,
-        completionRate
-      };
+  // ── Process breakdown ───────────────────────────────────────────────────────
+  const processBreakdowns = useMemo(() => {
+    const teamProjects = projects.filter(p => !p.teamId || p.teamId === currentTeam?.id);
+    return teamProjects.map(project => {
+      const cols: ProjectColumnConfig[] =
+        project.columnConfig.length > 0 ? project.columnConfig : FALLBACK_BOARD_COLUMNS;
+      const pt = teamTasks.filter(t => t.projectId === project.id);
+      const colStats: ColStat[] = cols.map(col => ({
+        ...col,
+        count: pt.filter(t => resolveTaskBoardColumnId(t.status, cols) === col.id).length,
+      }));
+      const terminalCount = pt.filter(t =>
+        isTerminalBoardColumn(resolveTaskBoardColumnId(t.status, cols), cols)
+      ).length;
+      const nonTerminalWithTasks = colStats.filter(c => !c.isTerminal && c.count > 0);
+      const bottleneck = nonTerminalWithTasks.sort((a, b) => b.count - a.count)[0] ?? null;
+      const overdueCount = pt.filter(
+        t => t.dueDate && t.dueDate < now &&
+          !isTerminalBoardColumn(resolveTaskBoardColumnId(t.status, cols), cols)
+      ).length;
+      return { project, colStats, total: pt.length, terminalCount, bottleneck, overdueCount };
     });
-  };
+  }, [projects, teamTasks, currentTeam?.id, now]);
 
-  // Generate AI Insights based on real data
-  const generateAIInsights = () => {
-    const insights: { type: 'success' | 'warning' | 'info'; emoji: string; title: string; description: string }[] = [];
-    
-    // Completion rate insight
-    if (completionRate >= 80) {
-      insights.push({
-        type: 'success',
-        emoji: '🚀',
-        title: 'Excellent Progress',
-        description: `Team is performing exceptionally with ${completionRate}% completion rate. Keep up the great work!`
-      });
-    } else if (completionRate >= 50) {
-      insights.push({
-        type: 'info',
-        emoji: '📈',
-        title: 'Steady Progress',
-        description: `Team has completed ${completionRate}% of actions. Consider breaking down larger actions for faster completion.`
-      });
-    } else if (teamTasks.length > 0) {
-      insights.push({
-        type: 'warning',
-        emoji: '⚠️',
-        title: 'Needs Attention',
-        description: `Completion rate is at ${completionRate}%. Review action priorities and team workload distribution.`
-      });
-    }
-
-    // Overdue tasks insight
-    if (overdueTasks.length > 0) {
-      insights.push({
-        type: 'warning',
-        emoji: '⏰',
-        title: 'Overdue actions alert',
-        description: `${overdueTasks.length} action${overdueTasks.length > 1 ? 's are' : ' is'} past due date. Prioritize these to avoid bottlenecks.`
-      });
-    }
-
-    // High priority tasks insight
-    const highPriorityPending = teamTasks.filter(t => 
-      (t.priority === 'high' || t.priority === 'urgent') && t.status !== 'done'
+  // ── General board (tasks without a process) ─────────────────────────────────
+  const generalBreakdown = useMemo(() => {
+    const cols: ProjectColumnConfig[] =
+      generalBoardColumns.length > 0 ? generalBoardColumns : FALLBACK_BOARD_COLUMNS;
+    const gt = teamTasks.filter(t => !t.projectId);
+    const colStats: ColStat[] = cols.map(col => ({
+      ...col,
+      count: gt.filter(t => resolveTaskBoardColumnId(t.status, cols) === col.id).length,
+    }));
+    const terminalCount = gt.filter(t =>
+      isTerminalBoardColumn(resolveTaskBoardColumnId(t.status, cols), cols)
     ).length;
-    if (highPriorityPending > 3) {
-      insights.push({
-        type: 'warning',
-        emoji: '🔥',
-        title: 'High Priority Backlog',
-        description: `${highPriorityPending} high/urgent priority actions pending. Consider redistributing workload.`
-      });
+    return { colStats, total: gt.length, terminalCount };
+  }, [teamTasks, generalBoardColumns]);
+
+  // ── Team performance ────────────────────────────────────────────────────────
+  const memberPerf = useMemo(() => {
+    if (!currentTeam) return [];
+    return currentTeam.members
+      .map(m => {
+        const mt = teamTasks.filter(t => t.assigneeId === m.id);
+        const mc = mt.filter(isComplete);
+        return { ...m, total: mt.length, completed: mc.length, rate: mt.length > 0 ? Math.round((mc.length / mt.length) * 100) : 0 };
+      })
+      .sort((a, b) => b.rate - a.rate);
+  }, [currentTeam, teamTasks, isComplete]);
+
+  // ── Insights ────────────────────────────────────────────────────────────────
+  const insights = useMemo(() => {
+    type Insight = { type: 'success' | 'warning' | 'info'; icon: string; title: string; body: string };
+    const list: Insight[] = [];
+
+    if (completionRate >= 80) {
+      list.push({ type: 'success', icon: '🚀', title: 'Excellent progress', body: `${completionRate}% of all actions complete — team is firing on all cylinders.` });
+    } else if (completionRate < 40 && teamTasks.length > 5) {
+      list.push({ type: 'warning', icon: '⚠️', title: 'Low completion rate', body: `Only ${completionRate}% done. Review priorities and unblock stuck items.` });
     }
 
-    // Productivity trend
-    if (tasksCompletedThisWeek > 5) {
-      insights.push({
-        type: 'success',
-        emoji: '⚡',
-        title: 'High Velocity Week',
-        description: `${tasksCompletedThisWeek} actions completed this week. Team is in peak productivity mode!`
-      });
+    if (overdueTasks.length > 0) {
+      list.push({ type: 'warning', icon: '⏰', title: `${overdueTasks.length} overdue action${overdueTasks.length > 1 ? 's' : ''}`, body: 'These are past their due date and still open — address them first.' });
     }
 
-    // Workload balance insight
-    const memberProductivity = getMemberProductivity();
-    const unassignedTasks = teamTasks.filter(t => !t.assigneeId && t.status !== 'done').length;
-    if (unassignedTasks > 0) {
-      insights.push({
-        type: 'info',
-        emoji: '👥',
-        title: 'Unassigned actions',
-        description: `${unassignedTasks} action${unassignedTasks > 1 ? 's need' : ' needs'} assignment. Distribute for better tracking.`
-      });
+    const stalledProcesses = processBreakdowns.filter(pb => pb.bottleneck && pb.bottleneck.count >= 3);
+    if (stalledProcesses.length > 0) {
+      const names = stalledProcesses.map(pb => `"${pb.project.name}"`).join(', ');
+      list.push({ type: 'warning', icon: '🔴', title: 'Process bottleneck', body: `${names} — items piling up in one stage. Consider WIP limits or unblocking.` });
     }
 
-    // Average completion time insight
-    if (avgCompletionDays > 0 && avgCompletionDays <= 2) {
-      insights.push({
-        type: 'success',
-        emoji: '🎯',
-        title: 'Fast Turnaround',
-        description: `Average action completion time is ${avgCompletionDays.toFixed(1)} days. Excellent efficiency!`
-      });
-    } else if (avgCompletionDays > 7) {
-      insights.push({
-        type: 'info',
-        emoji: '📊',
-        title: 'Completion Time Analysis',
-        description: `Actions take ${avgCompletionDays.toFixed(1)} days on average. Consider smaller breakdowns.`
-      });
+    if (velocityThisWeek >= 5) {
+      list.push({ type: 'success', icon: '⚡', title: 'High-velocity week', body: `${velocityThisWeek} actions closed this week. Momentum is strong.` });
     }
 
-    // If no insights, add a default one
-    if (insights.length === 0) {
-      insights.push({
-        type: 'info',
-        emoji: '💡',
-        title: 'Getting Started',
-        description: 'Add more actions to get personalized AI insights about your team\'s productivity.'
-      });
+    const unassigned = pendingTasks.filter(t => !t.assigneeId).length;
+    if (unassigned > 0) {
+      list.push({ type: 'info', icon: '👥', title: `${unassigned} unassigned action${unassigned > 1 ? 's' : ''}`, body: 'Assign owners to improve accountability and velocity tracking.' });
     }
 
-    return insights.slice(0, 4); // Return max 4 insights
+    if (avgCompletionDays !== null && avgCompletionDays <= 2) {
+      list.push({ type: 'success', icon: '🎯', title: 'Fast turnaround', body: `Average ${avgCompletionDays.toFixed(1)} days per action — excellent execution speed.` });
+    } else if (avgCompletionDays !== null && avgCompletionDays > 10) {
+      list.push({ type: 'info', icon: '📊', title: 'Long completion cycles', body: `Actions take ~${Math.round(avgCompletionDays)} days on average. Break them into smaller steps.` });
+    }
+
+    if (list.length === 0) {
+      list.push({ type: 'info', icon: '💡', title: 'Getting started', body: 'Complete actions to unlock personalised insights about your team\'s performance.' });
+    }
+
+    return list.slice(0, 4);
+  }, [completionRate, overdueTasks.length, processBreakdowns, velocityThisWeek, pendingTasks, avgCompletionDays, teamTasks.length]);
+
+  const showProcessSection =
+    processBreakdowns.some(pb => pb.total > 0) || generalBreakdown.total > 0;
+
+  const tooltipStyle = {
+    background: 'hsl(var(--popover))',
+    border: '1px solid hsl(var(--border))',
+    borderRadius: 8,
+    fontSize: 12,
   };
 
-  const aiInsights = generateAIInsights();
-
+  // ── Render ──────────────────────────────────────────────────────────────────
   return (
-    <div className="space-y-6">
-      <div className="mb-6 flex items-center justify-between">
+    <div className="space-y-6 pb-6">
+
+      {/* ── Header ── */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Analytics Dashboard</h1>
-          <p className="text-muted-foreground mt-1">
-            Track your team's productivity and performance metrics
+          <h1 className="text-2xl font-bold text-foreground">Analytics</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {currentTeam?.name ?? 'Team'} · {teamTasks.length} total actions
           </p>
         </div>
-        <Button onClick={() => setShowExport(true)} variant="outline">
-          <Download className="h-4 w-4 mr-2" />
+        <Button onClick={() => setShowExport(true)} variant="outline" size="sm">
+          <Download className="mr-2 h-4 w-4" />
           Export
         </Button>
       </div>
 
-      {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-900/10 border-blue-200 dark:border-blue-800">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-blue-700 dark:text-blue-300">Completion Rate</p>
-                <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">{completionRate}%</p>
-              </div>
-              <Target className="h-8 w-8 text-blue-600 dark:text-blue-400" />
-            </div>
-            <Progress value={completionRate} className="mt-3 h-2" />
+      {/* ── KPI row ── */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <KpiCard
+          label="Completion rate"
+          value={`${completionRate}%`}
+          sub={`${completedTasks.length} / ${teamTasks.length} actions`}
+          icon={<Target className="h-5 w-5 text-blue-500" />}
+          accent="blue"
+          progress={completionRate}
+        />
+        <KpiCard
+          label="This week"
+          value={String(velocityThisWeek)}
+          sub="actions completed"
+          icon={<CheckCircle2 className="h-5 w-5 text-emerald-500" />}
+          accent="emerald"
+        />
+        <KpiCard
+          label="Overdue"
+          value={String(overdueTasks.length)}
+          sub={overdueTasks.length === 0 ? 'All on track' : 'past due date'}
+          icon={<AlertTriangle className="h-5 w-5 text-orange-500" />}
+          accent={overdueTasks.length > 0 ? 'orange' : 'emerald'}
+        />
+        <KpiCard
+          label="Avg. completion"
+          value={avgCompletionDays !== null ? `${avgCompletionDays.toFixed(1)}d` : '—'}
+          sub="per action"
+          icon={<Clock className="h-5 w-5 text-purple-500" />}
+          accent="purple"
+        />
+      </div>
+
+      {/* ── Velocity + Priority ── */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* Velocity area chart (2/3) */}
+        <Card className="lg:col-span-2">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+              <TrendingUp className="h-4 w-4" />
+              Completion velocity — last 12 weeks
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={200}>
+              <AreaChart data={velocityData} margin={{ top: 4, right: 8, bottom: 0, left: -24 }}>
+                <defs>
+                  <linearGradient id="vGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%"  stopColor={VELOCITY_COLOR} stopOpacity={0.3} />
+                    <stop offset="95%" stopColor={VELOCITY_COLOR} stopOpacity={0}   />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="currentColor" strokeOpacity={0.06} />
+                <XAxis dataKey="week" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} interval={2} />
+                <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} allowDecimals={false} />
+                <Tooltip contentStyle={tooltipStyle} labelStyle={{ fontWeight: 600 }} />
+                <Area
+                  type="monotone"
+                  dataKey="completed"
+                  name="Completed"
+                  stroke={VELOCITY_COLOR}
+                  strokeWidth={2}
+                  fill="url(#vGrad)"
+                  dot={false}
+                  activeDot={{ r: 4 }}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-900/10 border-green-200 dark:border-green-800">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-green-700 dark:text-green-300">Actions completed</p>
-                <p className="text-2xl font-bold text-green-900 dark:text-green-100">{productivityMetrics.tasksCompletedThisWeek}</p>
-              </div>
-              <CheckCircle2 className="h-8 w-8 text-green-600 dark:text-green-400" />
-            </div>
-            <p className="text-xs text-green-600 dark:text-green-400 mt-2">This week</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-900/10 border-orange-200 dark:border-orange-800">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-orange-700 dark:text-orange-300">Overdue actions</p>
-                <p className="text-2xl font-bold text-orange-900 dark:text-orange-100">{overdueTasks.length}</p>
-              </div>
-              <AlertTriangle className="h-8 w-8 text-orange-600 dark:text-orange-400" />
-            </div>
-            <p className="text-xs text-orange-600 dark:text-orange-400 mt-2">Needs attention</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-900/10 border-purple-200 dark:border-purple-800">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-purple-700 dark:text-purple-300">Avg. Completion</p>
-                <p className="text-2xl font-bold text-purple-900 dark:text-purple-100">{productivityMetrics.averageCompletionTime}</p>
-              </div>
-              <Clock className="h-8 w-8 text-purple-600 dark:text-purple-400" />
-            </div>
-            <p className="text-xs text-purple-600 dark:text-purple-400 mt-2">Per action</p>
+        {/* Priority donut (1/3) */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+              <Layers className="h-4 w-4" />
+              Priority mix
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {priorityData.length > 0 ? (
+              <>
+                <ResponsiveContainer width="100%" height={160}>
+                  <PieChart>
+                    <Pie
+                      data={priorityData}
+                      cx="50%" cy="50%"
+                      innerRadius={44} outerRadius={68}
+                      paddingAngle={3}
+                      dataKey="value"
+                    >
+                      {priorityData.map((entry, i) => (
+                        <Cell key={i} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={tooltipStyle}
+                      formatter={(v: number, name: string) => [`${v} actions`, name]}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="mt-1 grid grid-cols-2 gap-x-4 gap-y-1">
+                  {priorityData.map(d => (
+                    <div key={d.name} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: d.color }} />
+                      <span className="capitalize">{d.name}</span>
+                      <span className="ml-auto font-medium text-foreground">{d.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="flex h-44 items-center justify-center text-sm text-muted-foreground">No data yet</div>
+            )}
           </CardContent>
         </Card>
       </div>
 
-      {/* Charts and Detailed Analytics */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Status Distribution */}
+      {/* ── Process breakdown ── */}
+      {showProcessSection && (
+        <section>
+          <h2 className="mb-3 text-base font-semibold text-foreground">Process breakdown</h2>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {generalBreakdown.total > 0 && (
+              <ProcessCard
+                name="General board"
+                colStats={generalBreakdown.colStats}
+                total={generalBreakdown.total}
+                terminalCount={generalBreakdown.terminalCount}
+                bottleneck={null}
+                overdueCount={0}
+              />
+            )}
+            {processBreakdowns.map(pb => (
+              <ProcessCard
+                key={pb.project.id}
+                name={pb.project.name}
+                colStats={pb.colStats}
+                total={pb.total}
+                terminalCount={pb.terminalCount}
+                bottleneck={pb.bottleneck}
+                overdueCount={pb.overdueCount}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* ── Team performance + Insights ── */}
+      <div className="grid gap-6 lg:grid-cols-2">
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5" />
-              Action status distribution
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+              <Users className="h-4 w-4" />
+              Team performance
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {Object.entries(statusDistribution).map(([status, count]) => {
-              const percentage = teamTasks.length > 0 
-                ? Math.round((count / teamTasks.length) * 100) 
-                : 0;
-              
-              return (
-                <div key={status} className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium capitalize">{status}</span>
-                    <span className="text-sm text-muted-foreground">{count} ({percentage}%)</span>
+          <CardContent className="space-y-3">
+            {memberPerf.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No team members yet.</p>
+            ) : (
+              memberPerf.map(m => (
+                <div key={m.id} className="flex items-center gap-3">
+                  <Avatar className="h-8 w-8 shrink-0">
+                    <AvatarImage src={m.avatar} alt={m.name} />
+                    <AvatarFallback className="text-xs">{m.name.charAt(0)}</AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-1 flex items-center justify-between">
+                      <span className="truncate text-sm font-medium">{m.name}</span>
+                      <span className="ml-2 shrink-0 text-xs text-muted-foreground">
+                        {m.completed}/{m.total}
+                      </span>
+                    </div>
+                    <Progress value={m.rate} className="h-1.5" />
                   </div>
-                  <Progress value={percentage} className="h-2" />
+                  <Badge variant={m.rate >= 70 ? 'default' : 'secondary'} className="w-12 justify-center text-xs">
+                    {m.rate}%
+                  </Badge>
                 </div>
-              );
-            })}
+              ))
+            )}
           </CardContent>
         </Card>
 
-        {/* Team Performance */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5" />
-              Team Performance
+        <Card className="border-emerald-200 bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:border-emerald-800/40 dark:from-emerald-900/20 dark:to-emerald-900/5">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold text-emerald-800 dark:text-emerald-200">
+              <Zap className="h-4 w-4" />
+              Insights
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {getMemberProductivity().map((member) => (
-              <div key={member.id} className="flex items-center gap-3">
-                <Avatar className="h-9 w-9">
-                  <AvatarImage src={member.avatar} alt={member.name} />
-                  <AvatarFallback className="text-xs">
-                    {member.name.charAt(0)}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-medium">{member.name}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {member.completedTasks}/{member.totalTasks} actions
-                    </span>
-                  </div>
-                  <Progress value={member.completionRate} className="h-2" />
+          <CardContent className="space-y-3">
+            {insights.map((ins, i) => (
+              <div key={i} className="flex items-start gap-3 rounded-lg bg-white/60 p-3 dark:bg-black/20">
+                <span className={cn(
+                  'mt-0.5 h-2 w-2 shrink-0 rounded-full',
+                  ins.type === 'success' && 'bg-emerald-500',
+                  ins.type === 'warning' && 'bg-orange-500',
+                  ins.type === 'info'    && 'bg-blue-500',
+                )} />
+                <div>
+                  <p className="text-sm font-medium">{ins.icon} {ins.title}</p>
+                  <p className="text-xs text-muted-foreground">{ins.body}</p>
                 </div>
-                <Badge 
-                  variant={member.completionRate >= 80 ? 'default' : 'secondary'}
-                  className="text-xs"
-                >
-                  {member.completionRate}%
-                </Badge>
               </div>
             ))}
           </CardContent>
         </Card>
-
-        {/* Priority Breakdown */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5" />
-              Priority Distribution
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {Object.entries(priorityDistribution).map(([priority, count]) => {
-              const percentage = teamTasks.length > 0 
-                ? Math.round((count / teamTasks.length) * 100) 
-                : 0;
-              
-              return (
-                <div key={priority} className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium capitalize">{priority}</span>
-                    <span className="text-sm text-muted-foreground">{count} ({percentage}%)</span>
-                  </div>
-                  <Progress value={percentage} className="h-2" />
-                </div>
-              );
-            })}
-          </CardContent>
-        </Card>
-
-        {/* AI Insights */}
-        <Card className="bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/20 dark:to-emerald-900/10 border-emerald-200 dark:border-emerald-800">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-emerald-800 dark:text-emerald-200">
-              <Zap className="h-5 w-5" />
-              AI Insights
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-3">
-              {aiInsights.map((insight, index) => (
-                <div 
-                  key={index} 
-                  className="flex items-start gap-3 p-3 bg-white/50 dark:bg-black/20 rounded-lg"
-                >
-                  <div className={cn(
-                    "w-2 h-2 rounded-full mt-2",
-                    insight.type === 'success' && "bg-emerald-500",
-                    insight.type === 'warning' && "bg-orange-500",
-                    insight.type === 'info' && "bg-blue-500"
-                  )}></div>
-                  <div>
-                    <p className="text-sm font-medium">{insight.emoji} {insight.title}</p>
-                    <p className="text-xs text-muted-foreground">{insight.description}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
-      {/* Leaderboard */}
+      {/* ── Leaderboard ── */}
       <Leaderboard />
 
-      {/* Export Modal */}
+      {/* ── Export ── */}
       <ExportModal open={showExport} onClose={() => setShowExport(false)} />
     </div>
   );
