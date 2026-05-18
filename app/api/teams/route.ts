@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { teamDb, teamMemberDb, userDb } from '@/lib/db';
 import { ApiResponse } from '@/lib/types';
 import { getOrganizationEntitlements, getPlanLimits, isPaidActive } from '@/lib/entitlements';
+import { isOrgAdmin } from '@/lib/server-authz';
 
 // GET /api/teams - Get all teams (optionally filtered by userId or organizationId)
 export async function GET(request: NextRequest) {
@@ -82,6 +83,13 @@ export async function POST(request: NextRequest) {
       if (user) {
         userId = user.id;
         organizationId = user.organization_id;
+
+        if (!isOrgAdmin(user)) {
+          return NextResponse.json<ApiResponse<null>>(
+            { success: false, error: 'Forbidden: only admins can create teams' },
+            { status: 403 }
+          );
+        }
       }
     }
 

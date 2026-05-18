@@ -34,6 +34,19 @@ export function isOrgAdmin(user: DbUser): boolean {
   return r === 'admin' || r === 'owner';
 }
 
+/** Authenticate + require org admin/owner role. Returns 403 for regular members. */
+export async function requireOrgAdmin(): Promise<AuthedContext | NextResponse<ApiResponse<null>>> {
+  const authed = await requireAuthedUser();
+  if (authed instanceof NextResponse) return authed;
+  if (!isOrgAdmin(authed.user)) {
+    return NextResponse.json<ApiResponse<null>>(
+      { success: false, error: 'Forbidden: admin access required' },
+      { status: 403 }
+    );
+  }
+  return authed;
+}
+
 export async function requireTeamMemberOrOrgAdmin(
   teamId: string,
   authed: AuthedContext

@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuthedUser } from '@/lib/server-authz';
+import { requireOrgAdmin } from '@/lib/server-authz';
 import { getOrganizationEntitlements, getOrganizationSeatUsage } from '@/lib/entitlements';
 import { organizationDb } from '@/lib/db';
 
 export async function GET(_request: NextRequest) {
   try {
-    const authed = await requireAuthedUser();
+    const authed = await requireOrgAdmin();
     if (authed instanceof NextResponse) return authed;
     const orgId = authed.user.organization_id;
     if (!orgId) {

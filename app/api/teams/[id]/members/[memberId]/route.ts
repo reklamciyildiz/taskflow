@@ -4,7 +4,7 @@ import { ApiResponse } from '@/lib/types';
 import { requireAuthedUser, requireTeamAdminOrOrgAdmin } from '@/lib/server-authz';
 import { syncLemonSubscriptionQuantityToOrgHeadcount } from '@/lib/lemon-sync-seats';
 
-// PATCH /api/teams/[id]/members/[memberId] - Update a team member's role
+// PATCH /api/teams/[id]/members/[memberId] - Update a team member
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string; memberId: string } }
@@ -30,7 +30,39 @@ export async function PATCH(
       );
     }
 
+    // Load target user for guard check and org-level sync
+    const targetUser: any = await userDb.getById(params.memberId);
+    if (!targetUser) {
+      return NextResponse.json<ApiResponse<null>>(
+        { success: false, error: 'Member not found' },
+        { status: 404 }
+      );
+    }
+
+    // Guard: cannot downgrade the last org admin
+    const isAdminDowngrade =
+      body.role !== 'admin' && (targetUser.role === 'admin' || targetUser.role === 'owner');
+    if (isAdminDowngrade && targetUser.organization_id) {
+      const orgUsers: any[] = (await userDb.getByOrganization(targetUser.organization_id)) ?? [];
+      const adminCount = orgUsers.filter(
+        (u: any) => u.role === 'admin' || u.role === 'owner'
+      ).length;
+      if (adminCount <= 1) {
+        return NextResponse.json<ApiResponse<null>>(
+          {
+            success: false,
+            error: 'Cannot downgrade the last organization admin. Promote another member first.',
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Update team-level role and sync org-level role
     const member = await teamMemberDb.updateRole(params.id, params.memberId, body.role);
+    if (targetUser.role !== 'owner') {
+      await userDb.update(params.memberId, { role: body.role });
+    }
 
     return NextResponse.json<ApiResponse<any>>({
       success: true,
