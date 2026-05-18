@@ -23,7 +23,7 @@ export default function PrivacyPage() {
           <p className="text-sm text-zinc-500">Last updated: {LAST_UPDATED}</p>
         </div>
 
-        <div className="prose-legal">
+        <div className="[&_p]:text-zinc-400 [&_p]:leading-[1.75] [&_p]:mb-4 [&_ul]:text-zinc-400 [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:mb-4 [&_ul]:leading-[1.75] [&_li]:mb-1.5 [&_address]:mt-2">
           <Section title="1. Introduction">
             <p>
               Axiom (&ldquo;we&rdquo;, &ldquo;our&rdquo;, or &ldquo;us&rdquo;) operates the Axiom
@@ -200,26 +200,6 @@ export default function PrivacyPage() {
       </main>
       <MarketingFooter />
 
-      <style jsx>{`
-        .prose-legal :global(p) {
-          color: rgb(161 161 170);
-          line-height: 1.75;
-          margin-bottom: 1rem;
-        }
-        .prose-legal :global(ul) {
-          color: rgb(161 161 170);
-          list-style-type: disc;
-          padding-left: 1.5rem;
-          margin-bottom: 1rem;
-          line-height: 1.75;
-        }
-        .prose-legal :global(li) {
-          margin-bottom: 0.4rem;
-        }
-        .prose-legal :global(address) {
-          margin-top: 0.5rem;
-        }
-      `}</style>
     </>
   );
 }
