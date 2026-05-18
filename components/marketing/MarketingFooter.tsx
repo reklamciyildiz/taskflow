@@ -21,6 +21,12 @@ export function MarketingFooter() {
           <Link href="/marketing#pricing" className="text-zinc-500 transition-colors hover:text-zinc-200">
             Pricing
           </Link>
+          <Link href="/privacy" className="text-zinc-500 transition-colors hover:text-zinc-200">
+            Privacy
+          </Link>
+          <Link href="/terms" className="text-zinc-500 transition-colors hover:text-zinc-200">
+            Terms
+          </Link>
         </div>
       </div>
     </footer>
