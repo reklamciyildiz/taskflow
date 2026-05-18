@@ -20,7 +20,11 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        {/* Add any necessary head elements here */}
+        {/* Open TCP connections to critical third-party origins before any resource
+            is requested, cutting the DNS + TLS handshake out of the critical path. */}
+        <link rel="preconnect" href="https://ujryiwlfzgdnwgvylzqe.supabase.co" />
+        <link rel="dns-prefetch" href="https://ujryiwlfzgdnwgvylzqe.supabase.co" />
+        <link rel="preconnect" href="https://ui-avatars.com" />
       </head>
       <body className="font-sans">
         <Providers>{children}</Providers>

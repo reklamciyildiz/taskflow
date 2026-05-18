@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"c:\\\\active_projects\\\\TaskFlow\" -Depth 0)",
+      "Bash(grep -E \"\\\\.tsx$\")",
+      "Bash(Remove-Item -Recurse -Force \"c:\\\\active_projects\\\\TaskFlow\\\\app\\\\settings\")",
+      "Bash(Remove-Item -Recurse -Force \"c:\\\\active_projects\\\\TaskFlow\\\\app\\\\profile\")",
+      "Bash(Write-Output \"Deleted successfully\")"
+    ]
+  }
+}

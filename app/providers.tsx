@@ -1,29 +1,21 @@
 'use client';
 
-import { Suspense } from 'react';
 import { AuthProvider } from '@/components/AuthProvider';
-import { TaskProvider } from '@/components/TaskContext';
 import { ThemeProvider } from '@/components/ThemeProvider';
-import { ViewProvider } from '@/components/ViewContext';
-import { SidebarShellProvider } from '@/components/shell';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 
+// TaskProvider, ViewProvider, SidebarShellProvider are only needed inside the
+// authenticated app shell — they are mounted by ShellProviders in (shell)/layout.tsx.
+// Keeping them out of the root layout prevents their large JS bundles from loading
+// on the marketing page and other public routes.
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <AuthProvider>
       <ThemeProvider attribute="class" defaultTheme="light" enableSystem storageKey="todo-theme">
         <TooltipProvider delayDuration={300}>
-          <Suspense fallback={null}>
-            <TaskProvider>
-              <ViewProvider>
-                <SidebarShellProvider>
-                  {children}
-                  <Toaster />
-                </SidebarShellProvider>
-              </ViewProvider>
-            </TaskProvider>
-          </Suspense>
+          {children}
+          <Toaster />
         </TooltipProvider>
       </ThemeProvider>
     </AuthProvider>

@@ -3,16 +3,39 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-  images: { unoptimized: true },
-  // Avoid fragile vendor-chunks for @scoped packages (Windows dev has seen MODULE_NOT_FOUND for ./vendor-chunks/@supabase.js)
+
+  // Enable gzip/brotli compression on the Node server (Vercel handles this at the edge,
+  // but enabling it here ensures it also applies in self-hosted / preview deployments).
+  compress: true,
+
+  // Re-enable Next.js image optimisation.
+  // Previously set to `unoptimized: true` -- this disabled resizing, format conversion
+  // (WebP/AVIF) and lazy loading, which slows LCP significantly for the marketing page.
+  // External Supabase avatar URLs and ui-avatars.com are allow-listed below.
+  images: {
+    formats: ['image/avif', 'image/webp'],
+    remotePatterns: [
+      { protocol: 'https', hostname: 'ui-avatars.com' },
+      { protocol: 'https', hostname: '**.supabase.co' },
+      { protocol: 'https', hostname: '**.supabase.in' },
+    ],
+  },
+
   experimental: {
     // Keep these as runtime `require()` from node_modules instead of webpack vendor-chunks.
     // On Windows we have seen MODULE_NOT_FOUND for `./vendor-chunks/<pkg>.js` during dev/build.
     serverComponentsExternalPackages: ['@supabase/supabase-js', '@supabase/ssr', 'next-auth'],
-    // Daha küçük client chunk’lar; ilk rota yükünde daha az parse/transfer
-    optimizePackageImports: ['lucide-react'],
+    // Tree-shake icon / UI packages so only imported symbols ship to the client.
+    optimizePackageImports: [
+      'lucide-react',
+      '@radix-ui/react-icons',
+      'framer-motion',
+      'date-fns',
+      'recharts',
+    ],
   },
-  webpack: (config, { dev, isServer }) => {
+
+  webpack: (config, { dev }) => {
     // Windows + dev HMR can occasionally corrupt filesystem cache and cause
     // "Cannot find module './<id>.js'" or "__webpack_modules__[moduleId] is not a function".
     // Disabling persistent cache in dev makes chunk resolution deterministic.
