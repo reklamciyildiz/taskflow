@@ -10,6 +10,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useTaskContext } from '@/components/TaskContext';
 import { Leaderboard } from '@/components/Leaderboard';
@@ -161,6 +164,7 @@ function ProcessCard({
 export function Analytics() {
   const { tasks, projects, currentTeam, generalBoardColumns } = useTaskContext();
   const [showExport, setShowExport] = useState(false);
+  const [selectedProcessId, setSelectedProcessId] = useState<string>('all');
 
   // ── Resolve column config for any task ─────────────────────────────────────
   const columnsForTask = useMemo(() => {
@@ -181,9 +185,23 @@ export function Analytics() {
   );
 
   // ── Base datasets ───────────────────────────────────────────────────────────
-  const teamTasks     = useMemo(() => tasks.filter(t => t.teamId === currentTeam?.id), [tasks, currentTeam?.id]);
-  const completedTasks = useMemo(() => teamTasks.filter(isComplete), [teamTasks, isComplete]);
-  const pendingTasks   = useMemo(() => teamTasks.filter(t => !isComplete(t)), [teamTasks, isComplete]);
+  const teamTasks = useMemo(() => tasks.filter(t => t.teamId === currentTeam?.id), [tasks, currentTeam?.id]);
+
+  const teamProjects = useMemo(
+    () => projects.filter(p => !p.teamId || p.teamId === currentTeam?.id),
+    [projects, currentTeam?.id]
+  );
+
+  const hasGeneralTasks = useMemo(() => teamTasks.some(t => !t.projectId), [teamTasks]);
+
+  const filteredTasks = useMemo(() => {
+    if (selectedProcessId === 'all') return teamTasks;
+    if (selectedProcessId === 'general') return teamTasks.filter(t => !t.projectId);
+    return teamTasks.filter(t => t.projectId === selectedProcessId);
+  }, [teamTasks, selectedProcessId]);
+
+  const completedTasks = useMemo(() => filteredTasks.filter(isComplete), [filteredTasks, isComplete]);
+  const pendingTasks   = useMemo(() => filteredTasks.filter(t => !isComplete(t)), [filteredTasks, isComplete]);
   const now            = useMemo(() => new Date(), []);
 
   const overdueTasks = useMemo(
@@ -192,8 +210,8 @@ export function Analytics() {
   );
 
   // ── KPIs ────────────────────────────────────────────────────────────────────
-  const completionRate = teamTasks.length > 0
-    ? Math.round((completedTasks.length / teamTasks.length) * 100)
+  const completionRate = filteredTasks.length > 0
+    ? Math.round((completedTasks.length / filteredTasks.length) * 100)
     : 0;
 
   const velocityThisWeek = useMemo(() => {
@@ -228,15 +246,14 @@ export function Analytics() {
   // ── Priority distribution ───────────────────────────────────────────────────
   const priorityData = useMemo(() => {
     const counts: Record<string, number> = { urgent: 0, high: 0, medium: 0, low: 0 };
-    teamTasks.forEach(t => { if (t.priority in counts) counts[t.priority]++; });
+    filteredTasks.forEach(t => { if (t.priority in counts) counts[t.priority]++; });
     return Object.entries(counts)
       .filter(([, v]) => v > 0)
       .map(([name, value]) => ({ name, value, color: PRIORITY_COLORS[name] }));
-  }, [teamTasks]);
+  }, [filteredTasks]);
 
   // ── Process breakdown ───────────────────────────────────────────────────────
   const processBreakdowns = useMemo(() => {
-    const teamProjects = projects.filter(p => !p.teamId || p.teamId === currentTeam?.id);
     return teamProjects.map(project => {
       const cols: ProjectColumnConfig[] =
         project.columnConfig.length > 0 ? project.columnConfig : FALLBACK_BOARD_COLUMNS;
@@ -256,7 +273,14 @@ export function Analytics() {
       ).length;
       return { project, colStats, total: pt.length, terminalCount, bottleneck, overdueCount };
     });
-  }, [projects, teamTasks, currentTeam?.id, now]);
+  }, [teamProjects, teamTasks, now]);
+
+  const visibleBreakdowns = useMemo(
+    () => selectedProcessId === 'all'
+      ? processBreakdowns
+      : processBreakdowns.filter(pb => pb.project.id === selectedProcessId),
+    [processBreakdowns, selectedProcessId]
+  );
 
   // ── General board (tasks without a process) ─────────────────────────────────
   const generalBreakdown = useMemo(() => {
@@ -278,12 +302,12 @@ export function Analytics() {
     if (!currentTeam) return [];
     return currentTeam.members
       .map(m => {
-        const mt = teamTasks.filter(t => t.assigneeId === m.id);
+        const mt = filteredTasks.filter(t => t.assigneeId === m.id);
         const mc = mt.filter(isComplete);
         return { ...m, total: mt.length, completed: mc.length, rate: mt.length > 0 ? Math.round((mc.length / mt.length) * 100) : 0 };
       })
       .sort((a, b) => b.rate - a.rate);
-  }, [currentTeam, teamTasks, isComplete]);
+  }, [currentTeam, filteredTasks, isComplete]);
 
   // ── Insights ────────────────────────────────────────────────────────────────
   const insights = useMemo(() => {
@@ -292,7 +316,7 @@ export function Analytics() {
 
     if (completionRate >= 80) {
       list.push({ type: 'success', icon: '🚀', title: 'Excellent progress', body: `${completionRate}% of all actions complete — team is firing on all cylinders.` });
-    } else if (completionRate < 40 && teamTasks.length > 5) {
+    } else if (completionRate < 40 && filteredTasks.length > 5) {
       list.push({ type: 'warning', icon: '⚠️', title: 'Low completion rate', body: `Only ${completionRate}% done. Review priorities and unblock stuck items.` });
     }
 
@@ -300,7 +324,7 @@ export function Analytics() {
       list.push({ type: 'warning', icon: '⏰', title: `${overdueTasks.length} overdue action${overdueTasks.length > 1 ? 's' : ''}`, body: 'These are past their due date and still open — address them first.' });
     }
 
-    const stalledProcesses = processBreakdowns.filter(pb => pb.bottleneck && pb.bottleneck.count >= 3);
+    const stalledProcesses = visibleBreakdowns.filter(pb => pb.bottleneck && pb.bottleneck.count >= 3);
     if (stalledProcesses.length > 0) {
       const names = stalledProcesses.map(pb => `"${pb.project.name}"`).join(', ');
       list.push({ type: 'warning', icon: '🔴', title: 'Process bottleneck', body: `${names} — items piling up in one stage. Consider WIP limits or unblocking.` });
@@ -326,10 +350,13 @@ export function Analytics() {
     }
 
     return list.slice(0, 4);
-  }, [completionRate, overdueTasks.length, processBreakdowns, velocityThisWeek, pendingTasks, avgCompletionDays, teamTasks.length]);
+  }, [completionRate, overdueTasks.length, visibleBreakdowns, velocityThisWeek, pendingTasks, avgCompletionDays, filteredTasks.length]);
+
+  const showGeneralCard =
+    (selectedProcessId === 'all' || selectedProcessId === 'general') && generalBreakdown.total > 0;
 
   const showProcessSection =
-    processBreakdowns.some(pb => pb.total > 0) || generalBreakdown.total > 0;
+    visibleBreakdowns.some(pb => pb.total > 0) || showGeneralCard;
 
   const tooltipStyle = {
     background: 'hsl(var(--popover))',
@@ -347,13 +374,34 @@ export function Analytics() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Analytics</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {currentTeam?.name ?? 'Team'} · {teamTasks.length} total actions
+            {currentTeam?.name ?? 'Team'} · {filteredTasks.length} actions
+            {selectedProcessId !== 'all' && (
+              <span className="ml-1 text-muted-foreground/60">
+                (filtered)
+              </span>
+            )}
           </p>
         </div>
-        <Button onClick={() => setShowExport(true)} variant="outline" size="sm">
-          <Download className="mr-2 h-4 w-4" />
-          Export
-        </Button>
+        <div className="flex items-center gap-2">
+          <Select value={selectedProcessId} onValueChange={setSelectedProcessId}>
+            <SelectTrigger className="h-9 w-48 text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All processes</SelectItem>
+              {hasGeneralTasks && (
+                <SelectItem value="general">General board</SelectItem>
+              )}
+              {teamProjects.map(p => (
+                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button onClick={() => setShowExport(true)} variant="outline" size="sm">
+            <Download className="mr-2 h-4 w-4" />
+            Export
+          </Button>
+        </div>
       </div>
 
       {/* ── KPI row ── */}
@@ -361,7 +409,7 @@ export function Analytics() {
         <KpiCard
           label="Completion rate"
           value={`${completionRate}%`}
-          sub={`${completedTasks.length} / ${teamTasks.length} actions`}
+          sub={`${completedTasks.length} / ${filteredTasks.length} actions`}
           icon={<Target className="h-5 w-5 text-blue-500" />}
           accent="blue"
           progress={completionRate}
@@ -479,7 +527,7 @@ export function Analytics() {
         <section>
           <h2 className="mb-3 text-base font-semibold text-foreground">Process breakdown</h2>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {generalBreakdown.total > 0 && (
+            {showGeneralCard && (
               <ProcessCard
                 name="General board"
                 colStats={generalBreakdown.colStats}
@@ -489,7 +537,7 @@ export function Analytics() {
                 overdueCount={0}
               />
             )}
-            {processBreakdowns.map(pb => (
+            {visibleBreakdowns.map(pb => (
               <ProcessCard
                 key={pb.project.id}
                 name={pb.project.name}
