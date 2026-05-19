@@ -2,15 +2,12 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { MarketingHeader } from '@/components/marketing/MarketingHeader';
 import { MarketingFooter } from '@/components/marketing/MarketingFooter';
+import { APP_NAME, APP_URL, CONTACT_EMAIL, LEGAL_LAST_UPDATED } from '@/lib/site-config';
 
 export const metadata: Metadata = {
-  title: 'Terms of Service — Axiom',
-  description: 'Terms and conditions governing your use of the Axiom productivity platform.',
+  title: `Terms of Service — ${APP_NAME}`,
+  description: `Terms and conditions governing your use of the ${APP_NAME} productivity platform.`,
 };
-
-const LAST_UPDATED = 'May 19, 2026';
-const CONTACT_EMAIL = 'support@getaxiomm.vercel.app';
-const APP_URL = 'https://getaxiomm.vercel.app';
 
 export default function TermsPage() {
   return (
@@ -20,7 +17,7 @@ export default function TermsPage() {
         <div className="mb-12">
           <p className="mb-3 text-sm font-medium text-emerald-400">Legal</p>
           <h1 className="mb-4 text-4xl font-bold tracking-tight text-zinc-100">Terms of Service</h1>
-          <p className="text-sm text-zinc-500">Last updated: {LAST_UPDATED}</p>
+          <p className="text-sm text-zinc-500">Last updated: {LEGAL_LAST_UPDATED}</p>
         </div>
 
         <div className="[&_p]:text-zinc-400 [&_p]:leading-[1.75] [&_p]:mb-4 [&_ul]:text-zinc-400 [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:mb-4 [&_ul]:leading-[1.75] [&_li]:mb-1.5 [&_address]:mt-2">
