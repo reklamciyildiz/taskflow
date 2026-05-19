@@ -174,15 +174,14 @@ export function useOrganizationBilling(organizationId: string | null) {
       if (!resp.ok || !json?.success) throw new Error(json?.error || 'Could not open customer portal');
       const url = json?.data?.customerPortalUrl || json?.data?.updatePaymentMethodUrl;
       if (typeof url !== 'string' || !url) throw new Error('Customer portal URL missing');
-      await ensureLemon();
-      const w = window as LemonWindow;
-      if (w.LemonSqueezy?.Url?.Open) w.LemonSqueezy.Url.Open(url);
-      else window.location.href = url;
+      // Open in new tab — portal's own "Back" button navigates within Lemon's domain,
+      // so we avoid it overwriting our app's overlay with the Lemon store page.
+      window.open(url, '_blank', 'noopener,noreferrer');
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Could not open customer portal';
       toast.error(msg);
     }
-  }, [ensureLemon]);
+  }, []);
 
   const openSeatUpgrade = useCallback(async () => {
     try {
@@ -195,15 +194,13 @@ export function useOrganizationBilling(organizationId: string | null) {
         json?.data?.customerPortalUrl ||
         json?.data?.updatePaymentMethodUrl;
       if (typeof url !== 'string' || !url) throw new Error('Subscription management URL missing');
-      await ensureLemon();
-      const w = window as LemonWindow;
-      if (w.LemonSqueezy?.Url?.Open) w.LemonSqueezy.Url.Open(url);
-      else window.location.href = url;
+      // Open in new tab for the same reason as openCustomerPortal.
+      window.open(url, '_blank', 'noopener,noreferrer');
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Could not open subscription management';
       toast.error(msg);
     }
-  }, [ensureLemon]);
+  }, []);
 
   return {
     billingPlan,
