@@ -31,8 +31,41 @@ export async function POST(request: NextRequest) {
     }
 
     const apiKey = requiredEnv('LEMONSQUEEZY_API_KEY');
-    const resp = await fetch(
+
+    // Step 1: fetch the subscription to get the first subscription item ID.
+    // Lemon does not expose `quantity` as a writable attribute on subscriptions directly;
+    // quantity is updated via PATCH /v1/subscription-items/{id}.
+    const subResp = await fetch(
       `https://api.lemonsqueezy.com/v1/subscriptions/${encodeURIComponent(lsSubscriptionId)}`,
+      {
+        headers: {
+          Accept: 'application/vnd.api+json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+      }
+    );
+    const subJson: any = await subResp.json().catch(() => null);
+    if (!subResp.ok) {
+      const msg = subJson?.errors?.[0]?.detail || 'Could not fetch subscription';
+      return NextResponse.json({ success: false, error: msg }, { status: 500 });
+    }
+
+    const itemId =
+      subJson?.data?.attributes?.first_subscription_item?.id ??
+      subJson?.data?.attributes?.first_subscription_item?.data?.id ??
+      null;
+
+    if (!itemId) {
+      return NextResponse.json(
+        { success: false, error: 'Subscription item not found — cannot update seats' },
+        { status: 500 }
+      );
+    }
+
+    // Step 2: PATCH the subscription item with the new quantity.
+    // invoice_immediately: true charges the prorated amount now instead of next renewal.
+    const itemResp = await fetch(
+      `https://api.lemonsqueezy.com/v1/subscription-items/${encodeURIComponent(String(itemId))}`,
       {
         method: 'PATCH',
         headers: {
@@ -42,17 +75,20 @@ export async function POST(request: NextRequest) {
         },
         body: JSON.stringify({
           data: {
-            type: 'subscriptions',
-            id: String(lsSubscriptionId),
-            attributes: { quantity: seats },
+            type: 'subscription-items',
+            id: String(itemId),
+            attributes: {
+              quantity: seats,
+              invoice_immediately: true,
+            },
           },
         }),
       }
     );
 
-    const json: any = await resp.json().catch(() => null);
-    if (!resp.ok) {
-      const msg = json?.errors?.[0]?.detail || json?.message || 'Seat update failed';
+    const itemJson: any = await itemResp.json().catch(() => null);
+    if (!itemResp.ok) {
+      const msg = itemJson?.errors?.[0]?.detail || itemJson?.message || 'Seat update failed';
       return NextResponse.json({ success: false, error: msg }, { status: 500 });
     }
 
