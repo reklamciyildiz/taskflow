@@ -56,7 +56,8 @@ export function useOrganizationBilling(organizationId: string | null) {
                 ? 'trialing'
                 : 'active'
         );
-        setSeatLimit(Number(json.data.seatLimit ?? 1) || 1);
+        // null from API = unlimited (Infinity cannot be JSON-serialized)
+        setSeatLimit(json.data.seatLimit === null ? Number.POSITIVE_INFINITY : Number(json.data.seatLimit) || 1);
         setSeatsUsed(Number(json.data.seatsUsed ?? 1) || 1);
         const sid = json.data.subscriptionId;
         setSubscriptionId(typeof sid === 'string' && sid ? sid : null);

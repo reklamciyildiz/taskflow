@@ -23,7 +23,8 @@ export async function GET(_request: NextRequest) {
       data: {
         plan: ent.plan,
         subscriptionStatus: ent.subscriptionStatus,
-        seatLimit: ent.seatLimit,
+        // null signals "unlimited" — Infinity cannot survive JSON serialization
+        seatLimit: Number.isFinite(ent.seatLimit) ? ent.seatLimit : null,
         seatsUsed,
         subscriptionId,
       },
