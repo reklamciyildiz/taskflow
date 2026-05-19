@@ -182,6 +182,28 @@ export function useOrganizationBilling(organizationId: string | null) {
     }
   }, []);
 
+  const updateSeats = useCallback(async (seats: number) => {
+    setCheckoutBusy('pro'); // reuse busy flag to disable buttons
+    try {
+      const resp = await fetch('/api/billing/update-seats', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ seats }),
+      });
+      const json = await resp.json();
+      if (!resp.ok || !json?.success) throw new Error(json?.error || 'Seat update failed');
+      setTimeout(() => void refreshBillingRef.current(), 2500);
+      setTimeout(() => void refreshBillingRef.current(), 8000);
+      toast.success('Seats updated — syncing…');
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Seat update failed';
+      toast.error(msg);
+      throw e;
+    } finally {
+      setCheckoutBusy(null);
+    }
+  }, []);
+
   const switchPlan = useCallback(
     async (plan: 'pro' | 'team', opts?: { billingInterval?: 'monthly' | 'yearly' }) => {
       setCheckoutBusy(plan);
@@ -244,5 +266,6 @@ export function useOrganizationBilling(organizationId: string | null) {
     openCustomerPortal,
     openSeatUpgrade,
     switchPlan,
+    updateSeats,
   };
 }

@@ -55,8 +55,8 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
     refreshBilling,
     openCheckout,
     openCustomerPortal,
-    openSeatUpgrade,
     switchPlan,
+    updateSeats,
   } = useOrganizationBilling(organizationId);
 
   const requestedPlan = useMemo(() => {
@@ -68,6 +68,8 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
 
   const [selectedPlan, setSelectedPlan] = useState<'pro' | 'team' | null>(null);
   const [billingInterval, setBillingInterval] = useState<'monthly' | 'yearly'>('monthly');
+  const [addSeatsOpen, setAddSeatsOpen] = useState(false);
+  const [desiredSeats, setDesiredSeats] = useState(1);
   const proRef = useRef<HTMLDivElement | null>(null);
   const teamRef = useRef<HTMLDivElement | null>(null);
 
@@ -209,13 +211,16 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                 <Receipt className="mr-1.5 h-3.5 w-3.5" aria-hidden />
                 Invoices & portal
               </Button>
-              {(billingPlan === 'team' || billingPlan === 'pro') && subscriptionId ? (
+              {(billingPlan === 'team' || billingPlan === 'pro') && subscriptionId && Number.isFinite(seatLimit) ? (
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   disabled={busy || billingStatus === 'cancelled'}
-                  onClick={() => void openSeatUpgrade()}
+                  onClick={() => {
+                    setDesiredSeats(Math.max(seatLimit + 1, seatsUsed));
+                    setAddSeatsOpen(true);
+                  }}
                 >
                   <Users className="mr-1.5 h-3.5 w-3.5" aria-hidden />
                   Add seats
@@ -307,6 +312,67 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
               )}
             </div>
           ) : null}
+
+          {addSeatsOpen && Number.isFinite(seatLimit) ? (() => {
+            const pricePerSeat = billingPlan === 'team' ? 15 : 8;
+            const monthlyTotal = desiredSeats * pricePerSeat;
+            const isValid = desiredSeats > seatLimit && desiredSeats >= seatsUsed && desiredSeats <= 500;
+            return (
+              <div className="rounded-xl border bg-muted/20 p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium">Update seat count</p>
+                  <button
+                    type="button"
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                    onClick={() => setAddSeatsOpen(false)}
+                  >
+                    Cancel
+                  </button>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Current seats</p>
+                    <p className="text-sm font-medium">{seatLimit}</p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label htmlFor="new-seats" className="text-xs text-muted-foreground">
+                      New total seats
+                    </label>
+                    <input
+                      id="new-seats"
+                      type="number"
+                      min={Math.max(seatLimit + 1, seatsUsed)}
+                      max={500}
+                      value={desiredSeats}
+                      onChange={(e) => setDesiredSeats(Math.max(1, Math.floor(Number(e.target.value))))}
+                      className="w-full rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    />
+                  </div>
+                </div>
+                <div className="rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground space-y-0.5">
+                  <p>
+                    Monthly plan: <span className="font-medium text-foreground">{desiredSeats} seats × ${pricePerSeat} = ${monthlyTotal}/mo</span>
+                  </p>
+                  <p>A prorated charge for the current billing period will be applied immediately.</p>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={busy || !isValid}
+                  onClick={async () => {
+                    try {
+                      await updateSeats(desiredSeats);
+                      setAddSeatsOpen(false);
+                    } catch {
+                      // error already toasted in hook
+                    }
+                  }}
+                >
+                  {busy ? 'Saving…' : `Confirm — ${desiredSeats} seats`}
+                </Button>
+              </div>
+            );
+          })() : null}
 
           {subscriptionId ? (
             <p className="font-mono text-xs text-muted-foreground">
