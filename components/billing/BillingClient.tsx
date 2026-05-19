@@ -70,6 +70,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
   const [billingInterval, setBillingInterval] = useState<'monthly' | 'yearly'>('monthly');
   const [addSeatsOpen, setAddSeatsOpen] = useState(false);
   const [desiredSeats, setDesiredSeats] = useState(1);
+  const [addSeatsError, setAddSeatsError] = useState<{ message: string; code?: string } | null>(null);
   const proRef = useRef<HTMLDivElement | null>(null);
   const teamRef = useRef<HTMLDivElement | null>(null);
 
@@ -219,6 +220,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                   disabled={busy || billingStatus === 'cancelled'}
                   onClick={() => {
                     setDesiredSeats(Math.max(seatLimit + 1, seatsUsed));
+                    setAddSeatsError(null);
                     setAddSeatsOpen(true);
                   }}
                 >
@@ -302,8 +304,8 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
               <Progress value={seatsUsed} max={Number.isFinite(seatLimit) ? Math.max(seatLimit, 1) : Math.max(seatsUsed, 1)} className="h-2" />
               {Number.isFinite(seatLimit) && seatsUsed >= seatLimit ? (
                 <p className="text-xs text-muted-foreground">
-                  Invites are blocked at your purchased seat limit. Add seats in the Lemon customer portal; changes
-                  sync on the next webhook update (use Refresh).
+                  Invites are blocked at your purchased seat limit. Use <strong>Add seats</strong> above to increase
+                  your quota; changes sync after the next webhook event (use Refresh).
                 </p>
               ) : (
                 <p className="text-xs text-muted-foreground">
@@ -324,7 +326,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                   <button
                     type="button"
                     className="text-xs text-muted-foreground hover:text-foreground"
-                    onClick={() => setAddSeatsOpen(false)}
+                    onClick={() => { setAddSeatsOpen(false); setAddSeatsError(null); }}
                   >
                     Cancel
                   </button>
@@ -355,16 +357,38 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                   </p>
                   <p>A prorated charge for the current billing period will be applied immediately.</p>
                 </div>
+                {addSeatsError ? (
+                  <div className="flex flex-col gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2.5">
+                    <div className="flex items-start gap-2 text-xs text-red-700 dark:text-red-400">
+                      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+                      <span>{addSeatsError.message}</span>
+                    </div>
+                    {addSeatsError.code === 'PAYMENT_REQUIRED' ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="self-start h-7 border-red-500/40 text-red-600 hover:bg-red-500/10 dark:text-red-400 text-xs"
+                        onClick={() => void openCustomerPortal()}
+                      >
+                        <CreditCard className="mr-1.5 h-3 w-3" aria-hidden />
+                        Add payment method
+                      </Button>
+                    ) : null}
+                  </div>
+                ) : null}
                 <Button
                   type="button"
                   size="sm"
                   disabled={busy || !isValid}
                   onClick={async () => {
+                    setAddSeatsError(null);
                     try {
                       await updateSeats(desiredSeats);
                       setAddSeatsOpen(false);
-                    } catch {
-                      // error already toasted in hook
+                    } catch (e: unknown) {
+                      const err = e as Error & { code?: string };
+                      setAddSeatsError({ message: err?.message || 'Seat update failed', code: err?.code });
                     }
                   }}
                 >

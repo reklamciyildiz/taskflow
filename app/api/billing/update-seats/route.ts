@@ -8,6 +8,20 @@ function requiredEnv(name: string): string {
   return v;
 }
 
+function classifyLemonError(detail: string): 'PAYMENT_REQUIRED' | 'LEMON_ERROR' {
+  const s = detail.toLowerCase();
+  if (
+    s.includes('payment') ||
+    s.includes('card') ||
+    s.includes('unexpected') ||
+    s.includes('billing') ||
+    s.includes('charge')
+  ) {
+    return 'PAYMENT_REQUIRED';
+  }
+  return 'LEMON_ERROR';
+}
+
 export async function POST(request: NextRequest) {
   try {
     const authed = await requireOrgAdmin();
@@ -32,9 +46,7 @@ export async function POST(request: NextRequest) {
 
     const apiKey = requiredEnv('LEMONSQUEEZY_API_KEY');
 
-    // Step 1: fetch the subscription to get the first subscription item ID.
-    // Lemon does not expose `quantity` as a writable attribute on subscriptions directly;
-    // quantity is updated via PATCH /v1/subscription-items/{id}.
+    // Step 1: fetch subscription to get subscription item ID
     const subResp = await fetch(
       `https://api.lemonsqueezy.com/v1/subscriptions/${encodeURIComponent(lsSubscriptionId)}`,
       {
@@ -57,13 +69,12 @@ export async function POST(request: NextRequest) {
 
     if (!itemId) {
       return NextResponse.json(
-        { success: false, error: 'Subscription item not found — cannot update seats' },
+        { success: false, error: 'Subscription item not found' },
         { status: 500 }
       );
     }
 
-    // Step 2: PATCH the subscription item with the new quantity.
-    // invoice_immediately: true charges the prorated amount now instead of next renewal.
+    // Step 2: PATCH subscription item — invoice_immediately charges prorated amount now
     const itemResp = await fetch(
       `https://api.lemonsqueezy.com/v1/subscription-items/${encodeURIComponent(String(itemId))}`,
       {
@@ -88,8 +99,18 @@ export async function POST(request: NextRequest) {
 
     const itemJson: any = await itemResp.json().catch(() => null);
     if (!itemResp.ok) {
-      const msg = itemJson?.errors?.[0]?.detail || itemJson?.message || 'Seat update failed';
-      return NextResponse.json({ success: false, error: msg }, { status: 500 });
+      const rawDetail =
+        itemJson?.errors?.[0]?.detail ||
+        itemJson?.message ||
+        'Seat update failed';
+
+      const code = classifyLemonError(rawDetail);
+      const userMessage =
+        code === 'PAYMENT_REQUIRED'
+          ? 'No valid payment method on file. Add a card via the customer portal and try again.'
+          : rawDetail;
+
+      return NextResponse.json({ success: false, error: userMessage, code }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });

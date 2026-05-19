@@ -191,7 +191,11 @@ export function useOrganizationBilling(organizationId: string | null) {
         body: JSON.stringify({ seats }),
       });
       const json = await resp.json();
-      if (!resp.ok || !json?.success) throw new Error(json?.error || 'Seat update failed');
+      if (!resp.ok || !json?.success) {
+        const err = new Error(json?.error || 'Seat update failed') as Error & { code?: string };
+        if (json?.code) err.code = json.code;
+        throw err;
+      }
       setTimeout(() => void refreshBillingRef.current(), 2500);
       setTimeout(() => void refreshBillingRef.current(), 8000);
       toast.success('Seats updated — syncing…');
