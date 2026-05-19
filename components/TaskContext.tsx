@@ -259,6 +259,7 @@ function transformTeam(apiTeam: any): Team {
     id: apiTeam.id,
     name: apiTeam.name,
     description: apiTeam.description || '',
+    organizationId: apiTeam.organization_id || '',
     createdBy: apiTeam.created_by || '',
     createdAt: new Date(apiTeam.created_at),
     updatedAt: new Date(apiTeam.updated_at || apiTeam.created_at),

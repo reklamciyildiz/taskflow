@@ -172,6 +172,7 @@ export interface Team {
   id: string;
   name: string;
   description: string;
+  organizationId: string;
   members: TeamMember[];
   createdBy: string;
   createdAt: Date;

@@ -32,7 +32,7 @@ export async function PATCH(
       );
     }
 
-    if (sourceTeam.organization_id !== targetTeam.organization_id) {
+    if (String(sourceTeam.organization_id) !== String(targetTeam.organization_id)) {
       return NextResponse.json<ApiResponse<null>>(
         { success: false, error: 'Cannot move member between different organizations' },
         { status: 400 }

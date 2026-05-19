@@ -396,7 +396,7 @@ export function TeamMembers() {
       <MoveMemberModal
         member={movingMember}
         currentTeamId={currentTeam?.id}
-        teams={teams}
+        teams={teams.filter(t => t.organizationId === currentTeam?.organizationId)}
         open={!!movingMember}
         onClose={() => setMovingMember(null)}
         onMove={handleMoveMemberConfirm}
