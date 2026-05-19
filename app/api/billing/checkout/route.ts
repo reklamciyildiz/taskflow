@@ -74,10 +74,11 @@ export async function POST(request: NextRequest) {
       data: {
         type: 'checkouts',
         attributes: {
+          // redirect_url lives in product_options, not checkout_options
+          product_options: {
+            redirect_url: `${process.env.NEXTAUTH_URL ?? ''}/settings/billing?checkout=success`,
+          },
           checkout_data: checkoutData,
-          checkout_options: {
-          redirect_url: `${process.env.NEXTAUTH_URL ?? ''}/settings/billing?checkout=success`,
-        },
         },
         relationships: {
           store: { data: { type: 'stores', id: String(storeId) } },
