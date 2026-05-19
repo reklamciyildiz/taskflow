@@ -198,7 +198,11 @@ export function useOrganizationBilling(organizationId: string | null) {
       }
       setTimeout(() => void refreshBillingRef.current(), 2500);
       setTimeout(() => void refreshBillingRef.current(), 8000);
-      toast.success('Seats updated — syncing…');
+      toast.success(
+        json?.reduced
+          ? 'Seats reduced — takes effect at your next billing cycle.'
+          : 'Seats updated — syncing…'
+      );
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Seat update failed';
       toast.error(msg);

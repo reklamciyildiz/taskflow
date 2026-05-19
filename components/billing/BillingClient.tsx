@@ -219,13 +219,13 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                   size="sm"
                   disabled={busy || billingStatus === 'cancelled'}
                   onClick={() => {
-                    setDesiredSeats(Math.max(seatLimit + 1, seatsUsed));
+                    setDesiredSeats(seatLimit);
                     setAddSeatsError(null);
                     setAddSeatsOpen(true);
                   }}
                 >
                   <Users className="mr-1.5 h-3.5 w-3.5" aria-hidden />
-                  Add seats
+                  Manage seats
                 </Button>
               ) : null}
               {billingPlan === 'free' ? (
@@ -318,11 +318,13 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
           {addSeatsOpen && Number.isFinite(seatLimit) ? (() => {
             const pricePerSeat = billingPlan === 'team' ? 15 : 8;
             const monthlyTotal = desiredSeats * pricePerSeat;
-            const isValid = desiredSeats > seatLimit && desiredSeats >= seatsUsed && desiredSeats <= 500;
+            const isIncrease = desiredSeats > seatLimit;
+            const isDecrease = desiredSeats < seatLimit;
+            const isValid = desiredSeats !== seatLimit && desiredSeats >= seatsUsed && desiredSeats >= 1 && desiredSeats <= 500;
             return (
               <div className="rounded-xl border bg-muted/20 p-4 space-y-4">
                 <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium">Update seat count</p>
+                  <p className="text-sm font-medium">Manage seats</p>
                   <button
                     type="button"
                     className="text-xs text-muted-foreground hover:text-foreground"
@@ -335,6 +337,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                   <div className="space-y-1">
                     <p className="text-xs text-muted-foreground">Current seats</p>
                     <p className="text-sm font-medium">{seatLimit}</p>
+                    <p className="text-xs text-muted-foreground">{seatsUsed} in use · min {seatsUsed}</p>
                   </div>
                   <div className="space-y-1.5">
                     <label htmlFor="new-seats" className="text-xs text-muted-foreground">
@@ -343,10 +346,14 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                     <input
                       id="new-seats"
                       type="number"
-                      min={Math.max(seatLimit + 1, seatsUsed)}
+                      min={seatsUsed}
                       max={500}
                       value={desiredSeats}
-                      onChange={(e) => setDesiredSeats(Math.max(1, Math.floor(Number(e.target.value))))}
+                      onChange={(e) => {
+                        const v = Math.floor(Number(e.target.value));
+                        setDesiredSeats(Number.isFinite(v) ? Math.max(1, v) : 1);
+                        setAddSeatsError(null);
+                      }}
                       className="w-full rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
                     />
                   </div>
@@ -355,8 +362,17 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                   <p>
                     Monthly plan: <span className="font-medium text-foreground">{desiredSeats} seats × ${pricePerSeat} = ${monthlyTotal}/mo</span>
                   </p>
-                  <p>A prorated charge for the current billing period will be applied immediately.</p>
+                  {isIncrease ? (
+                    <p>A prorated charge for the current billing period will be applied immediately.</p>
+                  ) : isDecrease ? (
+                    <p>Reduction takes effect at your next billing cycle — no refund for the current period.</p>
+                  ) : null}
                 </div>
+                {desiredSeats < seatsUsed ? (
+                  <p className="text-xs text-amber-600 dark:text-amber-400">
+                    Cannot go below {seatsUsed} — that is your current active member count. Remove members first.
+                  </p>
+                ) : null}
                 {addSeatsError ? (
                   <div className="flex flex-col gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2.5">
                     <div className="flex items-start gap-2 text-xs text-red-700 dark:text-red-400">
@@ -365,7 +381,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                     </div>
                     {addSeatsError.code === 'PAYMENT_REQUIRED' ? (
                       <p className="text-xs text-muted-foreground">
-                        Add or update your card in the customer portal, then come back and confirm seats.
+                        Add or update your card in the customer portal, then come back and confirm.
                       </p>
                     ) : null}
                     <Button
@@ -395,7 +411,11 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                     }
                   }}
                 >
-                  {busy ? 'Saving…' : `Confirm — ${desiredSeats} seats`}
+                  {busy
+                    ? 'Saving…'
+                    : isDecrease
+                      ? `Confirm — reduce to ${desiredSeats} seats`
+                      : `Confirm — ${desiredSeats} seats`}
                 </Button>
               </div>
             );

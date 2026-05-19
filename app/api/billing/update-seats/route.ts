@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireOrgAdmin } from '@/lib/server-authz';
 import { organizationDb } from '@/lib/db';
+import { getOrganizationSeatUsage } from '@/lib/entitlements';
 
 function requiredEnv(name: string): string {
   const v = process.env[name];
@@ -30,6 +31,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Invalid seat count' }, { status: 400 });
     }
 
+    // Server-side guard: never allow reducing below the current active member count
+    const activeMembers = await getOrganizationSeatUsage(orgId);
+    if (seats < activeMembers) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Cannot reduce below ${activeMembers} seats — that is the number of active members. Remove members first.`,
+        },
+        { status: 400 }
+      );
+    }
+
     const apiKey = requiredEnv('LEMONSQUEEZY_API_KEY');
 
     // Step 1: fetch subscription — need item ID and payment method presence
@@ -50,19 +63,13 @@ export async function POST(request: NextRequest) {
 
     const attrs = subJson?.data?.attributes ?? {};
 
-    // Gate on card presence before attempting a charge — this works in both test and
-    // live mode because Lemon populates card_brand/card_last_four as soon as a payment
-    // method is saved to the subscription, regardless of mode.
-    const hasCard = Boolean(attrs.card_brand && attrs.card_last_four);
-    if (!hasCard) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'No payment method on file. Add a card via the customer portal and try again.',
-          code: 'PAYMENT_REQUIRED',
-        },
-        { status: 402 }
-      );
+    const currentQuantity: number = Number(attrs.first_subscription_item?.quantity ?? attrs.first_subscription_item?.data?.quantity ?? 0);
+    const isIncrease = seats > currentQuantity;
+    const isDecrease = seats < currentQuantity;
+
+    if (!isIncrease && !isDecrease) {
+      // Requested quantity matches what Lemon already has — nothing to do
+      return NextResponse.json({ success: true });
     }
 
     const itemId =
@@ -77,8 +84,57 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Step 2: charge the prorated difference immediately.
-    // Seats are NOT added until this succeeds — no payment, no access.
+    if (isIncrease) {
+      // For increases: charge the prorated difference immediately.
+      // Require a card on file before attempting — avoids vague Lemon error messages.
+      const hasCard = Boolean(attrs.card_brand && attrs.card_last_four);
+      if (!hasCard) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'No payment method on file. Add a card via the customer portal and try again.',
+            code: 'PAYMENT_REQUIRED',
+          },
+          { status: 402 }
+        );
+      }
+
+      const itemResp = await fetch(
+        `https://api.lemonsqueezy.com/v1/subscription-items/${encodeURIComponent(String(itemId))}`,
+        {
+          method: 'PATCH',
+          headers: {
+            Accept: 'application/vnd.api+json',
+            'Content-Type': 'application/vnd.api+json',
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            data: {
+              type: 'subscription-items',
+              id: String(itemId),
+              attributes: { quantity: seats, invoice_immediately: true },
+            },
+          }),
+        }
+      );
+
+      if (!itemResp.ok) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Your payment method could not be charged. Please ensure a valid default card is set in the customer portal and try again.',
+            code: 'PAYMENT_REQUIRED',
+          },
+          { status: 402 }
+        );
+      }
+
+      return NextResponse.json({ success: true });
+    }
+
+    // For decreases: update quantity without an immediate charge.
+    // Lemon will bill the reduced amount starting from the next renewal cycle.
+    // No refund or credit is issued for the current period (industry standard).
     const itemResp = await fetch(
       `https://api.lemonsqueezy.com/v1/subscription-items/${encodeURIComponent(String(itemId))}`,
       {
@@ -92,19 +148,19 @@ export async function POST(request: NextRequest) {
           data: {
             type: 'subscription-items',
             id: String(itemId),
-            attributes: { quantity: seats, invoice_immediately: true },
+            attributes: { quantity: seats },
           },
         }),
       }
     );
 
-    const itemJson: any = await itemResp.json().catch(() => null);
     if (!itemResp.ok) {
-      const msg = itemJson?.errors?.[0]?.detail || itemJson?.message || 'Seat update failed';
+      const errJson: any = await itemResp.json().catch(() => null);
+      const msg = errJson?.errors?.[0]?.detail || errJson?.message || 'Seat update failed';
       return NextResponse.json({ success: false, error: msg }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, reduced: true });
   } catch (e: any) {
     console.error('billing update-seats failed', e);
     return NextResponse.json({ success: false, error: e?.message || 'Internal server error' }, { status: 500 });
