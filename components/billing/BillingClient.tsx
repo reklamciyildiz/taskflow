@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
+  AlertTriangle,
   ArrowLeft,
   CreditCard,
   ExternalLink,
@@ -227,6 +228,31 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
               {billingLoading ? '…' : statusLabel}
             </Badge>
           </div>
+
+          {billingStatus === 'past_due' && (
+            <div className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" aria-hidden />
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-amber-600 dark:text-amber-400">
+                  Payment failed — action required
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Your last payment could not be processed. Please update your payment method in the
+                  customer portal to avoid losing access.
+                </p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="mt-2 border-amber-500/40 text-amber-600 hover:bg-amber-500/10 dark:text-amber-400"
+                  onClick={() => void openCustomerPortal()}
+                  disabled={busy}
+                >
+                  <CreditCard className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+                  Update payment method
+                </Button>
+              </div>
+            </div>
+          )}
 
           {showSeatMeter ? (
             <div className="space-y-2 rounded-xl border bg-card p-4">

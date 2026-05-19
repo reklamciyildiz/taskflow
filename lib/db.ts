@@ -91,9 +91,19 @@ export const organizationDb = {
       .eq('id', id)
       .select()
       .single();
-    
+
     if (error) throw error;
     return data;
+  },
+
+  async getBySubscriptionId(lsSubscriptionId: string) {
+    const { data, error } = await db
+      .from('organizations')
+      .select('*')
+      .eq('ls_subscription_id', lsSubscriptionId)
+      .single();
+    if (error && error.code !== 'PGRST116') throw error;
+    return data ?? null;
   },
 };
 

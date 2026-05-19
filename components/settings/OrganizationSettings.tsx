@@ -15,7 +15,7 @@ import { DeleteTeamModal } from '@/components/DeleteTeamModal';
 import { InviteMemberModal } from '@/components/InviteMemberModal';
 import { useOrganizationBilling } from '@/hooks/useOrganizationBilling';
 import {
-  Globe, Users, Layers, CreditCard, Edit, Plus, Trash2, Crown, ArrowRight,
+  Globe, Users, Layers, CreditCard, Edit, Plus, Trash2, Crown, ArrowRight, AlertTriangle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -279,9 +279,12 @@ export function OrganizationSettings() {
           <CardContent>
             <div className="flex flex-col gap-3 rounded-xl border bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="space-y-1 text-sm">
-                <p>
+                <p className="flex items-center gap-1.5">
                   <span className="text-muted-foreground">Status </span>
                   <span className="font-medium capitalize">{billingLoading ? '…' : billingStatus.replace('_', ' ')}</span>
+                  {billingStatus === 'past_due' && (
+                    <AlertTriangle className="h-3.5 w-3.5 text-amber-500" aria-label="Payment issue" />
+                  )}
                 </p>
                 {(billingPlan === 'team' || billingPlan === 'pro') ? (
                   <p className="text-muted-foreground">
@@ -289,6 +292,11 @@ export function OrganizationSettings() {
                   </p>
                 ) : (
                   <p className="text-xs text-muted-foreground">Open the billing page to compare plans.</p>
+                )}
+                {billingStatus === 'past_due' && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400">
+                    Payment failed — visit Billing & plans to update your card.
+                  </p>
                 )}
               </div>
               <Button asChild className="gap-2 sm:shrink-0">
