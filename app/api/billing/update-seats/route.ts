@@ -8,20 +8,6 @@ function requiredEnv(name: string): string {
   return v;
 }
 
-function classifyLemonError(detail: string): 'PAYMENT_REQUIRED' | 'LEMON_ERROR' {
-  const s = detail.toLowerCase();
-  if (
-    s.includes('payment') ||
-    s.includes('card') ||
-    s.includes('unexpected') ||
-    s.includes('billing') ||
-    s.includes('charge')
-  ) {
-    return 'PAYMENT_REQUIRED';
-  }
-  return 'LEMON_ERROR';
-}
-
 export async function POST(request: NextRequest) {
   try {
     const authed = await requireOrgAdmin();
@@ -74,43 +60,41 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Step 2: PATCH subscription item — invoice_immediately charges prorated amount now
-    const itemResp = await fetch(
-      `https://api.lemonsqueezy.com/v1/subscription-items/${encodeURIComponent(String(itemId))}`,
-      {
-        method: 'PATCH',
-        headers: {
-          Accept: 'application/vnd.api+json',
-          'Content-Type': 'application/vnd.api+json',
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          data: {
-            type: 'subscription-items',
-            id: String(itemId),
-            attributes: {
-              quantity: seats,
-              invoice_immediately: true,
-            },
+    const itemUrl = `https://api.lemonsqueezy.com/v1/subscription-items/${encodeURIComponent(String(itemId))}`;
+    const itemHeaders = {
+      Accept: 'application/vnd.api+json',
+      'Content-Type': 'application/vnd.api+json',
+      Authorization: `Bearer ${apiKey}`,
+    };
+    const makeBody = (invoiceImmediately: boolean) =>
+      JSON.stringify({
+        data: {
+          type: 'subscription-items',
+          id: String(itemId),
+          attributes: {
+            quantity: seats,
+            ...(invoiceImmediately ? { invoice_immediately: true } : {}),
           },
-        }),
-      }
-    );
+        },
+      });
 
-    const itemJson: any = await itemResp.json().catch(() => null);
+    // Step 2a: try to charge the prorated difference immediately
+    let itemResp = await fetch(itemUrl, { method: 'PATCH', headers: itemHeaders, body: makeBody(true) });
+    let itemJson: any = await itemResp.json().catch(() => null);
+
     if (!itemResp.ok) {
-      const rawDetail =
-        itemJson?.errors?.[0]?.detail ||
-        itemJson?.message ||
-        'Seat update failed';
+      // Step 2b: immediate charge failed (e.g. no/expired payment method, test-mode limitation).
+      // Fall back to a quantity-only update — Lemon will bill at the next renewal instead.
+      itemResp = await fetch(itemUrl, { method: 'PATCH', headers: itemHeaders, body: makeBody(false) });
+      itemJson = await itemResp.json().catch(() => null);
 
-      const code = classifyLemonError(rawDetail);
-      const userMessage =
-        code === 'PAYMENT_REQUIRED'
-          ? 'No valid payment method on file. Add a card via the customer portal and try again.'
-          : rawDetail;
+      if (!itemResp.ok) {
+        const msg = itemJson?.errors?.[0]?.detail || itemJson?.message || 'Seat update failed';
+        return NextResponse.json({ success: false, error: msg }, { status: 500 });
+      }
 
-      return NextResponse.json({ success: false, error: userMessage, code }, { status: 500 });
+      // Seats updated; prorated amount will be included in the next invoice
+      return NextResponse.json({ success: true, chargeScheduled: true });
     }
 
     return NextResponse.json({ success: true });
