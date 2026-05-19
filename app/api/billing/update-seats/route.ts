@@ -8,25 +8,6 @@ function requiredEnv(name: string): string {
   return v;
 }
 
-type ErrorCode = 'PAYMENT_REQUIRED' | 'LEMON_ERROR';
-
-// Lemon returns generic messages for payment failures; match broadly.
-// "unexpected" covers the generic "An unexpected error occurred" Lemon sends
-// when no valid payment method is on file.
-function classifyLemonError(detail: string): ErrorCode {
-  const s = detail.toLowerCase();
-  if (
-    s.includes('payment') ||
-    s.includes('card') ||
-    s.includes('billing') ||
-    s.includes('charge') ||
-    s.includes('unexpected')
-  ) {
-    return 'PAYMENT_REQUIRED';
-  }
-  return 'LEMON_ERROR';
-}
-
 export async function POST(request: NextRequest) {
   try {
     const authed = await requireOrgAdmin();
@@ -51,7 +32,7 @@ export async function POST(request: NextRequest) {
 
     const apiKey = requiredEnv('LEMONSQUEEZY_API_KEY');
 
-    // Step 1: fetch subscription to get subscription item ID
+    // Step 1: fetch subscription — need item ID and payment method presence
     const subResp = await fetch(
       `https://api.lemonsqueezy.com/v1/subscriptions/${encodeURIComponent(lsSubscriptionId)}`,
       {
@@ -67,9 +48,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: msg }, { status: 500 });
     }
 
+    const attrs = subJson?.data?.attributes ?? {};
+
+    // Gate on card presence before attempting a charge — this works in both test and
+    // live mode because Lemon populates card_brand/card_last_four as soon as a payment
+    // method is saved to the subscription, regardless of mode.
+    const hasCard = Boolean(attrs.card_brand && attrs.card_last_four);
+    if (!hasCard) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'No payment method on file. Add a card via the customer portal and try again.',
+          code: 'PAYMENT_REQUIRED',
+        },
+        { status: 402 }
+      );
+    }
+
     const itemId =
-      subJson?.data?.attributes?.first_subscription_item?.id ??
-      subJson?.data?.attributes?.first_subscription_item?.data?.id ??
+      attrs.first_subscription_item?.id ??
+      attrs.first_subscription_item?.data?.id ??
       null;
 
     if (!itemId) {
@@ -79,10 +77,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Step 2: PATCH subscription item with invoice_immediately=true.
-    // This charges the prorated difference for the current billing period right now.
-    // If payment fails (no card, declined, expired) we return an error — seats are
-    // NOT added until the charge succeeds, so we never grant access without collecting payment.
+    // Step 2: charge the prorated difference immediately.
+    // Seats are NOT added until this succeeds — no payment, no access.
     const itemResp = await fetch(
       `https://api.lemonsqueezy.com/v1/subscription-items/${encodeURIComponent(String(itemId))}`,
       {
@@ -104,13 +100,8 @@ export async function POST(request: NextRequest) {
 
     const itemJson: any = await itemResp.json().catch(() => null);
     if (!itemResp.ok) {
-      const rawDetail = itemJson?.errors?.[0]?.detail || itemJson?.message || 'Seat update failed';
-      const code = classifyLemonError(rawDetail);
-      const error =
-        code === 'PAYMENT_REQUIRED'
-          ? 'Payment could not be processed. Please add or update your payment method and try again.'
-          : rawDetail;
-      return NextResponse.json({ success: false, error, code }, { status: 500 });
+      const msg = itemJson?.errors?.[0]?.detail || itemJson?.message || 'Seat update failed';
+      return NextResponse.json({ success: false, error: msg }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });
