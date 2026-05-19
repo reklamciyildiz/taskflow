@@ -219,13 +219,17 @@ export function useOrganizationBilling(organizationId: string | null) {
         json?.data?.customerPortalUrl ||
         json?.data?.updatePaymentMethodUrl;
       if (typeof url !== 'string' || !url) throw new Error('Subscription management URL missing');
-      // Open in new tab for the same reason as openCustomerPortal.
-      window.open(url, '_blank', 'noopener,noreferrer');
+      // Use overlay so Lemon.js can render the prorated cost preview when quantity changes.
+      // Plain new-tab mode fetches the proration but can't render the result without the SDK context.
+      await ensureLemon();
+      const w = window as LemonWindow;
+      if (w.LemonSqueezy?.Url?.Open) w.LemonSqueezy.Url.Open(url);
+      else window.open(url, '_blank', 'noopener,noreferrer');
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Could not open subscription management';
       toast.error(msg);
     }
-  }, []);
+  }, [ensureLemon]);
 
   return {
     billingPlan,
