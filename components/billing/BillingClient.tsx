@@ -363,6 +363,11 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                       <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
                       <span>{addSeatsError.message}</span>
                     </div>
+                    {addSeatsError.code === 'PAYMENT_REQUIRED' ? (
+                      <p className="text-xs text-muted-foreground">
+                        Add or update your card in the customer portal, then come back and confirm seats.
+                      </p>
+                    ) : null}
                     <Button
                       type="button"
                       size="sm"
@@ -371,7 +376,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                       onClick={() => void openCustomerPortal()}
                     >
                       <CreditCard className="mr-1.5 h-3 w-3" aria-hidden />
-                      Manage billing & payment
+                      {addSeatsError.code === 'PAYMENT_REQUIRED' ? 'Add payment method' : 'Manage billing'}
                     </Button>
                   </div>
                 ) : null}
