@@ -56,6 +56,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
     openCheckout,
     openCustomerPortal,
     openSeatUpgrade,
+    switchPlan,
   } = useOrganizationBilling(organizationId);
 
   const requestedPlan = useMemo(() => {
@@ -211,15 +212,15 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                   {busy ? 'Opening…' : 'Upgrade to Pro'}
                 </Button>
               ) : billingPlan === 'pro' ? (
-                // Existing subscriber: change variant via portal so Lemon prorates correctly.
+                // Existing subscriber: PATCH variant via API so Lemon prorates correctly.
                 // Creating a new checkout would open a second subscription.
                 <Button
                   type="button"
                   size="sm"
                   disabled={busy}
-                  onClick={() => void openSeatUpgrade()}
+                  onClick={() => void switchPlan('team', { billingInterval })}
                 >
-                  Upgrade to Team
+                  {busy ? 'Switching…' : 'Upgrade to Team'}
                 </Button>
               ) : null}
             </div>
@@ -407,8 +408,8 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                       disabled={busy || current}
                       onClick={() => {
                         // Free → Team: new checkout (no existing subscription)
-                        // Pro → Team: update variant via portal so Lemon prorates correctly
-                        if (billingPlan === 'pro') void openSeatUpgrade();
+                        // Pro → Team: PATCH variant via API so Lemon prorates correctly
+                        if (billingPlan === 'pro') void switchPlan('team', { billingInterval });
                         else void openCheckout('team', { billingInterval });
                       }}
                     >

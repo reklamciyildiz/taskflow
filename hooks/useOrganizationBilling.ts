@@ -183,6 +183,32 @@ export function useOrganizationBilling(organizationId: string | null) {
     }
   }, []);
 
+  const switchPlan = useCallback(
+    async (plan: 'pro' | 'team', opts?: { billingInterval?: 'monthly' | 'yearly' }) => {
+      setCheckoutBusy(plan);
+      try {
+        const billingInterval = opts?.billingInterval === 'yearly' ? 'yearly' : 'monthly';
+        const resp = await fetch('/api/billing/switch-plan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ plan, billingInterval }),
+        });
+        const json = await resp.json();
+        if (!resp.ok || !json?.success) throw new Error(json?.error || 'Plan switch failed');
+        // Webhook will update DB; poll twice to catch it
+        setTimeout(() => void refreshBillingRef.current(), 2500);
+        setTimeout(() => void refreshBillingRef.current(), 8000);
+        toast.success('Plan updated — refreshing billing…');
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : 'Plan switch failed';
+        toast.error(msg);
+      } finally {
+        setCheckoutBusy(null);
+      }
+    },
+    []
+  );
+
   const openSeatUpgrade = useCallback(async () => {
     try {
       const resp = await fetch('/api/billing/portal');
@@ -214,5 +240,6 @@ export function useOrganizationBilling(organizationId: string | null) {
     openCheckout,
     openCustomerPortal,
     openSeatUpgrade,
+    switchPlan,
   };
 }
