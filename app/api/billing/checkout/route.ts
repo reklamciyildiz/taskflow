@@ -65,6 +65,7 @@ export async function POST(request: NextRequest) {
     // Lemon API: custom metadata lives under checkout_data.custom (not custom_data).
     // Per-seat quantity uses checkout_data.variant_quantities — see create-checkout docs.
     const checkoutData: Record<string, unknown> = {
+      email: authed.user.email ?? undefined,
       custom: { organizationId: orgId },
       variant_quantities: [{ variant_id: variantIdNum, quantity: seats }],
     };
