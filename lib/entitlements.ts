@@ -60,9 +60,9 @@ export function canUseAdvancedReminders(ent: Pick<Entitlements, 'plan' | 'subscr
 }
 
 export function canInviteMembers(ent: Pick<Entitlements, 'plan' | 'subscriptionStatus'>): boolean {
-  if (ent.plan === 'free') return true; // capped by seatLimit (=2)
-  if (ent.plan === 'pro') return isPaidActive(ent.subscriptionStatus);
-  return isPaidActive(ent.subscriptionStatus);
+  // seatLimit is the hard cap for all plans and statuses.
+  // Cancelled paid plans fall back to free-tier seatLimit (=2); still allow inviting up to that cap.
+  return true;
 }
 
 export function getPlanLimits(ent: Pick<Entitlements, 'plan' | 'subscriptionStatus'>): PlanLimits {
