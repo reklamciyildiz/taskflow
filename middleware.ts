@@ -14,6 +14,8 @@ export async function middleware(request: NextRequest) {
     '/api/auth',
     // Cron route handlers enforce CRON_SECRET (or Vercel Cron UA) themselves.
     '/api/cron',
+    // Webhook routes authenticate via HMAC signature — not session tokens.
+    '/api/webhooks',
     '/marketing',
     '/onboarding',
     '/invite',
