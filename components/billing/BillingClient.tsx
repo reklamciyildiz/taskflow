@@ -201,16 +201,25 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                   Add seats
                 </Button>
               ) : null}
-              {billingPlan !== 'team' ? (
+              {billingPlan === 'free' ? (
                 <Button
                   type="button"
                   size="sm"
                   disabled={busy}
-                  onClick={() =>
-                    void openCheckout(billingPlan === 'free' ? 'pro' : 'team', { billingInterval })
-                  }
+                  onClick={() => void openCheckout('pro', { billingInterval })}
                 >
-                  {busy ? 'Opening…' : billingPlan === 'free' ? 'Upgrade to Pro' : 'Upgrade to Team'}
+                  {busy ? 'Opening…' : 'Upgrade to Pro'}
+                </Button>
+              ) : billingPlan === 'pro' ? (
+                // Existing subscriber: change variant via portal so Lemon prorates correctly.
+                // Creating a new checkout would open a second subscription.
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => void openSeatUpgrade()}
+                >
+                  Upgrade to Team
                 </Button>
               ) : null}
             </div>
@@ -396,9 +405,14 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                       variant={current ? 'secondary' : 'default'}
                       className="w-full"
                       disabled={busy || current}
-                      onClick={() => void openCheckout('team', { billingInterval })}
+                      onClick={() => {
+                        // Free → Team: new checkout (no existing subscription)
+                        // Pro → Team: update variant via portal so Lemon prorates correctly
+                        if (billingPlan === 'pro') void openSeatUpgrade();
+                        else void openCheckout('team', { billingInterval });
+                      }}
                     >
-                      {current ? 'On Team' : 'Choose Team'}
+                      {current ? 'On Team' : billingPlan === 'pro' ? 'Switch to Team' : 'Choose Team'}
                     </Button>
                   )}
                 </CardContent>
