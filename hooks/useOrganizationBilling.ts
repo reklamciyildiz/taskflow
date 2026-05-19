@@ -153,10 +153,9 @@ export function useOrganizationBilling(organizationId: string | null) {
         const url = json?.data?.url;
         if (typeof url !== 'string' || !url) throw new Error('Checkout URL missing');
 
-        await ensureLemon();
-        const w = window as LemonWindow;
-        if (w.LemonSqueezy?.Url?.Open) w.LemonSqueezy.Url.Open(url);
-        else window.location.href = url;
+        // Full-page redirect: clean checkout without the app visible behind an overlay.
+        // Lemon redirects back to /settings/billing?checkout=success on completion.
+        window.location.href = url;
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : 'Could not start checkout';
         toast.error(msg);

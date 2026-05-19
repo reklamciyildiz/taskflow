@@ -64,6 +64,8 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
     return p === 'pro' ? 'pro' : p === 'team' ? 'team' : null;
   }, [searchParams]);
 
+  const checkoutSuccess = searchParams.get('checkout') === 'success';
+
   const [selectedPlan, setSelectedPlan] = useState<'pro' | 'team' | null>(null);
   const [billingInterval, setBillingInterval] = useState<'monthly' | 'yearly'>('monthly');
   const proRef = useRef<HTMLDivElement | null>(null);
@@ -75,6 +77,16 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
     const el = requestedPlan === 'pro' ? proRef.current : teamRef.current;
     el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, [requestedPlan]);
+
+  // After Lemon redirects back with ?checkout=success, poll billing twice to catch the webhook.
+  useEffect(() => {
+    if (!checkoutSuccess) return;
+    void refreshBilling();
+    const t1 = setTimeout(() => void refreshBilling(), 3000);
+    const t2 = setTimeout(() => void refreshBilling(), 8000);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const busy = checkoutBusy !== null;
   const statusLabel = billingStatus.replace('_', ' ');
@@ -109,6 +121,13 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
           </p>
         </div>
       )}
+
+      {checkoutSuccess ? (
+        <div className="flex items-center gap-3 rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-700 dark:text-green-400">
+          <Check className="h-4 w-4 shrink-0" aria-hidden />
+          <span>Payment received — syncing your plan. This page will update automatically.</span>
+        </div>
+      ) : null}
 
       {selectedPlan ? (
         <Card className="border-border/80 bg-muted/20">

@@ -75,7 +75,9 @@ export async function POST(request: NextRequest) {
         type: 'checkouts',
         attributes: {
           checkout_data: checkoutData,
-          checkout_options: { embed: true },
+          checkout_options: {
+          redirect_url: `${process.env.NEXTAUTH_URL ?? ''}/settings/billing?checkout=success`,
+        },
         },
         relationships: {
           store: { data: { type: 'stores', id: String(storeId) } },
