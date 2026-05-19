@@ -285,7 +285,7 @@ export function OrganizationSettings() {
                 </p>
                 {(billingPlan === 'team' || billingPlan === 'pro') ? (
                   <p className="text-muted-foreground">
-                    Seats: <span className="font-medium text-foreground">{billingLoading ? '…' : `${seatsUsed} / ${seatLimit}`}</span>
+                    Seats: <span className="font-medium text-foreground">{billingLoading ? '…' : `${seatsUsed} / ${Number.isFinite(seatLimit) ? seatLimit : '∞'}`}</span>
                   </p>
                 ) : (
                   <p className="text-xs text-muted-foreground">Open the billing page to compare plans.</p>

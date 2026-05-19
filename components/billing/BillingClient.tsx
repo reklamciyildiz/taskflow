@@ -200,16 +200,18 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                   Add seats
                 </Button>
               ) : null}
-              <Button
-                type="button"
-                size="sm"
-                disabled={busy}
-                onClick={() =>
-                  void openCheckout(billingPlan === 'free' ? 'pro' : 'team', { billingInterval })
-                }
-              >
-                {busy ? 'Opening…' : billingPlan === 'free' ? 'Upgrade to Pro' : 'Upgrade to Team'}
-              </Button>
+              {billingPlan !== 'team' ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() =>
+                    void openCheckout(billingPlan === 'free' ? 'pro' : 'team', { billingInterval })
+                  }
+                >
+                  {busy ? 'Opening…' : billingPlan === 'free' ? 'Upgrade to Pro' : 'Upgrade to Team'}
+                </Button>
+              ) : null}
             </div>
           </div>
         </CardHeader>
@@ -231,17 +233,23 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
               <div className="flex items-center justify-between text-sm">
                 <span className="font-medium">Seat usage</span>
                 <span className="tabular-nums text-muted-foreground">
-                  {billingLoading ? '…' : `${seatsUsed} / ${seatLimit} used`}
-                  {seatPct > 0 ? (
+                  {billingLoading ? '…' : `${seatsUsed} / ${Number.isFinite(seatLimit) ? seatLimit : '∞'} used`}
+                  {seatPct > 0 && Number.isFinite(seatLimit) ? (
                     <span className="ml-2 text-muted-foreground">({seatPct}%)</span>
                   ) : null}
                 </span>
               </div>
-              <Progress value={seatsUsed} max={Math.max(seatLimit, 1)} className="h-2" />
-              <p className="text-xs text-muted-foreground">
-                Invites are blocked at your purchased seat limit. Add seats in the Lemon customer portal; changes
-                sync on the next webhook update (use Refresh).
-              </p>
+              <Progress value={seatsUsed} max={Number.isFinite(seatLimit) ? Math.max(seatLimit, 1) : Math.max(seatsUsed, 1)} className="h-2" />
+              {Number.isFinite(seatLimit) && seatsUsed >= seatLimit ? (
+                <p className="text-xs text-muted-foreground">
+                  Invites are blocked at your purchased seat limit. Add seats in the Lemon customer portal; changes
+                  sync on the next webhook update (use Refresh).
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Seat count syncs automatically after Lemon Squeezy webhook events.
+                </p>
+              )}
             </div>
           ) : null}
 

@@ -50,7 +50,7 @@ export function isPaidActive(status: SubscriptionStatus): boolean {
 export function getSeatLimitFromPlan(plan: PlanName): number {
   if (plan === 'free') return 2;
   if (plan === 'pro') return 1;
-  if (plan === 'team') return 1;
+  if (plan === 'team') return Number.POSITIVE_INFINITY;
   return 2;
 }
 
@@ -87,6 +87,8 @@ export async function getOrganizationEntitlements(organizationId: string): Promi
   const stored = Number(org?.seat_limit);
   const storedOk = Number.isFinite(stored) && stored > 0;
 
+  const hasRealSubscription = !!org?.ls_subscription_id;
+
   let seatLimit: number;
   if (plan === 'free') {
     seatLimit = getSeatLimitFromPlan('free');
@@ -94,7 +96,10 @@ export async function getOrganizationEntitlements(organizationId: string): Promi
     // Cancelled / inactive paid plan: align invite caps with Free until they resubscribe.
     seatLimit = getSeatLimitFromPlan('free');
   } else if (plan === 'team') {
-    seatLimit = storedOk && stored >= 1 ? Math.floor(stored) : getSeatLimitFromPlan('team');
+    // No Lemon subscription = manually upgraded (developer / owner account): treat as unlimited.
+    seatLimit = hasRealSubscription && storedOk && stored >= 1
+      ? Math.floor(stored)
+      : Number.POSITIVE_INFINITY;
   } else if (plan === 'pro') {
     seatLimit = storedOk ? Math.max(1, Math.floor(stored)) : getSeatLimitFromPlan('pro');
   } else {
