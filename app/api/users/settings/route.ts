@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { userDb } from '@/lib/db';
-import { supabase } from '@/lib/supabase';
+import { supabaseAdminAdmin } from '@/lib/supabaseAdmin-admin';
 
 // GET - Get user settings
 export async function GET(request: NextRequest) {
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get user settings from database or return defaults
-    const { data: settings } = await supabase
+    const { data: settings } = await supabaseAdmin
       .from('user_settings')
       .select('*')
       .eq('user_id', user.id)
@@ -78,7 +78,7 @@ export async function PATCH(request: NextRequest) {
     const updates = await request.json();
 
     // Upsert settings
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('user_settings')
       .upsert({
         user_id: user.id,

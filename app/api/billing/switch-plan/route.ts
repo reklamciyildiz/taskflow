@@ -78,7 +78,18 @@ export async function POST(request: NextRequest) {
 
     const json: any = await resp.json().catch(() => null);
     if (!resp.ok) {
-      const msg = json?.errors?.[0]?.detail || json?.message || 'Plan switch failed';
+      const detail = json?.errors?.[0]?.detail || json?.message;
+      console.error('[switch-plan] Lemon plan switch failed', {
+        httpStatus: resp.status,
+        lsSubscriptionId,
+        detail,
+        body: json,
+      });
+      const hint =
+        resp.status === 401 ? ' (Invalid API key — check LEMONSQUEEZY_API_KEY)' :
+        resp.status === 404 ? ' (Subscription not found — possible test/live mode mismatch)' :
+        ` (HTTP ${resp.status})`;
+      const msg = detail ? `${detail}${hint}` : `Plan switch failed${hint}`;
       return NextResponse.json({ success: false, error: msg }, { status: 500 });
     }
 

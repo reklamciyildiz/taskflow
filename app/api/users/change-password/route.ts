@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { userDb } from '@/lib/db';
-import { supabase } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 import bcrypt from 'bcryptjs';
 
 // POST - Change user password
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
     const newPasswordHash = await bcrypt.hash(newPassword, 10);
 
     // Update password
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
       .from('users')
       .update({ password_hash: newPasswordHash })
       .eq('id', user.id);

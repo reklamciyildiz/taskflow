@@ -57,7 +57,18 @@ export async function POST(request: NextRequest) {
     );
     const subJson: any = await subResp.json().catch(() => null);
     if (!subResp.ok) {
-      const msg = subJson?.errors?.[0]?.detail || 'Could not fetch subscription';
+      const detail = subJson?.errors?.[0]?.detail || subJson?.message;
+      console.error('[update-seats] Lemon subscription fetch failed', {
+        httpStatus: subResp.status,
+        lsSubscriptionId,
+        detail,
+        body: subJson,
+      });
+      const hint =
+        subResp.status === 401 ? ' (Invalid API key — check LEMONSQUEEZY_API_KEY)' :
+        subResp.status === 404 ? ' (Subscription not found — possible test/live mode mismatch)' :
+        ` (HTTP ${subResp.status})`;
+      const msg = detail ? `${detail}${hint}` : `Could not fetch subscription${hint}`;
       return NextResponse.json({ success: false, error: msg }, { status: 500 });
     }
 

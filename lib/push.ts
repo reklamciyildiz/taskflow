@@ -1,6 +1,6 @@
 import webpush from 'web-push';
 import { pushSubscriptionDb } from '@/lib/db';
-import { supabase } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 
 type PushPayload = {
   title: string;
@@ -29,7 +29,7 @@ function ensureConfigured() {
 
 async function isPushEnabledForUser(userId: string): Promise<boolean> {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('user_settings')
       .select('push_notifications')
       .eq('user_id', userId)

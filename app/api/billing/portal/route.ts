@@ -35,7 +35,18 @@ export async function GET(_request: NextRequest) {
     });
     const json: any = await resp.json().catch(() => null);
     if (!resp.ok) {
-      const msg = json?.errors?.[0]?.detail || json?.message || 'Could not load subscription';
+      const detail = json?.errors?.[0]?.detail || json?.message;
+      console.error('[portal] Lemon subscription fetch failed', {
+        httpStatus: resp.status,
+        subId,
+        detail,
+        body: json,
+      });
+      const hint =
+        resp.status === 401 ? ' (Invalid API key — check LEMONSQUEEZY_API_KEY)' :
+        resp.status === 404 ? ' (Subscription not found — possible test/live mode mismatch)' :
+        ` (HTTP ${resp.status})`;
+      const msg = detail ? `${detail}${hint}` : `Could not load subscription${hint}`;
       return NextResponse.json({ success: false, error: msg }, { status: 500 });
     }
 
