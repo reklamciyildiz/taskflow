@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { userDb } from '@/lib/db';
-import { supabaseAdminAdmin } from '@/lib/supabaseAdmin-admin';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 
 // GET - Get user settings
 export async function GET(request: NextRequest) {

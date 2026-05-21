@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
     );
     const subJson: any = await subResp.json().catch(() => null);
     if (!subResp.ok) {
-      const detail = subJson?.errors?.[0]?.detail || subJson?.message;
+      const detail = subJson?.errors?.[0]?.detail || subJson?.errors?.[0]?.title || subJson?.message;
       console.error('[update-seats] Lemon subscription fetch failed', {
         httpStatus: subResp.status,
         lsSubscriptionId,

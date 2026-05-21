@@ -35,7 +35,7 @@ export async function GET(_request: NextRequest) {
     });
     const json: any = await resp.json().catch(() => null);
     if (!resp.ok) {
-      const detail = json?.errors?.[0]?.detail || json?.message;
+      const detail = json?.errors?.[0]?.detail || json?.errors?.[0]?.title || json?.message;
       console.error('[portal] Lemon subscription fetch failed', {
         httpStatus: resp.status,
         subId,
