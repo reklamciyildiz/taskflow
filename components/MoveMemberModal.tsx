@@ -87,7 +87,7 @@ export function MoveMemberModal({
 
           <div className="space-y-2">
             <Label htmlFor="target-team">Target Team</Label>
-            <Select value={targetTeamId} onValueChange={setTargetTeamId}>
+            <Select value={targetTeamId || undefined} onValueChange={setTargetTeamId}>
               <SelectTrigger>
                 <SelectValue placeholder="Select a team to move to" />
               </SelectTrigger>

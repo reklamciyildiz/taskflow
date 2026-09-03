@@ -190,7 +190,6 @@ export function Sidebar({ mobileOpen, onCloseMobile, desktopCollapsed }: Sidebar
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'board', label: 'Projects / Board', icon: Columns3, count: teamTasks.length },
     { id: 'list', label: 'List View', icon: List, count: teamTasks.length },
-    { id: 'processes', label: 'Process Center', icon: Library },
     { id: 'knowledge-hub', label: 'Knowledge Hub', icon: Brain },
     { id: 'customers', label: customerDirectoryLabel, icon: Building2 },
     { id: 'integrations', label: 'Integrations', icon: Webhook },
