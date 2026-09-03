@@ -142,7 +142,9 @@ export function Sidebar({ mobileOpen, onCloseMobile, desktopCollapsed }: Sidebar
     }
   }, [mobileOpen, isDesktop]);
 
-  const teamTasks = tasks.filter((t) => t.teamId === currentTeam?.id);
+  const teamTasks = useMemo(() => {
+    return tasks.filter((t) => t.teamId === currentTeam?.id);
+  }, [tasks, currentTeam?.id]);
 
   const scopedTasks = useMemo(() => {
     if (!currentTeam) return [];
@@ -165,15 +167,16 @@ export function Sidebar({ mobileOpen, onCloseMobile, desktopCollapsed }: Sidebar
     return (status: string) => isTerminalBoardColumn(status, boardColumns);
   }, [boardColumns]);
 
-  const dueTodayCount = scopedTasks.filter(
-    (t) => t.dueDate && isToday(t.dueDate) && !isCompletedInScope(t.status)
-  ).length;
-  const highPriorityCount = scopedTasks.filter(
-    (t) => (t.priority === 'high' || t.priority === 'urgent') && !isCompletedInScope(t.status)
-  ).length;
-  const assignedToMeCount = scopedTasks.filter(
-    (t) => t.assigneeId === currentUser?.id && !isCompletedInScope(t.status)
-  ).length;
+  const { dueTodayCount, highPriorityCount, assignedToMeCount } = useMemo(() => {
+    let due = 0, high = 0, assigned = 0;
+    for (const t of scopedTasks) {
+      if (isCompletedInScope(t.status)) continue;
+      if (t.dueDate && isToday(t.dueDate)) due++;
+      if (t.priority === 'high' || t.priority === 'urgent') high++;
+      if (t.assigneeId === currentUser?.id) assigned++;
+    }
+    return { dueTodayCount: due, highPriorityCount: high, assignedToMeCount: assigned };
+  }, [scopedTasks, isCompletedInScope, currentUser?.id]);
 
   const applyQuickFilter = (filterType: 'dueToday' | 'highPriority' | 'assignedToMe') => {
     if (filter === filterType) {

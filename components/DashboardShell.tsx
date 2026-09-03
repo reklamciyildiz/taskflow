@@ -7,21 +7,6 @@ import { AppShellLayout } from '@/components/shell';
 import { useTaskContext, type Task } from '@/components/TaskContext';
 import { PushSoftAsk } from '@/components/push/PushSoftAsk';
 
-const PREFETCH_APP_ROUTES = [
-  '/',
-  '/board',
-  '/list',
-  '/dashboard/knowledge-hub',
-  '/dashboard/processes',
-  '/customers',
-  '/integrations',
-  '/analytics',
-  '/achievements',
-  '/team',
-  '/profile',
-  '/settings',
-  '/notifications',
-] as const;
 
 function TaskEditModalHost() {
   const { tasks, editingTaskId, closeTaskEditor } = useTaskContext();
@@ -55,32 +40,8 @@ function TaskEditModalHost() {
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
-  useEffect(() => {
-    let cancelled = false;
-    const run = () => {
-      if (cancelled) return;
-      PREFETCH_APP_ROUTES.forEach((href) => {
-        try {
-          router.prefetch(href);
-        } catch {
-          // prefetch is best-effort; ignore in some environments
-        }
-      });
-    };
-    // Prefetch without blocking: idle CPU or within ~500ms timeout, once.
-    let dispose: (() => void) | undefined;
-    if (typeof window.requestIdleCallback !== 'undefined') {
-      const id = window.requestIdleCallback(run, { timeout: 500 });
-      dispose = () => window.cancelIdleCallback(id);
-    } else {
-      const id = window.setTimeout(run, 0);
-      dispose = () => window.clearTimeout(id);
-    }
-    return () => {
-      cancelled = true;
-      dispose?.();
-    };
-  }, [router]);
+  // Aggressive manual prefetch loop removed to avoid network congestion and INP issues.
+  // Next.js <Link> components in the Sidebar and other UI elements already handle viewport-based prefetching automatically.
 
   return (
     <>
