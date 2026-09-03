@@ -670,9 +670,10 @@ export async function DELETE(
       }
     }
 
-    await deleteGoogleCalendarEventsForTaskEverywhere(params.id);
-
-    await taskDb.delete(params.id);
+    await Promise.all([
+      deleteGoogleCalendarEventsForTaskEverywhere(params.id),
+      taskDb.delete(params.id),
+    ]);
 
     // Trigger webhook
     try {

@@ -255,16 +255,20 @@ export async function deleteGoogleCalendarEventsForTaskEverywhere(taskId: string
       .select('user_id, calendar_id, google_event_id')
       .eq('task_id', taskId);
     if (error) return;
-    for (const row of links ?? []) {
-      const userId = (row as any).user_id as string;
-      const refresh = await getDecryptedRefreshToken(userId);
-      if (!refresh) continue;
-      try {
-        await deleteEvent(refresh, (row as any).calendar_id, (row as any).google_event_id);
-      } catch {
-        // ignore
-      }
-    }
+    
+    await Promise.allSettled(
+      (links ?? []).map(async (row) => {
+        const userId = (row as any).user_id as string;
+        const refresh = await getDecryptedRefreshToken(userId);
+        if (!refresh) return;
+        try {
+          await deleteEvent(refresh, (row as any).calendar_id, (row as any).google_event_id);
+        } catch {
+          // ignore
+        }
+      })
+    );
+    
     await supabaseAdmin.from('google_calendar_event_links').delete().eq('task_id', taskId);
   } catch (e) {
     console.error('Google Calendar delete failed:', e);
