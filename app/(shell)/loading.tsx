@@ -3,7 +3,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 // Dashboard (home) skeleton — mirrors QuickCapture + DailyIntent + FocusDashboard + DashboardInsights
 export default function DashboardLoading() {
   return (
-    <div className="space-y-6 p-4 sm:p-6">
+    <div className="space-y-6">
       {/* QuickCapture */}
       <Skeleton className="h-12 w-full rounded-xl" />
 
