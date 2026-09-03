@@ -537,8 +537,17 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
 
       const [teamsResponse, profileWrap] = await Promise.all([teamApi.getAll(), profilePromise]);
 
+      let resolvedOrgId: string | null = organizationIdRef.current;
+      const profileUserData = profileWrap.json as any;
+      if (profileWrap.ok && profileUserData?.success && profileUserData?.data?.organization_id) {
+        resolvedOrgId = profileUserData.data.organization_id;
+      }
+
       if (teamsResponse.success && teamsResponse.data) {
-        const transformedTeams = teamsResponse.data.map(transformTeam);
+        let transformedTeams = teamsResponse.data.map(transformTeam);
+        if (resolvedOrgId) {
+          transformedTeams = transformedTeams.filter(t => t.organizationId === resolvedOrgId);
+        }
         setTeams(transformedTeams);
         setCurrentTeamState((prev) => {
           if (prev) return prev;
@@ -621,14 +630,6 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      let resolvedOrgId: string | null = organizationIdRef.current;
-      const profileUserData = profileWrap.json as {
-        success?: boolean;
-        data?: { organization_id?: string };
-      } | null;
-      if (profileWrap.ok && profileUserData?.success && profileUserData.data?.organization_id) {
-        resolvedOrgId = profileUserData.data.organization_id;
-      }
       const resolvedTeamId = currentTeamIdRef.current;
       if (resolvedTeamId && resolvedOrgId) {
         await loadTasksAndProjectsForTeam(resolvedTeamId, resolvedOrgId);
