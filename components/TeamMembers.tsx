@@ -287,9 +287,9 @@ export function TeamMembers() {
               };
 
               return (
-                <div key={member.id} className="flex items-center justify-between p-4 hover:bg-muted/50">
-                  <div className="flex items-center space-x-4">
-                    <div className="relative">
+                <div key={member.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 hover:bg-muted/50">
+                  <div className="flex items-center space-x-4 min-w-0 w-full sm:w-auto">
+                    <div className="relative flex-shrink-0">
                       <Avatar>
                         <AvatarImage src={member.avatar} alt={member.name} />
                         <AvatarFallback>{member.name[0]}</AvatarFallback>
@@ -298,17 +298,17 @@ export function TeamMembers() {
                         <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-background rounded-full" />
                       )}
                     </div>
-                    <div>
+                    <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <p className="font-medium">{member.name}</p>
+                        <p className="font-medium truncate">{member.name}</p>
                         {isCurrentUser && (
-                          <span className="text-xs text-muted-foreground">(you)</span>
+                          <span className="text-xs text-muted-foreground flex-shrink-0">(you)</span>
                         )}
                       </div>
-                      <p className="text-sm text-muted-foreground">{member.email}</p>
+                      <p className="text-sm text-muted-foreground truncate">{member.email}</p>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-3">
+                  <div className="flex items-center gap-2 sm:space-x-3 flex-wrap">
                     {canManage ? (
                       <Select
                         value={member.role}
@@ -396,7 +396,7 @@ export function TeamMembers() {
       <MoveMemberModal
         member={movingMember}
         currentTeamId={currentTeam?.id}
-        teams={teams}
+        teams={teams.filter(t => t.organizationId === organizationId || (t as any).organization_id === organizationId)}
         open={!!movingMember}
         onClose={() => setMovingMember(null)}
         onMove={handleMoveMemberConfirm}
