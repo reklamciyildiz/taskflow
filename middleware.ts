@@ -22,6 +22,8 @@ export async function middleware(request: NextRequest) {
     '/api/invitations',
     '/api/onboarding',
     '/access-denied',
+    '/privacy',
+    '/terms',
   ];
 
   // Check if the current path is a public route
