@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import type { JournalLogEntry } from '@/lib/types';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Command,
   CommandEmpty,
@@ -42,6 +43,7 @@ export function FocusDashboard() {
     tasks,
     projects,
     currentTeam,
+    loading,
     openBoardForProject,
     updateTask,
     canEditTask,
@@ -193,6 +195,27 @@ export function FocusDashboard() {
       return next;
     });
   };
+
+  if (loading) {
+    return (
+      <div className="mb-8 space-y-3">
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-4 w-4 rounded-full" />
+          <Skeleton className="h-4 w-32" />
+        </div>
+        <div className="grid gap-3 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <div key={i} className="space-y-3 rounded-xl border border-border p-4 h-[160px]">
+              <Skeleton className="h-5 w-1/2" />
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-2/3" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   if (focusProjects.length === 0) return null;
 

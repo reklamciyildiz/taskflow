@@ -22,6 +22,7 @@ import {
 } from '@/lib/types';
 import { BookOpen, Brain, ChevronRight, FileText, Layers, Lightbulb, LayoutGrid, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton';
 
 function projectColumns(p: Project): ProjectColumnConfig[] {
   return p.columnConfig?.length ? p.columnConfig : FALLBACK_BOARD_COLUMNS;
@@ -142,7 +143,17 @@ export function DashboardInsights() {
         </CardHeader>
         <CardContent className="pt-4 flex-1 overflow-auto pr-1 flex flex-col">
           {loading ? (
-            <p className="text-sm text-muted-foreground">Loading…</p>
+            <div className="space-y-4 pt-1">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="flex items-start gap-3 py-1.5">
+                  <Skeleton className="h-10 w-10 shrink-0 rounded-lg" />
+                  <div className="space-y-2 flex-1 pt-1">
+                    <Skeleton className="h-3 w-5/6" />
+                    <Skeleton className="h-3 w-1/2" />
+                  </div>
+                </div>
+              ))}
+            </div>
           ) : recentFeed.length === 0 ? (
             <div className="rounded-xl border border-dashed border-violet-200/80 dark:border-violet-900/50 bg-violet-500/5 dark:bg-violet-950/20 px-4 py-8 text-center space-y-3">
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-violet-500/10 text-violet-600 dark:text-violet-400">
@@ -294,7 +305,21 @@ export function DashboardInsights() {
         </CardHeader>
         <CardContent className="pt-4 flex-1 overflow-auto pr-1 space-y-5">
           {loading ? (
-            <p className="text-sm text-muted-foreground">Loading…</p>
+            <div className="space-y-6 pt-2">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="space-y-3">
+                  <div className="flex justify-between">
+                    <Skeleton className="h-4 w-1/3" />
+                    <Skeleton className="h-3 w-1/4" />
+                  </div>
+                  <div className="flex gap-2">
+                    <Skeleton className="h-5 w-16 rounded-full" />
+                    <Skeleton className="h-5 w-16 rounded-full" />
+                    <Skeleton className="h-5 w-16 rounded-full" />
+                  </div>
+                </div>
+              ))}
+            </div>
           ) : processSummaries.length === 0 ? (
             <div className="rounded-xl border border-dashed border-cyan-200/80 dark:border-cyan-900/50 bg-cyan-500/5 dark:bg-cyan-950/20 px-4 py-8 text-center space-y-3">
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
