@@ -193,7 +193,18 @@ export function ActionChecklist({
   const updateBodyRow = useCallback(
     (bodyIndex: number, patch: Partial<JournalLogEntry>) => {
       const i = bodyIndex + 1;
-      onItemsChange((prev) => prev.map((row, idx) => (idx === i ? { ...row, ...patch } : row)));
+      onItemsChange((prev) => {
+        const next = prev.map((row, idx) => (idx === i ? { ...row, ...patch } : row));
+        if ('done' in patch) {
+          const toggledRow = next[i];
+          const quick = next[0];
+          const rest = next.slice(1);
+          const undone = rest.filter((r) => r.id !== toggledRow.id && !r.done);
+          const done = rest.filter((r) => r.id !== toggledRow.id && r.done);
+          return [quick, ...undone, toggledRow, ...done];
+        }
+        return next;
+      });
     },
     [onItemsChange]
   );
