@@ -229,6 +229,7 @@ export async function POST(request: NextRequest) {
           customerId: task.customer_id,
           teamId: task.team_id,
           createdBy: task.created_by,
+          creatorName: actor?.name || session?.user?.name || 'Unknown',
         },
       };
 

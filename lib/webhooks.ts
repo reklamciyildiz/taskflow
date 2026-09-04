@@ -63,6 +63,7 @@ export interface TaskCreatedPayload {
     customerId: string | null;
     teamId: string;
     createdBy: string;
+    creatorName?: string;
   };
 }
 
