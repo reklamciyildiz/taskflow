@@ -543,19 +543,22 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
         resolvedOrgId = profileUserData.data.organization_id;
       }
 
+      let nextTeam: Team | null = null;
       if (teamsResponse.success && teamsResponse.data) {
         let transformedTeams = teamsResponse.data.map(transformTeam);
         if (resolvedOrgId) {
           transformedTeams = transformedTeams.filter(t => t.organizationId === resolvedOrgId);
         }
         setTeams(transformedTeams);
-        setCurrentTeamState((prev) => {
-          if (prev) return prev;
-          // Restore last selected team (per user+org) if available.
+        // Compute nextTeam so we can fetch its tasks immediately before setting loading to false.
+        const prevTeamId = currentTeamIdRef.current;
+        if (prevTeamId && transformedTeams.some(t => t.id === prevTeamId)) {
+          nextTeam = transformedTeams.find(t => t.id === prevTeamId) ?? null;
+        } else {
           const stored = readLastTeamId(transformedTeams, (session as any)?.user?.organization_id ?? null, (session as any)?.user?.id ?? null);
-          if (stored) return transformedTeams.find((t) => t.id === stored) ?? transformedTeams[0] ?? null;
-          return transformedTeams[0] ?? null;
-        });
+          nextTeam = stored ? (transformedTeams.find((t) => t.id === stored) ?? transformedTeams[0] ?? null) : (transformedTeams[0] ?? null);
+        }
+        setCurrentTeamState(nextTeam);
       }
 
       if (session.user?.email) {
@@ -630,7 +633,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      const resolvedTeamId = currentTeamIdRef.current;
+      const resolvedTeamId = nextTeam?.id ?? currentTeamIdRef.current;
       if (resolvedTeamId && resolvedOrgId) {
         await loadTasksAndProjectsForTeam(resolvedTeamId, resolvedOrgId);
       }
