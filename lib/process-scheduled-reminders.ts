@@ -127,14 +127,16 @@ export async function processScheduledReminders(input?: {
         });
         if (dup) continue;
 
-        await notificationDb.create({
+        const ins = await notificationDb.tryInsert({
           user_id: taskReminderRecipient,
           organization_id: orgId,
           type: 'task_reminder',
           title: 'Reminder',
           message: `"${title}"`,
-          link: openLink,
+          link: dedupeLink,
         });
+        if (!ins) continue;
+
         await sendPushToUser(taskReminderRecipient, {
           title: 'Reminder',
           body: title,
@@ -188,14 +190,16 @@ export async function processScheduledReminders(input?: {
         });
         if (dup) continue;
 
-        await notificationDb.create({
+        const ins = await notificationDb.tryInsert({
           user_id: assignee,
           organization_id: orgId,
           type: 'checklist_reminder',
           title: 'Reminder',
           message: `"${title}" — ${text}`,
-          link: openLink,
+          link: dedupeLink,
         });
+        if (!ins) continue;
+
         await sendPushToUser(assignee, {
           title: 'Reminder',
           body: text.slice(0, 120),
