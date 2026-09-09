@@ -305,6 +305,17 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
     // eslint-disable-next-line react-hooks/exhaustive-deps -- flushJournalNow already captures latest
   }, [open, task?.id, canEdit]);
 
+  // Prevent background scroll to eliminate mobile UI jitter / layout shift caused by dvh recalculations
+  useEffect(() => {
+    if (open) {
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = originalOverflow;
+      };
+    }
+  }, [open]);
+
   useEffect(() => {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -349,7 +360,9 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
       closed: isNarrow
         ? { opacity: 0, y: '100%', scale: 1 }
         : { opacity: 0, scale: 0.94, y: 12 },
-      open: { opacity: 1, scale: 1, y: 0 },
+      open: isNarrow
+        ? { opacity: 1, scale: 1, y: '0%' }
+        : { opacity: 1, scale: 1, y: 0 },
     }),
     [isNarrow]
   );
@@ -481,6 +494,7 @@ export function ActionPanel({ task, open, onClose, onExitComplete }: ActionPanel
           variants={sheetVariants}
           initial="closed"
           animate={open ? 'open' : 'closed'}
+          style={{ willChange: 'transform, opacity' }}
           transition={
             isNarrow
               ? { type: 'spring', damping: 32, stiffness: 380 }
