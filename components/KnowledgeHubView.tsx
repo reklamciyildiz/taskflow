@@ -18,11 +18,10 @@ import {
 import { cn } from '@/lib/utils';
 import { BookOpen, FileText, Inbox, Search, Sparkles, LayoutGrid, Star, Info } from 'lucide-react';
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import {
   buildKnowledgeHubCards,
   formatKnowledgeEntryDate,
@@ -136,20 +135,18 @@ export function KnowledgeHubView() {
           </div>
           <div className="flex items-center gap-3">
             <h1 className="text-3xl font-bold tracking-tight md:text-4xl">Knowledge Hub</h1>
-            <TooltipProvider>
-              <Tooltip delayDuration={0}>
-                <TooltipTrigger asChild>
-                  <button type="button" className="text-muted-foreground hover:text-foreground transition-colors mt-1">
-                    <Info className="h-6 w-6" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" align="start" className="max-w-[320px] p-4 text-sm leading-relaxed z-[100]">
-                  Your action <span className="font-medium text-foreground">learnings</span> (free-form notes) and{' '}
-                  <span className="font-medium text-foreground">journal notes</span> (checklist items in the action journal) are collected here.
-                  You can tick items without opening the board—click a card for full details.
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <Popover>
+              <PopoverTrigger asChild>
+                <button type="button" className="text-muted-foreground hover:text-foreground transition-colors mt-1">
+                  <Info className="h-6 w-6" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent side="bottom" align="start" className="max-w-[320px] p-4 text-sm leading-relaxed z-[100]">
+                Your action <span className="font-medium text-foreground">learnings</span> (free-form notes) and{' '}
+                <span className="font-medium text-foreground">journal notes</span> (checklist items in the action journal) are collected here.
+                You can tick items without opening the board—click a card for full details.
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
       </div>
