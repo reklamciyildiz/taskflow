@@ -387,7 +387,12 @@ export function DueFlowPicker({
           variant="default"
           size="sm"
           className="flex-1"
-          onClick={() => onRequestClose?.()}
+          onClick={() => {
+            if (value || (reminders && reminders.length > 0)) {
+              toast.success('Saved', { duration: 2500 });
+            }
+            onRequestClose?.();
+          }}
         >
           Done
         </Button>
