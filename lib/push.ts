@@ -58,6 +58,7 @@ export async function sendPushToUser(
     body: payload.body,
     url: payload.url,
     tag: payload.tag,
+    origin: process.env.NEXT_PUBLIC_APP_URL,
   });
 
   await Promise.all(

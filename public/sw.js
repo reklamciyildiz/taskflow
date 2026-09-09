@@ -8,6 +8,16 @@ self.addEventListener('push', (event) => {
     // ignore
   }
 
+  // Prevent local dev backend from triggering production push notifications and vice-versa
+  if (data.origin) {
+    const swOrigin = self.location.origin.replace(/\/$/, '');
+    const payloadOrigin = data.origin.replace(/\/$/, '');
+    if (swOrigin !== payloadOrigin) {
+      console.log('[SW] Ignored push notification from different environment:', payloadOrigin);
+      return;
+    }
+  }
+
   const title = data.title || 'TaskFlow';
   const options = {
     body: data.body || '',
