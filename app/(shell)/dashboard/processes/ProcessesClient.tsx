@@ -12,7 +12,7 @@ import { Layers, Plus, Search, Settings2, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function ProcessesClient() {
-  const { projects, currentTeam, refreshData, currentProject, setCurrentProjectId, setBoardScope, currentUserRole } =
+  const { projects, currentTeam, refreshData, currentProject, setCurrentProjectId, setBoardScope, currentUserRole, loading } =
     useTaskContext();
   const [query, setQuery] = useState('');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -78,14 +78,20 @@ export default function ProcessesClient() {
 
           {visible.length === 0 ? (
             <div className="rounded-lg border border-dashed p-8 text-center space-y-2 bg-muted/30">
-              <p className="text-sm font-medium text-foreground">No processes yet</p>
-              <p className="text-sm text-muted-foreground">
-                Create a process and define its columns, then select it on the board to link actions to that flow.
-              </p>
-              <Button variant="outline" onClick={() => setIsCreateOpen(true)} className="gap-2">
-                <Plus className="h-4 w-4" />
-                Create process
-              </Button>
+              {loading ? (
+                <p className="text-sm text-muted-foreground animate-pulse">Loading processes...</p>
+              ) : (
+                <>
+                  <p className="text-sm font-medium text-foreground">No processes yet</p>
+                  <p className="text-sm text-muted-foreground">
+                    Create a process and define its columns, then select it on the board to link actions to that flow.
+                  </p>
+                  <Button variant="outline" onClick={() => setIsCreateOpen(true)} className="gap-2">
+                    <Plus className="h-4 w-4" />
+                    Create process
+                  </Button>
+                </>
+              )}
             </div>
           ) : (
             <div className="grid gap-3">

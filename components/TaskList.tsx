@@ -86,6 +86,7 @@ export function TaskList() {
     canDeleteTask,
     openTaskEditor,
     boardColumns,
+    loading,
   } = useTaskContext();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<string | 'all'>('all');
@@ -489,15 +490,21 @@ export function TaskList() {
 
         {filteredTasks.length === 0 && (
           <div className="text-center py-12">
-            <CheckCircle2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="font-medium text-foreground">No actions found</h3>
-            <p className="text-muted-foreground text-sm mt-1">
-              {searchQuery || filterStatus !== 'all' || filterPriority !== 'all'
-                ? 'Try adjusting your search or filters'
-                : boardScope.type === 'project'
-                  ? 'No actions in this process yet (or they are filtered out)'
-                  : 'Create your first action to get started'}
-            </p>
+            {loading ? (
+              <p className="text-muted-foreground animate-pulse">Loading actions...</p>
+            ) : (
+              <>
+                <CheckCircle2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="font-medium text-foreground">No actions found</h3>
+                <p className="text-muted-foreground text-sm mt-1">
+                  {searchQuery || filterStatus !== 'all' || filterPriority !== 'all'
+                    ? 'Try adjusting your search or filters'
+                    : boardScope.type === 'project'
+                      ? 'No actions in this process yet (or they are filtered out)'
+                      : 'Create your first action to get started'}
+                </p>
+              </>
+            )}
           </div>
         )}
       </div>

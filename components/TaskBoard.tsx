@@ -55,6 +55,7 @@ export function TaskBoard() {
     openTaskEditor,
     currentUserRole,
     applyTaskUpdates,
+    loading,
   } = useTaskContext();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
@@ -255,7 +256,11 @@ export function TaskBoard() {
       </div>
 
       {/* First-run empty state: no processes yet */}
-      {!hasProcesses ? (
+      {loading ? (
+        <div className="rounded-lg border border-dashed p-8 text-center space-y-2 bg-muted/10">
+          <p className="text-sm text-muted-foreground animate-pulse">Loading processes...</p>
+        </div>
+      ) : !hasProcesses ? (
         <div className="rounded-lg border border-dashed p-8 text-center space-y-2 bg-muted/30">
           <p className="text-sm font-medium text-foreground">No processes yet</p>
           <p className="text-sm text-muted-foreground">
