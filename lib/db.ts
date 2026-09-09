@@ -1193,6 +1193,30 @@ export const notificationDb = {
     if (error) throw error;
     return true;
   },
+
+  /** Cleans up notifications related to a specific task or checklist item. */
+  async deleteChecklistNotifications(taskId: string, checklistId?: string, types?: string[]) {
+    let query = db
+      .from('notifications')
+      .delete()
+      .like('link', `%task=${taskId}%`);
+      
+    if (checklistId) {
+      query = query.like('link', `%checklist=${checklistId}%`);
+    } else {
+      // If no checklistId is provided, we only want to delete task-level notifications 
+      // (which do NOT have a checklist parameter in their link).
+      query = query.not('link', 'like', `%checklist=%`);
+    }
+    
+    if (types && types.length > 0) {
+      query = query.in('type', types);
+    }
+    
+    const { error } = await query;
+    if (error) throw error;
+    return true;
+  },
 };
 
 // =============================================

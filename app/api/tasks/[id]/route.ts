@@ -310,17 +310,70 @@ export async function PATCH(
       );
     }
 
+    // Task reminder/due date changes → cleanup old reminder notifications
+    const prevTaskReminders = JSON.stringify((originalTask as any).reminders ?? []);
+    const nextTaskReminders = JSON.stringify((updatedTask as any).reminders ?? []);
+    const prevTaskDue = (originalTask as any).due_date;
+    const nextTaskDue = (updatedTask as any).due_date;
+    if (prevTaskReminders !== nextTaskReminders || prevTaskDue !== nextTaskDue) {
+      try {
+        await notificationDb.deleteChecklistNotifications(String(updatedTask.id), undefined, [
+          'task_due_reminder',
+          'task_reminder',
+        ]);
+      } catch (err) {
+        console.error('Failed to cleanup revised task reminders', err);
+      }
+    }
+
     // Checklist row assignee changes → in-app + push (deduped).
     if (Array.isArray(body.journalLogs) && actor?.id) {
       const oldArr = Array.isArray((originalTask as any).journal_logs)
         ? ((originalTask as any).journal_logs as any[])
         : [];
       const oldMap = new Map<string, any>(oldArr.map((r) => [String(r?.id ?? ''), r]));
+      const newMap = new Map<string, any>(body.journalLogs.map((r: any) => [String(r?.id ?? ''), r]));
       const orgId = String(actor.organization_id ?? '');
       const actorUserId = String(actor.id);
       const actorName = String(actor.name ?? 'Someone');
       const projectId = (updatedTask as any).project_id ? String((updatedTask as any).project_id) : null;
       const taskTitle = String(updatedTask.title ?? 'Action');
+
+      // 1. Cleanup deleted checklist items' notifications entirely.
+      for (const oldId of oldMap.keys()) {
+        if (!oldId || oldId.startsWith('__')) continue;
+        if (!newMap.has(oldId)) {
+          // Item was deleted
+          try {
+            await notificationDb.deleteChecklistNotifications(String(updatedTask.id), oldId);
+          } catch (e) {
+            console.error('Failed to cleanup deleted checklist notifications', e);
+          }
+        }
+      }
+
+      // 2. Cleanup old reminder notifications if reminders or due_date were revised.
+      for (const e of body.journalLogs as any[]) {
+        const id = String(e?.id ?? '');
+        if (!id || id.startsWith('__')) continue;
+        const prev = oldMap.get(id);
+        if (prev) {
+          const prevReminders = JSON.stringify(prev.reminders ?? []);
+          const nextReminders = JSON.stringify(e.reminders ?? []);
+          const prevDue = prev.dueDate ?? prev.due_date;
+          const nextDue = e.dueDate ?? e.due_date;
+          if (prevReminders !== nextReminders || prevDue !== nextDue) {
+            try {
+              await notificationDb.deleteChecklistNotifications(String(updatedTask.id), id, [
+                'checklist_due_reminder',
+                'checklist_reminder',
+              ]);
+            } catch (err) {
+              console.error('Failed to cleanup revised checklist reminders', err);
+            }
+          }
+        }
+      }
 
       for (const e of body.journalLogs as any[]) {
         const id = String(e?.id ?? '');
