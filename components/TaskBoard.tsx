@@ -5,7 +5,13 @@ import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-p
 import { TaskCard } from '@/components/TaskCard';
 import { useTaskContext, type TaskStatus } from '@/components/TaskContext';
 import { Badge } from '@/components/ui/badge';
-import { Plus, X, Layers, Settings2 } from 'lucide-react';
+import { Plus, X, Layers, Settings2, Info } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 import { CreateTaskModal } from '@/components/CreateTaskModal';
 import { VoiceToTaskButton } from '@/components/ai/VoiceToTaskButton';
@@ -304,19 +310,27 @@ export function TaskBoard() {
           <DragDropContext onDragEnd={onDragEnd}>
             <>
               {/* Board Instructions (Mobile Only) */}
-              <div className="md:hidden mb-2">
-                <p className="px-0.5 text-xs text-muted-foreground">
-                  Swipe horizontally between columns. On mobile, move a card between columns from the ⋮ menu using
-                  <span className="font-medium text-foreground"> Change status</span> (drag & drop is disabled to
-                  avoid scroll/drag conflicts).
-                </p>
+              <div className="md:hidden mb-3 flex items-center gap-1.5 px-0.5">
+                <TooltipProvider>
+                  <Tooltip delayDuration={0}>
+                    <TooltipTrigger asChild>
+                      <button type="button" className="text-muted-foreground hover:text-foreground">
+                        <Info className="h-4 w-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="right" className="max-w-[280px] p-3 text-xs leading-relaxed z-[100]">
+                      Swipe horizontally between columns. On mobile, move a card between columns from the ⋮ menu using{' '}
+                      <span className="font-medium text-foreground">Change status</span> (drag & drop is disabled to
+                      avoid scroll/drag conflicts).
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <span className="text-xs text-muted-foreground font-medium">How to move cards on mobile</span>
               </div>
-              
               {/* Responsive Board Container */}
               <div
                 className="flex -mx-1 snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-3 pt-0.5 overscroll-x-contain [scrollbar-width:thin] [-webkit-overflow-scrolling:touch] md:grid md:gap-4 md:snap-none md:overflow-visible md:mx-0 md:px-0 md:pb-0 md:pt-0"
                 style={{
-                  // The grid layout only takes effect on desktop because of the 'md:grid' class above, but we can safely supply it here.
                   gridTemplateColumns: isMobileBoard ? undefined : 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))',
                 }}
               >

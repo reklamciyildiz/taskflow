@@ -16,7 +16,13 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import { BookOpen, FileText, Inbox, Search, Sparkles, LayoutGrid, Star } from 'lucide-react';
+import { BookOpen, FileText, Inbox, Search, Sparkles, LayoutGrid, Star, Info } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import {
   buildKnowledgeHubCards,
   formatKnowledgeEntryDate,
@@ -128,12 +134,23 @@ export function KnowledgeHubView() {
             <Sparkles className="h-5 w-5" />
             <span className="text-sm font-medium uppercase tracking-wide">Second brain</span>
           </div>
-          <h1 className="text-3xl font-bold tracking-tight md:text-4xl">Knowledge Hub</h1>
-          <p className="max-w-2xl text-base leading-relaxed text-muted-foreground">
-            Your action <span className="text-foreground/90">learnings</span> (free-form notes) and{' '}
-            <span className="text-foreground/90">journal notes</span> (checklist items in the action journal) are collected here.
-            You can tick items without opening the board—click a card for full details.
-          </p>
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-bold tracking-tight md:text-4xl">Knowledge Hub</h1>
+            <TooltipProvider>
+              <Tooltip delayDuration={0}>
+                <TooltipTrigger asChild>
+                  <button type="button" className="text-muted-foreground hover:text-foreground transition-colors mt-1">
+                    <Info className="h-6 w-6" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" align="start" className="max-w-[320px] p-4 text-sm leading-relaxed z-[100]">
+                  Your action <span className="font-medium text-foreground">learnings</span> (free-form notes) and{' '}
+                  <span className="font-medium text-foreground">journal notes</span> (checklist items in the action journal) are collected here.
+                  You can tick items without opening the board—click a card for full details.
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
         </div>
       </div>
 
