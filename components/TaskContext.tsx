@@ -319,6 +319,9 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   const hasLoadedWorkspaceRef = useRef(false);
   const sessionRef = useRef(session);
   sessionRef.current = session;
+  const lastFetchedScopeRef = useRef<{ teamId: string; orgId: string } | null>(null);
+
+  // Sync ref with current states for async access
   useEffect(() => {
     organizationIdRef.current = organizationId;
   }, [organizationId]);
@@ -501,6 +504,10 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
           setTasks([]);
           setProjects([]);
         }
+      } finally {
+        if (!aborted()) {
+          lastFetchedScopeRef.current = { teamId, orgId };
+        }
       }
     },
     []
@@ -561,6 +568,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
         setCurrentTeamState(nextTeam);
       }
 
+      let fetchOrgPromise: Promise<void> | null = null;
       if (session.user?.email) {
         try {
           const userData = profileWrap.json as {
@@ -591,19 +599,17 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
             if (d.organization_id) {
               const oid = d.organization_id;
               setOrganizationId(oid);
-              const [orgSettled] = await Promise.allSettled([
-                fetch(`/api/organizations/${oid}`).then((r) => r.json()),
-              ]);
-
-              if (orgSettled.status === 'fulfilled') {
-                const orgJson = orgSettled.value as { success?: boolean; data?: { name?: string } };
-                if (orgJson.success && orgJson.data) {
-                  setOrganizationName(orgJson.data.name || 'My Organization');
-                }
-              } else {
-                console.error('Failed to fetch organization:', orgSettled.reason);
-              }
-
+              
+              fetchOrgPromise = fetch(`/api/organizations/${oid}`)
+                .then((r) => r.json())
+                .then((orgJson: any) => {
+                  if (orgJson.success && orgJson.data) {
+                    setOrganizationName(orgJson.data.name || 'My Organization');
+                  }
+                })
+                .catch((err) => {
+                  console.error('Failed to fetch organization:', err);
+                });
             }
           } else {
             setCurrentUser({
@@ -634,9 +640,12 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       }
 
       const resolvedTeamId = nextTeam?.id ?? currentTeamIdRef.current;
-      if (resolvedTeamId && resolvedOrgId) {
-        await loadTasksAndProjectsForTeam(resolvedTeamId, resolvedOrgId);
-      }
+      
+      const tasksPromise = (resolvedTeamId && resolvedOrgId)
+        ? loadTasksAndProjectsForTeam(resolvedTeamId, resolvedOrgId)
+        : Promise.resolve();
+
+      await Promise.all([fetchOrgPromise || Promise.resolve(), tasksPromise]);
 
       hasLoadedWorkspaceRef.current = true;
     } catch (err) {
@@ -843,8 +852,19 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     const orgId = organizationId;
     if (!teamId || !orgId) return;
 
+    if (
+      lastFetchedScopeRef.current?.teamId === teamId &&
+      lastFetchedScopeRef.current?.orgId === orgId
+    ) {
+      return;
+    }
+
     let cancelled = false;
-    void loadTasksAndProjectsForTeam(teamId, orgId, () => cancelled);
+    void loadTasksAndProjectsForTeam(teamId, orgId, () => cancelled).then(() => {
+      if (!cancelled) {
+        lastFetchedScopeRef.current = { teamId, orgId };
+      }
+    });
 
     return () => {
       cancelled = true;

@@ -303,74 +303,21 @@ export function TaskBoard() {
       
           <DragDropContext onDragEnd={onDragEnd}>
             <>
-              {/* Mobile: horizontal scroll across all columns (snap); drag between columns is unreliable on touch — use ⋮ → Change status */}
-              <div className="md:hidden">
-                <p className="mb-2 px-0.5 text-xs text-muted-foreground">
+              {/* Board Instructions (Mobile Only) */}
+              <div className="md:hidden mb-2">
+                <p className="px-0.5 text-xs text-muted-foreground">
                   Swipe horizontally between columns. On mobile, move a card between columns from the ⋮ menu using
                   <span className="font-medium text-foreground"> Change status</span> (drag & drop is disabled to
                   avoid scroll/drag conflicts).
                 </p>
-                <div className="-mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-3 pt-0.5 overscroll-x-contain [scrollbar-width:thin] [-webkit-overflow-scrolling:touch]">
-                  {boardColumns.map((column) => {
-                    const columnTasks = orderedColumnTasks(filteredTasks, column.id, boardColumns);
-                    return (
-                      <div
-                        key={column.id}
-                        className="w-[min(88vw,300px)] max-w-[min(88vw,300px)] shrink-0 snap-center snap-always flex flex-col gap-2"
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <h3 className="min-w-0 truncate font-medium">{column.title}</h3>
-                          <Badge variant="secondary" className="shrink-0">
-                            {columnTasks.length}
-                          </Badge>
-                        </div>
-                        <Droppable droppableId={column.id}>
-                          {(provided) => (
-                            <div
-                              ref={provided.innerRef}
-                              {...provided.droppableProps}
-                              className={cn(
-                                'max-h-[min(58dvh,520px)] min-h-[200px] overflow-y-auto rounded-lg p-3 transition-colors touch-pan-y',
-                                column.color ?? 'bg-muted/40'
-                              )}
-                            >
-                              {columnTasks.map((task, index) => (
-                                <Draggable
-                                  key={task.id}
-                                  draggableId={task.id}
-                                  index={index}
-                                  isDragDisabled={isMobileBoard}
-                                >
-                                  {(provided) => (
-                                    <div
-                                      ref={provided.innerRef}
-                                      {...provided.draggableProps}
-                                      className="mb-2"
-                                    >
-                                      <TaskCard
-                                        task={task}
-                                        dragHandleProps={isMobileBoard ? undefined : provided.dragHandleProps}
-                                        onTaskClick={(t) => openTaskEditor(t.id)}
-                                      />
-                                    </div>
-                                  )}
-                                </Draggable>
-                              ))}
-                              {provided.placeholder}
-                            </div>
-                          )}
-                        </Droppable>
-                      </div>
-                    );
-                  })}
-                </div>
               </div>
-
-              {/* Desktop: grid columns */}
+              
+              {/* Responsive Board Container */}
               <div
-                className="hidden md:grid gap-4"
+                className="flex -mx-1 snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-3 pt-0.5 overscroll-x-contain [scrollbar-width:thin] [-webkit-overflow-scrolling:touch] md:grid md:gap-4 md:snap-none md:overflow-visible md:mx-0 md:px-0 md:pb-0 md:pt-0"
                 style={{
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))',
+                  // The grid layout only takes effect on desktop because of the 'md:grid' class above, but we can safely supply it here.
+                  gridTemplateColumns: isMobileBoard ? undefined : 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))',
                 }}
               >
                 {boardColumns.map((column) => {
@@ -378,10 +325,13 @@ export function TaskBoard() {
                   const shouldScroll = columnTasks.length >= DESKTOP_SCROLL_THRESHOLD;
 
                   return (
-                    <div key={column.id} className="flex min-h-0 flex-col gap-2">
-                      <div className="flex items-center justify-between">
-                        <h3 className="font-medium">{column.title}</h3>
-                        <Badge variant="secondary">{columnTasks.length}</Badge>
+                    <div
+                      key={column.id}
+                      className="w-[min(88vw,300px)] max-w-[min(88vw,300px)] shrink-0 snap-center snap-always flex flex-col gap-2 md:w-auto md:max-w-none md:shrink md:snap-align-none md:min-h-0"
+                    >
+                      <div className="flex items-center justify-between gap-2 md:gap-0">
+                        <h3 className="min-w-0 truncate font-medium md:min-w-auto">{column.title}</h3>
+                        <Badge variant="secondary" className="shrink-0">{columnTasks.length}</Badge>
                       </div>
                       <Droppable droppableId={column.id}>
                         {(provided) => (
@@ -389,13 +339,18 @@ export function TaskBoard() {
                             ref={provided.innerRef}
                             {...provided.droppableProps}
                             className={cn(
-                              'p-4 rounded-lg min-h-[200px] transition-colors',
-                              shouldScroll && 'max-h-[min(72dvh,680px)] overflow-y-auto',
+                              'max-h-[min(58dvh,520px)] min-h-[200px] overflow-y-auto rounded-lg p-3 transition-colors touch-pan-y md:p-4 md:max-h-none',
+                              shouldScroll && 'md:max-h-[min(72dvh,680px)]',
                               column.color ?? 'bg-muted/40'
                             )}
                           >
                             {columnTasks.map((task, index) => (
-                              <Draggable key={task.id} draggableId={task.id} index={index}>
+                              <Draggable
+                                key={task.id}
+                                draggableId={task.id}
+                                index={index}
+                                isDragDisabled={isMobileBoard}
+                              >
                                 {(provided) => (
                                   <div
                                     ref={provided.innerRef}
@@ -404,7 +359,7 @@ export function TaskBoard() {
                                   >
                                     <TaskCard
                                       task={task}
-                                      dragHandleProps={provided.dragHandleProps}
+                                      dragHandleProps={isMobileBoard ? undefined : provided.dragHandleProps}
                                       onTaskClick={(t) => openTaskEditor(t.id)}
                                     />
                                   </div>

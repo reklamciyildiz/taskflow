@@ -86,7 +86,7 @@ export function TaskCard({ task, dragHandleProps, onTaskClick }: TaskCardProps) 
         {/* Header */}
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2 flex-1 min-w-0">
-            {dragHandleProps && (
+            {dragHandleProps ? (
               <div 
                 {...dragHandleProps}
                 data-drag-handle="true"
@@ -94,6 +94,8 @@ export function TaskCard({ task, dragHandleProps, onTaskClick }: TaskCardProps) 
               >
                 <GripVertical className="h-4 w-4 text-muted-foreground" />
               </div>
+            ) : (
+              <div className="w-4 flex-shrink-0" />
             )}
             <h4 className="font-medium text-sm line-clamp-2 leading-relaxed flex-1">
               {task.title}
