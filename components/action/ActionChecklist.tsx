@@ -47,6 +47,17 @@ function initials(name: string): string {
   return (a + b).toUpperCase() || '?';
 }
 
+function formatDueDateTooltip(iso: string | unknown): string {
+  if (typeof iso !== 'string' || !iso) return 'Due date';
+  try {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return 'Due date';
+    return `Due: ${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} ${d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`;
+  } catch {
+    return 'Due date';
+  }
+}
+
 function parseDueDateLocal(value: string | null | undefined): Date | undefined {
   if (!value) return undefined;
   const s = value.trim();
@@ -552,10 +563,10 @@ export function ActionChecklist({
                                     </TooltipTrigger>
                                   </DrawerTrigger>
                                   <TooltipContent>
-                                    {row.dueDate ? `Due: ${row.dueDate}` : 'Due date'}
+                                    {formatDueDateTooltip(row.dueDate)}
                                   </TooltipContent>
                                 </Tooltip>
-                                <DrawerContent className="p-0">
+                                <DrawerContent onCloseAutoFocus={(e) => e.preventDefault()} className="p-0">
                                   <div className="px-2 pb-3 pt-2">
                                     <DueFlowPicker
                                       value={parseDueDateLocal(row.dueDate) ?? null}
@@ -598,11 +609,12 @@ export function ActionChecklist({
                                     </TooltipTrigger>
                                   </DialogTrigger>
                                   <TooltipContent>
-                                    {row.dueDate ? `Due: ${row.dueDate}` : 'Due date'}
+                                    {formatDueDateTooltip(row.dueDate)}
                                   </TooltipContent>
                                 </Tooltip>
                                 <DialogContent
                                   hideClose
+                                  onCloseAutoFocus={(e) => e.preventDefault()}
                                   className="flex max-h-[92dvh] min-h-0 w-[min(92vw,380px)] max-w-[min(92vw,380px)] flex-col gap-0 overflow-hidden p-0"
                                 >
                                   <DueFlowPicker

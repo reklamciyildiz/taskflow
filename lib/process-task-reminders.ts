@@ -14,7 +14,7 @@ function utcMsFirstOverdueInstant(ymd: string): number {
  * 1) First after OVERDUE_FIRST_NOTIFY_AFTER_HOURS from first overdue instant.
  * 2) Second after OVERDUE_SECOND_NOTIFY_AFTER_HOURS more hours (then never again).
  */
-const OVERDUE_FIRST_NOTIFY_AFTER_HOURS = 24;
+const OVERDUE_FIRST_NOTIFY_AFTER_HOURS = 0;
 const OVERDUE_SECOND_NOTIFY_AFTER_HOURS = 48;
 
 function addUtcDaysFromYmd(ymd: string, deltaDays: number): string {

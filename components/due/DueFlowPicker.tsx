@@ -335,7 +335,6 @@ export function DueFlowPicker({
               }
               onRemindersChange(computeReminderInstantsUtcIso({ dueAt: value, preset: p.id }));
               setView('main');
-              toast.success('Reminder saved', { description: p.label, duration: 4500 });
             }}
           >
             <span>{p.label}</span>
