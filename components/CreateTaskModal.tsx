@@ -16,7 +16,7 @@ import {
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { format } from 'date-fns';
-import { CalendarIcon } from 'lucide-react';
+import { CalendarIcon, InfoIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTaskContext, TaskStatus, TaskPriority } from '@/components/TaskContext';
 import { FALLBACK_BOARD_COLUMNS, type ProjectColumnConfig } from '@/lib/types';
@@ -135,10 +135,26 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-h-[90dvh] w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] overflow-y-auto sm:w-full sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>New action</DialogTitle>
-          <DialogDescription>
-            Fill in the title and any optional fields, then save. As the selected process (or the board’s process)
-            changes, the status list is mapped to that workflow’s columns so your action starts in the right stage.
+          <div className="flex items-center gap-2">
+            <DialogTitle>New action</DialogTitle>
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="text-muted-foreground hover:text-foreground focus:outline-none transition-colors"
+                  aria-label="Help"
+                >
+                  <InfoIcon className="h-4 w-4" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80 text-sm" align="start">
+                Fill in the title and any optional fields, then save. As the selected process (or the board’s process)
+                changes, the status list is mapped to that workflow’s columns so your action starts in the right stage.
+              </PopoverContent>
+            </Popover>
+          </div>
+          <DialogDescription className="sr-only">
+            Create a new action item in your workspace.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -253,7 +269,24 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
           </div>
 
           <div className="space-y-2">
-            <Label>Process</Label>
+            <div className="flex items-center justify-between">
+              <Label>Process</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    className="text-muted-foreground hover:text-foreground focus:outline-none transition-colors"
+                    aria-label="Process Info"
+                  >
+                    <InfoIcon className="h-4 w-4" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80 text-sm" align="end">
+                  <span className="font-semibold block mb-1">Automatic:</span>
+                  Links to the process selected on the board. In General board, no process is assigned and statuses follow the general board columns.
+                </PopoverContent>
+              </Popover>
+            </div>
             <Select value={projectId} onValueChange={setProjectId}>
               <SelectTrigger>
                 <SelectValue />
@@ -270,10 +303,6 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
                 ))}
               </SelectContent>
             </Select>
-            <p className="text-xs text-muted-foreground">
-              Automatic: links to the process selected on the board. In General board, no process is assigned and
-              statuses follow the general board columns.
-            </p>
           </div>
 
           <div className="space-y-2">
