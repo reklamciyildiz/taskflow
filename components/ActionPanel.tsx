@@ -33,6 +33,7 @@ import {
 import { ACTION_CHECKLIST_QUICK_ROW_ID } from "@/lib/action-checklist";
 import type { JournalLogEntry } from "@/lib/types";
 import { BlockEditor } from '@/components/editor/BlockEditor';
+import { migrateLegacyJournalToTipTap, migrateLegacyLearningsToTipTap } from '@/lib/tiptap-parser';
 import { ActionChecklist } from "@/components/action/ActionChecklist";
 import {
   Collapsible,
@@ -276,8 +277,20 @@ export function ActionPanel({
     setDeepLinkChecklistRowId(consumeChecklistFocusForTask(src.id));
     const learningsVal = src.learnings ?? "";
     setLearnings(learningsVal);
-    setChecklistBlocks(src.checklistBlocks || null);
-    setLearningsBlocks(src.learningsBlocks || null);
+    
+    // Auto-migrate legacy data to TipTap format if block columns are empty
+    let finalChecklistBlocks = src.checklistBlocks;
+    if (!finalChecklistBlocks && jl && jl.length > 0) {
+      finalChecklistBlocks = migrateLegacyJournalToTipTap(jl);
+    }
+    setChecklistBlocks(finalChecklistBlocks || null);
+    
+    let finalLearningsBlocks = src.learningsBlocks;
+    if (!finalLearningsBlocks && learningsVal.trim().length > 0) {
+      finalLearningsBlocks = migrateLegacyLearningsToTipTap(learningsVal);
+    }
+    setLearningsBlocks(finalLearningsBlocks || null);
+    
     lastPersistedLearnings.current = learningsVal.trim();
     setDetailsOpen(false);
     setLearningsOpen(false);

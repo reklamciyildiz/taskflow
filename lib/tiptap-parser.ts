@@ -51,3 +51,47 @@ export function extractTasksFromTipTap(json: any): any[] {
   return tasks;
 }
 
+export function migrateLegacyJournalToTipTap(logs: any[]) {
+  if (!logs || !Array.isArray(logs) || logs.length === 0) return null;
+  // Ignore the 'quick row' id if present
+  const validLogs = logs.filter(l => l.id !== 'QUICK_ROW_ADD_NEW');
+  if (validLogs.length === 0) return null;
+  
+  return {
+    type: 'doc',
+    content: [
+      {
+        type: 'taskList',
+        content: validLogs.map(log => ({
+          type: 'taskItem',
+          attrs: {
+            checked: !!log.done,
+            id: log.id,
+            assigneeId: log.assignee_id || log.assigneeId || null,
+            dueDate: log.due_date || log.dueDate || null,
+            reminders: Array.isArray(log.reminders) ? log.reminders : []
+          },
+          content: [
+            {
+              type: 'paragraph',
+              content: log.text ? [{ type: 'text', text: log.text }] : undefined
+            }
+          ]
+        }))
+      }
+    ]
+  };
+}
+
+export function migrateLegacyLearningsToTipTap(text: string) {
+  if (!text) return null;
+  const paragraphs = text.split('\n\n').map(p => ({
+    type: 'paragraph',
+    content: p ? [{ type: 'text', text: p }] : undefined
+  }));
+  return {
+    type: 'doc',
+    content: paragraphs
+  };
+}
+
