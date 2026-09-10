@@ -120,6 +120,8 @@ export interface Task {
   teamId: string;
   projectId?: string | null;
   journalLogs?: JournalLogEntry[];
+  checklistBlocks?: any;
+  learningsBlocks?: any;
   learnings?: string | null;
   /** Order within the same board column (status); lower = higher on the board. */
   boardPosition: number;

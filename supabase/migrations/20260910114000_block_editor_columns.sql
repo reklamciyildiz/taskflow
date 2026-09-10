@@ -1,0 +1,4 @@
+ALTER TABLE tasks 
+ADD COLUMN IF NOT EXISTS checklist_blocks JSONB,
+ADD COLUMN IF NOT EXISTS learnings_blocks JSONB;
+

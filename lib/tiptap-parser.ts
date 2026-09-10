@@ -1,0 +1,53 @@
+export function extractTextFromNode(node: any): string {
+  if (!node) return '';
+  
+  // If it's a text node, return the text directly
+  if (node.type === 'text') {
+    return node.text || '';
+  }
+  
+  // Add a space for paragraph/block breaks to keep text readable
+  let suffix = '';
+  if (node.type === 'paragraph' || node.type === 'heading') {
+    suffix = ' ';
+  }
+
+  // If it has children, traverse them
+  if (node.content && Array.isArray(node.content)) {
+    return node.content.map(extractTextFromNode).join('') + suffix;
+  }
+  
+  return '';
+}
+
+export function extractTasksFromTipTap(json: any): any[] {
+  const tasks: any[] = [];
+
+  function traverse(node: any) {
+    if (!node || typeof node !== 'object') return;
+    
+    // When we find an advancedTaskItem, extract it into the flat relational format
+    if (node.type === 'advancedTaskItem') {
+      const attrs = node.attrs || {};
+      
+      tasks.push({
+        id: attrs.id,
+        text: extractTextFromNode({ content: node.content }).trim(),
+        done: !!attrs.checked,
+        assignee_id: attrs.assigneeId || null,
+        due_date: attrs.dueDate || null,
+        reminders: Array.isArray(attrs.reminders) ? attrs.reminders : [],
+      });
+    }
+
+    // Continue traversing down the AST
+    if (Array.isArray(node.content)) {
+      node.content.forEach(traverse);
+    }
+  }
+
+  traverse(json);
+  
+  return tasks;
+}
+

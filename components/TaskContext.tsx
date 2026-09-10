@@ -239,6 +239,8 @@ function transformTask(apiTask: any): Task {
     teamId: apiTask.team_id,
     projectId: apiTask.project_id ?? null,
     journalLogs: mapJournalLogs(apiTask.journal_logs),
+    checklistBlocks: apiTask.checklist_blocks,
+    learningsBlocks: apiTask.learnings_blocks,
     learnings: apiTask.learnings ?? null,
     boardPosition: typeof bp === 'number' && !Number.isNaN(bp) ? bp : 0,
     createdBy: apiTask.created_by || apiTask.createdBy || apiTask.user_id,
