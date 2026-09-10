@@ -64,9 +64,9 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
     editor.chain().focus().selectAll().run();
     
     if (isTaskList) {
-      editor.chain().focus().liftListItem('advancedTaskItem').run();
+      editor.chain().focus().liftListItem('taskItem').run();
     } else {
-      editor.chain().focus().toggleList('taskList', 'advancedTaskItem').run();
+      editor.chain().focus().toggleList('taskList', 'taskItem').run();
     }
     
     // Clear selection

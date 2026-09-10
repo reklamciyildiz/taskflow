@@ -26,8 +26,8 @@ export function extractTasksFromTipTap(json: any): any[] {
   function traverse(node: any) {
     if (!node || typeof node !== 'object') return;
     
-    // When we find an advancedTaskItem, extract it into the flat relational format
-    if (node.type === 'advancedTaskItem') {
+    // When we find a taskItem, extract it into the flat relational format
+    if (node.type === 'taskItem') {
       const attrs = node.attrs || {};
       
       tasks.push({
