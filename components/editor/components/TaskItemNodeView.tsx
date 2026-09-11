@@ -70,7 +70,7 @@ export const TaskItemNodeView = ({ node, updateAttributes, editor, getPos }: any
   const disabled = !editor.isEditable;
 
   return (
-    <NodeViewWrapper className="flex items-start gap-1.5 my-0.5 group" data-type="taskItem" data-task-id={id}>
+    <NodeViewWrapper className="flex items-start gap-1.5 my-1.5 group" data-type="taskItem" data-task-id={id}>
       <div
         className="mt-[2px] flex items-center justify-center select-none"
         contentEditable={false}
@@ -105,6 +105,7 @@ export const TaskItemNodeView = ({ node, updateAttributes, editor, getPos }: any
             ghost.style.left = '0px';
             ghost.style.width = `${rect.width}px`;
             ghost.style.height = `${rect.height}px`;
+            ghost.style.margin = '0px'; // Prevent ghost from shifting due to copied margins
             ghost.style.transform = `translate3d(${rect.left}px, ${rect.top}px, 0)`;
             ghost.style.zIndex = '99999';
             ghost.style.pointerEvents = 'none';
