@@ -76,6 +76,7 @@ export const TaskItemNodeView = ({ node, updateAttributes, editor, getPos }: any
         contentEditable={false}
       >
         <div 
+          draggable={true}
           className="cursor-grab text-muted-foreground/30 hover:text-muted-foreground transition-colors mr-1 py-2"
           data-drag-handle
           style={{ touchAction: 'none' }}
