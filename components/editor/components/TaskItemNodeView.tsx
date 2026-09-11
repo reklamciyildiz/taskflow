@@ -270,15 +270,14 @@ export const TaskItemNodeView = ({ node, updateAttributes, editor, getPos }: any
         
         <div 
           className={cn(
-            "flex-col items-center gap-0.5 transition-all mt-0.5",
+            "flex-row items-center gap-1 transition-all mt-[2px] ml-1",
             (assigneeId || dueDate) 
               ? "flex opacity-100" 
-              : "absolute right-0 top-0 z-10 flex opacity-0 group-hover:opacity-100 focus-within:opacity-100 pointer-events-none group-hover:pointer-events-auto focus-within:pointer-events-auto bg-background/90 backdrop-blur-sm rounded-md shadow-sm border border-border/40 p-0.5"
+              : "absolute right-0 top-0 z-10 flex opacity-0 group-hover:opacity-100 focus-within:opacity-100 pointer-events-none group-hover:pointer-events-auto focus-within:pointer-events-auto bg-background/95 backdrop-blur-sm rounded-md shadow-sm border border-border/40 p-0.5"
           )}
           contentEditable={false}
         >
           <TooltipProvider delayDuration={400}>
-            {/* Assignee Popover */}
             <Popover open={assigneeOpen} onOpenChange={setAssigneeOpen}>
               <Tooltip>
                 <PopoverTrigger asChild>
@@ -288,18 +287,18 @@ export const TaskItemNodeView = ({ node, updateAttributes, editor, getPos }: any
                       variant="ghost"
                       size="icon"
                       className={cn(
-                        'h-6 w-6 rounded-md transition-colors',
+                        'h-5 w-5 rounded-md transition-colors',
                         assigneeId && 'bg-muted/40 text-foreground'
                       )}
                       disabled={disabled}
                       aria-label="Assign to team member"
                     >
                       {assigneeId && memberOptions.find((m) => m.id === assigneeId) ? (
-                        <span className="grid h-5 w-5 place-items-center rounded-full bg-primary/20 text-[10px] font-bold text-primary">
+                        <span className="grid h-[18px] w-[18px] place-items-center rounded-full bg-primary/20 text-[9px] font-bold text-primary">
                           {initials(memberOptions.find((m) => m.id === assigneeId)!.name)}
                         </span>
                       ) : (
-                        <UserRound className="h-3.5 w-3.5" aria-hidden />
+                        <UserRound className="h-3 w-3" aria-hidden />
                       )}
                     </Button>
                   </TooltipTrigger>
@@ -358,13 +357,13 @@ export const TaskItemNodeView = ({ node, updateAttributes, editor, getPos }: any
                       variant="ghost"
                       size="icon"
                       className={cn(
-                        'h-6 w-6 rounded-md transition-colors',
+                        'h-5 w-5 rounded-md transition-colors',
                         dueDate && 'bg-muted/40 text-foreground'
                       )}
                       disabled={disabled}
                       aria-label="Set due date"
                     >
-                      <CalendarIcon className="h-3.5 w-3.5" aria-hidden />
+                      <CalendarIcon className="h-3 w-3" aria-hidden />
                     </Button>
                   </TooltipTrigger>
                 </DialogTrigger>
