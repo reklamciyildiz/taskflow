@@ -202,7 +202,7 @@ export const TaskItemNodeView = ({ node, updateAttributes, editor, getPos }: any
                     removeNode(json.content);
                     if (sourceNode) {
                       insertNode(json.content);
-                      editor.commands.setContent(json, false);
+                      editor.commands.setContent(json, true);
                     }
                   }
                 }
@@ -241,7 +241,7 @@ export const TaskItemNodeView = ({ node, updateAttributes, editor, getPos }: any
                 };
                 
                 sortNode(json);
-                editor.commands.setContent(json, false);
+                editor.commands.setContent(json, true);
                 
                 // Try to restore cursor, catching errors if position is out of bounds due to structural changes
                 try {

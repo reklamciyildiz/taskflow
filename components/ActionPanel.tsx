@@ -397,13 +397,25 @@ export function ActionPanel({
     void persistLearningsForId(tid, learningsRef.current);
   }, [open, task?.id, canEdit, persistLearningsForId]);
 
-  /** Flush pending checklist edits when the panel closes. */
+  const flushBlocksNow = useCallback(() => {
+    if (!task?.id || !canEdit) return;
+    Object.keys(blocksDebounceRef.current).forEach(field => {
+      if (blocksDebounceRef.current[field]) {
+        clearTimeout(blocksDebounceRef.current[field]);
+        blocksDebounceRef.current[field] = null;
+        const data = field === 'checklistBlocks' ? checklistBlocks : learningsBlocks;
+        void updateTask(task.id, { [field]: data });
+      }
+    });
+  }, [task?.id, canEdit, updateTask, checklistBlocks, learningsBlocks]);
+
+  /** Flush pending edits when the panel closes. */
   useEffect(() => {
     if (open) return;
     if (!task?.id || !canEdit) return;
     flushJournalNow();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- flushJournalNow already captures latest
-  }, [open, task?.id, canEdit]);
+    flushBlocksNow();
+  }, [open, task?.id, canEdit, flushJournalNow, flushBlocksNow]);
 
   // Prevent background scroll to eliminate mobile UI jitter / layout shift caused by dvh recalculations
   useEffect(() => {
@@ -422,6 +434,9 @@ export function ActionPanel({
       if (metaDebounceRef.current) clearTimeout(metaDebounceRef.current);
       if (learningsDebounceRef.current)
         clearTimeout(learningsDebounceRef.current);
+      Object.keys(blocksDebounceRef.current).forEach(key => {
+        if (blocksDebounceRef.current[key]) clearTimeout(blocksDebounceRef.current[key]!);
+      });
     };
   }, []);
 
@@ -452,12 +467,23 @@ export function ActionPanel({
     [task, canEdit, updateTask],
   );
 
+  const blocksDebounceRef = useRef<{ [key: string]: ReturnType<typeof setTimeout> }>({});
+
   const scheduleBlocksPersist = useCallback(
     (field: 'checklistBlocks' | 'learningsBlocks', data: any) => {
       if (!task || !canEdit) return;
-      void updateTask(task.id, {
-         [field]: data 
-      });
+      
+      // Clear existing timeout for this field
+      if (blocksDebounceRef.current[field]) {
+        clearTimeout(blocksDebounceRef.current[field]);
+      }
+      
+      // Debounce the save by 500ms to prevent race conditions and excessive API calls
+      blocksDebounceRef.current[field] = setTimeout(() => {
+        void updateTask(task.id, {
+           [field]: data 
+        });
+      }, 500);
     },
     [task, canEdit, updateTask]
   );
