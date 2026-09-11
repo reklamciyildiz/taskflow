@@ -70,7 +70,7 @@ export const TaskItemNodeView = ({ node, updateAttributes, editor, getPos }: any
   const disabled = !editor.isEditable;
 
   return (
-    <NodeViewWrapper className="flex items-start gap-2 my-1 group" data-type="taskItem">
+    <NodeViewWrapper className="flex items-start gap-2 my-1 group" data-type="taskItem" data-task-id={id}>
       <div
         className="mt-1 flex items-center justify-center select-none"
         contentEditable={false}
@@ -78,6 +78,140 @@ export const TaskItemNodeView = ({ node, updateAttributes, editor, getPos }: any
         <div 
           className="cursor-grab text-muted-foreground/30 hover:text-muted-foreground transition-colors mr-1 py-2"
           data-drag-handle
+          onTouchStart={(e) => {
+            // Only apply custom logic on touch devices
+            if (!editor || !editor.isEditable || !id) return;
+            if (!window.matchMedia("(pointer: coarse)").matches && !('ontouchstart' in window)) return;
+            
+            // Prevent scrolling
+            e.preventDefault();
+            e.stopPropagation();
+
+            const handle = e.currentTarget as HTMLElement;
+            const row = handle.closest('[data-type="taskItem"]') as HTMLElement;
+            if (!row) return;
+
+            const touch = e.touches[0];
+            const startY = touch.clientY;
+            const startX = touch.clientX;
+            const rect = row.getBoundingClientRect();
+            const offsetY = startY - rect.top;
+            const offsetX = startX - rect.left;
+
+            // Create professional ghost image
+            const ghost = row.cloneNode(true) as HTMLElement;
+            ghost.style.position = 'fixed';
+            ghost.style.top = '0px';
+            ghost.style.left = '0px';
+            ghost.style.width = `${rect.width}px`;
+            ghost.style.height = `${rect.height}px`;
+            ghost.style.transform = `translate3d(${rect.left}px, ${rect.top}px, 0)`;
+            ghost.style.zIndex = '99999';
+            ghost.style.pointerEvents = 'none';
+            ghost.style.opacity = '0.95';
+            ghost.style.boxShadow = '0 10px 25px -5px rgba(0, 0, 0, 0.2), 0 8px 10px -6px rgba(0, 0, 0, 0.1)';
+            ghost.style.backgroundColor = 'hsl(var(--background))';
+            ghost.style.borderRadius = 'var(--radius)';
+            document.body.appendChild(ghost);
+
+            row.style.opacity = '0.3';
+
+            let lastTarget: HTMLElement | null = null;
+            let dropPosition: 'before' | 'after' = 'after';
+
+            const onTouchMove = (moveEvent: TouchEvent) => {
+              moveEvent.preventDefault(); // Stop native scrolling
+              const mt = moveEvent.touches[0];
+              const currentY = mt.clientY;
+              const currentX = mt.clientX;
+              
+              ghost.style.transform = `translate3d(${currentX - offsetX}px, ${currentY - offsetY}px, 0)`;
+
+              const el = document.elementFromPoint(currentX, currentY);
+              const targetRow = el?.closest('[data-type="taskItem"]') as HTMLElement;
+
+              if (lastTarget && lastTarget !== targetRow) {
+                lastTarget.style.borderTop = '';
+                lastTarget.style.borderBottom = '';
+              }
+
+              // Highlight target drop area
+              if (targetRow && targetRow !== row && !row.contains(targetRow)) {
+                const targetRect = targetRow.getBoundingClientRect();
+                const midY = targetRect.top + targetRect.height / 2;
+                if (currentY < midY) {
+                  targetRow.style.borderTop = '2px solid hsl(var(--primary))';
+                  targetRow.style.borderBottom = '';
+                  dropPosition = 'before';
+                } else {
+                  targetRow.style.borderTop = '';
+                  targetRow.style.borderBottom = '2px solid hsl(var(--primary))';
+                  dropPosition = 'after';
+                }
+                lastTarget = targetRow;
+              } else {
+                lastTarget = null;
+              }
+            };
+
+            const onTouchEnd = (endEvent: TouchEvent) => {
+              document.removeEventListener('touchmove', onTouchMove);
+              document.removeEventListener('touchend', onTouchEnd);
+              
+              ghost.remove();
+              row.style.opacity = '';
+              if (lastTarget) {
+                lastTarget.style.borderTop = '';
+                lastTarget.style.borderBottom = '';
+              }
+
+              // Execute AST modification
+              if (lastTarget) {
+                const targetId = lastTarget.getAttribute('data-task-id');
+                if (targetId && targetId !== id) {
+                  const json = editor.getJSON();
+                  let sourceNode: any = null;
+                  
+                  const removeNode = (nodes: any[]) => {
+                    for (let i = 0; i < nodes.length; i++) {
+                      if (nodes[i].type === 'taskItem' && nodes[i].attrs?.id === id) {
+                        sourceNode = nodes.splice(i, 1)[0];
+                        return true;
+                      }
+                      if (nodes[i].content && removeNode(nodes[i].content)) return true;
+                    }
+                    return false;
+                  };
+                  
+                  const insertNode = (nodes: any[]) => {
+                    for (let i = 0; i < nodes.length; i++) {
+                      if (nodes[i].type === 'taskItem' && nodes[i].attrs?.id === targetId) {
+                        if (dropPosition === 'before') {
+                          nodes.splice(i, 0, sourceNode);
+                        } else {
+                          nodes.splice(i + 1, 0, sourceNode);
+                        }
+                        return true;
+                      }
+                      if (nodes[i].content && insertNode(nodes[i].content)) return true;
+                    }
+                    return false;
+                  };
+
+                  if (json.content) {
+                    removeNode(json.content);
+                    if (sourceNode) {
+                      insertNode(json.content);
+                      editor.commands.setContent(json, false);
+                    }
+                  }
+                }
+              }
+            };
+
+            document.addEventListener('touchmove', onTouchMove, { passive: false });
+            document.addEventListener('touchend', onTouchEnd);
+          }}
         >
           <GripVertical className="h-4 w-4" />
         </div>
@@ -257,75 +391,6 @@ export const TaskItemNodeView = ({ node, updateAttributes, editor, getPos }: any
               </DialogContent>
             </Dialog>
 
-            {/* Mobile-friendly Up/Down Reorder Buttons */}
-            <div className="flex gap-0.5 mt-0.5 md:hidden">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6 rounded-md transition-colors"
-                disabled={disabled}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (!editor || editor.isDestroyed || !id) return;
-                  const json = editor.getJSON();
-                  let moved = false;
-                  const traverse = (nodes: any[]) => {
-                    if (moved || !nodes) return;
-                    for (let i = 0; i < nodes.length; i++) {
-                      if (nodes[i].type === 'taskItem' && nodes[i].attrs?.id === id) {
-                        if (i > 0) {
-                          const temp = nodes[i - 1];
-                          nodes[i - 1] = nodes[i];
-                          nodes[i] = temp;
-                          moved = true;
-                        }
-                        return;
-                      }
-                      if (nodes[i].content) traverse(nodes[i].content);
-                    }
-                  };
-                  if (json.content) traverse(json.content);
-                  if (moved) editor.commands.setContent(json, false);
-                }}
-                aria-label="Move Up"
-              >
-                <ChevronUp className="h-3.5 w-3.5" aria-hidden />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6 rounded-md transition-colors"
-                disabled={disabled}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (!editor || editor.isDestroyed || !id) return;
-                  const json = editor.getJSON();
-                  let moved = false;
-                  const traverse = (nodes: any[]) => {
-                    if (moved || !nodes) return;
-                    for (let i = 0; i < nodes.length; i++) {
-                      if (nodes[i].type === 'taskItem' && nodes[i].attrs?.id === id) {
-                        if (i < nodes.length - 1) {
-                          const temp = nodes[i + 1];
-                          nodes[i + 1] = nodes[i];
-                          nodes[i] = temp;
-                          moved = true;
-                        }
-                        return;
-                      }
-                      if (nodes[i].content) traverse(nodes[i].content);
-                    }
-                  };
-                  if (json.content) traverse(json.content);
-                  if (moved) editor.commands.setContent(json, false);
-                }}
-                aria-label="Move Down"
-              >
-                <ChevronDown className="h-3.5 w-3.5" aria-hidden />
-              </Button>
-            </div>
           </TooltipProvider>
         </div>
       </div>
