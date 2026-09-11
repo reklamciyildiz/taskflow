@@ -2,7 +2,7 @@ import { NodeViewContent, NodeViewWrapper } from '@tiptap/react';
 import React, { useState, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import { v4 as uuidv4 } from 'uuid';
-import { Calendar as CalendarIcon, Check, GripVertical, UserRound } from 'lucide-react';
+import { Calendar as CalendarIcon, Check, GripVertical, UserRound, ChevronUp, ChevronDown } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -76,22 +76,8 @@ export const TaskItemNodeView = ({ node, updateAttributes, editor, getPos }: any
         contentEditable={false}
       >
         <div 
-          draggable={true}
           className="cursor-grab text-muted-foreground/30 hover:text-muted-foreground transition-colors mr-1 py-2"
           data-drag-handle
-          style={{ touchAction: 'none' }}
-          onTouchStart={(e) => {
-            // Force ProseMirror to recognize the drag handle on mobile
-            // by simulating a mousedown event which ProseMirror's core listens to.
-            const evt = new MouseEvent('mousedown', {
-              bubbles: true,
-              cancelable: true,
-              view: window,
-              clientX: e.touches[0].clientX,
-              clientY: e.touches[0].clientY,
-            });
-            e.currentTarget.dispatchEvent(evt);
-          }}
         >
           <GripVertical className="h-4 w-4" />
         </div>
@@ -270,6 +256,76 @@ export const TaskItemNodeView = ({ node, updateAttributes, editor, getPos }: any
                 />
               </DialogContent>
             </Dialog>
+
+            {/* Mobile-friendly Up/Down Reorder Buttons */}
+            <div className="flex gap-0.5 mt-0.5 md:hidden">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 rounded-md transition-colors"
+                disabled={disabled}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!editor || editor.isDestroyed || !id) return;
+                  const json = editor.getJSON();
+                  let moved = false;
+                  const traverse = (nodes: any[]) => {
+                    if (moved || !nodes) return;
+                    for (let i = 0; i < nodes.length; i++) {
+                      if (nodes[i].type === 'taskItem' && nodes[i].attrs?.id === id) {
+                        if (i > 0) {
+                          const temp = nodes[i - 1];
+                          nodes[i - 1] = nodes[i];
+                          nodes[i] = temp;
+                          moved = true;
+                        }
+                        return;
+                      }
+                      if (nodes[i].content) traverse(nodes[i].content);
+                    }
+                  };
+                  if (json.content) traverse(json.content);
+                  if (moved) editor.commands.setContent(json, false);
+                }}
+                aria-label="Move Up"
+              >
+                <ChevronUp className="h-3.5 w-3.5" aria-hidden />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 rounded-md transition-colors"
+                disabled={disabled}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!editor || editor.isDestroyed || !id) return;
+                  const json = editor.getJSON();
+                  let moved = false;
+                  const traverse = (nodes: any[]) => {
+                    if (moved || !nodes) return;
+                    for (let i = 0; i < nodes.length; i++) {
+                      if (nodes[i].type === 'taskItem' && nodes[i].attrs?.id === id) {
+                        if (i < nodes.length - 1) {
+                          const temp = nodes[i + 1];
+                          nodes[i + 1] = nodes[i];
+                          nodes[i] = temp;
+                          moved = true;
+                        }
+                        return;
+                      }
+                      if (nodes[i].content) traverse(nodes[i].content);
+                    }
+                  };
+                  if (json.content) traverse(json.content);
+                  if (moved) editor.commands.setContent(json, false);
+                }}
+                aria-label="Move Down"
+              >
+                <ChevronDown className="h-3.5 w-3.5" aria-hidden />
+              </Button>
+            </div>
           </TooltipProvider>
         </div>
       </div>

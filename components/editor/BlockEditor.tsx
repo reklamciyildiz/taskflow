@@ -1,4 +1,4 @@
-import React, { forwardRef, useImperativeHandle, useEffect } from 'react';
+import React, { forwardRef, useImperativeHandle } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import TaskList from '@tiptap/extension-task-list';
@@ -7,30 +7,6 @@ import { AdvancedTaskItem } from './extensions/AdvancedTaskItem';
 import { Button } from '@/components/ui/button';
 import { CheckSquare, Type } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { polyfill } from "mobile-drag-drop";
-import { scrollBehaviourDragImageTranslateOverride } from "mobile-drag-drop/scroll-behaviour";
-// @ts-ignore: TS doesn't have types for CSS module side-effects
-import "mobile-drag-drop/default.css";
-
-// Initialize mobile drag and drop polyfill globally once
-if (typeof window !== 'undefined' && !(window as any).__isMobileDragDropLoaded) {
-  (window as any).__isMobileDragDropLoaded = true;
-  polyfill({
-    // Enable auto-scrolling while dragging on mobile
-    dragImageTranslateOverride: scrollBehaviourDragImageTranslateOverride,
-    // iOS Safari has a broken native HTML5 drag and drop implementation for DOM nodes.
-    // We MUST force the polyfill to take over on all touch devices.
-    forceApply: true,
-    // Ensure the entire row is shown as the drag image, not just the 6 dots
-    dragImageSetup: (el: HTMLElement) => {
-      const taskRow = el.closest('[data-type="taskItem"]') as HTMLElement;
-      return taskRow || el;
-    }
-  });
-  
-  // Workaround for some iOS 11+ bugs with touchmove and drag-drop
-  window.addEventListener('touchmove', () => {}, { passive: false });
-}
 
 export interface BlockEditorRef {
   insertContent: (content: string) => void;
