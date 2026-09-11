@@ -260,7 +260,7 @@ export const TaskItemNodeView = ({ node, updateAttributes, editor, getPos }: any
         />
       </div>
 
-      <div className="flex-1 min-w-0 flex items-start gap-1">
+      <div className="flex-1 min-w-0 flex items-start gap-1 relative">
         <NodeViewContent
           className={cn(
             'inline-block flex-1 w-full min-w-0 mt-[1px]',
@@ -270,8 +270,10 @@ export const TaskItemNodeView = ({ node, updateAttributes, editor, getPos }: any
         
         <div 
           className={cn(
-            "flex-col items-center gap-0.5 transition-opacity mt-0.5",
-            (assigneeId || dueDate) ? "flex opacity-100" : "hidden group-hover:flex focus-within:flex opacity-60 hover:opacity-100"
+            "flex-col items-center gap-0.5 transition-all mt-0.5",
+            (assigneeId || dueDate) 
+              ? "flex opacity-100" 
+              : "absolute right-0 top-0 z-10 flex opacity-0 group-hover:opacity-100 focus-within:opacity-100 pointer-events-none group-hover:pointer-events-auto focus-within:pointer-events-auto bg-background/90 backdrop-blur-sm rounded-md shadow-sm border border-border/40 p-0.5"
           )}
           contentEditable={false}
         >
