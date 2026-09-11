@@ -17,7 +17,12 @@ if (typeof window !== 'undefined' && !(window as any).__isMobileDragDropLoaded) 
   (window as any).__isMobileDragDropLoaded = true;
   polyfill({
     // Enable auto-scrolling while dragging on mobile
-    dragImageTranslateOverride: scrollBehaviourDragImageTranslateOverride
+    dragImageTranslateOverride: scrollBehaviourDragImageTranslateOverride,
+    // iOS Safari has a broken native HTML5 drag and drop implementation for DOM nodes.
+    // We MUST force the polyfill to take over on all touch devices.
+    forceApply: true,
+    // Add a slight delay to prevent accidental drags when scrolling
+    holdToDrag: 100
   });
   
   // Workaround for some iOS 11+ bugs with touchmove and drag-drop

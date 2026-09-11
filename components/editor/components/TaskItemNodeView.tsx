@@ -76,9 +76,21 @@ export const TaskItemNodeView = ({ node, updateAttributes, editor, getPos }: any
         contentEditable={false}
       >
         <div 
-          className="cursor-grab text-muted-foreground/30 hover:text-muted-foreground transition-colors mr-1"
+          className="cursor-grab text-muted-foreground/30 hover:text-muted-foreground transition-colors mr-1 py-2"
           data-drag-handle
           style={{ touchAction: 'none' }}
+          onTouchStart={(e) => {
+            // Force ProseMirror to recognize the drag handle on mobile
+            // by simulating a mousedown event which ProseMirror's core listens to.
+            const evt = new MouseEvent('mousedown', {
+              bubbles: true,
+              cancelable: true,
+              view: window,
+              clientX: e.touches[0].clientX,
+              clientY: e.touches[0].clientY,
+            });
+            e.currentTarget.dispatchEvent(evt);
+          }}
         >
           <GripVertical className="h-4 w-4" />
         </div>
