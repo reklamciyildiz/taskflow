@@ -191,6 +191,7 @@ export function ActionPanel({
   const [deepLinkChecklistRowId, setDeepLinkChecklistRowId] = useState<
     string | null
   >(null);
+  const [hydratedTaskId, setHydratedTaskId] = useState<string | null>(null);
   const [learnings, setLearnings] = useState("");
   const [checklistBlocks, setChecklistBlocks] = useState<any>(null);
   const [learningsBlocks, setLearningsBlocks] = useState<any>(null);
@@ -292,6 +293,7 @@ export function ActionPanel({
     setLearningsBlocks(finalLearningsBlocks || null);
     
     lastPersistedLearnings.current = learningsVal.trim();
+    setHydratedTaskId(src.id);
     setDetailsOpen(false);
     setLearningsOpen(false);
     setFocusMode("none");
@@ -1109,6 +1111,7 @@ export function ActionPanel({
                   onClick={(e) => e.stopPropagation()}
                 >
                   <BlockEditor
+                    key={`chk-${hydratedTaskId}`}
                     initialContent={checklistBlocks}
                     onChange={(data) => {
                       setChecklistBlocks(data);
@@ -1225,6 +1228,7 @@ export function ActionPanel({
                       ))}
                     </div>
                     <BlockEditor
+                      key={`lrn-${hydratedTaskId}`}
                       ref={learningsEditorRef}
                       initialContent={learningsBlocks}
                       onChange={(data) => {
@@ -1299,6 +1303,7 @@ export function ActionPanel({
               <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
                 <div className="rounded-xl border border-border/40 bg-card/40 px-2 py-3">
                   <BlockEditor
+                    key={`chk-${hydratedTaskId}`}
                     initialContent={checklistBlocks}
                     onChange={(data) => {
                       setChecklistBlocks(data);
@@ -1327,6 +1332,7 @@ export function ActionPanel({
                   ))}
                 </div>
                 <BlockEditor
+                  key={`lrn-${hydratedTaskId}`}
                   ref={learningsEditorRef}
                   initialContent={learningsBlocks}
                   onChange={(data) => {

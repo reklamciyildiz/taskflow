@@ -4,6 +4,8 @@ import { TaskItemNodeView } from '../components/TaskItemNodeView';
 import { v4 as uuidv4 } from 'uuid';
 
 export const AdvancedTaskItem = TaskItem.extend({
+  draggable: true,
+
   addAttributes() {
     return {
       checked: {

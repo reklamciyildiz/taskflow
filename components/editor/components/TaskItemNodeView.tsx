@@ -85,7 +85,39 @@ export const TaskItemNodeView = ({ node, updateAttributes, editor, getPos }: any
         <Checkbox
           checked={!!checked}
           disabled={disabled}
-          onCheckedChange={(c) => updateAttributes({ checked: !!c })}
+          onCheckedChange={(c) => {
+            const isChecked = !!c;
+            updateAttributes({ checked: isChecked });
+            
+            // Auto-sort completed items to the bottom, preserving cursor position
+            if (editor && !editor.isDestroyed) {
+              setTimeout(() => {
+                const { from, to } = editor.state.selection;
+                const json = editor.getJSON();
+                
+                const sortNode = (n: any) => {
+                  if (n.type === 'taskList' && n.content) {
+                    const undone = n.content.filter((child: any) => !child.attrs?.checked);
+                    const done = n.content.filter((child: any) => child.attrs?.checked);
+                    n.content = [...undone, ...done];
+                  }
+                  if (n.content) {
+                    n.content.forEach(sortNode);
+                  }
+                };
+                
+                sortNode(json);
+                editor.commands.setContent(json, false);
+                
+                // Try to restore cursor, catching errors if position is out of bounds due to structural changes
+                try {
+                  editor.commands.setTextSelection({ from, to });
+                } catch (e) {
+                  // Fallback: just put cursor at the end or ignore
+                }
+              }, 50);
+            }
+          }}
           className={cn(
             'h-[18px] w-[18px] rounded border-border/50 data-[state=checked]:bg-primary data-[state=checked]:border-primary shadow-sm transition-all',
             checked ? 'opacity-80' : ''
