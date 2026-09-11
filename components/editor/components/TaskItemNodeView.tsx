@@ -78,6 +78,7 @@ export const TaskItemNodeView = ({ node, updateAttributes, editor, getPos }: any
         <div 
           className="cursor-grab text-muted-foreground/30 hover:text-muted-foreground transition-colors mr-1"
           data-drag-handle
+          style={{ touchAction: 'none' }}
         >
           <GripVertical className="h-4 w-4" />
         </div>
@@ -134,7 +135,7 @@ export const TaskItemNodeView = ({ node, updateAttributes, editor, getPos }: any
         />
         
         <div 
-          className="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity"
+          className="flex flex-col items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity mt-0.5"
           contentEditable={false}
         >
           <TooltipProvider delayDuration={400}>

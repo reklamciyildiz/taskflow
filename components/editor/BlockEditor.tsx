@@ -1,4 +1,4 @@
-import React, { forwardRef, useImperativeHandle } from 'react';
+import React, { forwardRef, useImperativeHandle, useEffect } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import TaskList from '@tiptap/extension-task-list';
@@ -7,6 +7,21 @@ import { AdvancedTaskItem } from './extensions/AdvancedTaskItem';
 import { Button } from '@/components/ui/button';
 import { CheckSquare, Type } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { polyfill } from "mobile-drag-drop";
+import { scrollBehaviourDragImageTranslateOverride } from "mobile-drag-drop/scroll-behaviour";
+import "mobile-drag-drop/default.css";
+
+// Initialize mobile drag and drop polyfill globally once
+if (typeof window !== 'undefined' && !(window as any).__isMobileDragDropLoaded) {
+  (window as any).__isMobileDragDropLoaded = true;
+  polyfill({
+    // Enable auto-scrolling while dragging on mobile
+    dragImageTranslateOverride: scrollBehaviourDragImageTranslateOverride
+  });
+  
+  // Workaround for some iOS 11+ bugs with touchmove and drag-drop
+  window.addEventListener('touchmove', () => {}, { passive: false });
+}
 
 export interface BlockEditorRef {
   insertContent: (content: string) => void;
