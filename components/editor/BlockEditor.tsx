@@ -41,7 +41,8 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
     },
     editorProps: {
       attributes: {
-        class: 'focus:outline-none min-h-[120px] prose dark:prose-invert max-w-none text-sm',
+        // Kill default list indentations and margin via prose-ul:pl-0 prose-li:my-0
+        class: 'focus:outline-none min-h-[120px] prose dark:prose-invert max-w-none text-sm prose-ul:pl-0 prose-ul:my-0 prose-li:my-0 prose-li:pl-0 marker:text-transparent',
       },
     },
   });
@@ -57,10 +58,7 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
   const toggleAllCheckboxes = () => {
     if (!editor) return;
 
-    // A simple global toggle: if we have task lists, turn them into paragraphs.
-    // If not, turn everything into a task list.
     const isTaskList = editor.isActive('taskList');
-    
     editor.chain().focus().selectAll().run();
     
     if (isTaskList) {
@@ -68,33 +66,31 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
     } else {
       editor.chain().focus().toggleList('taskList', 'taskItem').run();
     }
-    
-    // Clear selection
     editor.chain().focus().setTextSelection(editor.state.selection.to).run();
   };
 
   if (!editor) return null;
 
   return (
-    <div className={cn('relative flex flex-col w-full rounded-md border border-input bg-transparent shadow-sm', className)}>
-      <div className="flex items-center gap-1 border-b border-input px-2 py-1.5 bg-muted/20">
+    <div className={cn('relative flex flex-col w-full', className)}>
+      <div className="flex items-center gap-1 px-1 py-1.5 opacity-40 hover:opacity-100 focus-within:opacity-100 transition-opacity">
         <Button
           type="button"
           variant="ghost"
           size="sm"
           onClick={toggleAllCheckboxes}
-          className="h-7 px-2 text-xs"
+          className="h-6 px-2 text-[11px] rounded bg-muted/50 hover:bg-muted"
           title="Toggle Checkboxes"
         >
           {editor.isActive('taskList') ? (
-            <><Type className="w-3.5 h-3.5 mr-1" /> Plain Text</>
+            <><Type className="w-3 h-3 mr-1" /> Plain Text</>
           ) : (
-            <><CheckSquare className="w-3.5 h-3.5 mr-1" /> Checkboxes</>
+            <><CheckSquare className="w-3 h-3 mr-1" /> Checkboxes</>
           )}
         </Button>
       </div>
       
-      <div className="p-3">
+      <div className="py-1 px-0">
         <EditorContent editor={editor} />
       </div>
     </div>

@@ -1099,7 +1099,7 @@ export function ActionPanel({
                 </div>
                 <div
                   className={cn(
-                    "min-h-0 overflow-y-auto overscroll-contain rounded-xl border border-border/40 bg-card/40 px-2 py-3",
+                    "min-h-0 overflow-y-auto overscroll-contain px-0 py-1",
                     focusMode === "checklist"
                       ? "max-h-[min(74vh,680px)]"
                       : focusMode === "learnings"
@@ -1301,7 +1301,7 @@ export function ActionPanel({
 
             {zenTab === "checklist" ? (
               <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-                <div className="rounded-xl border border-border/40 bg-card/40 px-2 py-3">
+                <div className="px-0 py-1">
                   <BlockEditor
                     key={`chk-${hydratedTaskId}`}
                     initialContent={checklistBlocks}

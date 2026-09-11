@@ -70,13 +70,13 @@ export const TaskItemNodeView = ({ node, updateAttributes, editor, getPos }: any
   const disabled = !editor.isEditable;
 
   return (
-    <NodeViewWrapper className="flex items-start gap-2 my-1 group" data-type="taskItem" data-task-id={id}>
+    <NodeViewWrapper className="flex items-start gap-1.5 my-0.5 group" data-type="taskItem" data-task-id={id}>
       <div
         className="mt-1 flex items-center justify-center select-none"
         contentEditable={false}
       >
         <div 
-          className="cursor-grab text-muted-foreground/30 hover:text-muted-foreground transition-colors mr-1 py-2"
+          className="cursor-grab text-muted-foreground/30 hover:text-muted-foreground transition-colors mr-0.5 py-1.5"
           data-drag-handle
           onTouchStart={(e) => {
             // Only apply custom logic on touch devices
@@ -259,7 +259,7 @@ export const TaskItemNodeView = ({ node, updateAttributes, editor, getPos }: any
         />
       </div>
 
-      <div className="flex-1 min-w-0 flex items-start gap-2">
+      <div className="flex-1 min-w-0 flex items-start gap-1">
         <NodeViewContent
           className={cn(
             'inline-block flex-1 w-full min-w-0 mt-[1px]',
@@ -268,7 +268,10 @@ export const TaskItemNodeView = ({ node, updateAttributes, editor, getPos }: any
         />
         
         <div 
-          className="flex flex-col items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity mt-0.5"
+          className={cn(
+            "flex-col items-center gap-0.5 transition-opacity mt-0.5",
+            (assigneeId || dueDate) ? "flex opacity-100" : "hidden group-hover:flex focus-within:flex opacity-60 hover:opacity-100"
+          )}
           contentEditable={false}
         >
           <TooltipProvider delayDuration={400}>
