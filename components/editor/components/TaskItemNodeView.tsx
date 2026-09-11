@@ -72,11 +72,11 @@ export const TaskItemNodeView = ({ node, updateAttributes, editor, getPos }: any
   return (
     <NodeViewWrapper className="flex items-start gap-1.5 my-0.5 group" data-type="taskItem" data-task-id={id}>
       <div
-        className="mt-1 flex items-center justify-center select-none"
+        className="mt-[2px] flex items-center justify-center select-none"
         contentEditable={false}
       >
         <div 
-          className="cursor-grab text-muted-foreground/30 hover:text-muted-foreground transition-colors mr-0.5 py-1.5"
+          className="cursor-grab text-muted-foreground/30 hover:text-muted-foreground transition-colors mr-0.5 py-0.5 px-0.5"
           data-drag-handle
           onTouchStart={(e) => {
             // Only apply custom logic on touch devices
