@@ -9,6 +9,7 @@ import { CheckSquare, Type } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { polyfill } from "mobile-drag-drop";
 import { scrollBehaviourDragImageTranslateOverride } from "mobile-drag-drop/scroll-behaviour";
+// @ts-ignore: TS doesn't have types for CSS module side-effects
 import "mobile-drag-drop/default.css";
 
 // Initialize mobile drag and drop polyfill globally once
