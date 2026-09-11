@@ -214,6 +214,8 @@ function partialTaskToUpdateRequest(updates: TaskUpdateFields): UpdateTaskReques
   if (updates.assigneeId !== undefined) api.assigneeId = updates.assigneeId;
   if (updates.customerId !== undefined) api.customerId = updates.customerId;
   if (updates.projectId !== undefined) api.projectId = updates.projectId;
+  if (updates.checklistBlocks !== undefined) api.checklistBlocks = updates.checklistBlocks;
+  if (updates.learningsBlocks !== undefined) api.learningsBlocks = updates.learningsBlocks;
   if (updates.learnings !== undefined) api.learnings = updates.learnings;
   if (updates.journalLogs !== undefined) api.journalLogs = updates.journalLogs;
   if (updates.boardPosition !== undefined) api.boardPosition = updates.boardPosition;

@@ -402,7 +402,7 @@ export function ActionPanel({
     Object.keys(blocksDebounceRef.current).forEach(field => {
       if (blocksDebounceRef.current[field]) {
         clearTimeout(blocksDebounceRef.current[field]);
-        blocksDebounceRef.current[field] = null;
+        blocksDebounceRef.current[field] = undefined;
         const data = field === 'checklistBlocks' ? checklistBlocks : learningsBlocks;
         void updateTask(task.id, { [field]: data });
       }
@@ -467,7 +467,7 @@ export function ActionPanel({
     [task, canEdit, updateTask],
   );
 
-  const blocksDebounceRef = useRef<{ [key: string]: ReturnType<typeof setTimeout> }>({});
+  const blocksDebounceRef = useRef<{ [key: string]: ReturnType<typeof setTimeout> | undefined }>({});
 
   const scheduleBlocksPersist = useCallback(
     (field: 'checklistBlocks' | 'learningsBlocks', data: any) => {

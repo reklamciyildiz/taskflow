@@ -220,6 +220,8 @@ export interface UpdateTaskRequest {
   customerId?: string | null;
   projectId?: string | null;
   journalLogs?: JournalLogEntry[];
+  checklistBlocks?: any;
+  learningsBlocks?: any;
   learnings?: string | null;
   boardPosition?: number;
 }
