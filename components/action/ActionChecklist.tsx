@@ -354,7 +354,34 @@ export function ActionChecklist({
           />
         </div>
 
-        <Droppable droppableId="action-checklist-body" isDropDisabled={disabled}>
+        <Droppable 
+          droppableId="action-checklist-body" 
+          isDropDisabled={disabled}
+          renderClone={(dragProvided, snapshot, rubric) => {
+            const row = bodyRows[rubric.source.index];
+            if (!row) return <div ref={dragProvided.innerRef} {...dragProvided.draggableProps} />;
+            return (
+              <div
+                ref={dragProvided.innerRef}
+                {...dragProvided.draggableProps}
+                style={dragProvided.draggableProps.style}
+                className="flex items-start gap-1.5 rounded-md border border-border bg-muted/50 px-0.5 py-1.5 shadow-md ring-1 ring-black/5 dark:ring-white/10 z-[500]"
+              >
+                <div className="mt-1.5 shrink-0 text-muted-foreground">
+                  <GripVertical className="h-4 w-4" />
+                </div>
+                <div className="pt-0.5">
+                  <Checkbox checked={row.done === true} disabled className="border-muted-foreground/40" />
+                </div>
+                <div className="min-w-0 flex-1 flex items-start gap-1">
+                  <div className={cn(textareaClass, row.done === true && 'text-muted-foreground line-through decoration-muted-foreground/60')}>
+                    {row.text || " "}
+                  </div>
+                </div>
+              </div>
+            );
+          }}
+        >
           {(dropProvided) => (
             <div
               ref={dropProvided.innerRef}
@@ -363,8 +390,7 @@ export function ActionChecklist({
             >
               {bodyRows.map((row, bodyIndex) => (
                 <Draggable key={row.id} draggableId={row.id} index={bodyIndex} isDragDisabled={disabled}>
-                  {(dragProvided, snapshot) =>
-                    portalDndRowToBody(
+                  {(dragProvided, snapshot) => (
                       <div
                         ref={(el) => {
                           dragProvided.innerRef(el);
@@ -382,9 +408,7 @@ export function ActionChecklist({
                               'border-primary/50 bg-primary/10 shadow-sm',
                               'ring-2 ring-primary/25 ring-offset-2 ring-offset-background',
                               'motion-safe:animate-pulse',
-                            ].join(' '),
-                          snapshot.isDragging &&
-                            'z-[500] border-border bg-muted/50 shadow-md ring-1 ring-black/5 dark:ring-white/10'
+                            ].join(' ')
                         )}
                       >
                       <div
