@@ -11,6 +11,16 @@ import { PushSoftAsk } from '@/components/push/PushSoftAsk';
 function TaskEditModalHost() {
   const { tasks, editingTaskId, closeTaskEditor } = useTaskContext();
   const [panelTask, setPanelTask] = useState<Task | null>(null);
+  const [prevEditingId, setPrevEditingId] = useState<string | null>(null);
+
+  // Sync state during render to avoid 1-frame empty render flashes.
+  if (editingTaskId !== prevEditingId) {
+    setPrevEditingId(editingTaskId);
+    if (editingTaskId) {
+      const t = tasks.find((x) => x.id === editingTaskId) ?? null;
+      if (t) setPanelTask(t);
+    }
+  }
 
   useEffect(() => {
     if (editingTaskId) {
@@ -18,12 +28,6 @@ function TaskEditModalHost() {
       if (t) setPanelTask(t);
     }
   }, [editingTaskId, tasks]);
-
-  useEffect(() => {
-    if (!editingTaskId) return;
-    const t = tasks.find((x) => x.id === editingTaskId);
-    if (!t) closeTaskEditor();
-  }, [closeTaskEditor, editingTaskId, tasks]);
 
   return (
     <ActionPanel
