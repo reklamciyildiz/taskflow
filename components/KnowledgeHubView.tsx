@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useTaskContext } from '@/components/TaskContext';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -14,7 +16,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import { FileText, Search, Sparkles, LayoutGrid, Star, Info } from 'lucide-react';
+import { BookOpen, FileText, Inbox, Search, Sparkles, LayoutGrid, Star, Info } from 'lucide-react';
 import {
   Popover,
   PopoverContent,
@@ -33,7 +35,8 @@ export type { KnowledgeEntryType, KnowledgeHubCard } from '@/lib/knowledge-entri
 const PIN_KEY = 'taskflow:pinnedKnowledgeEntryIds';
 
 export function KnowledgeHubView() {
-  const { tasks, projects, teams, currentTeam, loading, openTaskEditor } =
+  const router = useRouter();
+  const { tasks, projects, teams, currentTeam, loading, openTaskEditor, updateTask, canEditTask } =
     useTaskContext();
   const [query, setQuery] = useState('');
   type TypeFilter = 'all' | KnowledgeEntryType;
@@ -351,7 +354,7 @@ export function KnowledgeHubView() {
                     )}
 
                     {hasLearn && (
-                      <p className="mb-3 whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground/90 [overflow-wrap:anywhere]">
+                      <p className="mb-3 whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground/90">
                         {card.learningsPreview}
                       </p>
                     )}

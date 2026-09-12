@@ -309,7 +309,7 @@ export function ActionChecklist({
     'min-w-0 flex-1 w-full resize-none border-0 bg-transparent py-1 text-[15px] leading-relaxed outline-none',
     'placeholder:text-muted-foreground/50',
     // Keep natural wrapping; long unbroken tokens may still wrap (expected).
-    'break-words [overflow-wrap:anywhere] whitespace-pre-wrap'
+    'break-words whitespace-pre-wrap'
   );
 
   return (
