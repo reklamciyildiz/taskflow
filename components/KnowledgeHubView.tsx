@@ -1,10 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { useTaskContext } from '@/components/TaskContext';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -16,7 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import { BookOpen, FileText, Inbox, Search, Sparkles, LayoutGrid, Star, Info } from 'lucide-react';
+import { FileText, Search, Sparkles, LayoutGrid, Star, Info } from 'lucide-react';
 import {
   Popover,
   PopoverContent,
@@ -35,8 +33,7 @@ export type { KnowledgeEntryType, KnowledgeHubCard } from '@/lib/knowledge-entri
 const PIN_KEY = 'taskflow:pinnedKnowledgeEntryIds';
 
 export function KnowledgeHubView() {
-  const router = useRouter();
-  const { tasks, projects, teams, currentTeam, loading, openTaskEditor, updateTask, canEditTask } =
+  const { tasks, projects, teams, currentTeam, loading, openTaskEditor } =
     useTaskContext();
   const [query, setQuery] = useState('');
   type TypeFilter = 'all' | KnowledgeEntryType;

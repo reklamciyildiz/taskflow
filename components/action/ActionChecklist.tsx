@@ -675,10 +675,8 @@ export function ActionChecklist({
                           </TooltipProvider>
                         </div>
                       </div>
-                      </div>,
-                      snapshot.isDragging
-                    )
-                  }
+                    </div>
+                  )}
                 </Draggable>
               ))}
               {dropProvided.placeholder}
