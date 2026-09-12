@@ -1,7 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { motion, type Variants } from "framer-motion";
+import {
+  AnimatePresence,
+  motion,
+  PanInfo,
+  useAnimation,
+  Variants,
+} from "framer-motion";
 import {
   CalendarIcon,
   Check,
@@ -602,48 +608,52 @@ export function ActionPanel({
   if (!task) return null;
 
   return (
-    <>
-      <motion.div
-        aria-hidden
-        className="fixed inset-0 z-50 bg-black/35 backdrop-blur-sm"
-        initial={false}
-        animate={{ opacity: open ? 1 : 0 }}
-        transition={{ duration: 0.22 }}
-        style={{ pointerEvents: open ? "auto" : "none" }}
-        onClick={onClose}
-      />
-
-      <div
-        className={cn(
-          "fixed inset-0 z-[51] flex pointer-events-none",
-          "items-end justify-center md:items-center md:justify-center md:p-4 md:pb-8",
-        )}
-      >
+    <AnimatePresence onExitComplete={onExitComplete}>
+      {open && task && (
         <motion.div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="action-panel-title"
+          key="backdrop"
+          aria-hidden
+          className="fixed inset-0 z-50 bg-black/35 backdrop-blur-sm"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.22 }}
+          style={{ pointerEvents: "auto" }}
+          onClick={onClose}
+        />
+      )}
+
+      {open && task && (
+        <motion.div
+          key="modal-container"
           className={cn(
-            "pointer-events-auto flex w-full max-w-3xl flex-col overflow-hidden border border-border/60 bg-background shadow-2xl",
-            "ring-1 ring-black/5 dark:ring-white/10",
-            /* max-height + min-h-0: allow the flex child to shrink for scrollable content */
-            "max-h-[min(92dvh,920px)] min-h-0",
-            "rounded-t-2xl border-b-0 md:rounded-2xl md:border md:max-h-[min(88dvh,900px)]",
-            "origin-bottom md:origin-center",
+            "fixed inset-0 z-[51] flex pointer-events-none",
+            "items-end justify-center md:items-center md:justify-center md:p-4 md:pb-8",
           )}
-          variants={sheetVariants}
-          initial="closed"
-          animate={open ? "open" : "closed"}
-          style={{ willChange: "transform, opacity" }}
-          transition={
-            isNarrow
-              ? { type: "spring", damping: 32, stiffness: 380 }
-              : { type: "spring", damping: 28, stiffness: 320 }
-          }
-          onAnimationComplete={() => {
-            if (!open) onExitComplete?.();
-          }}
         >
+          <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="action-panel-title"
+            className={cn(
+              "pointer-events-auto flex w-full max-w-3xl flex-col overflow-hidden border border-border/60 bg-background shadow-2xl",
+              "ring-1 ring-black/5 dark:ring-white/10",
+              /* max-height + min-h-0: allow the flex child to shrink for scrollable content */
+              "max-h-[min(92dvh,920px)] min-h-0",
+              "rounded-t-2xl border-b-0 md:rounded-2xl md:border md:max-h-[min(88dvh,900px)]",
+              "origin-bottom md:origin-center",
+            )}
+            variants={sheetVariants}
+            initial="closed"
+            animate="open"
+            exit="closed"
+            style={{ willChange: "transform, opacity" }}
+            transition={
+              isNarrow
+                ? { type: "spring", damping: 32, stiffness: 380 }
+                : { type: "spring", damping: 28, stiffness: 320 }
+            }
+          >
           <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border/50 bg-muted/10 px-4 py-3 md:rounded-t-2xl">
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               {canEdit ? "Action" : "Read-only"}
@@ -1377,6 +1387,6 @@ export function ActionPanel({
           </div>
         </DialogContent>
       </Dialog>
-    </>
+    </AnimatePresence>
   );
 }
