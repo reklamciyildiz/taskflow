@@ -91,9 +91,10 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
       </div>
       
       <div className="py-1 px-0">
-        <EditorContent editor={editor} />
+        <EditorContent editor={editor} className="min-h-[150px] outline-none" />
       </div>
     </div>
   );
 });
 
+BlockEditor.displayName = 'BlockEditor';

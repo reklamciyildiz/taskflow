@@ -135,6 +135,11 @@ export function ActionChecklist({
   const [isNarrow, setIsNarrow] = useState(
     () => typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
   );
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const quickRow = items[0];
   const bodyRows = items.slice(1);
@@ -287,6 +292,10 @@ export function ActionChecklist({
     [disabled, items, onItemsChange]
   );
 
+  if (!isMounted) {
+    return null;
+  }
+
   if (!quickIdOk) {
     return (
       <p className="text-xs text-muted-foreground">
@@ -362,6 +371,7 @@ export function ActionChecklist({
                           rowContainerRefs.current[row.id] = el;
                         }}
                         {...dragProvided.draggableProps}
+                        style={dragProvided.draggableProps.style}
                         className={cn(
                           'group flex items-start gap-1.5 rounded-md border border-transparent px-0.5 py-1.5 transition-colors',
                           'transition-[background-color,border-color,box-shadow] duration-300',
@@ -377,10 +387,10 @@ export function ActionChecklist({
                             'z-[500] border-border bg-muted/50 shadow-md ring-1 ring-black/5 dark:ring-white/10'
                         )}
                       >
-                      <button
-                        type="button"
+                      <div
+                        role="button"
                         className={cn(
-                          'mt-1.5 shrink-0 touch-none text-muted-foreground opacity-60 hover:opacity-100',
+                          'mt-1.5 shrink-0 touch-none text-muted-foreground opacity-60 hover:opacity-100 cursor-grab active:cursor-grabbing',
                           disabled && 'pointer-events-none opacity-30'
                         )}
                         aria-label="Drag"
@@ -388,7 +398,7 @@ export function ActionChecklist({
                         tabIndex={-1}
                       >
                         <GripVertical className="h-4 w-4" />
-                      </button>
+                      </div>
                       <div
                         className="pt-0.5"
                         onClick={(e) => e.stopPropagation()}
