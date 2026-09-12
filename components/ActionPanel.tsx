@@ -626,6 +626,9 @@ export function ActionPanel({
       {open && task && (
         <motion.div
           key="modal-container"
+          initial="closed"
+          animate="open"
+          exit="closed"
           className={cn(
             "fixed inset-0 z-[51] flex pointer-events-none",
             "items-end justify-center md:items-center md:justify-center md:p-4 md:pb-8",
@@ -644,9 +647,6 @@ export function ActionPanel({
               "origin-bottom md:origin-center",
             )}
             variants={sheetVariants}
-            initial="closed"
-            animate="open"
-            exit="closed"
             style={{ willChange: "transform, opacity" }}
             transition={
               isNarrow
