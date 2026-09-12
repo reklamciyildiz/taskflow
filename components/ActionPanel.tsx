@@ -1286,7 +1286,8 @@ export function ActionPanel({
             </div>
           </div>
         </motion.div>
-      </div>
+      </motion.div>
+      )}
 
       <Dialog
         open={zenOpen}
