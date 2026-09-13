@@ -59,11 +59,11 @@ export const TaskItemNodeView = React.memo(({ node, updateAttributes, editor, ge
   // the global tasks array changes (which is the root cause of jitter).
   const memberOptions: { id: string; name: string }[] = useMemo(() => {
     try {
-      return editor?.storage?.advancedTaskItem?.members ?? [];
+      return editor?.storage?.taskItem?.members ?? [];
     } catch {
       return [];
     }
-  }, [editor?.storage?.advancedTaskItem?.members]);
+  }, [editor?.storage?.taskItem?.members]);
 
   // Auto-generate ID if missing when mounted
   React.useEffect(() => {

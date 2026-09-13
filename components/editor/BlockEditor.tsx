@@ -54,7 +54,9 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
   // every row on any tasks array change, causing visible jitter).
   React.useEffect(() => {
     if (editor && members) {
-      (editor.storage as any).advancedTaskItem.members = members;
+      const storage = editor.storage as any;
+      if (!storage.taskItem) storage.taskItem = {};
+      storage.taskItem.members = members;
     }
   }, [editor, members]);
 
