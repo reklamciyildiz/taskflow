@@ -153,8 +153,10 @@ export function TaskCard({ task, dragHandleProps, onTaskClick }: TaskCardProps) 
                     onSelect={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      suppressTaskEditorOpenFor(1000);
+                      // Open first, then arm the ghost-click guard: `openTaskEditor` is a no-op
+                      // while suppressed, so the previous order silently swallowed this action.
                       onTaskClick?.(task);
+                      suppressTaskEditorOpenFor(1000);
                     }}
                   >
                     Edit action

@@ -1,48 +1,24 @@
 'use client';
 
-import { useState } from 'react';
 import { ActionPanel } from '@/components/ActionPanel';
 import { AppShellLayout } from '@/components/shell';
-import { useTaskContext, type Task } from '@/components/TaskContext';
+import { useTaskContext } from '@/components/TaskContext';
 import { PushSoftAsk } from '@/components/push/PushSoftAsk';
 
 
 function TaskEditModalHost() {
   const { tasks, editingTaskId, closeTaskEditor } = useTaskContext();
-  const [panelTask, setPanelTask] = useState<Task | null>(null);
 
-  // ── Synchronous task lookup ──
-  // When editingTaskId becomes truthy, find the task IMMEDIATELY during render
-  // so that ActionPanel never receives open=true + task=null (which would
-  // cause it to return null and then re-mount, producing a visual flash).
-  const isOpen = !!editingTaskId;
-  const liveTask = editingTaskId
+  // Pure derived props — no cached copy, no render-phase setState, no effect round-trip.
+  // ActionPanel keeps the exiting subtree alive itself (AnimatePresence renders the last
+  // committed element during the exit animation), so `task` may drop to null the same
+  // instant `open` does without any visual gap.
+  const task = editingTaskId
     ? tasks.find((x) => x.id === editingTaskId) ?? null
     : null;
 
-  // When opening: set panelTask synchronously so ActionPanel has data on the SAME render.
-  // When closing: keep the old panelTask alive so the close animation can render content.
-  // When tasks update while open: keep panelTask fresh.
-  const effectiveTask = isOpen ? (liveTask ?? panelTask) : panelTask;
-
-  // Keep panelTask in sync for the "open" case (covers task data refreshes).
-  if (isOpen && liveTask && liveTask !== panelTask) {
-    // React allows setState during render when the value actually changed.
-    // This avoids the useEffect round-trip that causes the 1-frame null gap.
-    setPanelTask(liveTask);
-  }
-
   return (
-    <ActionPanel
-      task={effectiveTask}
-      open={isOpen}
-      onClose={closeTaskEditor}
-      onExitComplete={() => {
-        // Clear the cached task only AFTER the close animation finishes,
-        // so the panel can render its content throughout the exit animation.
-        if (!editingTaskId) setPanelTask(null);
-      }}
-    />
+    <ActionPanel task={task} open={!!editingTaskId} onClose={closeTaskEditor} />
   );
 }
 

@@ -1,7 +1,21 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { motion, type Variants } from "framer-motion";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MutableRefObject,
+  type ReactNode,
+} from "react";
+import {
+  AnimatePresence,
+  motion,
+  useIsPresent,
+  type Transition,
+  type Variants,
+} from "framer-motion";
 import {
   CalendarIcon,
   Check,
@@ -30,11 +44,8 @@ import {
   TaskUpdateFields,
   useTaskContext,
 } from "@/components/TaskContext";
-import { ACTION_CHECKLIST_QUICK_ROW_ID } from "@/lib/action-checklist";
-import type { JournalLogEntry } from "@/lib/types";
 import { BlockEditor } from '@/components/editor/BlockEditor';
 import { migrateLegacyJournalToTipTap, migrateLegacyLearningsToTipTap } from '@/lib/tiptap-parser';
-import { ActionChecklist } from "@/components/action/ActionChecklist";
 import {
   Collapsible,
   CollapsibleContent,
@@ -42,7 +53,6 @@ import {
 } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import { formatDueDateYmdLocal, parseYmdDateInput } from "@/lib/due-date";
-import { Calendar } from "@/components/ui/calendar";
 import {
   Popover,
   PopoverContent,
@@ -65,12 +75,199 @@ export interface ActionPanelProps {
   task: Task | null;
   open: boolean;
   onClose: () => void;
-  /** Fires after the close animation completes (e.g. clear cached task in host). */
+  /** Fires after the close animation completes and the panel has fully unmounted. */
   onExitComplete?: () => void;
 }
 
-function nowIso(): string {
-  return new Date().toISOString();
+/* ────────────────────────────────────────────────────────────────────────────
+ * Architecture (why three layers)
+ *
+ *  <ActionPanel>            always mounted; owns AnimatePresence + scroll lock.
+ *    <ActionPanelSheet>     keyed presence child; backdrop + dialog chrome +
+ *                           enter/exit animation. Mounted ⇄ unmounted by
+ *                           AnimatePresence, never by a `return null` gate.
+ *      <ActionPanelContent> keyed by task.id; ALL draft state is initialised
+ *                           synchronously from the task in useState initialisers.
+ *                           No hydration effect → no second commit → no editor
+ *                           re-key → the first painted frame is the final layout.
+ *
+ * Flash root causes this removes:
+ *  1. `onAnimationComplete` on an interruptible framer animation was used to
+ *     decide when to unmount. framer-motion resolves an animation's promise
+ *     when it is *stopped* too (MainThreadAnimation.teardown → resolveFinishedPromise),
+ *     so closing before the open spring had settled fired `onExitComplete` at
+ *     once and hard-unmounted a fully visible panel. AnimatePresence.onExitComplete
+ *     is presence-based and immune to this.
+ *  2. Draft state was hydrated in a useEffect after the first paint, then
+ *     `hydratedTaskId` re-keyed both TipTap editors → two heavy mounts and a
+ *     layout jump while the sheet was fading in.
+ *  3. Every close unconditionally PATCHed `journalLogs`, mutating `tasks` and
+ *     re-rendering the whole app tree during the exit animation.
+ *  4. Exiting (invisible) backdrop/dialog kept `pointer-events:auto`, swallowing
+ *     the next click on the board.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+export function ActionPanel({
+  task,
+  open,
+  onClose,
+  onExitComplete,
+}: ActionPanelProps) {
+  const isNarrow = useIsNarrow();
+  const present = open && task !== null;
+
+  /** Registered by the mounted content; lets X / backdrop closes flush drafts synchronously. */
+  const flushRef = useRef<(() => void) | null>(null);
+  const requestClose = useCallback(() => {
+    flushRef.current?.();
+    onClose();
+  }, [onClose]);
+
+  // Prevent background scroll while the sheet is up (mobile dvh jitter / layout shift).
+  useEffect(() => {
+    if (!present) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [present]);
+
+  return (
+    <AnimatePresence initial={false} onExitComplete={onExitComplete}>
+      {present ? (
+        <ActionPanelSheet
+          key="action-panel"
+          isNarrow={isNarrow}
+          onClose={requestClose}
+        >
+          {/* Keyed by task id: switching actions swaps content in place (with a flush on unmount). */}
+          <ActionPanelContent
+            key={task.id}
+            task={task}
+            isNarrow={isNarrow}
+            onClose={requestClose}
+            flushRef={flushRef}
+          />
+        </ActionPanelSheet>
+      ) : null}
+    </AnimatePresence>
+  );
+}
+
+const NARROW_MQ = "(max-width: 767px)";
+
+function useIsNarrow(): boolean {
+  const [isNarrow, setIsNarrow] = useState(
+    () =>
+      typeof window !== "undefined" && window.matchMedia(NARROW_MQ).matches,
+  );
+  useEffect(() => {
+    const mq = window.matchMedia(NARROW_MQ);
+    const sync = () => setIsNarrow(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+  return isNarrow;
+}
+
+const BACKDROP_TRANSITION: Transition = { duration: 0.2, ease: "easeOut" };
+/** Exit is a short deterministic tween: predictable unmount timing, no spring "settling" tail. */
+const EXIT_TRANSITION: Transition = { duration: 0.18, ease: [0.4, 0, 1, 1] };
+
+interface ActionPanelSheetProps {
+  isNarrow: boolean;
+  onClose: () => void;
+  children: ReactNode;
+}
+
+/**
+ * Backdrop + dialog chrome. Lives under AnimatePresence, so `exit` runs to
+ * completion before React removes the subtree.
+ */
+function ActionPanelSheet({ isNarrow, onClose, children }: ActionPanelSheetProps) {
+  // false while the exit animation is playing → make the (fading) layer click-through.
+  const isPresent = useIsPresent();
+
+  const sheetVariants: Variants = useMemo(
+    () => ({
+      closed: isNarrow
+        ? { opacity: 0, y: "100%", scale: 1, transition: EXIT_TRANSITION }
+        : { opacity: 0, scale: 0.96, y: 8, transition: EXIT_TRANSITION },
+      open: isNarrow
+        ? {
+            opacity: 1,
+            scale: 1,
+            y: "0%",
+            transition: { type: "spring", damping: 32, stiffness: 380 },
+          }
+        : {
+            opacity: 1,
+            scale: 1,
+            y: 0,
+            transition: { type: "spring", damping: 28, stiffness: 320 },
+          },
+    }),
+    [isNarrow],
+  );
+
+  return (
+    <>
+      <motion.div
+        aria-hidden
+        className="fixed inset-0 z-50 bg-black/35 backdrop-blur-sm"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={BACKDROP_TRANSITION}
+        style={{ pointerEvents: isPresent ? "auto" : "none" }}
+        onClick={onClose}
+      />
+
+      <div
+        className={cn(
+          "fixed inset-0 z-[51] flex pointer-events-none",
+          "items-end justify-center md:items-center md:justify-center md:p-4 md:pb-8",
+        )}
+      >
+        <motion.div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="action-panel-title"
+          className={cn(
+            "flex w-full max-w-3xl flex-col overflow-hidden border border-border/60 bg-background shadow-2xl",
+            "ring-1 ring-black/5 dark:ring-white/10",
+            /* max-height + min-h-0: allow the flex child to shrink for scrollable content */
+            "max-h-[min(92dvh,920px)] min-h-0",
+            "rounded-t-2xl border-b-0 md:rounded-2xl md:border md:max-h-[min(88dvh,900px)]",
+            "origin-bottom md:origin-center",
+            isPresent ? "pointer-events-auto" : "pointer-events-none",
+          )}
+          variants={sheetVariants}
+          initial="closed"
+          animate="open"
+          exit="closed"
+          style={{ willChange: "transform, opacity" }}
+        >
+          {children}
+        </motion.div>
+      </div>
+    </>
+  );
+}
+
+/** TipTap document for the checklist editor; migrates legacy `journal_logs` rows on the fly. */
+function resolveChecklistBlocks(task: Task): unknown | null {
+  if (task.checklistBlocks) return task.checklistBlocks;
+  return migrateLegacyJournalToTipTap(task.journalLogs ?? []) ?? null;
+}
+
+/** TipTap document for the learnings editor; migrates the legacy free-text `learnings` column. */
+function resolveLearningsBlocks(task: Task): unknown | null {
+  if (task.learningsBlocks) return task.learningsBlocks;
+  const legacy = (task.learnings ?? "").trim();
+  return legacy ? migrateLegacyLearningsToTipTap(legacy) : null;
 }
 
 function initials(name: string): string {
@@ -86,53 +283,47 @@ function initials(name: string): string {
   return (a + b).toUpperCase() || "?";
 }
 
-/** First row is always a UI-only quick-capture row; filters persisted rows and inserts an empty first row. */
-function ensureQuickRowFirst(logs: JournalLogEntry[]): JournalLogEntry[] {
-  const rest = logs.filter((x) => x.id !== ACTION_CHECKLIST_QUICK_ROW_ID);
-  const quick = logs.find((x) => x.id === ACTION_CHECKLIST_QUICK_ROW_ID);
-  const first: JournalLogEntry = {
-    id: ACTION_CHECKLIST_QUICK_ROW_ID,
-    text: quick?.text ?? "",
-    createdAt: quick?.createdAt ?? nowIso(),
-    done: false,
-  };
-  return [first, ...rest];
+interface ActionPanelContentProps {
+  task: Task;
+  isNarrow: boolean;
+  /** Already flushes drafts (see `requestClose` in `ActionPanel`). */
+  onClose: () => void;
+  flushRef: MutableRefObject<(() => void) | null>;
 }
 
-/** The checklist is stored in `journal_logs`; `learnings` are stored separately as free-form notes. */
-function journalLogsFromTask(
-  logs: JournalLogEntry[] | undefined,
-): JournalLogEntry[] {
-  const persisted = (logs ?? []).filter(
-    (x) => x.id !== ACTION_CHECKLIST_QUICK_ROW_ID,
-  );
-  const quick: JournalLogEntry = {
-    id: ACTION_CHECKLIST_QUICK_ROW_ID,
-    text: "",
-    createdAt: nowIso(),
-    done: false,
-  };
-  return [quick, ...persisted];
-}
+type BlocksField = "checklistBlocks" | "learningsBlocks";
 
-export function ActionPanel({
+const META_SAVE_MS = 450;
+const BLOCKS_SAVE_MS = 500;
+
+/**
+ * Everything inside the dialog chrome. Mounted once per task id; all draft
+ * state is derived synchronously from `task` on mount (see architecture note).
+ */
+function ActionPanelContent({
   task,
-  open,
+  isNarrow,
   onClose,
-  onExitComplete,
-}: ActionPanelProps) {
+  flushRef,
+}: ActionPanelContentProps) {
   const {
     updateTask,
     currentTeam,
     canEditTask,
     customers,
     boardColumns,
-    tasks,
     customerSingularLabel,
     consumeChecklistFocusForTask,
     organizationId,
   } = useTaskContext();
-  const canEdit = task ? canEditTask(task.createdBy, task.assigneeId) : false;
+  const canEdit = canEditTask(task.createdBy, task.assigneeId);
+  const taskId = task.id;
+
+  // Deep-link checklist focus is a one-shot token; consume it for this action on mount.
+  useEffect(() => {
+    consumeChecklistFocusForTask(taskId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only per task id
+  }, [taskId]);
 
   const [canUseAdvancedReminderPresets, setCanUseAdvancedReminderPresets] =
     useState(false);
@@ -165,39 +356,33 @@ export function ActionPanel({
     };
   }, [organizationId]);
 
-  const [isNarrow, setIsNarrow] = useState(
-    () =>
-      typeof window !== "undefined" &&
-      window.matchMedia("(max-width: 767px)").matches,
+  // ── Draft state — initialised synchronously from `task` (no hydration effect). ──
+  // The component is keyed by task.id upstream, so a different action = a fresh mount.
+  const [title, setTitle] = useState(task.title);
+  const [description, setDescription] = useState(task.description || "");
+  const [status, setStatus] = useState<TaskStatus>(task.status);
+  const [priority, setPriority] = useState<TaskPriority>(task.priority);
+  const [assigneeId, setAssigneeId] = useState<string>(
+    task.assigneeId || "unassigned",
   );
-  useEffect(() => {
-    const mq = window.matchMedia("(max-width: 767px)");
-    const sync = () => setIsNarrow(mq.matches);
-    sync();
-    mq.addEventListener("change", sync);
-    return () => mq.removeEventListener("change", sync);
-  }, []);
-
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [status, setStatus] = useState<TaskStatus>("todo");
-  const [priority, setPriority] = useState<TaskPriority>("medium");
-  const [assigneeId, setAssigneeId] = useState<string>("unassigned");
-  const [customerId, setCustomerId] = useState<string>("none");
-  const [dueDate, setDueDate] = useState(""); // YYYY-MM-DD
-  const [taskReminders, setTaskReminders] = useState<string[]>([]);
+  const [customerId, setCustomerId] = useState<string>(
+    task.customerId || "none",
+  );
+  const [dueDate, setDueDate] = useState(() =>
+    task.dueDate ? formatDueDateYmdLocal(task.dueDate) : "",
+  ); // YYYY-MM-DD
+  const [taskReminders, setTaskReminders] = useState<string[]>(() =>
+    Array.isArray(task.reminders) ? task.reminders : [],
+  );
   const [taskDueOpen, setTaskDueOpen] = useState(false);
-  const [journalLogs, setJournalLogs] = useState<JournalLogEntry[]>([]);
-  const [deepLinkChecklistRowId, setDeepLinkChecklistRowId] = useState<
-    string | null
-  >(null);
-  const [hydratedTaskId, setHydratedTaskId] = useState<string | null>(null);
-  const [learnings, setLearnings] = useState("");
-  const checklistBlocksRef = useRef<any>(null);
-  const learningsBlocksRef = useRef<any>(null);
-  // Render-triggering state kept only for initial hydration & Zen mode display
-  const [checklistBlocks, setChecklistBlocks] = useState<any>(null);
-  const [learningsBlocks, setLearningsBlocks] = useState<any>(null);
+  /** Initial TipTap documents. Constant for the lifetime of this mount; live edits go to the refs below. */
+  const [checklistBlocks] = useState<any>(() => resolveChecklistBlocks(task));
+  const [learningsBlocks] = useState<any>(() => resolveLearningsBlocks(task));
+  const checklistBlocksRef = useRef<any>(checklistBlocks);
+  const learningsBlocksRef = useRef<any>(learningsBlocks);
+  /** Legacy free-text learnings, used only for the collapsed preview line. */
+  const legacyLearnings = (task.learnings ?? "").trim();
+
   const [learningsOpen, setLearningsOpen] = useState(false);
   const [focusMode, setFocusMode] = useState<
     "none" | "checklist" | "learnings"
@@ -206,294 +391,108 @@ export function ActionPanel({
   const [zenTab, setZenTab] = useState<"checklist" | "learnings">("checklist");
   /** Title, status, description, etc. — default collapsed for a note-first flow */
   const [detailsOpen, setDetailsOpen] = useState(false);
-  const journalRef = useRef<JournalLogEntry[]>([]);
-  const lastPersistedLearnings = useRef("");
-  const learningsRef = useRef(learnings);
-  learningsRef.current = learnings;
-  /** Track which action the `learnings` state belongs to (persist previous on action change). */
-  const learningsHydratedTaskIdRef = useRef<string | null>(null);
-  /** Track which action the checklist state belongs to (persist previous on action change). */
-  const checklistHydratedTaskIdRef = useRef<string | null>(null);
-  
+
   const learningsEditorRef = useRef<any>(null);
 
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const metaDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const learningsDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
+  // ── Persistence core ──
+  // One place owns every debounce timer + dirty flag so close/unmount/switch can
+  // flush deterministically and never double-send.
+  const canEditRef = useRef(canEdit);
+  canEditRef.current = canEdit;
+  const updateTaskRef = useRef(updateTask);
+  updateTaskRef.current = updateTask;
 
-  const persistLearningsForId = useCallback(
-    async (taskId: string, rawText: string) => {
-      if (!canEdit || !taskId) return;
-      const normalized = rawText.trim();
-      const ok = await updateTask(taskId, { learnings: normalized || null });
-      if (ok && task?.id === taskId) {
-        lastPersistedLearnings.current = normalized;
+  const pendingMetaRef = useRef<TaskUpdateFields | null>(null);
+  const metaTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dirtyBlocksRef = useRef<Record<BlocksField, boolean>>({
+    checklistBlocks: false,
+    learningsBlocks: false,
+  });
+  const blocksTimerRef = useRef<
+    Record<BlocksField, ReturnType<typeof setTimeout> | null>
+  >({ checklistBlocks: null, learningsBlocks: null });
+
+  const persistMetaNow = useCallback(() => {
+    if (metaTimerRef.current) {
+      clearTimeout(metaTimerRef.current);
+      metaTimerRef.current = null;
+    }
+    const patch = pendingMetaRef.current;
+    pendingMetaRef.current = null;
+    if (!patch || !canEditRef.current) return;
+    void updateTaskRef.current(taskId, patch);
+  }, [taskId]);
+
+  const persistBlocksNow = useCallback(
+    (field: BlocksField) => {
+      const timer = blocksTimerRef.current[field];
+      if (timer) {
+        clearTimeout(timer);
+        blocksTimerRef.current[field] = null;
       }
+      if (!dirtyBlocksRef.current[field] || !canEditRef.current) return;
+      dirtyBlocksRef.current[field] = false;
+      const data =
+        field === "checklistBlocks"
+          ? checklistBlocksRef.current
+          : learningsBlocksRef.current;
+      if (data === null || data === undefined) return;
+      void updateTaskRef.current(taskId, { [field]: data });
     },
-    [canEdit, updateTask, task?.id],
+    [taskId],
   );
 
-  /** `updateTask` gets a new ref when `tasks` changes; putting it in deps would retrigger hydration and wipe draft checklist edits. */
-  const persistLearningsForIdRef = useRef(persistLearningsForId);
-  persistLearningsForIdRef.current = persistLearningsForId;
+  /** Flush every pending draft immediately (close, action switch, unmount). Idempotent. */
+  const flushAll = useCallback(() => {
+    persistMetaNow();
+    persistBlocksNow("checklistBlocks");
+    persistBlocksNow("learningsBlocks");
+  }, [persistMetaNow, persistBlocksNow]);
 
-  useEffect(() => {
-    if (!open || !task) return;
-    const prevHydrated = learningsHydratedTaskIdRef.current;
-    if (prevHydrated && prevHydrated !== task.id && canEdit) {
-      if (learningsDebounceRef.current) {
-        clearTimeout(learningsDebounceRef.current);
-        learningsDebounceRef.current = null;
-      }
-      void persistLearningsForIdRef.current(prevHydrated, learningsRef.current);
-    }
-    learningsHydratedTaskIdRef.current = task.id;
-
-    const prevChecklistHydrated = checklistHydratedTaskIdRef.current;
-    if (prevChecklistHydrated && prevChecklistHydrated !== task.id && canEdit) {
-      if (debounceRef.current) {
-        clearTimeout(debounceRef.current);
-        debounceRef.current = null;
-      }
-      // Flush *previous* action's checklist using the current snapshot (before we hydrate next action).
-      void flushJournalSave(
-        prevChecklistHydrated,
-        journalRef.current,
-        "switch",
-      );
-    }
-    checklistHydratedTaskIdRef.current = task.id;
-
-    const src = tasks.find((t) => t.id === task.id) ?? task;
-    setTitle(src.title);
-    setDescription(src.description || "");
-    setStatus(src.status);
-    setPriority(src.priority);
-    setAssigneeId(src.assigneeId || "unassigned");
-    setCustomerId(src.customerId || "none");
-    setDueDate(src.dueDate ? formatDueDateYmdLocal(src.dueDate) : "");
-    setTaskReminders(Array.isArray(src.reminders) ? src.reminders : []);
-    const jl = journalLogsFromTask(src.journalLogs);
-    setJournalLogs(jl);
-    journalRef.current = jl;
-    setDeepLinkChecklistRowId(consumeChecklistFocusForTask(src.id));
-    const learningsVal = src.learnings ?? "";
-    setLearnings(learningsVal);
-    
-    // Auto-migrate legacy data to TipTap format if block columns are empty
-    let finalChecklistBlocks = src.checklistBlocks;
-    if (!finalChecklistBlocks && jl && jl.length > 0) {
-      finalChecklistBlocks = migrateLegacyJournalToTipTap(jl);
-    }
-    setChecklistBlocks(finalChecklistBlocks || null);
-    checklistBlocksRef.current = finalChecklistBlocks || null;
-    
-    let finalLearningsBlocks = src.learningsBlocks;
-    if (!finalLearningsBlocks && learningsVal.trim().length > 0) {
-      finalLearningsBlocks = migrateLegacyLearningsToTipTap(learningsVal);
-    }
-    setLearningsBlocks(finalLearningsBlocks || null);
-    learningsBlocksRef.current = finalLearningsBlocks || null;
-    
-    lastPersistedLearnings.current = learningsVal.trim();
-    setHydratedTaskId(src.id);
-    setDetailsOpen(false);
-    setLearningsOpen(false);
-    setFocusMode("none");
-    setZenOpen(false);
-    setZenTab("checklist");
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only panel/action identity; do NOT re-hydrate on tasks/updateTask/persistLearnings changes
-  }, [open, task?.id]);
-
-  useEffect(() => {
-    journalRef.current = journalLogs;
-  }, [journalLogs]);
-
-  function cleanJournalRows(rows: JournalLogEntry[]) {
-    return rows
-      .filter((x) => x.id !== ACTION_CHECKLIST_QUICK_ROW_ID)
-      .map((x) => ({
-        ...x,
-        text: x.text.trim(),
-        assigneeId: x.assigneeId ?? null,
-        dueDate: x.dueDate ?? null,
-        reminders: x.reminders ?? null,
-      }))
-      .filter((x) => x.text.length > 0);
-  }
-
-  const flushJournalSave = useCallback(
-    async (
-      taskId: string,
-      snapshot?: JournalLogEntry[],
-      reason?: "debounce" | "close" | "switch",
-    ) => {
-      if (!taskId || !canEdit) return;
-      const source = snapshot ?? journalRef.current;
-      const cleaned = cleanJournalRows(source);
-      if (process.env.NODE_ENV !== "production") {
-        // eslint-disable-next-line no-console
-        console.debug("[journal_logs persist]", {
-          taskId,
-          count: cleaned.length,
-          reason: reason ?? "unknown",
-        });
-      }
-      await updateTask(taskId, { journalLogs: cleaned });
-    },
-    [canEdit, updateTask],
-  );
-
-  const scheduleJournalPersist = useCallback(() => {
-    if (!task || !canEdit) return;
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    const taskId = task.id;
-    debounceRef.current = setTimeout(() => {
-      debounceRef.current = null;
-      void flushJournalSave(taskId, undefined, "debounce");
-    }, 550);
-  }, [task, canEdit, flushJournalSave]);
-
-  /**
-   * Senior safety net: checklist edits are debounced; if the user navigates away,
-   * closes the panel, or switches actions quickly, flush pending journal changes
-   * so notes don't "disappear" after a refresh.
-   */
-  const flushJournalNow = useCallback(() => {
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
-      debounceRef.current = null;
-    }
-    if (task?.id) void flushJournalSave(task.id, undefined, "close");
-  }, [flushJournalSave, task?.id]);
-
-  const LEARNINGS_SAVE_MS = 280;
-
-  useEffect(() => {
-    if (!open || !task?.id || !canEdit) return;
-    if (learningsDebounceRef.current)
-      clearTimeout(learningsDebounceRef.current);
-    const taskId = task.id;
-    learningsDebounceRef.current = setTimeout(() => {
-      learningsDebounceRef.current = null;
-      const normalized = learningsRef.current.trim();
-      if (normalized === lastPersistedLearnings.current) return;
-      void persistLearningsForIdRef.current(taskId, learningsRef.current);
-    }, LEARNINGS_SAVE_MS);
-    return () => {
-      if (learningsDebounceRef.current)
-        clearTimeout(learningsDebounceRef.current);
-    };
-  }, [learnings, open, task?.id, canEdit]);
-
-  /** When the panel closes (X, overlay, another action), persist any pending text immediately. */
-  useEffect(() => {
-    if (open) return;
-    if (learningsDebounceRef.current) {
-      clearTimeout(learningsDebounceRef.current);
-      learningsDebounceRef.current = null;
-    }
-    const tid = task?.id;
-    if (!tid || !canEdit) return;
-    const normalized = learningsRef.current.trim();
-    if (normalized === lastPersistedLearnings.current) return;
-    void persistLearningsForId(tid, learningsRef.current);
-  }, [open, task?.id, canEdit, persistLearningsForId]);
-
-  const flushBlocksNow = useCallback(() => {
-    if (!task?.id || !canEdit) return;
-    Object.keys(blocksDebounceRef.current).forEach(field => {
-      if (blocksDebounceRef.current[field]) {
-        clearTimeout(blocksDebounceRef.current[field]);
-        blocksDebounceRef.current[field] = undefined;
-        const data = field === 'checklistBlocks' ? checklistBlocksRef.current : learningsBlocksRef.current;
-        if (data !== null && data !== undefined) {
-          void updateTask(task.id, { [field]: data });
-        }
-      }
-    });
-  }, [task?.id, canEdit, updateTask]);
-
-  /** Flush pending edits when the panel closes. */
-  useEffect(() => {
-    if (open) return;
-    if (!task?.id || !canEdit) return;
-    flushJournalNow();
-    flushBlocksNow();
-  }, [open, task?.id, canEdit, flushJournalNow, flushBlocksNow]);
-
-  // Prevent background scroll to eliminate mobile UI jitter / layout shift caused by dvh recalculations
-  useEffect(() => {
-    if (open) {
-      const originalOverflow = document.body.style.overflow;
-      document.body.style.overflow = "hidden";
-      return () => {
-        document.body.style.overflow = originalOverflow;
-      };
-    }
-  }, [open]);
-
-  useEffect(() => {
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      if (metaDebounceRef.current) clearTimeout(metaDebounceRef.current);
-      if (learningsDebounceRef.current)
-        clearTimeout(learningsDebounceRef.current);
-      Object.keys(blocksDebounceRef.current).forEach(key => {
-        if (blocksDebounceRef.current[key]) clearTimeout(blocksDebounceRef.current[key]!);
-      });
-    };
-  }, []);
-
-  const onJournalChange = useCallback(
-    (
-      next:
-        | JournalLogEntry[]
-        | ((prev: JournalLogEntry[]) => JournalLogEntry[]),
-    ) => {
-      setJournalLogs((prev) => {
-        const resolved = typeof next === "function" ? next(prev) : next;
-        return ensureQuickRowFirst(resolved);
-      });
-      scheduleJournalPersist();
-    },
-    [scheduleJournalPersist],
-  );
-
+  /** Patches are merged, so editing title then description within the debounce window keeps both. */
   const scheduleMetaPersist = useCallback(
     (patch: TaskUpdateFields) => {
-      if (!task || !canEdit) return;
-      if (metaDebounceRef.current) clearTimeout(metaDebounceRef.current);
-      metaDebounceRef.current = setTimeout(() => {
-        metaDebounceRef.current = null;
-        void updateTask(task.id, patch);
-      }, 450);
+      if (!canEditRef.current) return;
+      pendingMetaRef.current = { ...(pendingMetaRef.current ?? {}), ...patch };
+      if (metaTimerRef.current) clearTimeout(metaTimerRef.current);
+      metaTimerRef.current = setTimeout(persistMetaNow, META_SAVE_MS);
     },
-    [task, canEdit, updateTask],
+    [persistMetaNow],
   );
-
-  const blocksDebounceRef = useRef<{ [key: string]: ReturnType<typeof setTimeout> | undefined }>({});
 
   const scheduleBlocksPersist = useCallback(
-    (field: 'checklistBlocks' | 'learningsBlocks', data: any) => {
-      if (!task || !canEdit) return;
-      
-      // Clear existing timeout for this field
-      if (blocksDebounceRef.current[field]) {
-        clearTimeout(blocksDebounceRef.current[field]);
-      }
-      
-      // Debounce the save by 500ms to prevent race conditions and excessive API calls
-      blocksDebounceRef.current[field] = setTimeout(() => {
-        void updateTask(task.id, {
-           [field]: data 
-        });
-      }, 500);
+    (field: BlocksField, data: any) => {
+      if (field === "checklistBlocks") checklistBlocksRef.current = data;
+      else learningsBlocksRef.current = data;
+      if (!canEditRef.current) return;
+      dirtyBlocksRef.current[field] = true;
+      const prev = blocksTimerRef.current[field];
+      if (prev) clearTimeout(prev);
+      blocksTimerRef.current[field] = setTimeout(
+        () => persistBlocksNow(field),
+        BLOCKS_SAVE_MS,
+      );
     },
-    [task, canEdit, updateTask]
+    [persistBlocksNow],
   );
+
+  /** Learnings-specific immediate flush (collapse, focus change, Zen close/tab switch). */
+  const flushLearningsNow = useCallback(() => {
+    persistBlocksNow("learningsBlocks");
+  }, [persistBlocksNow]);
+
+  // Unmount (exit finished, action switched, or task vanished): flush whatever is still pending.
+  // `flushAll` only depends on `taskId`, which is fixed for this mount, so this runs exactly once.
+  useEffect(() => () => flushAll(), [flushAll]);
+
+  // Expose the flush to the shell so X / backdrop closes persist synchronously,
+  // before the exit animation starts, rather than relying on unmount timing.
+  useEffect(() => {
+    flushRef.current = flushAll;
+    return () => {
+      if (flushRef.current === flushAll) flushRef.current = null;
+    };
+  }, [flushAll, flushRef]);
 
   const statusSelectOptions = useMemo(() => {
     const base = boardColumns;
@@ -503,40 +502,12 @@ export function ActionPanel({
     return base;
   }, [boardColumns, status]);
 
-  const sheetVariants: Variants = useMemo(
-    () => ({
-      closed: isNarrow
-        ? { opacity: 0, y: "100%", scale: 1 }
-        : { opacity: 0, scale: 0.94, y: 12 },
-      open: isNarrow
-        ? { opacity: 1, scale: 1, y: "0%" }
-        : { opacity: 1, scale: 1, y: 0 },
-    }),
-    [isNarrow],
-  );
-
   const selectedDueDate = dueDate ? parseYmdDateInput(dueDate) : undefined;
 
-  const dueAtDraft = useMemo(
-    () => (dueDate ? (parseYmdDateInput(dueDate) ?? null) : null),
-    [dueDate],
-  );
   const learningsPreview = useMemo(() => {
-    const t = learningsRef.current.trim();
-    if (!t) return "";
-    return t.replace(/\s+/g, " ").slice(0, 140);
-  }, [learnings]);
-
-  const flushLearningsNow = useCallback(() => {
-    if (!task?.id || !canEdit) return;
-    if (learningsDebounceRef.current) {
-      clearTimeout(learningsDebounceRef.current);
-      learningsDebounceRef.current = null;
-    }
-    const normalized = learningsRef.current.trim();
-    if (normalized === lastPersistedLearnings.current) return;
-    void persistLearningsForIdRef.current(task.id, learningsRef.current);
-  }, [task?.id, canEdit]);
+    if (!legacyLearnings) return "";
+    return legacyLearnings.replace(/\s+/g, " ").slice(0, 140);
+  }, [legacyLearnings]);
 
   const learningChips = useMemo(
     () => [
@@ -562,14 +533,13 @@ export function ActionPanel({
 
   const setFocusModeSafe = useCallback(
     (next: "none" | "checklist" | "learnings") => {
-      setFocusMode((prev) => {
-        if (prev === next) return "none";
-        // When leaving Learnings focus, flush immediately to avoid draft loss.
-        if (prev === "learnings" && next !== "learnings") {
-          flushLearningsNow();
-        }
-        return next;
-      });
+      // Resolve the transition outside the updater: updaters must stay pure (StrictMode double-invokes them).
+      const resolved = focusMode === next ? "none" : next;
+      // When leaving Learnings focus, flush immediately to avoid draft loss.
+      if (focusMode === "learnings" && resolved !== "learnings") {
+        flushLearningsNow();
+      }
+      setFocusMode(resolved);
 
       if (next === "checklist") {
         if (learningsOpen) {
@@ -580,7 +550,7 @@ export function ActionPanel({
         setLearningsOpen(true);
       }
     },
-    [flushLearningsNow, learningsOpen],
+    [flushLearningsNow, focusMode, learningsOpen],
   );
 
   const openZen = useCallback((tab: "checklist" | "learnings") => {
@@ -606,51 +576,8 @@ export function ActionPanel({
     [zenTab, flushLearningsNow],
   );
 
-  if (!task) return null;
-
   return (
     <>
-      <motion.div
-        aria-hidden
-        className="fixed inset-0 z-50 bg-black/35 backdrop-blur-sm"
-        initial={false}
-        animate={{ opacity: open ? 1 : 0 }}
-        transition={{ duration: 0.22 }}
-        style={{ pointerEvents: open ? "auto" : "none" }}
-        onClick={onClose}
-      />
-
-      <div
-        className={cn(
-          "fixed inset-0 z-[51] flex pointer-events-none",
-          "items-end justify-center md:items-center md:justify-center md:p-4 md:pb-8",
-        )}
-      >
-        <motion.div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="action-panel-title"
-          className={cn(
-            "pointer-events-auto flex w-full max-w-3xl flex-col overflow-hidden border border-border/60 bg-background shadow-2xl",
-            "ring-1 ring-black/5 dark:ring-white/10",
-            /* max-height + min-h-0: allow the flex child to shrink for scrollable content */
-            "max-h-[min(92dvh,920px)] min-h-0",
-            "rounded-t-2xl border-b-0 md:rounded-2xl md:border md:max-h-[min(88dvh,900px)]",
-            "origin-bottom md:origin-center",
-          )}
-          variants={sheetVariants}
-          initial="closed"
-          animate={open ? "open" : "closed"}
-          style={{ willChange: "transform, opacity" }}
-          transition={
-            isNarrow
-              ? { type: "spring", damping: 32, stiffness: 380 }
-              : { type: "spring", damping: 28, stiffness: 320 }
-          }
-          onAnimationComplete={() => {
-            if (!open) onExitComplete?.();
-          }}
-        >
           <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border/50 bg-muted/10 px-4 py-3 md:rounded-t-2xl">
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               {canEdit ? "Action" : "Read-only"}
@@ -933,7 +860,7 @@ export function ActionPanel({
                                 <DrawerContent className="p-0">
                                   <div className="px-2 pb-3 pt-2">
                                     <DueFlowPicker
-                                      value={task?.dueDate ?? null}
+                                      value={task.dueDate ?? null}
                                       reminders={taskReminders}
                                       canUseAdvancedReminderPresets={
                                         canUseAdvancedReminderPresets
@@ -998,7 +925,7 @@ export function ActionPanel({
                                   className="flex max-h-[92dvh] min-h-0 w-[min(92vw,380px)] max-w-[min(92vw,380px)] flex-col gap-0 overflow-hidden p-0"
                                 >
                                   <DueFlowPicker
-                                    value={task?.dueDate ?? null}
+                                    value={task.dueDate ?? null}
                                     reminders={taskReminders}
                                     canUseAdvancedReminderPresets={
                                       canUseAdvancedReminderPresets
@@ -1144,12 +1071,8 @@ export function ActionPanel({
                   onClick={(e) => e.stopPropagation()}
                 >
                   <BlockEditor
-                    key={`chk-${hydratedTaskId}`}
                     initialContent={checklistBlocks}
-                    onChange={(data) => {
-                      checklistBlocksRef.current = data;
-                      scheduleBlocksPersist('checklistBlocks', data);
-                    }}
+                    onChange={(data) => scheduleBlocksPersist('checklistBlocks', data)}
                     placeholder="Add tasks..."
                     members={currentTeam?.members}
                     className={!canEdit ? 'opacity-50 pointer-events-none' : ''}
@@ -1262,13 +1185,9 @@ export function ActionPanel({
                       ))}
                     </div>
                     <BlockEditor
-                      key={`lrn-${hydratedTaskId}`}
                       ref={learningsEditorRef}
                       initialContent={learningsBlocks}
-                      onChange={(data) => {
-                        learningsBlocksRef.current = data;
-                        scheduleBlocksPersist('learningsBlocks', data);
-                      }}
+                      onChange={(data) => scheduleBlocksPersist('learningsBlocks', data)}
                       placeholder="Write what you learned… (separate from the checklist)"
                       members={currentTeam?.members}
                       className={cn(
@@ -1284,8 +1203,6 @@ export function ActionPanel({
               </div>
             </div>
           </div>
-        </motion.div>
-      </div>
 
       <Dialog
         open={zenOpen}
@@ -1338,12 +1255,8 @@ export function ActionPanel({
               <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
                 <div className="px-0 py-1">
                   <BlockEditor
-                    key={`chk-${hydratedTaskId}`}
                     initialContent={checklistBlocks}
-                    onChange={(data) => {
-                      checklistBlocksRef.current = data;
-                      scheduleBlocksPersist('checklistBlocks', data);
-                    }}
+                    onChange={(data) => scheduleBlocksPersist('checklistBlocks', data)}
                     placeholder="Add tasks..."
                     members={currentTeam?.members}
                     className={!canEdit ? 'opacity-50 pointer-events-none' : ''}
@@ -1368,13 +1281,9 @@ export function ActionPanel({
                   ))}
                 </div>
                 <BlockEditor
-                  key={`lrn-${hydratedTaskId}`}
                   ref={learningsEditorRef}
                   initialContent={learningsBlocks}
-                  onChange={(data) => {
-                    learningsBlocksRef.current = data;
-                    scheduleBlocksPersist('learningsBlocks', data);
-                  }}
+                  onChange={(data) => scheduleBlocksPersist('learningsBlocks', data)}
                   placeholder="Write what you learned… (separate from the checklist)"
                   members={currentTeam?.members}
                   className={!canEdit ? 'opacity-50 pointer-events-none min-h-[300px]' : 'min-h-[300px]'}
