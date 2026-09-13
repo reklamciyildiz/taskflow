@@ -16,41 +16,84 @@ import {
 
 const API_BASE = '/api';
 
+const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+/**
+ * fetch() wrapper that transparently retries transient failures (network errors and
+ * 5xx responses) with a short backoff. Only idempotent requests (GET) are retried so
+ * mutations are never accidentally applied twice.
+ *
+ * This absorbs the brief server "cold start" / DB-burst 500s that occur on first paint
+ * and tab-refocus, so the UI self-heals within a couple hundred ms instead of flashing
+ * an empty/"No processes yet" state.
+ */
+export async function fetchJsonWithRetry(
+  input: string,
+  init?: RequestInit,
+  retries = 2
+): Promise<{ ok: boolean; status: number; json: any } | null> {
+  const method = (init?.method || 'GET').toUpperCase();
+  const canRetry = method === 'GET';
+
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const res = await fetch(input, init);
+      if (res.status >= 500 && canRetry && attempt < retries) {
+        await delay(250 * (attempt + 1));
+        continue;
+      }
+      let json: any = null;
+      try {
+        json = await res.json();
+      } catch {
+        json = null;
+      }
+      return { ok: res.ok, status: res.status, json };
+    } catch (error) {
+      if (canRetry && attempt < retries) {
+        await delay(250 * (attempt + 1));
+        continue;
+      }
+      console.error('API Error:', error);
+      return null;
+    }
+  }
+}
+
 // Generic fetch wrapper with error handling
 async function fetchApi<T>(
   endpoint: string,
   options?: RequestInit
 ): Promise<ApiResponse<T>> {
-  try {
-    const response = await fetch(`${API_BASE}${endpoint}`, {
-      headers: {
-        'Content-Type': 'application/json',
-        ...options?.headers,
-      },
-      ...options,
-    });
+  const result = await fetchJsonWithRetry(`${API_BASE}${endpoint}`, {
+    headers: {
+      'Content-Type': 'application/json',
+      ...options?.headers,
+    },
+    ...options,
+  });
 
-    const data = await response.json();
-    
-    if (!response.ok) {
-      return {
-        success: false,
-        error: data.error || 'An error occurred',
-        code: typeof data?.code === 'string' ? data.code : undefined,
-        recommendedPlan:
-          data?.recommendedPlan === 'pro' || data?.recommendedPlan === 'team' ? data.recommendedPlan : undefined,
-        status: response.status,
-      };
-    }
-
-    return data;
-  } catch (error) {
-    console.error('API Error:', error);
+  if (!result) {
     return {
       success: false,
       error: 'Network error. Please try again.',
     };
   }
+
+  const { ok, status, json: data } = result;
+
+  if (!ok) {
+    return {
+      success: false,
+      error: data?.error || 'An error occurred',
+      code: typeof data?.code === 'string' ? data.code : undefined,
+      recommendedPlan:
+        data?.recommendedPlan === 'pro' || data?.recommendedPlan === 'team' ? data.recommendedPlan : undefined,
+      status,
+    };
+  }
+
+  return data;
 }
 
 // Task API

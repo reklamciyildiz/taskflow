@@ -9,6 +9,50 @@ function getUserDb() {
   return require('@/lib/db').userDb;
 }
 
+// ---------------------------------------------------------------------------
+// Process-level cache + in-flight coalescing for the JWT callback user lookup.
+//
+// getServerSession() runs the `jwt` callback on EVERY authenticated API request,
+// but it never persists the mutated token back to a cookie (there is no Set-Cookie
+// on a read). That means the token-based freshness fields (dbSyncAt / dbSyncFailAt)
+// were dead code for reads — every request re-hit the database AND re-ran the heavy
+// Supabase Auth admin sync. On dashboard mount / tab refocus the client fires a burst
+// of ~6-8 concurrent requests, so this produced a thundering herd against Supabase
+// (intermittent 500s + slow "cold" first paint that self-heals seconds later).
+//
+// A module-scoped cache makes the intended ~5 min freshness actually work and collapses
+// the concurrent burst into a single DB read per email.
+// ---------------------------------------------------------------------------
+type CachedTokenUser = { user: any; at: number };
+const TOKEN_USER_TTL_MS = 5 * 60_000;
+const tokenUserCache = new Map<string, CachedTokenUser>();
+const tokenUserInflight = new Map<string, Promise<any>>();
+
+async function loadUserForToken(email: string, forceFresh: boolean): Promise<any> {
+  if (!forceFresh) {
+    const cached = tokenUserCache.get(email);
+    if (cached && Date.now() - cached.at < TOKEN_USER_TTL_MS) {
+      return cached.user;
+    }
+  }
+
+  // Coalesce concurrent lookups for the same email into a single DB round-trip.
+  let inflight = tokenUserInflight.get(email);
+  if (!inflight) {
+    const userDb = getUserDb();
+    inflight = Promise.resolve(userDb.getByEmail(email))
+      .then((u: any) => {
+        tokenUserCache.set(email, { user: u, at: Date.now() });
+        return u;
+      })
+      .finally(() => {
+        tokenUserInflight.delete(email);
+      });
+    tokenUserInflight.set(email, inflight);
+  }
+  return inflight;
+}
+
 export const authOptions: NextAuthOptions = {
   providers: [
     GoogleProvider({
@@ -72,21 +116,14 @@ export const authOptions: NextAuthOptions = {
         token.provider = account.provider;
       }
 
-      // Always fetch fresh user data from Supabase to ensure organization info is up-to-date
-      // This is critical for security - when a user is removed from organization, token should reflect this
+      // Keep organization info fresh so security-relevant changes (e.g. user removed from
+      // an org) propagate into the token. This runs on every getServerSession() read, so it
+      // is served from a short-lived process cache to avoid a per-request DB/Auth stampede.
       if (token.email) {
-        const now = Date.now();
-        const t: any = token as any;
-        const lastSyncAt = typeof t.dbSyncAt === 'number' ? t.dbSyncAt : 0;
-        const lastFailAt = typeof t.dbSyncFailAt === 'number' ? t.dbSyncFailAt : 0;
+        const email = token.email as string;
 
-        // Avoid hammering the DB on every JWT callback invocation.
-        // - Successful sync: cache for 5 minutes
-        // - Failed sync: back off for 60 seconds
-        const shouldBackoff = lastFailAt > 0 && now - lastFailAt < 60_000;
-        const isFresh = lastSyncAt > 0 && now - lastSyncAt < 5 * 60_000;
-
-        // After join-org / create-org, session.update() must see DB immediately — do not use stale cache.
+        // After join-org / create-org, session.update() must see DB immediately, and on a
+        // real sign-in we (re)issue the token — bypass the cache for those.
         const forceDbSync =
           trigger === 'update' ||
           trigger === 'signIn' ||
@@ -98,16 +135,9 @@ export const authOptions: NextAuthOptions = {
           process.env.NEXT_PUBLIC_SUPABASE_URL !== 'https://placeholder.supabase.co' &&
           process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY !== 'placeholder-key';
 
-        const shouldSync =
-          hasSupabaseEnv &&
-          (forceDbSync || (!shouldBackoff && !isFresh));
-
-        if (shouldSync) {
+        if (hasSupabaseEnv) {
           try {
-            const userDb = getUserDb();
-            const dbUser: any = await userDb.getByEmail(token.email as string);
-            t.dbSyncAt = now;
-            t.dbSyncFailAt = 0;
+            const dbUser: any = await loadUserForToken(email, forceDbSync);
 
             if (dbUser) {
               token.id = dbUser.id;
@@ -116,17 +146,23 @@ export const authOptions: NextAuthOptions = {
               // Row exists but no org → still needs onboarding / invite join
               token.needsOnboarding = !dbUser.organization_id;
 
-              await syncUserToSupabaseAuth(
-                dbUser.id,
-                token.email as string,
-                token.name as string || 'User'
-              );
+              // Supabase Auth sync issues heavy admin API calls (getUserById + create/update).
+              // Only run it when the token is actually (re)issued — sign-in or an explicit
+              // session.update() — never on ordinary reads, which caused the request-burst
+              // 500s. All data access uses the service-role client, so RLS does not depend
+              // on this running on every request.
+              if (forceDbSync) {
+                await syncUserToSupabaseAuth(
+                  dbUser.id,
+                  email,
+                  (token.name as string) || 'User'
+                );
+              }
             } else {
               token.needsOnboarding = true;
               token.organizationId = null;
             }
           } catch (error: any) {
-            t.dbSyncFailAt = now;
             if (process.env.NODE_ENV !== 'production') {
               const msg = typeof error?.message === 'string' ? error.message : String(error);
               console.error('Error fetching user from DB:', msg);

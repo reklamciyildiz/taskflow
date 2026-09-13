@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
-import { taskApi, teamApi, memberApi, projectApi } from '@/lib/api';
+import { taskApi, teamApi, memberApi, projectApi, fetchJsonWithRetry } from '@/lib/api';
 import { getPermissions, canEditTask, canDeleteTask, canCompleteTask, Permission, Role } from '@/lib/permissions';
 import {
   type Task,
@@ -292,6 +292,21 @@ function transformProject(row: any): Project {
   };
 }
 
+function transformCustomer(c: any): Customer {
+  return {
+    id: c.id,
+    name: c.name,
+    email: c.email,
+    phone: c.phone,
+    address: c.address,
+    notes: c.notes,
+    organizationId: c.organization_id,
+    createdAt: new Date(c.created_at),
+    updatedAt: new Date(c.updated_at),
+    taskStats: c.taskStats,
+  } as Customer;
+}
+
 export function TaskProvider({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession();
   const router = useRouter();
@@ -494,17 +509,20 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
         if (aborted()) return;
         if (tasksRes.success && tasksRes.data) {
           setTasks(tasksRes.data.map(transformTask));
-        } else {
+        } else if (!hasLoadedWorkspaceRef.current) {
+          // Only clear on the very first load. On a transient background failure
+          // (e.g. a 500 during tab-refocus refresh) keep the last-good data so the
+          // board doesn't flash "No processes yet" before self-healing.
           setTasks([]);
         }
         if (aborted()) return;
         if (projRes.success && projRes.data) {
           setProjects(projRes.data.map(transformProject));
-        } else {
+        } else if (!hasLoadedWorkspaceRef.current) {
           setProjects([]);
         }
       } catch {
-        if (!aborted()) {
+        if (!aborted() && !hasLoadedWorkspaceRef.current) {
           setTasks([]);
           setProjects([]);
         }
@@ -533,30 +551,32 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     setError(null);
 
     try {
-      const profilePromise =
-        session.user?.email != null
-          ? fetch('/api/users/profile')
-              .then(async (r) => {
-                try {
-                  return { ok: r.ok, json: (await r.json()) as unknown };
-                } catch {
-                  return { ok: false, json: null as unknown };
-                }
-              })
-              .catch(() => ({ ok: false, json: null as unknown }))
-          : Promise.resolve({ ok: false, json: null as unknown });
+      // Single aggregated call for profile + organization + teams + customers, replacing the
+      // former profile → organization waterfall and the separate teams/customers requests.
+      const boot = await fetchJsonWithRetry('/api/bootstrap');
+      const bootJson = boot && boot.ok ? (boot.json as any) : null;
+      const bootSuccess = !!(bootJson && bootJson.success && bootJson.data);
+      const payload: any = bootSuccess ? bootJson.data : null;
 
-      const [teamsResponse, profileWrap] = await Promise.all([teamApi.getAll(), profilePromise]);
+      // Transient failure during a silent background refresh: keep the last-good workspace
+      // instead of tearing it down (prevents the "No processes yet" flash on tab refocus).
+      if (!bootSuccess && hasLoadedWorkspaceRef.current) {
+        return;
+      }
+
+      const userRow: any = payload?.user ?? null;
+      const teamsRaw: any[] | null = Array.isArray(payload?.teams) ? payload.teams : null;
+      const orgRow: any = payload?.organization ?? null;
+      const customersRaw: any[] | null = Array.isArray(payload?.customers) ? payload.customers : null;
 
       let resolvedOrgId: string | null = organizationIdRef.current;
-      const profileUserData = profileWrap.json as any;
-      if (profileWrap.ok && profileUserData?.success && profileUserData?.data?.organization_id) {
-        resolvedOrgId = profileUserData.data.organization_id;
+      if (userRow?.organization_id) {
+        resolvedOrgId = userRow.organization_id;
       }
 
       let nextTeam: Team | null = null;
-      if (teamsResponse.success && teamsResponse.data) {
-        let transformedTeams = teamsResponse.data.map(transformTeam);
+      if (teamsRaw) {
+        let transformedTeams = teamsRaw.map(transformTeam);
         if (resolvedOrgId) {
           transformedTeams = transformedTeams.filter(t => t.organizationId === resolvedOrgId);
         }
@@ -572,89 +592,60 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
         setCurrentTeamState(nextTeam);
       }
 
-      let fetchOrgPromise: Promise<void> | null = null;
-      if (session.user?.email) {
-        try {
-          const userData = profileWrap.json as {
-            success?: boolean;
-            data?: {
-              id: string;
-              name?: string;
-              email?: string;
-              role?: string;
-              avatar_url?: string;
-              organization_id?: string;
-            };
-          } | null;
-          if (profileWrap.ok && userData?.success && userData.data) {
-            const d = userData.data;
-            setCurrentUser({
-              id: d.id,
-              name: d.name || 'User',
-              email: d.email || '',
-              role: (d.role as UserRole) || 'member',
-              avatar:
-                d.avatar_url ||
-                `https://ui-avatars.com/api/?name=${encodeURIComponent(d.name || 'U')}`,
-              isOnline: true,
-              joinedAt: new Date(),
-            });
-
-            if (d.organization_id) {
-              const oid = d.organization_id;
-              setOrganizationId(oid);
-              
-              fetchOrgPromise = fetch(`/api/organizations/${oid}`)
-                .then((r) => r.json())
-                .then((orgJson: any) => {
-                  if (orgJson.success && orgJson.data) {
-                    setOrganizationName(orgJson.data.name || 'My Organization');
-                  }
-                })
-                .catch((err) => {
-                  console.error('Failed to fetch organization:', err);
-                });
-            }
-          } else {
-            setCurrentUser({
-              id: (session.user as any).id || 'unknown',
-              name: session.user.name || 'User',
-              email: session.user.email || '',
-              role: (session.user as any).role || 'member',
-              avatar:
-                session.user.image ||
-                `https://ui-avatars.com/api/?name=${encodeURIComponent(session.user.name || 'U')}`,
-              isOnline: true,
-              joinedAt: new Date(),
-            });
+      if (userRow?.id) {
+        setCurrentUser({
+          id: userRow.id,
+          name: userRow.name || 'User',
+          email: userRow.email || '',
+          role: (userRow.role as UserRole) || 'member',
+          avatar:
+            userRow.avatar_url ||
+            `https://ui-avatars.com/api/?name=${encodeURIComponent(userRow.name || 'U')}`,
+          isOnline: true,
+          joinedAt: new Date(),
+        });
+        if (userRow.organization_id) {
+          setOrganizationId(userRow.organization_id);
+          if (orgRow?.name) {
+            setOrganizationName(orgRow.name || 'My Organization');
           }
-        } catch {
-          setCurrentUser({
-            id: (session.user as any).id || 'unknown',
-            name: session.user.name || 'User',
-            email: session.user.email || '',
-            role: (session.user as any).role || 'member',
-            avatar:
-              session.user.image ||
-              `https://ui-avatars.com/api/?name=${encodeURIComponent(session.user.name || 'U')}`,
-            isOnline: true,
-            joinedAt: new Date(),
-          });
         }
+      } else {
+        // No DB row resolved (e.g. onboarding, or a first-load failure): fall back to session.
+        setCurrentUser({
+          id: (session.user as any).id || 'unknown',
+          name: session.user.name || 'User',
+          email: session.user.email || '',
+          role: (session.user as any).role || 'member',
+          avatar:
+            session.user.image ||
+            `https://ui-avatars.com/api/?name=${encodeURIComponent(session.user.name || 'U')}`,
+          isOnline: true,
+          joinedAt: new Date(),
+        });
+      }
+
+      // Customers come from the bootstrap payload — no separate /api/customers request needed.
+      if (customersRaw) {
+        setCustomers(customersRaw.map(transformCustomer));
       }
 
       const resolvedTeamId = nextTeam?.id ?? currentTeamIdRef.current;
-      
+
       const tasksPromise = (resolvedTeamId && resolvedOrgId)
         ? loadTasksAndProjectsForTeam(resolvedTeamId, resolvedOrgId)
         : Promise.resolve();
 
-      await Promise.all([fetchOrgPromise || Promise.resolve(), tasksPromise]);
+      await tasksPromise;
 
       hasLoadedWorkspaceRef.current = true;
     } catch (err) {
       console.error('Error fetching data:', err);
-      setError('Failed to load data');
+      // Only surface an error on the first, blocking load. Transient failures during a
+      // silent background refresh (tab refocus) must not tear down the loaded workspace.
+      if (showBlockingLoader) {
+        setError('Failed to load data');
+      }
     } finally {
       if (showBlockingLoader) {
         setLoading(false);
@@ -824,19 +815,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       const response = await fetch('/api/customers');
       const data = await response.json();
       if (data.success && data.data) {
-        const transformedCustomers = data.data.map((c: any) => ({
-          id: c.id,
-          name: c.name,
-          email: c.email,
-          phone: c.phone,
-          address: c.address,
-          notes: c.notes,
-          organizationId: c.organization_id,
-          createdAt: new Date(c.created_at),
-          updatedAt: new Date(c.updated_at),
-          taskStats: c.taskStats,
-        }));
-        setCustomers(transformedCustomers);
+        setCustomers(data.data.map(transformCustomer));
       }
     } catch (err) {
       console.error('Error fetching customers:', err);
@@ -844,10 +823,10 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Load workspace when the signed-in user changes (not when the session object is recreated on tab focus).
+  // Customers now arrive with the bootstrap payload inside refreshData(), so no separate fetch here.
   useEffect(() => {
     void refreshData();
-    void fetchCustomers();
-  }, [session?.user?.email, refreshData, fetchCustomers]);
+  }, [session?.user?.email, refreshData]);
 
   // Fetch team-scoped tasks and visible projects whenever the active team changes.
   useEffect(() => {

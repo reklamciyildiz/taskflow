@@ -2,6 +2,8 @@
  * Typed helpers for in-app notifications (GET/POST /api/notifications).
  */
 
+import { fetchJsonWithRetry } from '@/lib/api';
+
 export interface InAppNotification {
   id: string;
   type: string;
@@ -20,19 +22,12 @@ export interface NotificationsPayload {
 export async function fetchNotificationsList(
   limit = 20
 ): Promise<NotificationsPayload | null> {
-  let response: Response;
-  try {
-    response = await fetch(`/api/notifications?limit=${limit}`);
-  } catch {
-    return null;
-  }
-  let data: { success?: boolean; data?: NotificationsPayload };
-  try {
-    data = await response.json();
-  } catch {
-    return null;
-  }
-  if (!response.ok || !data.success || !data.data) return null;
+  // Retry transient 5xx/network failures (first paint / tab-refocus request burst) so the
+  // bell doesn't briefly drop to "No notifications yet".
+  const result = await fetchJsonWithRetry(`/api/notifications?limit=${limit}`);
+  if (!result || !result.ok) return null;
+  const data = result.json as { success?: boolean; data?: NotificationsPayload } | null;
+  if (!data || !data.success || !data.data) return null;
   return data.data;
 }
 
