@@ -6,6 +6,12 @@ import { v4 as uuidv4 } from 'uuid';
 export const AdvancedTaskItem = TaskItem.extend({
   draggable: true,
 
+  addStorage() {
+    return {
+      members: [] as { id: string; name: string }[],
+    };
+  },
+
   addAttributes() {
     return {
       checked: {

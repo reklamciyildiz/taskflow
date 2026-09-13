@@ -10,7 +10,7 @@ import { Command, CommandGroup, CommandItem, CommandList } from '@/components/ui
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { DueFlowPicker } from '@/components/due/DueFlowPicker';
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
-import { useTaskContext } from '@/components/TaskContext';
+
 
 function initials(name: string): string {
   const parts = String(name || '')
@@ -49,11 +49,21 @@ function parseDueDateLocal(value: string | null | undefined): Date | undefined {
   return d;
 }
 
-export const TaskItemNodeView = ({ node, updateAttributes, editor, getPos }: any) => {
+export const TaskItemNodeView = React.memo(({ node, updateAttributes, editor, getPos }: any) => {
   const { checked, id, assigneeId, dueDate, reminders } = node.attrs;
-  const { currentTeam } = useTaskContext();
   const [assigneeOpen, setAssigneeOpen] = useState(false);
   const [dueOpen, setDueOpen] = useState(false);
+
+  // Read team members from editor storage (set by BlockEditor parent)
+  // instead of useTaskContext() — avoids re-rendering every row when
+  // the global tasks array changes (which is the root cause of jitter).
+  const memberOptions: { id: string; name: string }[] = useMemo(() => {
+    try {
+      return editor?.storage?.advancedTaskItem?.members ?? [];
+    } catch {
+      return [];
+    }
+  }, [editor?.storage?.advancedTaskItem?.members]);
 
   // Auto-generate ID if missing when mounted
   React.useEffect(() => {
@@ -61,10 +71,6 @@ export const TaskItemNodeView = ({ node, updateAttributes, editor, getPos }: any
       updateAttributes({ id: uuidv4() });
     }
   }, [id, getPos, updateAttributes]);
-
-  const memberOptions = useMemo(() => {
-    return (currentTeam?.members ?? []).map((m) => ({ id: m.id, name: m.name }));
-  }, [currentTeam]);
 
   // isEditable from editor
   const disabled = !editor.isEditable;
@@ -254,7 +260,7 @@ export const TaskItemNodeView = ({ node, updateAttributes, editor, getPos }: any
             }
           }}
           className={cn(
-            'h-[18px] w-[18px] rounded border-border/50 data-[state=checked]:bg-primary data-[state=checked]:border-primary shadow-sm transition-all',
+            'h-[18px] w-[18px] rounded border-border/50 data-[state=checked]:bg-primary data-[state=checked]:border-primary shadow-sm transition-colors',
             checked ? 'opacity-80' : ''
           )}
         />
@@ -270,7 +276,7 @@ export const TaskItemNodeView = ({ node, updateAttributes, editor, getPos }: any
         
         <div 
           className={cn(
-            "flex-row items-center gap-1 transition-all mt-[2px] ml-1",
+            "flex-row items-center gap-1 transition-opacity mt-[2px] ml-1",
             (assigneeId || dueDate) 
               ? "flex opacity-100" 
               : "absolute right-0 top-0 z-10 flex opacity-0 group-hover:opacity-100 focus-within:opacity-100 pointer-events-none group-hover:pointer-events-auto focus-within:pointer-events-auto bg-background/95 backdrop-blur-sm rounded-md shadow-sm border border-border/40 p-0.5"
@@ -401,4 +407,4 @@ export const TaskItemNodeView = ({ node, updateAttributes, editor, getPos }: any
       </div>
     </NodeViewWrapper>
   );
-};
+});

@@ -17,10 +17,12 @@ interface BlockEditorProps {
   onChange?: (content: any) => void;
   placeholder?: string;
   className?: string;
+  /** Team member list — passed via storage to TaskItemNodeView to avoid context re-renders */
+  members?: { id: string; name: string }[];
 }
 
 export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
-  ({ initialContent, onChange, placeholder = 'Write something...', className }, ref) => {
+  ({ initialContent, onChange, placeholder = 'Write something...', className, members }, ref) => {
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -46,6 +48,15 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
       },
     },
   });
+
+  // Sync members into editor storage so TaskItemNodeView can read them
+  // without subscribing to the global TaskContext (which would re-render
+  // every row on any tasks array change, causing visible jitter).
+  React.useEffect(() => {
+    if (editor && members) {
+      (editor.storage as any).advancedTaskItem.members = members;
+    }
+  }, [editor, members]);
 
   useImperativeHandle(ref, () => ({
     insertContent: (content: string) => {

@@ -193,6 +193,9 @@ export function ActionPanel({
   >(null);
   const [hydratedTaskId, setHydratedTaskId] = useState<string | null>(null);
   const [learnings, setLearnings] = useState("");
+  const checklistBlocksRef = useRef<any>(null);
+  const learningsBlocksRef = useRef<any>(null);
+  // Render-triggering state kept only for initial hydration & Zen mode display
   const [checklistBlocks, setChecklistBlocks] = useState<any>(null);
   const [learningsBlocks, setLearningsBlocks] = useState<any>(null);
   const [learningsOpen, setLearningsOpen] = useState(false);
@@ -285,12 +288,14 @@ export function ActionPanel({
       finalChecklistBlocks = migrateLegacyJournalToTipTap(jl);
     }
     setChecklistBlocks(finalChecklistBlocks || null);
+    checklistBlocksRef.current = finalChecklistBlocks || null;
     
     let finalLearningsBlocks = src.learningsBlocks;
     if (!finalLearningsBlocks && learningsVal.trim().length > 0) {
       finalLearningsBlocks = migrateLegacyLearningsToTipTap(learningsVal);
     }
     setLearningsBlocks(finalLearningsBlocks || null);
+    learningsBlocksRef.current = finalLearningsBlocks || null;
     
     lastPersistedLearnings.current = learningsVal.trim();
     setHydratedTaskId(src.id);
@@ -403,11 +408,13 @@ export function ActionPanel({
       if (blocksDebounceRef.current[field]) {
         clearTimeout(blocksDebounceRef.current[field]);
         blocksDebounceRef.current[field] = undefined;
-        const data = field === 'checklistBlocks' ? checklistBlocks : learningsBlocks;
-        void updateTask(task.id, { [field]: data });
+        const data = field === 'checklistBlocks' ? checklistBlocksRef.current : learningsBlocksRef.current;
+        if (data !== null && data !== undefined) {
+          void updateTask(task.id, { [field]: data });
+        }
       }
     });
-  }, [task?.id, canEdit, updateTask, checklistBlocks, learningsBlocks]);
+  }, [task?.id, canEdit, updateTask]);
 
   /** Flush pending edits when the panel closes. */
   useEffect(() => {
@@ -1140,10 +1147,11 @@ export function ActionPanel({
                     key={`chk-${hydratedTaskId}`}
                     initialContent={checklistBlocks}
                     onChange={(data) => {
-                      setChecklistBlocks(data);
+                      checklistBlocksRef.current = data;
                       scheduleBlocksPersist('checklistBlocks', data);
                     }}
                     placeholder="Add tasks..."
+                    members={currentTeam?.members}
                     className={!canEdit ? 'opacity-50 pointer-events-none' : ''}
                   />
                 </div>
@@ -1258,10 +1266,11 @@ export function ActionPanel({
                       ref={learningsEditorRef}
                       initialContent={learningsBlocks}
                       onChange={(data) => {
-                        setLearningsBlocks(data);
+                        learningsBlocksRef.current = data;
                         scheduleBlocksPersist('learningsBlocks', data);
                       }}
                       placeholder="Write what you learned… (separate from the checklist)"
+                      members={currentTeam?.members}
                       className={cn(
                         "w-full resize-y rounded-lg border border-border/50 bg-background/40",
                         focusMode === "learnings"
@@ -1332,10 +1341,11 @@ export function ActionPanel({
                     key={`chk-${hydratedTaskId}`}
                     initialContent={checklistBlocks}
                     onChange={(data) => {
-                      setChecklistBlocks(data);
+                      checklistBlocksRef.current = data;
                       scheduleBlocksPersist('checklistBlocks', data);
                     }}
                     placeholder="Add tasks..."
+                    members={currentTeam?.members}
                     className={!canEdit ? 'opacity-50 pointer-events-none' : ''}
                   />
                 </div>
@@ -1362,10 +1372,11 @@ export function ActionPanel({
                   ref={learningsEditorRef}
                   initialContent={learningsBlocks}
                   onChange={(data) => {
-                    setLearningsBlocks(data);
+                    learningsBlocksRef.current = data;
                     scheduleBlocksPersist('learningsBlocks', data);
                   }}
                   placeholder="Write what you learned… (separate from the checklist)"
+                  members={currentTeam?.members}
                   className={!canEdit ? 'opacity-50 pointer-events-none min-h-[300px]' : 'min-h-[300px]'}
                 />
                 <div className="pt-2 text-xs text-muted-foreground">
