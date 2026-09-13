@@ -9,21 +9,49 @@ import { CheckSquare, Type } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export interface BlockEditorRef {
-  insertContent: (content: string) => void;
+  /**
+   * Insert TipTap JSON (node or node array) or an HTML/text string at the end of the
+   * document. When the document is still empty the content replaces the placeholder
+   * paragraph instead of being appended below it.
+   */
+  insertContent: (content: any) => void;
+  focus: () => void;
 }
 
 interface BlockEditorProps {
   initialContent?: any;
+  /** Document used when `initialContent` is empty (e.g. start a checklist as a task list). */
+  emptyContent?: any;
   onChange?: (content: any) => void;
   placeholder?: string;
   className?: string;
   /** Team member list — passed via storage to TaskItemNodeView to avoid context re-renders */
   members?: { id: string; name: string }[];
+  /** Hide the "Checkboxes / Plain text" toolbar. */
+  hideToolbar?: boolean;
 }
 
+const EMPTY_DOC = { type: 'doc', content: [{ type: 'paragraph' }] };
+
 export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
-  ({ initialContent, onChange, placeholder = 'Write something...', className, members }, ref) => {
+  (
+    {
+      initialContent,
+      emptyContent,
+      onChange,
+      placeholder = 'Write something...',
+      className,
+      members,
+      hideToolbar = false,
+    },
+    ref,
+  ) => {
   const editor = useEditor({
+    // This editor only ever mounts client-side after a user interaction (never during SSR/hydration).
+    // Without this, @tiptap/react defaults to `false` under Next.js, returns `null` on the first
+    // render, and the host panel paints once without the editor and once with it → visible flash.
+    immediatelyRender: true,
+    shouldRerenderOnTransaction: false,
     extensions: [
       StarterKit.configure({
         bulletList: { keepMarks: true, keepAttributes: false },
@@ -37,7 +65,7 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
         placeholder,
       }),
     ],
-    content: initialContent || { type: 'doc', content: [{ type: 'paragraph' }] },
+    content: initialContent || emptyContent || EMPTY_DOC,
     onUpdate: ({ editor }) => {
       onChange?.(editor.getJSON());
     },
@@ -61,11 +89,18 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
   }, [editor, members]);
 
   useImperativeHandle(ref, () => ({
-    insertContent: (content: string) => {
-      if (editor) {
-        editor.chain().focus().insertContent(content).run();
+    insertContent: (content: any) => {
+      if (!editor) return;
+      if (editor.isEmpty) {
+        // Replace the empty placeholder paragraph rather than leaving it dangling above.
+        editor.chain().setContent(content, { emitUpdate: true }).focus('end').run();
+        return;
       }
-    }
+      editor.chain().focus('end').insertContent(content).run();
+    },
+    focus: () => {
+      editor?.chain().focus('end').run();
+    },
   }), [editor]);
 
   const toggleAllCheckboxes = () => {
@@ -86,6 +121,7 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
 
   return (
     <div className={cn('relative flex flex-col w-full', className)}>
+      {hideToolbar ? null : (
       <div className="flex items-center gap-1 px-1 py-1.5 opacity-40 hover:opacity-100 focus-within:opacity-100 transition-opacity">
         <Button
           type="button"
@@ -102,7 +138,8 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
           )}
         </Button>
       </div>
-      
+      )}
+
       <div className="py-1 px-0">
         <EditorContent editor={editor} className="min-h-[150px] outline-none" />
       </div>

@@ -20,6 +20,33 @@ export function extractTextFromNode(node: any): string {
   return '';
 }
 
+export interface TaskItemCounts {
+  total: number;
+  done: number;
+}
+
+/** Counts `taskItem` nodes in a TipTap document (cheap traversal; safe on null/invalid input). */
+export function countTaskItems(json: any): TaskItemCounts {
+  const counts: TaskItemCounts = { total: 0, done: 0 };
+  const walk = (node: any) => {
+    if (!node || typeof node !== 'object') return;
+    if (node.type === 'taskItem') {
+      counts.total += 1;
+      if (node.attrs?.checked) counts.done += 1;
+    }
+    if (Array.isArray(node.content)) node.content.forEach(walk);
+  };
+  walk(json);
+  return counts;
+}
+
+/** Plain-text preview of a TipTap document, whitespace-collapsed and truncated. */
+export function previewTextFromTipTap(json: any, maxLength = 140): string {
+  const text = extractTextFromNode(json).replace(/\s+/g, ' ').trim();
+  if (!text) return '';
+  return text.length > maxLength ? `${text.slice(0, maxLength - 1)}…` : text;
+}
+
 export function extractTasksFromTipTap(json: any): any[] {
   const tasks: any[] = [];
 

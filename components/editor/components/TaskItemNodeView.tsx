@@ -76,7 +76,12 @@ export const TaskItemNodeView = React.memo(({ node, updateAttributes, editor, ge
   const disabled = !editor.isEditable;
 
   return (
-    <NodeViewWrapper className="flex items-start gap-1.5 my-1.5 group" data-type="taskItem" data-task-id={id}>
+    <NodeViewWrapper
+      className="flex items-start gap-1.5 my-1.5 group"
+      data-type="taskItem"
+      data-task-id={id}
+      data-checked={checked ? 'true' : 'false'}
+    >
       <div
         className="mt-[2px] flex items-center justify-center select-none"
         contentEditable={false}
@@ -209,7 +214,7 @@ export const TaskItemNodeView = React.memo(({ node, updateAttributes, editor, ge
                     removeNode(json.content);
                     if (sourceNode) {
                       insertNode(json.content);
-                      editor.commands.setContent(json, true);
+                      editor.commands.setContent(json, { emitUpdate: true });
                     }
                   }
                 }
@@ -248,7 +253,7 @@ export const TaskItemNodeView = React.memo(({ node, updateAttributes, editor, ge
                 };
                 
                 sortNode(json);
-                editor.commands.setContent(json, true);
+                editor.commands.setContent(json, { emitUpdate: true });
                 
                 // Try to restore cursor, catching errors if position is out of bounds due to structural changes
                 try {
@@ -408,3 +413,5 @@ export const TaskItemNodeView = React.memo(({ node, updateAttributes, editor, ge
     </NodeViewWrapper>
   );
 });
+
+TaskItemNodeView.displayName = 'TaskItemNodeView';

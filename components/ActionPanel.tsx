@@ -17,9 +17,13 @@ import {
   type Variants,
 } from "framer-motion";
 import {
+  AlertCircle,
   CalendarIcon,
   Check,
   ChevronDown,
+  Eye,
+  EyeOff,
+  Loader2,
   UserRound,
   X,
   Lightbulb,
@@ -44,8 +48,14 @@ import {
   TaskUpdateFields,
   useTaskContext,
 } from "@/components/TaskContext";
-import { BlockEditor } from '@/components/editor/BlockEditor';
-import { migrateLegacyJournalToTipTap, migrateLegacyLearningsToTipTap } from '@/lib/tiptap-parser';
+import { BlockEditor, type BlockEditorRef } from '@/components/editor/BlockEditor';
+import {
+  countTaskItems,
+  migrateLegacyJournalToTipTap,
+  migrateLegacyLearningsToTipTap,
+  previewTextFromTipTap,
+  type TaskItemCounts,
+} from '@/lib/tiptap-parser';
 import {
   Collapsible,
   CollapsibleContent,
@@ -190,6 +200,20 @@ function ActionPanelSheet({ isNarrow, onClose, children }: ActionPanelSheetProps
   // false while the exit animation is playing → make the (fading) layer click-through.
   const isPresent = useIsPresent();
 
+  // Escape closes the panel. Radix layers (Zen dialog, due-date dialog, popovers, selects)
+  // handle Escape first in the capture phase and call preventDefault, so nested layers
+  // close one at a time instead of tearing the whole panel down.
+  useEffect(() => {
+    if (!isPresent) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      e.preventDefault();
+      onClose();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [isPresent, onClose]);
+
   const sheetVariants: Variants = useMemo(
     () => ({
       closed: isNarrow
@@ -292,9 +316,79 @@ interface ActionPanelContentProps {
 }
 
 type BlocksField = "checklistBlocks" | "learningsBlocks";
+type SaveState = "idle" | "saving" | "saved" | "error";
 
 const META_SAVE_MS = 450;
 const BLOCKS_SAVE_MS = 500;
+
+/** A brand-new checklist starts as a task list, not a plain paragraph the user has to convert. */
+const EMPTY_CHECKLIST_DOC = {
+  type: "doc",
+  content: [
+    {
+      type: "taskList",
+      content: [
+        {
+          type: "taskItem",
+          attrs: { checked: false },
+          content: [{ type: "paragraph" }],
+        },
+      ],
+    },
+  ],
+};
+
+/** Learnings prompts insert real structure (heading + bullet) instead of literal "## …" text. */
+const LEARNING_PROMPTS: { label: string; heading: string }[] = [
+  { label: "Key takeaways", heading: "Key takeaways" },
+  { label: "What worked", heading: "What worked" },
+  { label: "What didn’t", heading: "What didn’t" },
+  { label: "Next time", heading: "Next time" },
+  { label: "Decision", heading: "Decision / rationale" },
+];
+
+function learningPromptNodes(heading: string) {
+  return [
+    {
+      type: "heading",
+      attrs: { level: 3 },
+      content: [{ type: "text", text: heading }],
+    },
+    {
+      type: "bulletList",
+      content: [{ type: "listItem", content: [{ type: "paragraph" }] }],
+    },
+  ];
+}
+
+function SaveStatus({ state }: { state: SaveState }) {
+  if (state === "idle") return null;
+  const label =
+    state === "saving"
+      ? "Saving…"
+      : state === "saved"
+        ? "Saved"
+        : "Couldn’t save";
+  return (
+    <span
+      role="status"
+      aria-live="polite"
+      className={cn(
+        "inline-flex items-center gap-1 text-[11px] tabular-nums transition-colors",
+        state === "error" ? "text-destructive" : "text-muted-foreground",
+      )}
+    >
+      {state === "saved" ? (
+        <Check className="h-3 w-3" aria-hidden />
+      ) : state === "error" ? (
+        <AlertCircle className="h-3 w-3" aria-hidden />
+      ) : (
+        <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+      )}
+      {label}
+    </span>
+  );
+}
 
 /**
  * Everything inside the dialog chrome. Mounted once per task id; all draft
@@ -375,13 +469,22 @@ function ActionPanelContent({
     Array.isArray(task.reminders) ? task.reminders : [],
   );
   const [taskDueOpen, setTaskDueOpen] = useState(false);
-  /** Initial TipTap documents. Constant for the lifetime of this mount; live edits go to the refs below. */
-  const [checklistBlocks] = useState<any>(() => resolveChecklistBlocks(task));
-  const [learningsBlocks] = useState<any>(() => resolveLearningsBlocks(task));
-  const checklistBlocksRef = useRef<any>(checklistBlocks);
-  const learningsBlocksRef = useRef<any>(learningsBlocks);
-  /** Legacy free-text learnings, used only for the collapsed preview line. */
-  const legacyLearnings = (task.learnings ?? "").trim();
+  /**
+   * TipTap documents. The refs are the single source of truth for the *latest* content;
+   * every editor instance (panel or Zen) mounts from the ref, so switching between them
+   * never shows stale text or lets one instance overwrite the other's edits.
+   */
+  const checklistBlocksRef = useRef<any>(resolveChecklistBlocks(task));
+  const learningsBlocksRef = useRef<any>(resolveLearningsBlocks(task));
+  const [checklistCounts, setChecklistCounts] = useState<TaskItemCounts>(() =>
+    countTaskItems(checklistBlocksRef.current),
+  );
+  const [hideDone, setHideDone] = useState(false);
+  /** Collapsed-state one-liner. Refreshed when the Learnings section collapses, not per keystroke. */
+  const [learningsPreview, setLearningsPreview] = useState(() =>
+    previewTextFromTipTap(learningsBlocksRef.current) ||
+    (task.learnings ?? "").replace(/\s+/g, " ").trim().slice(0, 140),
+  );
 
   const [learningsOpen, setLearningsOpen] = useState(false);
   const [focusMode, setFocusMode] = useState<
@@ -392,7 +495,7 @@ function ActionPanelContent({
   /** Title, status, description, etc. — default collapsed for a note-first flow */
   const [detailsOpen, setDetailsOpen] = useState(false);
 
-  const learningsEditorRef = useRef<any>(null);
+  const learningsEditorRef = useRef<BlockEditorRef | null>(null);
 
   // ── Persistence core ──
   // One place owns every debounce timer + dirty flag so close/unmount/switch can
@@ -401,6 +504,38 @@ function ActionPanelContent({
   canEditRef.current = canEdit;
   const updateTaskRef = useRef(updateTask);
   updateTaskRef.current = updateTask;
+
+  const [saveState, setSaveState] = useState<SaveState>("idle");
+  const inflightRef = useRef(0);
+  const savedResetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Route every autosave through here so the header can show Saving… / Saved / Couldn't save. */
+  const trackSave = useCallback((request: Promise<boolean>) => {
+    inflightRef.current += 1;
+    if (savedResetRef.current) {
+      clearTimeout(savedResetRef.current);
+      savedResetRef.current = null;
+    }
+    setSaveState("saving");
+    void request
+      .then((ok) => {
+        inflightRef.current -= 1;
+        if (inflightRef.current > 0) return;
+        setSaveState(ok ? "saved" : "error");
+        if (ok) {
+          savedResetRef.current = setTimeout(() => setSaveState("idle"), 2000);
+        }
+      })
+      .catch(() => {
+        inflightRef.current -= 1;
+        if (inflightRef.current === 0) setSaveState("error");
+      });
+  }, []);
+  useEffect(
+    () => () => {
+      if (savedResetRef.current) clearTimeout(savedResetRef.current);
+    },
+    [],
+  );
 
   const pendingMetaRef = useRef<TaskUpdateFields | null>(null);
   const metaTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -420,8 +555,8 @@ function ActionPanelContent({
     const patch = pendingMetaRef.current;
     pendingMetaRef.current = null;
     if (!patch || !canEditRef.current) return;
-    void updateTaskRef.current(taskId, patch);
-  }, [taskId]);
+    trackSave(updateTaskRef.current(taskId, patch));
+  }, [taskId, trackSave]);
 
   const persistBlocksNow = useCallback(
     (field: BlocksField) => {
@@ -437,9 +572,9 @@ function ActionPanelContent({
           ? checklistBlocksRef.current
           : learningsBlocksRef.current;
       if (data === null || data === undefined) return;
-      void updateTaskRef.current(taskId, { [field]: data });
+      trackSave(updateTaskRef.current(taskId, { [field]: data }));
     },
-    [taskId],
+    [taskId, trackSave],
   );
 
   /** Flush every pending draft immediately (close, action switch, unmount). Idempotent. */
@@ -462,8 +597,16 @@ function ActionPanelContent({
 
   const scheduleBlocksPersist = useCallback(
     (field: BlocksField, data: any) => {
-      if (field === "checklistBlocks") checklistBlocksRef.current = data;
-      else learningsBlocksRef.current = data;
+      if (field === "checklistBlocks") {
+        checklistBlocksRef.current = data;
+        // Progress header: only re-render when the numbers actually change.
+        const next = countTaskItems(data);
+        setChecklistCounts((prev) =>
+          prev.total === next.total && prev.done === next.done ? prev : next,
+        );
+      } else {
+        learningsBlocksRef.current = data;
+      }
       if (!canEditRef.current) return;
       dirtyBlocksRef.current[field] = true;
       const prev = blocksTimerRef.current[field];
@@ -504,29 +647,22 @@ function ActionPanelContent({
 
   const selectedDueDate = dueDate ? parseYmdDateInput(dueDate) : undefined;
 
-  const learningsPreview = useMemo(() => {
-    if (!legacyLearnings) return "";
-    return legacyLearnings.replace(/\s+/g, " ").slice(0, 140);
-  }, [legacyLearnings]);
-
-  const learningChips = useMemo(
-    () => [
-      { label: "Key takeaways", template: "## Key takeaways\n- \n" },
-      { label: "What worked", template: "## What worked\n- \n" },
-      { label: "What didn’t", template: "## What didn’t\n- \n" },
-      { label: "Next time", template: "## Next time\n- \n" },
-      { label: "Decision", template: "## Decision / rationale\n- \n" },
-    ],
-    [],
-  );
+  /** Collapse Learnings: refresh the preview line from the latest document and persist. */
+  const collapseLearnings = useCallback(() => {
+    setLearningsPreview(previewTextFromTipTap(learningsBlocksRef.current));
+    setLearningsOpen(false);
+    flushLearningsNow();
+  }, [flushLearningsNow]);
 
   const appendLearningTemplate = useCallback(
-    (template: string) => {
+    (heading: string) => {
       if (!canEdit) return;
       setLearningsOpen(true);
-      if (learningsEditorRef.current) {
-        learningsEditorRef.current.insertContent(template);
-      }
+      const insert = () =>
+        learningsEditorRef.current?.insertContent(learningPromptNodes(heading));
+      // If the section was collapsed the editor mounts on this render; insert once it exists.
+      if (learningsEditorRef.current) insert();
+      else requestAnimationFrame(insert);
     },
     [canEdit],
   );
@@ -542,15 +678,12 @@ function ActionPanelContent({
       setFocusMode(resolved);
 
       if (next === "checklist") {
-        if (learningsOpen) {
-          setLearningsOpen(false);
-          flushLearningsNow();
-        }
+        if (learningsOpen) collapseLearnings();
       } else if (next === "learnings") {
         setLearningsOpen(true);
       }
     },
-    [flushLearningsNow, focusMode, learningsOpen],
+    [collapseLearnings, flushLearningsNow, focusMode, learningsOpen],
   );
 
   const openZen = useCallback((tab: "checklist" | "learnings") => {
@@ -562,9 +695,18 @@ function ActionPanelContent({
   }, []);
 
   const closeZen = useCallback(() => {
+    // Zen editors unmount here and the panel editors remount from the refs → always in sync.
     flushLearningsNow();
+    setLearningsPreview(previewTextFromTipTap(learningsBlocksRef.current));
     setZenOpen(false);
   }, [flushLearningsNow]);
+
+  const checklistProgress =
+    checklistCounts.total > 0
+      ? Math.round((checklistCounts.done / checklistCounts.total) * 100)
+      : 0;
+  const allDone =
+    checklistCounts.total > 0 && checklistCounts.done === checklistCounts.total;
 
   const switchZenTab = useCallback(
     (tab: "checklist" | "learnings") => {
@@ -579,9 +721,12 @@ function ActionPanelContent({
   return (
     <>
           <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border/50 bg-muted/10 px-4 py-3 md:rounded-t-2xl">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              {canEdit ? "Action" : "Read-only"}
-            </p>
+            <div className="flex min-w-0 items-center gap-3">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                {canEdit ? "Action" : "Read-only"}
+              </p>
+              <SaveStatus state={saveState} />
+            </div>
             <Button
               type="button"
               variant="ghost"
@@ -1018,11 +1163,24 @@ function ActionPanelContent({
               </Collapsible>
 
               <div className="space-y-3">
-                <div className="flex items-baseline justify-between gap-2">
-                  <div className="flex items-center gap-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex min-w-0 items-center gap-2">
                     <h2 className="text-sm font-medium text-foreground">
                       Checklist
                     </h2>
+                    {checklistCounts.total > 0 ? (
+                      <span
+                        className={cn(
+                          "rounded-md px-1.5 py-0.5 text-[11px] tabular-nums",
+                          allDone
+                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                            : "bg-muted/60 text-muted-foreground",
+                        )}
+                        aria-label={`${checklistCounts.done} of ${checklistCounts.total} items done`}
+                      >
+                        {checklistCounts.done}/{checklistCounts.total}
+                      </span>
+                    ) : null}
                     <Button
                       type="button"
                       variant="ghost"
@@ -1052,11 +1210,47 @@ function ActionPanelContent({
                       )}
                     </Button>
                   </div>
-                  <p className="text-[11px] text-muted-foreground">
-                    Enter = new item · Shift+Enter = line break · drag to
-                    reorder
-                  </p>
+                  {checklistCounts.done > 0 ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 gap-1.5 px-2 text-[11px] text-muted-foreground"
+                      aria-pressed={hideDone}
+                      onClick={() => setHideDone((v) => !v)}
+                    >
+                      {hideDone ? (
+                        <Eye className="h-3.5 w-3.5" aria-hidden />
+                      ) : (
+                        <EyeOff className="h-3.5 w-3.5" aria-hidden />
+                      )}
+                      {hideDone
+                        ? `Show done (${checklistCounts.done})`
+                        : `Hide done (${checklistCounts.done})`}
+                    </Button>
+                  ) : (
+                    <p className="hidden text-[11px] text-muted-foreground sm:block">
+                      Enter = new item · Shift+Enter = line break
+                    </p>
+                  )}
                 </div>
+                {checklistCounts.total > 0 ? (
+                  <div
+                    className="h-1 w-full overflow-hidden rounded-full bg-muted/60"
+                    role="progressbar"
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={checklistProgress}
+                  >
+                    <div
+                      className={cn(
+                        "h-full rounded-full transition-[width] duration-300 ease-out",
+                        allDone ? "bg-emerald-500" : "bg-primary",
+                      )}
+                      style={{ width: `${checklistProgress}%` }}
+                    />
+                  </div>
+                ) : null}
                 <div
                   className={cn(
                     "min-h-0 overflow-y-auto overscroll-contain px-0 py-1",
@@ -1067,16 +1261,22 @@ function ActionPanelContent({
                         : learningsOpen
                           ? "max-h-[min(42vh,380px)]"
                           : "max-h-[min(60vh,520px)]",
+                    hideDone &&
+                      "[&_[data-type=taskItem][data-checked=true]]:hidden",
                   )}
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <BlockEditor
-                    initialContent={checklistBlocks}
-                    onChange={(data) => scheduleBlocksPersist('checklistBlocks', data)}
-                    placeholder="Add tasks..."
-                    members={currentTeam?.members}
-                    className={!canEdit ? 'opacity-50 pointer-events-none' : ''}
-                  />
+                  {/* Unmounted while Zen is open so exactly one editor owns the document at a time. */}
+                  {!zenOpen ? (
+                    <BlockEditor
+                      initialContent={checklistBlocksRef.current}
+                      emptyContent={EMPTY_CHECKLIST_DOC}
+                      onChange={(data) => scheduleBlocksPersist('checklistBlocks', data)}
+                      placeholder="Add a step…"
+                      members={currentTeam?.members}
+                      className={!canEdit ? 'opacity-50 pointer-events-none' : ''}
+                    />
+                  ) : null}
                 </div>
               </div>
 
@@ -1088,12 +1288,14 @@ function ActionPanelContent({
                       "flex min-w-0 flex-1 items-start justify-between gap-3 text-left",
                       "hover:bg-muted/0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30",
                     )}
+                    aria-expanded={learningsOpen}
                     onClick={() => {
-                      const next = !learningsOpen;
-                      setLearningsOpen(next);
-                      if (!next) flushLearningsNow();
-                      if (focusMode === "learnings" && !next)
-                        setFocusMode("none");
+                      if (learningsOpen) {
+                        collapseLearnings();
+                        if (focusMode === "learnings") setFocusMode("none");
+                      } else {
+                        setLearningsOpen(true);
+                      }
                     }}
                   >
                     <div className="min-w-0 flex-1">
@@ -1167,10 +1369,10 @@ function ActionPanelContent({
                   </Button>
                 </div>
 
-                {learningsOpen ? (
+                {learningsOpen && !zenOpen ? (
                   <div className="space-y-2 border-t border-border/40 px-3 py-3">
                     <div className="flex flex-wrap gap-2">
-                      {learningChips.map((c) => (
+                      {LEARNING_PROMPTS.map((c) => (
                         <Button
                           key={c.label}
                           type="button"
@@ -1178,7 +1380,7 @@ function ActionPanelContent({
                           size="sm"
                           disabled={!canEdit}
                           className="h-7 rounded-full px-3 text-xs"
-                          onClick={() => appendLearningTemplate(c.template)}
+                          onClick={() => appendLearningTemplate(c.heading)}
                         >
                           {c.label}
                         </Button>
@@ -1186,9 +1388,10 @@ function ActionPanelContent({
                     </div>
                     <BlockEditor
                       ref={learningsEditorRef}
-                      initialContent={learningsBlocks}
+                      initialContent={learningsBlocksRef.current}
+                      hideToolbar
                       onChange={(data) => scheduleBlocksPersist('learningsBlocks', data)}
-                      placeholder="Write what you learned… (separate from the checklist)"
+                      placeholder="What did you learn? Pick a prompt above or just start writing…"
                       members={currentTeam?.members}
                       className={cn(
                         "w-full resize-y rounded-lg border border-border/50 bg-background/40",
@@ -1253,11 +1456,28 @@ function ActionPanelContent({
 
             {zenTab === "checklist" ? (
               <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+                {checklistCounts.total > 0 ? (
+                  <div className="flex items-center gap-3 pb-3">
+                    <span className="text-xs tabular-nums text-muted-foreground">
+                      {checklistCounts.done}/{checklistCounts.total} done
+                    </span>
+                    <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted/60">
+                      <div
+                        className={cn(
+                          "h-full rounded-full transition-[width] duration-300 ease-out",
+                          allDone ? "bg-emerald-500" : "bg-primary",
+                        )}
+                        style={{ width: `${checklistProgress}%` }}
+                      />
+                    </div>
+                  </div>
+                ) : null}
                 <div className="px-0 py-1">
                   <BlockEditor
-                    initialContent={checklistBlocks}
+                    initialContent={checklistBlocksRef.current}
+                    emptyContent={EMPTY_CHECKLIST_DOC}
                     onChange={(data) => scheduleBlocksPersist('checklistBlocks', data)}
-                    placeholder="Add tasks..."
+                    placeholder="Add a step…"
                     members={currentTeam?.members}
                     className={!canEdit ? 'opacity-50 pointer-events-none' : ''}
                   />
@@ -1266,7 +1486,7 @@ function ActionPanelContent({
             ) : (
               <div className="min-h-0 flex flex-1 flex-col px-4 py-4">
                 <div className="flex flex-wrap gap-2 pb-3">
-                  {learningChips.map((c) => (
+                  {LEARNING_PROMPTS.map((c) => (
                     <Button
                       key={c.label}
                       type="button"
@@ -1274,7 +1494,7 @@ function ActionPanelContent({
                       size="sm"
                       disabled={!canEdit}
                       className="h-7 rounded-full px-3 text-xs"
-                      onClick={() => appendLearningTemplate(c.template)}
+                      onClick={() => appendLearningTemplate(c.heading)}
                     >
                       {c.label}
                     </Button>
@@ -1282,7 +1502,8 @@ function ActionPanelContent({
                 </div>
                 <BlockEditor
                   ref={learningsEditorRef}
-                  initialContent={learningsBlocks}
+                  initialContent={learningsBlocksRef.current}
+                  hideToolbar
                   onChange={(data) => scheduleBlocksPersist('learningsBlocks', data)}
                   placeholder="Write what you learned… (separate from the checklist)"
                   members={currentTeam?.members}
