@@ -23,14 +23,15 @@ import {
   ChevronDown,
   Eye,
   EyeOff,
-  Loader2,
-  UserRound,
-  X,
   Lightbulb,
+  ListChecks,
+  Loader2,
   Maximize2,
   Minimize2,
-  NotebookPen,
+  UserRound,
+  X,
 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -48,7 +49,7 @@ import {
   TaskUpdateFields,
   useTaskContext,
 } from "@/components/TaskContext";
-import { BlockEditor, type BlockEditorRef } from '@/components/editor/BlockEditor';
+import { BlockEditor } from '@/components/editor/BlockEditor';
 import {
   countTaskItems,
   migrateLegacyJournalToTipTap,
@@ -77,6 +78,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { format } from "date-fns";
+import { v4 as uuidv4 } from "uuid";
 import { DueFlowPicker } from "@/components/due/DueFlowPicker";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
@@ -125,6 +127,9 @@ export function ActionPanel({
 }: ActionPanelProps) {
   const isNarrow = useIsNarrow();
   const present = open && task !== null;
+  /** Wide layout (desktop only). Lives here so the preference survives open/close cycles. */
+  const [expanded, setExpanded] = useState(false);
+  const toggleExpanded = useCallback(() => setExpanded((v) => !v), []);
 
   /** Registered by the mounted content; lets X / backdrop closes flush drafts synchronously. */
   const flushRef = useRef<(() => void) | null>(null);
@@ -149,6 +154,7 @@ export function ActionPanel({
         <ActionPanelSheet
           key="action-panel"
           isNarrow={isNarrow}
+          expanded={expanded}
           onClose={requestClose}
         >
           {/* Keyed by task id: switching actions swaps content in place (with a flush on unmount). */}
@@ -156,6 +162,8 @@ export function ActionPanel({
             key={task.id}
             task={task}
             isNarrow={isNarrow}
+            expanded={expanded}
+            onToggleExpanded={toggleExpanded}
             onClose={requestClose}
             flushRef={flushRef}
           />
@@ -186,8 +194,23 @@ const BACKDROP_TRANSITION: Transition = { duration: 0.2, ease: "easeOut" };
 /** Exit is a short deterministic tween: predictable unmount timing, no spring "settling" tail. */
 const EXIT_TRANSITION: Transition = { duration: 0.18, ease: [0.4, 0, 1, 1] };
 
+/**
+ * Force framer-motion onto its main-thread animator for these elements.
+ *
+ * framer-motion 11 runs `opacity` through WAAPI when it can. On finish it calls
+ * `motionValue.set(final)` (rendered on the *next* frame) and then `animation.cancel()`
+ * (applied *immediately*), so for exactly one frame the element falls back to the
+ * inline style from its first render — `opacity: 0`. Measured at 1280px: opacity
+ * 0.9998 → 0 → 1 about 300 ms after the sheet settles; that is the "transparent
+ * card blinking behind the panel". Passing an `onUpdate` handler makes
+ * `AcceleratedAnimation.supports()` return false, so values are written inline every
+ * frame and there is nothing to revert to.
+ */
+const noopUpdate = () => {};
+
 interface ActionPanelSheetProps {
   isNarrow: boolean;
+  expanded: boolean;
   onClose: () => void;
   children: ReactNode;
 }
@@ -196,11 +219,16 @@ interface ActionPanelSheetProps {
  * Backdrop + dialog chrome. Lives under AnimatePresence, so `exit` runs to
  * completion before React removes the subtree.
  */
-function ActionPanelSheet({ isNarrow, onClose, children }: ActionPanelSheetProps) {
+function ActionPanelSheet({
+  isNarrow,
+  expanded,
+  onClose,
+  children,
+}: ActionPanelSheetProps) {
   // false while the exit animation is playing → make the (fading) layer click-through.
   const isPresent = useIsPresent();
 
-  // Escape closes the panel. Radix layers (Zen dialog, due-date dialog, popovers, selects)
+  // Escape closes the panel. Radix layers (due-date dialog, popovers, selects)
   // handle Escape first in the capture phase and call preventDefault, so nested layers
   // close one at a time instead of tearing the whole panel down.
   useEffect(() => {
@@ -245,6 +273,7 @@ function ActionPanelSheet({ isNarrow, onClose, children }: ActionPanelSheetProps
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={BACKDROP_TRANSITION}
+        onUpdate={noopUpdate}
         style={{ pointerEvents: isPresent ? "auto" : "none" }}
         onClick={onClose}
       />
@@ -260,11 +289,18 @@ function ActionPanelSheet({ isNarrow, onClose, children }: ActionPanelSheetProps
           aria-modal="true"
           aria-labelledby="action-panel-title"
           className={cn(
-            "flex w-full max-w-3xl flex-col overflow-hidden border border-border/60 bg-background shadow-2xl",
+            "flex w-full flex-col overflow-hidden border border-border/60 bg-background shadow-2xl",
             "ring-1 ring-black/5 dark:ring-white/10",
-            /* max-height + min-h-0: allow the flex child to shrink for scrollable content */
-            "max-h-[min(92dvh,920px)] min-h-0",
-            "rounded-t-2xl border-b-0 md:rounded-2xl md:border md:max-h-[min(88dvh,900px)]",
+            /*
+             * Fixed height (not max-height): the panel is a workspace, so its frame must
+             * not resize as the checklist grows or when switching tabs — a size change
+             * re-centres the sheet and reads as a flicker.
+             */
+            "h-[92dvh] min-h-0 rounded-t-2xl border-b-0",
+            "md:rounded-2xl md:border md:transition-[max-width,height] md:duration-200 md:ease-out",
+            expanded
+              ? "md:h-[min(94dvh,1100px)] md:max-w-6xl"
+              : "md:h-[min(84dvh,800px)] md:max-w-3xl",
             "origin-bottom md:origin-center",
             isPresent ? "pointer-events-auto" : "pointer-events-none",
           )}
@@ -272,6 +308,7 @@ function ActionPanelSheet({ isNarrow, onClose, children }: ActionPanelSheetProps
           initial="closed"
           animate="open"
           exit="closed"
+          onUpdate={noopUpdate}
           style={{ willChange: "transform, opacity" }}
         >
           {children}
@@ -310,6 +347,8 @@ function initials(name: string): string {
 interface ActionPanelContentProps {
   task: Task;
   isNarrow: boolean;
+  expanded: boolean;
+  onToggleExpanded: () => void;
   /** Already flushes drafts (see `requestClose` in `ActionPanel`). */
   onClose: () => void;
   flushRef: MutableRefObject<(() => void) | null>;
@@ -317,48 +356,68 @@ interface ActionPanelContentProps {
 
 type BlocksField = "checklistBlocks" | "learningsBlocks";
 type SaveState = "idle" | "saving" | "saved" | "error";
+type WorkTab = "checklist" | "learnings";
+
+const PRIORITY_LABEL: Record<TaskPriority, string> = {
+  low: "Low",
+  medium: "Medium",
+  high: "High",
+  urgent: "Urgent",
+};
+const PRIORITY_DOT: Record<TaskPriority, string> = {
+  low: "bg-slate-400",
+  medium: "bg-sky-500",
+  high: "bg-amber-500",
+  urgent: "bg-rose-500",
+};
+
+/** One summary chip in the meta strip under the title. */
+function MetaChip({
+  icon,
+  children,
+  muted,
+}: {
+  icon?: ReactNode;
+  children: ReactNode;
+  muted?: boolean;
+}) {
+  return (
+    <span
+      className={cn(
+        "inline-flex h-6 max-w-[11rem] shrink-0 items-center gap-1 rounded-md border border-border/50 bg-muted/30 px-1.5 text-[11px] font-medium",
+        muted ? "text-muted-foreground" : "text-foreground/85",
+      )}
+    >
+      {icon}
+      <span className="truncate">{children}</span>
+    </span>
+  );
+}
 
 const META_SAVE_MS = 450;
 const BLOCKS_SAVE_MS = 500;
 
-/** A brand-new checklist starts as a task list, not a plain paragraph the user has to convert. */
-const EMPTY_CHECKLIST_DOC = {
-  type: "doc",
-  content: [
-    {
-      type: "taskList",
-      content: [
-        {
-          type: "taskItem",
-          attrs: { checked: false },
-          content: [{ type: "paragraph" }],
-        },
-      ],
-    },
-  ],
-};
-
-/** Learnings prompts insert real structure (heading + bullet) instead of literal "## …" text. */
-const LEARNING_PROMPTS: { label: string; heading: string }[] = [
-  { label: "Key takeaways", heading: "Key takeaways" },
-  { label: "What worked", heading: "What worked" },
-  { label: "What didn’t", heading: "What didn’t" },
-  { label: "Next time", heading: "Next time" },
-  { label: "Decision", heading: "Decision / rationale" },
-];
-
-function learningPromptNodes(heading: string) {
-  return [
-    {
-      type: "heading",
-      attrs: { level: 3 },
-      content: [{ type: "text", text: heading }],
-    },
-    {
-      type: "bulletList",
-      content: [{ type: "listItem", content: [{ type: "paragraph" }] }],
-    },
-  ];
+/**
+ * A brand-new checklist starts as a task list, not a plain paragraph the user has to convert.
+ * The seed row carries an id up front: `TaskItemNodeView` back-fills missing ids with a
+ * transaction, which would otherwise fire `onUpdate` → a PATCH the moment the panel opens.
+ */
+function emptyChecklistDoc() {
+  return {
+    type: "doc",
+    content: [
+      {
+        type: "taskList",
+        content: [
+          {
+            type: "taskItem",
+            attrs: { checked: false, id: uuidv4() },
+            content: [{ type: "paragraph" }],
+          },
+        ],
+      },
+    ],
+  };
 }
 
 function SaveStatus({ state }: { state: SaveState }) {
@@ -397,6 +456,8 @@ function SaveStatus({ state }: { state: SaveState }) {
 function ActionPanelContent({
   task,
   isNarrow,
+  expanded,
+  onToggleExpanded,
   onClose,
   flushRef,
 }: ActionPanelContentProps) {
@@ -470,32 +531,28 @@ function ActionPanelContent({
   );
   const [taskDueOpen, setTaskDueOpen] = useState(false);
   /**
-   * TipTap documents. The refs are the single source of truth for the *latest* content;
-   * every editor instance (panel or Zen) mounts from the ref, so switching between them
-   * never shows stale text or lets one instance overwrite the other's edits.
+   * TipTap documents. The refs are the single source of truth for the *latest* content.
+   * Exactly one editor per document is mounted at a time (the active tab), and it always
+   * mounts from the ref — so switching tabs never shows stale text.
    */
   const checklistBlocksRef = useRef<any>(resolveChecklistBlocks(task));
   const learningsBlocksRef = useRef<any>(resolveLearningsBlocks(task));
+  /** Stable per mount so re-renders and tab switches never reseed a different id. */
+  const emptyChecklistRef = useRef<any>(null);
+  if (emptyChecklistRef.current === null) emptyChecklistRef.current = emptyChecklistDoc();
   const [checklistCounts, setChecklistCounts] = useState<TaskItemCounts>(() =>
     countTaskItems(checklistBlocksRef.current),
   );
   const [hideDone, setHideDone] = useState(false);
-  /** Collapsed-state one-liner. Refreshed when the Learnings section collapses, not per keystroke. */
-  const [learningsPreview, setLearningsPreview] = useState(() =>
-    previewTextFromTipTap(learningsBlocksRef.current) ||
-    (task.learnings ?? "").replace(/\s+/g, " ").trim().slice(0, 140),
+  /** Drives the small indicator dot on the Learnings tab. */
+  const [learningsHasContent, setLearningsHasContent] = useState(
+    () => previewTextFromTipTap(learningsBlocksRef.current, 1).length > 0,
   );
 
-  const [learningsOpen, setLearningsOpen] = useState(false);
-  const [focusMode, setFocusMode] = useState<
-    "none" | "checklist" | "learnings"
-  >("none");
-  const [zenOpen, setZenOpen] = useState(false);
-  const [zenTab, setZenTab] = useState<"checklist" | "learnings">("checklist");
-  /** Title, status, description, etc. — default collapsed for a note-first flow */
+  /** Which document is open. Checklist first: it is the working surface; learnings are the retro. */
+  const [tab, setTab] = useState<WorkTab>("checklist");
+  /** Status / priority / assignee / due / description live behind the meta strip. */
   const [detailsOpen, setDetailsOpen] = useState(false);
-
-  const learningsEditorRef = useRef<BlockEditorRef | null>(null);
 
   // ── Persistence core ──
   // One place owns every debounce timer + dirty flag so close/unmount/switch can
@@ -606,6 +663,8 @@ function ActionPanelContent({
         );
       } else {
         learningsBlocksRef.current = data;
+        const has = previewTextFromTipTap(data, 1).length > 0;
+        setLearningsHasContent((prev) => (prev === has ? prev : has));
       }
       if (!canEditRef.current) return;
       dirtyBlocksRef.current[field] = true;
@@ -618,11 +677,6 @@ function ActionPanelContent({
     },
     [persistBlocksNow],
   );
-
-  /** Learnings-specific immediate flush (collapse, focus change, Zen close/tab switch). */
-  const flushLearningsNow = useCallback(() => {
-    persistBlocksNow("learningsBlocks");
-  }, [persistBlocksNow]);
 
   // Unmount (exit finished, action switched, or task vanished): flush whatever is still pending.
   // `flushAll` only depends on `taskId`, which is fixed for this mount, so this runs exactly once.
@@ -647,59 +701,18 @@ function ActionPanelContent({
 
   const selectedDueDate = dueDate ? parseYmdDateInput(dueDate) : undefined;
 
-  /** Collapse Learnings: refresh the preview line from the latest document and persist. */
-  const collapseLearnings = useCallback(() => {
-    setLearningsPreview(previewTextFromTipTap(learningsBlocksRef.current));
-    setLearningsOpen(false);
-    flushLearningsNow();
-  }, [flushLearningsNow]);
-
-  const appendLearningTemplate = useCallback(
-    (heading: string) => {
-      if (!canEdit) return;
-      setLearningsOpen(true);
-      const insert = () =>
-        learningsEditorRef.current?.insertContent(learningPromptNodes(heading));
-      // If the section was collapsed the editor mounts on this render; insert once it exists.
-      if (learningsEditorRef.current) insert();
-      else requestAnimationFrame(insert);
+  /** Leaving a tab unmounts its editor; persist right away instead of waiting for the debounce. */
+  const switchTab = useCallback(
+    (next: string) => {
+      if (next !== "checklist" && next !== "learnings") return;
+      if (next === tab) return;
+      persistBlocksNow(
+        tab === "checklist" ? "checklistBlocks" : "learningsBlocks",
+      );
+      setTab(next);
     },
-    [canEdit],
+    [persistBlocksNow, tab],
   );
-
-  const setFocusModeSafe = useCallback(
-    (next: "none" | "checklist" | "learnings") => {
-      // Resolve the transition outside the updater: updaters must stay pure (StrictMode double-invokes them).
-      const resolved = focusMode === next ? "none" : next;
-      // When leaving Learnings focus, flush immediately to avoid draft loss.
-      if (focusMode === "learnings" && resolved !== "learnings") {
-        flushLearningsNow();
-      }
-      setFocusMode(resolved);
-
-      if (next === "checklist") {
-        if (learningsOpen) collapseLearnings();
-      } else if (next === "learnings") {
-        setLearningsOpen(true);
-      }
-    },
-    [collapseLearnings, flushLearningsNow, focusMode, learningsOpen],
-  );
-
-  const openZen = useCallback((tab: "checklist" | "learnings") => {
-    // Zen is intentionally isolated from the panel layout modes.
-    setFocusMode("none");
-    setZenTab(tab);
-    if (tab === "learnings") setLearningsOpen(true);
-    setZenOpen(true);
-  }, []);
-
-  const closeZen = useCallback(() => {
-    // Zen editors unmount here and the panel editors remount from the refs → always in sync.
-    flushLearningsNow();
-    setLearningsPreview(previewTextFromTipTap(learningsBlocksRef.current));
-    setZenOpen(false);
-  }, [flushLearningsNow]);
 
   const checklistProgress =
     checklistCounts.total > 0
@@ -708,91 +721,133 @@ function ActionPanelContent({
   const allDone =
     checklistCounts.total > 0 && checklistCounts.done === checklistCounts.total;
 
-  const switchZenTab = useCallback(
-    (tab: "checklist" | "learnings") => {
-      // Leaving learnings → flush immediately.
-      if (zenTab === "learnings" && tab !== "learnings") flushLearningsNow();
-      setZenTab(tab);
-      if (tab === "learnings") setLearningsOpen(true);
-    },
-    [zenTab, flushLearningsNow],
-  );
+  const statusLabel =
+    statusSelectOptions.find((c) => c.id === status)?.title ?? status;
+  const assigneeName =
+    assigneeId === "unassigned"
+      ? null
+      : (currentTeam?.members.find((m) => m.id === assigneeId)?.name ?? null);
+  const customerName =
+    customerId === "none"
+      ? null
+      : (customers.find((c) => c.id === customerId)?.name ?? null);
 
   return (
     <>
-          <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border/50 bg-muted/10 px-4 py-3 md:rounded-t-2xl">
-            <div className="flex min-w-0 items-center gap-3">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                {canEdit ? "Action" : "Read-only"}
-              </p>
+      {/* ── Header: title, save state, window controls, meta strip, (details) ── */}
+      <div
+        className={cn(
+          "shrink-0 border-b border-border/50 bg-muted/10 md:rounded-t-2xl",
+          // Details can be tall; cap the header so the work area always keeps room.
+          detailsOpen && "max-h-[70%] overflow-y-auto overscroll-contain",
+        )}
+      >
+        <div className="flex items-start gap-2 px-4 pt-3 md:px-6 md:pt-4">
+          <label htmlFor="action-panel-title" className="sr-only">
+            Title
+          </label>
+          <Input
+            id="action-panel-title"
+            value={title}
+            disabled={!canEdit}
+            onChange={(e) => {
+              const v = e.target.value;
+              setTitle(v);
+              scheduleMetaPersist({ title: v });
+            }}
+            placeholder="Untitled action"
+            className="h-9 min-w-0 flex-1 border-0 bg-transparent px-0 text-lg font-semibold tracking-tight shadow-none placeholder:text-muted-foreground/50 focus-visible:ring-0 md:text-xl disabled:opacity-100"
+          />
+          <div className="flex shrink-0 items-center gap-0.5 pt-0.5">
+            <span className="mr-1.5 hidden sm:inline-flex">
               <SaveStatus state={saveState} />
-            </div>
+            </span>
             <Button
               type="button"
               variant="ghost"
               size="icon"
-              className="h-9 w-9 shrink-0"
+              className="hidden h-8 w-8 text-muted-foreground md:inline-flex"
+              aria-label={expanded ? "Shrink panel" : "Expand panel"}
+              aria-pressed={expanded}
+              onClick={onToggleExpanded}
+            >
+              {expanded ? (
+                <Minimize2 className="h-4 w-4" />
+              ) : (
+                <Maximize2 className="h-4 w-4" />
+              )}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground"
+              aria-label="Close"
               onClick={onClose}
             >
               <X className="h-4 w-4" />
             </Button>
           </div>
+        </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-gutter:stable]">
-            <div className="space-y-6 px-4 py-5 pb-8 md:px-6">
-              <Collapsible open={detailsOpen} onOpenChange={setDetailsOpen}>
-                <div className="space-y-3">
-                  <CollapsibleTrigger asChild>
-                    <button
-                      type="button"
-                      aria-expanded={detailsOpen}
+        <Collapsible open={detailsOpen} onOpenChange={setDetailsOpen}>
+          <CollapsibleTrigger asChild>
+            <button
+              type="button"
+              aria-expanded={detailsOpen}
+              aria-label="Toggle action details"
+              className={cn(
+                "group flex w-full items-center gap-1.5 px-4 pb-2.5 pt-2 text-left md:px-6",
+                "focus-visible:outline-none",
+              )}
+            >
+              <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <MetaChip>{statusLabel}</MetaChip>
+                <MetaChip
+                  icon={
+                    <span
                       className={cn(
-                        "flex w-full items-center gap-3 rounded-xl border border-border/50 bg-muted/15 px-3 py-2.5 text-left transition-colors",
-                        "hover:bg-muted/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30",
+                        "h-1.5 w-1.5 rounded-full",
+                        PRIORITY_DOT[priority] ?? "bg-slate-400",
                       )}
-                    >
-                      <ChevronDown
-                        className={cn(
-                          "h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200",
-                          detailsOpen && "rotate-180",
-                        )}
-                        aria-hidden
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                          Action details
-                        </p>
-                        <p className="truncate text-sm font-medium text-foreground">
-                          {title.trim() || "Untitled action"}
-                        </p>
-                      </div>
-                      <span className="hidden max-w-[40%] shrink-0 truncate rounded-md bg-muted/50 px-2 py-0.5 text-xs text-muted-foreground sm:inline-block">
-                        {statusSelectOptions.find((c) => c.id === status)
-                          ?.title ?? status}
-                      </span>
-                    </button>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="overflow-hidden">
-                    <div className="space-y-6 pt-1">
-                      <div className="space-y-2">
-                        <label htmlFor="action-panel-title" className="sr-only">
-                          Title
-                        </label>
-                        <Input
-                          id="action-panel-title"
-                          value={title}
-                          disabled={!canEdit}
-                          onChange={(e) => {
-                            const v = e.target.value;
-                            setTitle(v);
-                            scheduleMetaPersist({ title: v });
-                          }}
-                          placeholder="Untitled action"
-                          className="h-auto border-0 bg-transparent px-0 text-2xl font-semibold tracking-tight shadow-none placeholder:text-muted-foreground/50 focus-visible:ring-0"
-                        />
-                      </div>
-
-                      <div className="rounded-xl border border-border/50 bg-muted/20 p-3">
+                      aria-hidden
+                    />
+                  }
+                >
+                  {PRIORITY_LABEL[priority] ?? priority}
+                </MetaChip>
+                <MetaChip
+                  muted={!assigneeName}
+                  icon={<UserRound className="h-3 w-3" aria-hidden />}
+                >
+                  {assigneeName ?? "Unassigned"}
+                </MetaChip>
+                <MetaChip
+                  muted={!selectedDueDate}
+                  icon={<CalendarIcon className="h-3 w-3" aria-hidden />}
+                >
+                  {selectedDueDate
+                    ? format(selectedDueDate, "MMM d")
+                    : "No due date"}
+                </MetaChip>
+                {customerName ? <MetaChip>{customerName}</MetaChip> : null}
+                {!canEdit ? <MetaChip muted>Read-only</MetaChip> : null}
+              </div>
+              <span className="inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-[11px] font-medium text-muted-foreground transition-colors group-hover:bg-muted/40 group-hover:text-foreground group-focus-visible:ring-2 group-focus-visible:ring-ring/30">
+                Details
+                <ChevronDown
+                  className={cn(
+                    "h-3.5 w-3.5 transition-transform duration-200",
+                    detailsOpen && "rotate-180",
+                  )}
+                  aria-hidden
+                />
+              </span>
+            </button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="overflow-hidden">
+                    <div className="space-y-5 px-4 pb-4 md:px-6">
+                      <div className="rounded-xl border border-border/50 bg-background/60 p-3">
                         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                           <div className="space-y-1.5">
                             <Label className="text-[11px] uppercase text-muted-foreground">
@@ -1158,366 +1213,148 @@ function ActionPanelContent({
                         />
                       </div>
                     </div>
-                  </CollapsibleContent>
-                </div>
-              </Collapsible>
+          </CollapsibleContent>
+        </Collapsible>
+      </div>
 
-              <div className="space-y-3">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <h2 className="text-sm font-medium text-foreground">
-                      Checklist
-                    </h2>
-                    {checklistCounts.total > 0 ? (
-                      <span
-                        className={cn(
-                          "rounded-md px-1.5 py-0.5 text-[11px] tabular-nums",
-                          allDone
-                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                            : "bg-muted/60 text-muted-foreground",
-                        )}
-                        aria-label={`${checklistCounts.done} of ${checklistCounts.total} items done`}
-                      >
-                        {checklistCounts.done}/{checklistCounts.total}
-                      </span>
-                    ) : null}
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7"
-                      aria-label="Open checklist in Zen mode"
-                      onClick={() => openZen("checklist")}
-                    >
-                      <NotebookPen className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7"
-                      aria-label={
-                        focusMode === "checklist"
-                          ? "Exit checklist focus"
-                          : "Focus checklist"
-                      }
-                      onClick={() => setFocusModeSafe("checklist")}
-                    >
-                      {focusMode === "checklist" ? (
-                        <Minimize2 className="h-4 w-4" />
-                      ) : (
-                        <Maximize2 className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </div>
-                  {checklistCounts.done > 0 ? (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 gap-1.5 px-2 text-[11px] text-muted-foreground"
-                      aria-pressed={hideDone}
-                      onClick={() => setHideDone((v) => !v)}
-                    >
-                      {hideDone ? (
-                        <Eye className="h-3.5 w-3.5" aria-hidden />
-                      ) : (
-                        <EyeOff className="h-3.5 w-3.5" aria-hidden />
-                      )}
-                      {hideDone
-                        ? `Show done (${checklistCounts.done})`
-                        : `Hide done (${checklistCounts.done})`}
-                    </Button>
-                  ) : (
-                    <p className="hidden text-[11px] text-muted-foreground sm:block">
-                      Enter = new item · Shift+Enter = line break
-                    </p>
-                  )}
-                </div>
-                {checklistCounts.total > 0 ? (
-                  <div
-                    className="h-1 w-full overflow-hidden rounded-full bg-muted/60"
-                    role="progressbar"
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                    aria-valuenow={checklistProgress}
-                  >
-                    <div
-                      className={cn(
-                        "h-full rounded-full transition-[width] duration-300 ease-out",
-                        allDone ? "bg-emerald-500" : "bg-primary",
-                      )}
-                      style={{ width: `${checklistProgress}%` }}
-                    />
-                  </div>
-                ) : null}
-                <div
-                  className={cn(
-                    "min-h-0 overflow-y-auto overscroll-contain px-0 py-1",
-                    focusMode === "checklist"
-                      ? "max-h-[min(74vh,680px)]"
-                      : focusMode === "learnings"
-                        ? "max-h-[min(28vh,260px)]"
-                        : learningsOpen
-                          ? "max-h-[min(42vh,380px)]"
-                          : "max-h-[min(60vh,520px)]",
-                    hideDone &&
-                      "[&_[data-type=taskItem][data-checked=true]]:hidden",
-                  )}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {/* Unmounted while Zen is open so exactly one editor owns the document at a time. */}
-                  {!zenOpen ? (
-                    <BlockEditor
-                      initialContent={checklistBlocksRef.current}
-                      emptyContent={EMPTY_CHECKLIST_DOC}
-                      onChange={(data) => scheduleBlocksPersist('checklistBlocks', data)}
-                      placeholder="Add a step…"
-                      members={currentTeam?.members}
-                      className={!canEdit ? 'opacity-50 pointer-events-none' : ''}
-                    />
-                  ) : null}
-                </div>
-              </div>
-
-              <div className="rounded-xl border border-border/40 bg-muted/10">
-                <div className="flex items-start gap-2 rounded-xl px-3 py-2.5">
-                  <button
-                    type="button"
-                    className={cn(
-                      "flex min-w-0 flex-1 items-start justify-between gap-3 text-left",
-                      "hover:bg-muted/0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30",
-                    )}
-                    aria-expanded={learningsOpen}
-                    onClick={() => {
-                      if (learningsOpen) {
-                        collapseLearnings();
-                        if (focusMode === "learnings") setFocusMode("none");
-                      } else {
-                        setLearningsOpen(true);
-                      }
-                    }}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <Lightbulb
-                          className="h-4 w-4 text-muted-foreground"
-                          aria-hidden
-                        />
-                        <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                          Learnings
-                        </p>
-                      </div>
-                      {learningsOpen ? (
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          Reflection notes. Autosaves while typing; also saves
-                          when you collapse or close.
-                        </p>
-                      ) : learningsPreview ? (
-                        <p className="mt-1 truncate text-sm text-foreground/90">
-                          {learningsPreview}
-                        </p>
-                      ) : (
-                        <p className="mt-1 text-sm text-muted-foreground">
-                          Add a reflection (optional)
-                        </p>
-                      )}
-                    </div>
-                    <ChevronDown
-                      className={cn(
-                        "mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200",
-                        learningsOpen && "rotate-180",
-                      )}
-                      aria-hidden
-                    />
-                  </button>
-
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="mt-0.5 h-7 w-7 shrink-0"
-                    aria-label={
-                      focusMode === "learnings"
-                        ? "Exit learnings focus"
-                        : "Focus learnings"
-                    }
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setFocusModeSafe("learnings");
-                    }}
-                  >
-                    {focusMode === "learnings" ? (
-                      <Minimize2 className="h-4 w-4" />
-                    ) : (
-                      <Maximize2 className="h-4 w-4" />
-                    )}
-                  </Button>
-
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="mt-0.5 h-7 w-7 shrink-0"
-                    aria-label="Open learnings in Zen mode"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openZen("learnings");
-                    }}
-                  >
-                    <NotebookPen className="h-4 w-4" />
-                  </Button>
-                </div>
-
-                {learningsOpen && !zenOpen ? (
-                  <div className="space-y-2 border-t border-border/40 px-3 py-3">
-                    <div className="flex flex-wrap gap-2">
-                      {LEARNING_PROMPTS.map((c) => (
-                        <Button
-                          key={c.label}
-                          type="button"
-                          variant="secondary"
-                          size="sm"
-                          disabled={!canEdit}
-                          className="h-7 rounded-full px-3 text-xs"
-                          onClick={() => appendLearningTemplate(c.heading)}
-                        >
-                          {c.label}
-                        </Button>
-                      ))}
-                    </div>
-                    <BlockEditor
-                      ref={learningsEditorRef}
-                      initialContent={learningsBlocksRef.current}
-                      hideToolbar
-                      onChange={(data) => scheduleBlocksPersist('learningsBlocks', data)}
-                      placeholder="What did you learn? Pick a prompt above or just start writing…"
-                      members={currentTeam?.members}
-                      className={cn(
-                        "w-full resize-y rounded-lg border border-border/50 bg-background/40",
-                        focusMode === "learnings"
-                          ? "max-h-[min(60vh,520px)] min-h-[180px]"
-                          : "max-h-[min(40vh,280px)] min-h-[120px]",
-                        !canEdit ? 'opacity-50 pointer-events-none' : ''
-                      )}
-                    />
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          </div>
-
-      <Dialog
-        open={zenOpen}
-        onOpenChange={(next) => {
-          if (!next) closeZen();
-          else setZenOpen(true);
-        }}
+      {/* ── Work area: one document at a time, full remaining height ── */}
+      <Tabs
+        value={tab}
+        onValueChange={switchTab}
+        className="flex min-h-0 flex-1 flex-col"
       >
-        <DialogContent className="w-[calc(100vw-1rem)] max-w-5xl p-0 sm:w-[min(96vw,1100px)] [&>button.absolute]:hidden">
-          <div className="flex h-[min(92dvh,920px)] flex-col overflow-hidden rounded-lg border border-border/60 bg-background">
-            <div className="flex items-center justify-between gap-3 border-b border-border/50 bg-muted/10 px-4 py-3">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold">
-                  {title.trim() || "Untitled action"}
-                </p>
-                <p className="text-xs text-muted-foreground">Zen mode</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant={zenTab === "checklist" ? "default" : "outline"}
-                  size="sm"
-                  className="h-8"
-                  onClick={() => switchZenTab("checklist")}
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/50 px-2 md:px-4">
+          <TabsList className="h-auto justify-start gap-0 rounded-none bg-transparent p-0">
+            <TabsTrigger
+              value="checklist"
+              className={cn(
+                "relative h-11 gap-2 rounded-none px-3 text-sm font-medium text-muted-foreground shadow-none",
+                "data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none",
+                "after:absolute after:inset-x-2 after:-bottom-px after:h-0.5 after:rounded-full after:bg-transparent",
+                "data-[state=active]:after:bg-primary",
+              )}
+            >
+              <ListChecks className="h-4 w-4" aria-hidden />
+              Checklist
+              {checklistCounts.total > 0 ? (
+                <span
+                  className={cn(
+                    "rounded-md px-1.5 py-px text-[11px] tabular-nums",
+                    allDone
+                      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                      : "bg-muted/70 text-muted-foreground",
+                  )}
+                  aria-label={`${checklistCounts.done} of ${checklistCounts.total} done`}
                 >
-                  Checklist
-                </Button>
-                <Button
-                  type="button"
-                  variant={zenTab === "learnings" ? "default" : "outline"}
-                  size="sm"
-                  className="h-8"
-                  onClick={() => switchZenTab("learnings")}
-                >
-                  Learnings
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-8"
-                  onClick={closeZen}
-                >
-                  Close
-                </Button>
-              </div>
-            </div>
-
-            {zenTab === "checklist" ? (
-              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-                {checklistCounts.total > 0 ? (
-                  <div className="flex items-center gap-3 pb-3">
-                    <span className="text-xs tabular-nums text-muted-foreground">
-                      {checklistCounts.done}/{checklistCounts.total} done
-                    </span>
-                    <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted/60">
-                      <div
-                        className={cn(
-                          "h-full rounded-full transition-[width] duration-300 ease-out",
-                          allDone ? "bg-emerald-500" : "bg-primary",
-                        )}
-                        style={{ width: `${checklistProgress}%` }}
-                      />
-                    </div>
-                  </div>
-                ) : null}
-                <div className="px-0 py-1">
-                  <BlockEditor
-                    initialContent={checklistBlocksRef.current}
-                    emptyContent={EMPTY_CHECKLIST_DOC}
-                    onChange={(data) => scheduleBlocksPersist('checklistBlocks', data)}
-                    placeholder="Add a step…"
-                    members={currentTeam?.members}
-                    className={!canEdit ? 'opacity-50 pointer-events-none' : ''}
-                  />
-                </div>
-              </div>
-            ) : (
-              <div className="min-h-0 flex flex-1 flex-col px-4 py-4">
-                <div className="flex flex-wrap gap-2 pb-3">
-                  {LEARNING_PROMPTS.map((c) => (
-                    <Button
-                      key={c.label}
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      disabled={!canEdit}
-                      className="h-7 rounded-full px-3 text-xs"
-                      onClick={() => appendLearningTemplate(c.heading)}
-                    >
-                      {c.label}
-                    </Button>
-                  ))}
-                </div>
-                <BlockEditor
-                  ref={learningsEditorRef}
-                  initialContent={learningsBlocksRef.current}
-                  hideToolbar
-                  onChange={(data) => scheduleBlocksPersist('learningsBlocks', data)}
-                  placeholder="Write what you learned… (separate from the checklist)"
-                  members={currentTeam?.members}
-                  className={!canEdit ? 'opacity-50 pointer-events-none min-h-[300px]' : 'min-h-[300px]'}
+                  {checklistCounts.done}/{checklistCounts.total}
+                </span>
+              ) : null}
+            </TabsTrigger>
+            <TabsTrigger
+              value="learnings"
+              className={cn(
+                "relative h-11 gap-2 rounded-none px-3 text-sm font-medium text-muted-foreground shadow-none",
+                "data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none",
+                "after:absolute after:inset-x-2 after:-bottom-px after:h-0.5 after:rounded-full after:bg-transparent",
+                "data-[state=active]:after:bg-primary",
+              )}
+            >
+              <Lightbulb className="h-4 w-4" aria-hidden />
+              Learnings
+              {learningsHasContent ? (
+                <span
+                  className="h-1.5 w-1.5 rounded-full bg-amber-500"
+                  aria-label="Has notes"
                 />
-                <div className="pt-2 text-xs text-muted-foreground">
-                  Autosaves while typing. Also saves when you switch tabs or
-                  close Zen.
-                </div>
-              </div>
+              ) : null}
+            </TabsTrigger>
+          </TabsList>
+
+          {tab === "checklist" && checklistCounts.done > 0 ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 gap-1.5 px-2 text-[11px] text-muted-foreground"
+              aria-pressed={hideDone}
+              onClick={() => setHideDone((v) => !v)}
+            >
+              {hideDone ? (
+                <Eye className="h-3.5 w-3.5" aria-hidden />
+              ) : (
+                <EyeOff className="h-3.5 w-3.5" aria-hidden />
+              )}
+              {hideDone
+                ? `Show done (${checklistCounts.done})`
+                : `Hide done (${checklistCounts.done})`}
+            </Button>
+          ) : null}
+        </div>
+
+        {/* Progress rail: sits on the tab divider so it reads as part of the chrome, not content. */}
+        <div className="h-0.5 w-full shrink-0 bg-transparent" aria-hidden={tab !== "checklist"}>
+          {tab === "checklist" && checklistCounts.total > 0 ? (
+            <div
+              className="h-full w-full bg-muted/40"
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={checklistProgress}
+              aria-label="Checklist progress"
+            >
+              <div
+                className={cn(
+                  "h-full transition-[width] duration-300 ease-out",
+                  allDone ? "bg-emerald-500" : "bg-primary",
+                )}
+                style={{ width: `${checklistProgress}%` }}
+              />
+            </div>
+          ) : null}
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-gutter:stable]">
+          <TabsContent
+            value="checklist"
+            className={cn(
+              "mt-0 px-4 py-4 outline-none md:px-6",
+              hideDone && "[&_[data-type=taskItem][data-checked=true]]:hidden",
             )}
-          </div>
-        </DialogContent>
-      </Dialog>
+          >
+            <BlockEditor
+              initialContent={checklistBlocksRef.current}
+              emptyContent={emptyChecklistRef.current}
+              hideToolbar
+              onChange={(data) => scheduleBlocksPersist("checklistBlocks", data)}
+              placeholder="Add a step…"
+              members={currentTeam?.members}
+              className={!canEdit ? "pointer-events-none opacity-60" : ""}
+            />
+            {hideDone && allDone ? (
+              <p className="px-1 pt-2 text-xs text-muted-foreground">
+                Everything is done — all {checklistCounts.total} items are hidden.
+              </p>
+            ) : null}
+          </TabsContent>
+
+          <TabsContent
+            value="learnings"
+            className="mt-0 flex flex-col px-4 py-4 outline-none md:px-6"
+          >
+            <BlockEditor
+              initialContent={learningsBlocksRef.current}
+              hideToolbar
+              onChange={(data) => scheduleBlocksPersist("learningsBlocks", data)}
+              placeholder="What did you learn? What would you do differently next time?"
+              members={currentTeam?.members}
+              className={cn(
+                "min-h-[220px]",
+                !canEdit ? "pointer-events-none opacity-60" : "",
+              )}
+            />
+          </TabsContent>
+        </div>
+      </Tabs>
     </>
   );
 }

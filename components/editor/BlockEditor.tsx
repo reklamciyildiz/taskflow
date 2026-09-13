@@ -63,6 +63,9 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
       }),
       Placeholder.configure({
         placeholder,
+        // Checklists are `taskList > taskItem > paragraph`; without this the empty
+        // paragraph inside the first task item never gets the placeholder decoration.
+        includeChildren: true,
       }),
     ],
     content: initialContent || emptyContent || EMPTY_DOC,
