@@ -10,6 +10,7 @@ import { Command, CommandGroup, CommandItem, CommandList } from '@/components/ui
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { DueFlowPicker } from '@/components/due/DueFlowPicker';
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
+import { applyChecklistToggleSort } from '@/components/editor/reorderChecklistItem';
 
 
 function initials(name: string): string {
@@ -233,35 +234,11 @@ export const TaskItemNodeView = React.memo(({ node, updateAttributes, editor, ge
           disabled={disabled}
           onCheckedChange={(c) => {
             const isChecked = !!c;
-            updateAttributes({ checked: isChecked });
-            
-            // Auto-sort completed items to the bottom, preserving cursor position
-            if (editor && !editor.isDestroyed) {
-              setTimeout(() => {
-                const { from, to } = editor.state.selection;
-                const json = editor.getJSON();
-                
-                const sortNode = (n: any) => {
-                  if (n.type === 'taskList' && n.content) {
-                    const undone = n.content.filter((child: any) => !child.attrs?.checked);
-                    const done = n.content.filter((child: any) => child.attrs?.checked);
-                    n.content = [...undone, ...done];
-                  }
-                  if (n.content) {
-                    n.content.forEach(sortNode);
-                  }
-                };
-                
-                sortNode(json);
-                editor.commands.setContent(json, { emitUpdate: true });
-                
-                // Try to restore cursor, catching errors if position is out of bounds due to structural changes
-                try {
-                  editor.commands.setTextSelection({ from, to });
-                } catch (e) {
-                  // Fallback: just put cursor at the end or ignore
-                }
-              }, 50);
+            // One ProseMirror transaction: set checked AND drop the row to the
+            // open/done boundary (top of completed / bottom of open). Matches the
+            // original ActionChecklist rule; setContent+timeout did not.
+            if (!applyChecklistToggleSort(editor, getPos, isChecked)) {
+              updateAttributes({ checked: isChecked });
             }
           }}
           className={cn(
