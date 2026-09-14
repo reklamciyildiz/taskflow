@@ -88,15 +88,15 @@ export const TaskItemNodeView = React.memo(({ node, updateAttributes, editor, ge
         contentEditable={false}
       >
         <div 
-          className="cursor-grab text-muted-foreground/30 hover:text-muted-foreground transition-colors mr-0.5 py-0.5 px-0.5"
+          className="cursor-grab touch-none text-muted-foreground/30 hover:text-muted-foreground transition-colors mr-0.5 py-0.5 px-0.5"
           data-drag-handle
           onTouchStart={(e) => {
             // Only apply custom logic on touch devices
             if (!editor || !editor.isEditable || !id) return;
             if (!window.matchMedia("(pointer: coarse)").matches && !('ontouchstart' in window)) return;
-            
-            // Prevent scrolling
-            e.preventDefault();
+
+            // React's onTouchStart is passive — preventDefault() is a no-op and
+            // spams the console. `touch-none` on this handle blocks native scroll.
             e.stopPropagation();
 
             const handle = e.currentTarget as HTMLElement;
