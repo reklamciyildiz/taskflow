@@ -3,13 +3,7 @@ import { notificationDb, taskDb } from '@/lib/db';
 import { canUseAdvancedReminders, getOrganizationEntitlements, type Entitlements } from '@/lib/entitlements';
 import { computeReminderInstantsUtcIso } from '@/lib/reminder-presets';
 import { sendPushToUser } from '@/lib/push';
-
-type JournalRow = Record<string, unknown>;
-
-function normalizeRows(raw: unknown): JournalRow[] {
-  if (!Array.isArray(raw)) return [];
-  return raw.filter((x) => x && typeof x === 'object') as JournalRow[];
-}
+import { extractChecklistItemsFromTipTap, type ChecklistItemData } from '@/lib/tiptap-parser';
 
 function isoToMs(iso: string): number | null {
   const t = Date.parse(iso);
@@ -24,10 +18,8 @@ function boardLink(params: Record<string, string>) {
   return `/board?${qs.toString()}`;
 }
 
-function rowReminders(row: JournalRow): string[] {
-  const raw = row.reminders;
-  if (!Array.isArray(raw)) return [];
-  return raw.filter((x): x is string => typeof x === 'string' && x.length > 0);
+function rowReminders(row: ChecklistItemData): string[] {
+  return row.reminders;
 }
 
 function taskReminders(raw: unknown): string[] {
@@ -65,7 +57,7 @@ export type ScheduledReminderRunStats = {
  *
  * Design:
  * - Reminders are stored as UTC ISO timestamps on the task row (`tasks.reminders`)
- *   and optionally per checklist row inside `journal_logs[*].reminders`.
+ *   and optionally per checklist taskItem inside `tasks.checklist_blocks`.
  * - This job is idempotent via `notificationDb.hasRecentDuplicate` using a
  *   dedupe link containing the reminder ISO string.
  *
@@ -148,26 +140,21 @@ export async function processScheduledReminders(input?: {
     }
 
     // Checklist-row scheduled reminders.
-    for (const row of normalizeRows(t.journal_logs)) {
-      if (row.done === true) continue;
-      const text = String(row.text ?? '').trim();
+    for (const row of extractChecklistItemsFromTipTap(t.checklist_blocks)) {
+      if (row.checked) continue;
+      const text = row.text.trim();
       if (!text) continue;
-      const rowId = String(row.id ?? '');
+      const rowId = row.id;
       if (!rowId || rowId.startsWith('__')) continue;
 
-      const rowAssigneeRaw = row.assignee_id ?? row.assigneeId;
-      const assignee =
-        typeof rowAssigneeRaw === 'string' && rowAssigneeRaw
-          ? rowAssigneeRaw
-          : taskAssignee || taskCreator;
+      const assignee = row.assigneeId || taskAssignee || taskCreator;
       if (!assignee) continue;
 
       for (const iso of rowReminders(row)) {
         const ms = isoToMs(iso);
         if (ms == null) continue;
         if (ms > now || ms < minMs) continue;
-        const rowDue = row.due_date ?? row.dueDate;
-        if (!scheduledIsoAllowedForOrg(orgEnt, rowDue, iso)) continue;
+        if (!scheduledIsoAllowedForOrg(orgEnt, row.dueDate, iso)) continue;
 
         const openLink = boardLink({
           task: taskId,

@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     const teamId = searchParams.get('teamId');
     const organizationId = searchParams.get('organizationId');
 
-    let tasks;
+    let tasks: any[];
     if (teamId) {
       if (!session?.user?.email) {
         return NextResponse.json<ApiResponse<null>>(
@@ -180,7 +180,6 @@ export async function POST(request: NextRequest) {
       assignee_id: body.assigneeId || null,
       customer_id: body.customerId || null,
       project_id: body.projectId ?? null,
-      journal_logs: [],
       team_id: body.teamId,
       organization_id: organizationId,
       created_by: userId,

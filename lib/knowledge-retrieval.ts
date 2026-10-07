@@ -149,7 +149,7 @@ export function knowledgeMapsFromContext(
 
 /**
  * Builds a serializable retrieval index from canonical runtime sources.
- * It deliberately ignores task.journalLogs, task.learnings and task.learningsBlocks.
+ * Tasks, TipTap checklist blocks and independent notes are the only runtime sources.
  */
 export function buildKnowledgeRetrieval(
   tasks: Task[],
@@ -310,7 +310,7 @@ export function searchKnowledgeCards(
   });
 }
 
-/** Updates the canonical TipTap taskItem without consulting legacy journal_logs. */
+/** Updates a canonical TipTap taskItem by id. */
 export function setChecklistItemChecked(
   document: any,
   itemId: string,

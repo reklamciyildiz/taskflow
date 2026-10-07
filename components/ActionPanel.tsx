@@ -52,7 +52,6 @@ import {
 import { BlockEditor } from '@/components/editor/BlockEditor';
 import {
   countTaskItems,
-  migrateLegacyJournalToTipTap,
   type TaskItemCounts,
 } from '@/lib/tiptap-parser';
 import {
@@ -114,7 +113,7 @@ export interface ActionPanelProps {
  *  2. Draft state was hydrated in a useEffect after the first paint, then
  *     `hydratedTaskId` re-keyed the TipTap editor → a second heavy mount and a
  *     layout jump while the sheet was fading in.
- *  3. Every close unconditionally PATCHed `journalLogs`, mutating `tasks` and
+ *  3. Every close unconditionally PATCHed checklist content, mutating `tasks` and
  *     re-rendering the whole app tree during the exit animation.
  *  4. Exiting (invisible) backdrop/dialog kept `pointer-events:auto`, swallowing
  *     the next click on the board.
@@ -319,12 +318,6 @@ function ActionPanelSheet({
   );
 }
 
-/** TipTap document for the checklist editor; migrates legacy `journal_logs` rows on the fly. */
-function resolveChecklistBlocks(task: Task): unknown | null {
-  if (task.checklistBlocks) return task.checklistBlocks;
-  return migrateLegacyJournalToTipTap(task.journalLogs ?? []) ?? null;
-}
-
 function initials(name: string): string {
   const parts = String(name || "")
     .trim()
@@ -524,7 +517,7 @@ function ActionPanelContent({
   );
   const [taskDueOpen, setTaskDueOpen] = useState(false);
   /** Latest checklist document; switching tabs must never remount stale content. */
-  const checklistBlocksRef = useRef<any>(resolveChecklistBlocks(task));
+  const checklistBlocksRef = useRef<any>(task.checklistBlocks ?? null);
   /** Stable per mount so re-renders and tab switches never reseed a different id. */
   const emptyChecklistRef = useRef<any>(null);
   if (emptyChecklistRef.current === null) emptyChecklistRef.current = emptyChecklistDoc();

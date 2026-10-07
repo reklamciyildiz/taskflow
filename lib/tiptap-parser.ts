@@ -47,23 +47,35 @@ export function previewTextFromTipTap(json: any, maxLength = 140): string {
   return text.length > maxLength ? `${text.slice(0, maxLength - 1)}…` : text;
 }
 
-export function extractTasksFromTipTap(json: any): any[] {
-  const tasks: any[] = [];
+export interface ChecklistItemData {
+  id: string;
+  text: string;
+  checked: boolean;
+  assigneeId: string | null;
+  dueDate: string | null;
+  reminders: string[];
+}
+
+/** Extracts reminder/assignment metadata from canonical TipTap taskItem nodes. */
+export function extractChecklistItemsFromTipTap(json: any): ChecklistItemData[] {
+  const items: ChecklistItemData[] = [];
 
   function traverse(node: any) {
     if (!node || typeof node !== 'object') return;
     
-    // When we find a taskItem, extract it into the flat relational format
+    // Keep the canonical node intact in storage; expose only the metadata consumers need.
     if (node.type === 'taskItem') {
       const attrs = node.attrs || {};
       
-      tasks.push({
-        id: attrs.id,
+      items.push({
+        id: typeof attrs.id === 'string' ? attrs.id : '',
         text: extractTextFromNode({ content: node.content }).trim(),
-        done: !!attrs.checked,
-        assignee_id: attrs.assigneeId || null,
-        due_date: attrs.dueDate || null,
-        reminders: Array.isArray(attrs.reminders) ? attrs.reminders : [],
+        checked: attrs.checked === true,
+        assigneeId: typeof attrs.assigneeId === 'string' && attrs.assigneeId ? attrs.assigneeId : null,
+        dueDate: typeof attrs.dueDate === 'string' && attrs.dueDate ? attrs.dueDate : null,
+        reminders: Array.isArray(attrs.reminders)
+          ? attrs.reminders.filter((value: unknown): value is string => typeof value === 'string' && value.length > 0)
+          : [],
       });
     }
 
@@ -75,38 +87,43 @@ export function extractTasksFromTipTap(json: any): any[] {
 
   traverse(json);
   
-  return tasks;
+  return items;
 }
 
-export function migrateLegacyJournalToTipTap(logs: any[]) {
-  if (!logs || !Array.isArray(logs) || logs.length === 0) return null;
-  // Ignore the 'quick row' id if present
-  const validLogs = logs.filter(l => l.id !== 'QUICK_ROW_ADD_NEW');
-  if (validLogs.length === 0) return null;
-  
-  return {
-    type: 'doc',
+/** Appends a row without changing any existing TipTap nodes or attributes. */
+export function appendChecklistItemToTipTap(
+  json: any,
+  item: Pick<ChecklistItemData, 'id' | 'text'>,
+) {
+  const document =
+    json && json.type === 'doc' && Array.isArray(json.content)
+      ? { ...json, content: [...json.content] }
+      : { type: 'doc', content: [] as any[] };
+  const taskItem = {
+    type: 'taskItem',
+    attrs: {
+      checked: false,
+      id: item.id,
+      assigneeId: null,
+      dueDate: null,
+      reminders: [],
+    },
     content: [
       {
-        type: 'taskList',
-        content: validLogs.map(log => ({
-          type: 'taskItem',
-          attrs: {
-            checked: !!log.done,
-            id: log.id,
-            assigneeId: log.assignee_id || log.assigneeId || null,
-            dueDate: log.due_date || log.dueDate || null,
-            reminders: Array.isArray(log.reminders) ? log.reminders : []
-          },
-          content: [
-            {
-              type: 'paragraph',
-              content: log.text ? [{ type: 'text', text: log.text }] : undefined
-            }
-          ]
-        }))
-      }
-    ]
+        type: 'paragraph',
+        content: item.text ? [{ type: 'text', text: item.text }] : [],
+      },
+    ],
   };
+  const listIndex = document.content.findIndex((node: any) => node?.type === 'taskList');
+  if (listIndex === -1) {
+    document.content.push({ type: 'taskList', content: [taskItem] });
+  } else {
+    const list = document.content[listIndex];
+    document.content[listIndex] = {
+      ...list,
+      content: [...(Array.isArray(list.content) ? list.content : []), taskItem],
+    };
+  }
+  return document;
 }
-

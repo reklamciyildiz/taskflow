@@ -5,7 +5,7 @@ import { processTaskDueReminders } from '@/lib/process-task-reminders';
 
 /**
  * Single entrypoint for all reminder processing:
- * 1) Absolute instants (`tasks.reminders`, checklist `journal_logs[*].reminders`) — needs frequent ticks for "5m before".
+ * 1) Absolute instants (`tasks.reminders`, checklist taskItem reminders in `checklist_blocks`) — needs frequent ticks for "5m before".
  * 2) Due-date buckets (overdue / today / tomorrow in UTC) — deduped; safe to run on the same cadence.
  *
  * Auth: see `cronRemindersUnauthorizedResponse`.

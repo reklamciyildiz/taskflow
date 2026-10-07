@@ -167,39 +167,6 @@ function writeLastTeamId(teamId: string, organizationId: string | null | undefin
   }
 }
 
-function mapJournalLogs(raw: unknown): Task['journalLogs'] {
-  if (!Array.isArray(raw)) return [];
-  return raw.map((item: Record<string, unknown>, i: number) => {
-    const updatedRaw = item.updated_at ?? item.updatedAt;
-    const hasAssigneeKey = 'assignee_id' in item || 'assigneeId' in item;
-    const assigneeRaw = item.assignee_id ?? item.assigneeId;
-    const hasDueKey = 'due_date' in item || 'dueDate' in item;
-    const dueRaw = item.due_date ?? item.dueDate;
-    const hasRemindersKey = 'reminders' in item;
-    const remRaw = item.reminders;
-    return {
-      id: String(item.id ?? `jl-${i}`),
-      text: String(item.text ?? ''),
-      createdAt: String(item.created_at ?? item.createdAt ?? new Date().toISOString()),
-      ...(item.done === true ? { done: true } : {}),
-      ...(typeof updatedRaw === 'string' && updatedRaw
-        ? { updatedAt: updatedRaw }
-        : {}),
-      ...(hasAssigneeKey
-        ? { assigneeId: typeof assigneeRaw === 'string' && assigneeRaw ? assigneeRaw : null }
-        : {}),
-      ...(hasDueKey ? { dueDate: typeof dueRaw === 'string' && dueRaw ? dueRaw : null } : {}),
-      ...(hasRemindersKey
-        ? {
-            reminders: Array.isArray(remRaw)
-              ? (remRaw.filter((x): x is string => typeof x === 'string' && x.length > 0) as string[])
-              : null,
-          }
-        : {}),
-    };
-  });
-}
-
 function partialTaskToUpdateRequest(updates: TaskUpdateFields): UpdateTaskRequest {
   const api: UpdateTaskRequest = {};
   if (updates.title !== undefined) api.title = updates.title;
@@ -215,9 +182,6 @@ function partialTaskToUpdateRequest(updates: TaskUpdateFields): UpdateTaskReques
   if (updates.customerId !== undefined) api.customerId = updates.customerId;
   if (updates.projectId !== undefined) api.projectId = updates.projectId;
   if (updates.checklistBlocks !== undefined) api.checklistBlocks = updates.checklistBlocks;
-  if (updates.learningsBlocks !== undefined) api.learningsBlocks = updates.learningsBlocks;
-  if (updates.learnings !== undefined) api.learnings = updates.learnings;
-  if (updates.journalLogs !== undefined) api.journalLogs = updates.journalLogs;
   if (updates.boardPosition !== undefined) api.boardPosition = updates.boardPosition;
   return api;
 }
@@ -240,10 +204,7 @@ function transformTask(apiTask: any): Task {
     customerName: apiTask.customer?.name,
     teamId: apiTask.team_id,
     projectId: apiTask.project_id ?? null,
-    journalLogs: mapJournalLogs(apiTask.journal_logs),
     checklistBlocks: apiTask.checklist_blocks,
-    learningsBlocks: apiTask.learnings_blocks,
-    learnings: apiTask.learnings ?? null,
     boardPosition: typeof bp === 'number' && !Number.isNaN(bp) ? bp : 0,
     createdBy: apiTask.created_by || apiTask.createdBy || apiTask.user_id,
     createdAt: new Date(apiTask.created_at),

@@ -9,13 +9,6 @@ import { canonicalNotificationLink } from '@/lib/notification-nav-link';
 type TasksInsert = Database['public']['Tables']['tasks']['Insert'];
 type TasksUpdate = Database['public']['Tables']['tasks']['Update'];
 
-function normalizeTaskInsert(row: TasksInsert): TasksInsert {
-  return {
-    ...row,
-    journal_logs: row.journal_logs ?? [],
-  };
-}
-
 function pickDefinedTaskUpdates(updates: Partial<TasksUpdate>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   (Object.keys(updates) as (keyof TasksUpdate)[]).forEach((key) => {
@@ -647,34 +640,52 @@ export const teamMemberDb = {
 // TASK OPERATIONS
 // =============================================
 
+const TASK_SELECT = `
+  id,
+  title,
+  description,
+  status,
+  priority,
+  due_date,
+  reminders,
+  assignee_id,
+  customer_id,
+  project_id,
+  checklist_blocks,
+  board_position,
+  team_id,
+  organization_id,
+  created_by,
+  created_at,
+  updated_at,
+  assignee:users!tasks_assignee_id_fkey (
+    id,
+    email,
+    name,
+    avatar_url
+  ),
+  customer:customers (
+    id,
+    name
+  ),
+  comments (
+    id,
+    text,
+    created_at,
+    author:users (
+      id,
+      name,
+      avatar_url
+    )
+  )
+`;
+
 export const taskDb = {
   async create(taskData: TasksInsert) {
     const { data, error } = await db
       .from('tasks')
-      .insert(normalizeTaskInsert(taskData))
-      .select(`
-        *,
-        assignee:users!tasks_assignee_id_fkey (
-          id,
-          email,
-          name,
-          avatar_url
-        ),
-        customer:customers (
-          id,
-          name
-        ),
-        comments (
-          id,
-          text,
-          created_at,
-          author:users (
-            id,
-            name,
-            avatar_url
-          )
-        )
-      `)
+      .insert(taskData)
+      .select(TASK_SELECT)
       .single();
     
     if (error) throw error;
@@ -684,29 +695,7 @@ export const taskDb = {
   async getById(id: string) {
     const { data, error } = await db
       .from('tasks')
-      .select(`
-        *,
-        assignee:users!tasks_assignee_id_fkey (
-          id,
-          email,
-          name,
-          avatar_url
-        ),
-        customer:customers (
-          id,
-          name
-        ),
-        comments (
-          id,
-          text,
-          created_at,
-          author:users (
-            id,
-            name,
-            avatar_url
-          )
-        )
-      `)
+      .select(TASK_SELECT)
       .eq('id', id)
       .single();
     
@@ -723,29 +712,7 @@ export const taskDb = {
   async getByTeam(teamId: string) {
     const { data, error } = await db
       .from('tasks')
-      .select(`
-        *,
-        assignee:users!tasks_assignee_id_fkey (
-          id,
-          email,
-          name,
-          avatar_url
-        ),
-        customer:customers (
-          id,
-          name
-        ),
-        comments (
-          id,
-          text,
-          created_at,
-          author:users (
-            id,
-            name,
-            avatar_url
-          )
-        )
-      `)
+      .select(TASK_SELECT)
       .eq('team_id', teamId)
       .order('created_at', { ascending: false });
     
@@ -766,29 +733,7 @@ export const taskDb = {
   async getByOrganization(organizationId: string) {
     const { data, error } = await db
       .from('tasks')
-      .select(`
-        *,
-        assignee:users!tasks_assignee_id_fkey (
-          id,
-          email,
-          name,
-          avatar_url
-        ),
-        customer:customers (
-          id,
-          name
-        ),
-        comments (
-          id,
-          text,
-          created_at,
-          author:users (
-            id,
-            name,
-            avatar_url
-          )
-        )
-      `)
+      .select(TASK_SELECT)
       .eq('organization_id', organizationId)
       .order('created_at', { ascending: false });
     
@@ -797,14 +742,14 @@ export const taskDb = {
   },
 
   /**
-   * For cron reminders (due dates + checklist row due dates in `journal_logs`, and scheduled
+   * For cron reminders (action due dates + checklist taskItem due dates, and scheduled
    * `reminders`). Excludes completed actions so due/overdue nags and “remind me” do not run
    * after the user marks the task done.
    */
   async listForDueReminders(limit = 4000) {
     const { data, error } = await db
       .from('tasks')
-      .select('id, title, due_date, reminders, assignee_id, created_by, journal_logs, project_id, organization_id, team_id')
+      .select('id, title, due_date, reminders, assignee_id, created_by, checklist_blocks, project_id, organization_id, team_id')
       .neq('status', 'done')
       .limit(limit);
     if (error) throw error;
@@ -820,29 +765,7 @@ export const taskDb = {
       .from('tasks')
       .update(payload)
       .eq('id', id)
-      .select(`
-        *,
-        assignee:users!tasks_assignee_id_fkey (
-          id,
-          email,
-          name,
-          avatar_url
-        ),
-        customer:customers (
-          id,
-          name
-        ),
-        comments (
-          id,
-          text,
-          created_at,
-          author:users (
-            id,
-            name,
-            avatar_url
-          )
-        )
-      `)
+      .select(TASK_SELECT)
       .single();
     
     if (error) throw error;

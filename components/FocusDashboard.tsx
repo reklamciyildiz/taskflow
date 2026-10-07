@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import type { JournalLogEntry } from '@/lib/types';
+import { appendChecklistItemToTipTap } from '@/lib/tiptap-parser';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -56,7 +56,7 @@ export function FocusDashboard() {
   const [pendingProjectId, setPendingProjectId] = useState<string | null>(null);
   const [savedProjectId, setSavedProjectId] = useState<string | null>(null);
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  /** Which project card has the "default journal action" combobox open (controlled close on select). */
+  /** Which project card has the quick-capture Action combobox open (controlled close on select). */
   const [loggingTaskPickerProjectId, setLoggingTaskPickerProjectId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -160,17 +160,12 @@ export function FocusDashboard() {
 
     setPendingProjectId(projectId);
     try {
-      const entry: JournalLogEntry = {
-        id:
-          typeof crypto !== 'undefined' && 'randomUUID' in crypto
-            ? crypto.randomUUID()
-            : `jl-${Date.now()}`,
-        text,
-        createdAt: new Date().toISOString(),
-      };
-      const prev = task.journalLogs ?? [];
-      const next = [...prev, entry];
-      const ok = await updateTask(task.id, { journalLogs: next });
+      const itemId =
+        typeof crypto !== 'undefined' && 'randomUUID' in crypto
+          ? crypto.randomUUID()
+          : `checklist-${Date.now()}`;
+      const next = appendChecklistItemToTipTap(task.checklistBlocks, { id: itemId, text });
+      const ok = await updateTask(task.id, { checklistBlocks: next });
       if (ok) {
         setDraftByProjectId((d) => ({ ...d, [projectId]: '' }));
         setSavedProjectId(projectId);
@@ -303,7 +298,7 @@ export function FocusDashboard() {
               <CardContent className="space-y-2 pt-0">
                 {stats.recentTaskIds.length > 0 && (
                   <div className="space-y-1">
-                    <p className="text-[11px] font-medium text-muted-foreground">Default journal action</p>
+                    <p className="text-[11px] font-medium text-muted-foreground">Quick capture action</p>
                     <Popover
                       open={loggingTaskPickerProjectId === p.id}
                       onOpenChange={(open) => {
@@ -318,7 +313,7 @@ export function FocusDashboard() {
                           role="combobox"
                           disabled={pending}
                           className="h-9 w-full justify-between"
-                          aria-label="Select default journal action"
+                          aria-label="Select quick capture action"
                         >
                           <span className="truncate">
                             {pinnedTaskId

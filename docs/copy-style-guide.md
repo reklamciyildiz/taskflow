@@ -14,9 +14,9 @@ This project intentionally uses consistent terms across the UI to reduce cogniti
 
 - **Board**: Kanban-style view of Actions, grouped by columns.
 - **List**: Linear list view of Actions with filters/search.
-- **Knowledge Hub**: The place where Learnings / notes are summarized and searchable.
+- **Knowledge Hub**: The place where Action, checklist, and note content is searchable.
 - **Checklist**: The per-action actionable list (items you tick off).
-- **Learnings**: Free-form notes (separate from the checklist), summarized into Knowledge Hub.
+- **Learning note**: A Note whose type is `learning`; it remains attached to its Action.
 
 ## Microcopy patterns
 

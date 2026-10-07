@@ -1,6 +1,7 @@
 import { notificationDb, taskDb } from '@/lib/db';
 import { sendPushToUser } from '@/lib/push';
 import { tryYmdFromStoredDue, utcYmdToday } from '@/lib/due-date';
+import { extractChecklistItemsFromTipTap, type ChecklistItemData } from '@/lib/tiptap-parser';
 
 /** UTC instant at 00:00:00 of the calendar day *after* `ymd` (first moment the item is overdue). */
 function utcMsFirstOverdueInstant(ymd: string): number {
@@ -34,30 +35,18 @@ function boardLink(params: Record<string, string>) {
   return `/board?${qs.toString()}`;
 }
 
-type JournalRow = Record<string, unknown>;
-
-function normalizeChecklistRows(raw: unknown): JournalRow[] {
-  if (!Array.isArray(raw)) return [];
-  return raw.filter((x) => x && typeof x === 'object') as JournalRow[];
-}
-
-function rowYmd(row: JournalRow): string | null {
-  const v = row.due_date ?? row.dueDate;
+function rowYmd(row: ChecklistItemData): string | null {
+  const v = row.dueDate;
   if (typeof v !== 'string' || !v.trim()) return null;
   const s = v.trim();
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
   return tryYmdFromStoredDue(s);
 }
 
-function rowAssignee(row: JournalRow, taskAssignee: string | null): string | null {
-  const a = row.assignee_id ?? row.assigneeId;
-  if (typeof a === 'string' && a) return a;
+function rowAssignee(row: ChecklistItemData, taskAssignee: string | null): string | null {
+  if (row.assigneeId) return row.assigneeId;
   if (typeof taskAssignee === 'string' && taskAssignee) return taskAssignee;
   return null;
-}
-
-function rowDone(row: JournalRow): boolean {
-  return row.done === true;
 }
 
 export type ReminderRunStats = {
@@ -175,11 +164,11 @@ export async function processTaskDueReminders(): Promise<ReminderRunStats> {
       }
     }
 
-    for (const row of normalizeChecklistRows(t.journal_logs)) {
-      if (rowDone(row)) continue;
-      const text = String(row.text ?? '').trim();
+    for (const row of extractChecklistItemsFromTipTap(t.checklist_blocks)) {
+      if (row.checked) continue;
+      const text = row.text.trim();
       if (!text) continue;
-      const rowId = String(row.id ?? '');
+      const rowId = row.id;
       if (!rowId || rowId.startsWith('__')) continue;
       const ymd = rowYmd(row);
       if (!ymd) continue;

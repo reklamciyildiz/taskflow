@@ -2,7 +2,7 @@
 
 Axiom has **two reminder mechanisms**:
 
-1. **Absolute reminders** — ISO timestamps in `tasks.reminders` and optional `journal_logs[*].reminders` (e.g. “5 mins before due”). Processed by `processScheduledReminders()` (needs **frequent** ticks; deduped in DB).
+1. **Absolute reminders** — ISO timestamps in `tasks.reminders` and optional TipTap taskItem reminders in `tasks.checklist_blocks` (e.g. “5 mins before due”). Processed by `processScheduledReminders()` (needs **frequent** ticks; deduped in DB).
 2. **Due-date buckets** — UTC calendar day: overdue / due today / due tomorrow for task due dates and checklist row due dates. Processed by `processTaskDueReminders()` (deduped; safe on the same cadence).
 
 ## Unified endpoint (single URL)

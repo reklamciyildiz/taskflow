@@ -52,14 +52,14 @@ Tek uygulamada: takım görevleri, **sürece özel kolonlar** (iş arama, yazıl
 ## Focus Dashboard (Speed Dial) — tek tıkla not
 
 - Ana sayfada seçtiğin/pinlediğin **3–5 aktif süreç** kart olarak görünür.
-- Her kartta “**Hızlı not**” alanına yazıp **Enter**’a basınca, not **modal açmadan** hedef task’ın `journal_logs` alanına eklenir.
+- Her kartta “**Hızlı not**” alanına yazıp **Enter**’a basınca içerik, modal açmadan hedef Action’ın canonical `checklist_blocks` dokümanına eklenir.
 - Süreç bazında “**Varsayılan günlük task**” seçebilirsin; seçmezsen sistem “**en son güncellenen task**”ı hedef alır.
 
 ---
 
 ## Veri ve API (kısa)
 
-- Görevler API/Supabase üzerinden; `learnings` ve `journal_logs` görev kaydının parçası.
+- Action’lar API/Supabase üzerinden; checklist içeriği `checklist_blocks`, bağımsız bilgi içeriği `notes` üzerinden yönetilir.
 - Projeler ve `columnConfig` pano başlıklarını ve terminal bilgisini besler.
 - Çoklu takım / org yapısı: görev ve proje filtreleri `teamId` / `organizationId` ile uyumludur.
 

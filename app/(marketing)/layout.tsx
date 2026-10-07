@@ -73,7 +73,7 @@ const jsonLd = {
   featureList: [
     'Kanban board + list view',
     'Dynamic process pipelines with terminal stages',
-    'Knowledge Hub (learnings + journal entries)',
+    'Knowledge Hub (notes + checklists)',
     'Voice to task capture',
     'Multi-team collaboration, roles, assignments',
     'Customers and webhooks (task/customer/team events)',

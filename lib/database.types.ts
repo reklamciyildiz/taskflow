@@ -157,6 +157,7 @@ export interface Database {
           assignee_id: string | null
           customer_id: string | null
           project_id: string | null
+          checklist_blocks: Json | null
           journal_logs: Json
           learnings: string | null
           board_position: number
@@ -177,6 +178,7 @@ export interface Database {
           assignee_id?: string | null
           customer_id?: string | null
           project_id?: string | null
+          checklist_blocks?: Json | null
           journal_logs?: Json
           learnings?: string | null
           board_position?: number
@@ -197,6 +199,7 @@ export interface Database {
           assignee_id?: string | null
           customer_id?: string | null
           project_id?: string | null
+          checklist_blocks?: Json | null
           journal_logs?: Json
           learnings?: string | null
           board_position?: number

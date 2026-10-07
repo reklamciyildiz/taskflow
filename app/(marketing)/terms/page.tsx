@@ -99,7 +99,7 @@ export default function TermsPage() {
 
           <Section title="6. Your Content">
             <p>
-              You retain ownership of all content you create in Axiom (tasks, notes, journal entries,
+              You retain ownership of all content you create in Axiom (tasks, notes, checklist content,
               etc.). By using the Service, you grant us a limited, non-exclusive license to store,
               process, and display your content solely for the purpose of providing the Service to
               you.

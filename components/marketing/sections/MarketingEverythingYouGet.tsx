@@ -21,7 +21,7 @@ const items = [
   },
   {
     title: 'Knowledge Hub (second brain)',
-    body: 'Learnings and journal notes stay tied to real work — searchable across your system.',
+    body: 'Notes and checklist context stay tied to real work — searchable across your system.',
     icon: Sparkles,
   },
   {

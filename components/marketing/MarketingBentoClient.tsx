@@ -18,7 +18,7 @@ function SecondBrainVisual() {
 
       <div className="mt-3 grid grid-cols-1 gap-2">
         {[
-          { title: 'Action: onboarding polish', tag: 'learnings', glow: 'marketing-bento-float' },
+          { title: 'Action: onboarding polish', tag: 'learning note', glow: 'marketing-bento-float' },
           { title: 'Process: Sales handoff', tag: 'playbook', glow: 'marketing-bento-float-delay-1' },
           { title: 'Customer: Acme rollout', tag: 'customer', glow: 'marketing-bento-float-delay-2' },
         ].map((x) => (
@@ -206,7 +206,7 @@ const cells = [
   },
   {
     title: 'Second brain',
-    body: 'Learnings and journal entries tied to real work — searchable across everything you captured.',
+    body: 'Notes and checklist context tied to real work — searchable across everything you captured.',
     icon: Brain,
     visual: <SecondBrainVisual />,
     className: 'md:col-span-1 md:row-span-2',

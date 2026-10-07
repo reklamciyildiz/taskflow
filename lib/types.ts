@@ -26,25 +26,6 @@ export interface Note {
   updatedAt: string;
 }
 
-export interface JournalLogEntry {
-  id: string;
-  text: string;
-  createdAt: string;
-  /** Set when the note text was last edited; API stores as `updated_at`. */
-  updatedAt?: string;
-  /** Checklist completion — stored inside `journal_logs` JSON. */
-  done?: boolean;
-  /** Optional team member responsible for this checklist row (in-app notify on change). */
-  assigneeId?: string | null;
-  /** Optional due date for this row (`YYYY-MM-DD`, same convention as task due dates). */
-  dueDate?: string | null;
-  /**
-   * Optional scheduled reminder instants (UTC ISO strings).
-   * Example: ["2026-04-21T08:55:00.000Z"].
-   */
-  reminders?: string[] | null;
-}
-
 export interface ProjectColumnConfig {
   id: string;
   title: string;
@@ -135,10 +116,7 @@ export interface Task {
   customerName?: string;
   teamId: string;
   projectId?: string | null;
-  journalLogs?: JournalLogEntry[];
   checklistBlocks?: any;
-  learningsBlocks?: any;
-  learnings?: string | null;
   /** Order within the same board column (status); lower = higher on the board. */
   boardPosition: number;
   createdBy: string;
@@ -235,10 +213,7 @@ export interface UpdateTaskRequest {
   assigneeId?: string | null;
   customerId?: string | null;
   projectId?: string | null;
-  journalLogs?: JournalLogEntry[];
   checklistBlocks?: any;
-  learningsBlocks?: any;
-  learnings?: string | null;
   boardPosition?: number;
 }
 

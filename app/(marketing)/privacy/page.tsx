@@ -48,7 +48,7 @@ export default function PrivacyPage() {
             </p>
             <SubHeading>Content You Create</SubHeading>
             <p>
-              We store the tasks, board columns, notes, journal entries, reminders, and other
+              We store the tasks, board columns, notes, checklist content, reminders, and other
               content you create while using {APP_NAME}. This data is associated with your account
               and your organization.
             </p>

@@ -15,7 +15,7 @@ const steps = [
   },
   {
     title: 'Ship → Learn',
-    body: 'Progress stays visible. Learnings land in your Knowledge Hub — attached to the work that created them.',
+    body: 'Progress stays visible. Learning notes appear in your Knowledge Hub — attached to the work that created them.',
     icon: Brain,
   },
 ] as const;

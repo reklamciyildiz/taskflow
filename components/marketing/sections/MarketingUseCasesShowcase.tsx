@@ -26,13 +26,13 @@ const cases: Record<
   },
   knowledge: {
     title: 'Knowledge Hub',
-    body: 'Search learnings, notes, and checklist context across projects — a living playbook tied to real work, not a dusty wiki.',
+    body: 'Search learning notes and checklist context across projects — a living playbook tied to real work, not a dusty wiki.',
     icon: BookOpen,
     shotSrc: '/marketing/screens/knowledge-hub.png',
   },
   home: {
     title: 'Keep personal workflows in sync',
-    body: 'Use Axiom as a personal OS: checklists, learnings, and a second brain tied to what you do.',
+    body: 'Use Axiom as a personal OS: checklists, learning notes, and a second brain tied to what you do.',
     icon: Home,
     shotSrc: '/marketing/screens/section.png',
   },

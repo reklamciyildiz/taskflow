@@ -27,7 +27,7 @@ import {
   removeGoogleCalendarForUserTask,
   syncGoogleCalendarForTaskForRelevantUsers,
 } from "@/lib/google-calendar-sync";
-import { extractTasksFromTipTap } from "@/lib/tiptap-parser";
+import { extractChecklistItemsFromTipTap } from "@/lib/tiptap-parser";
 import {
   canUseAdvancedReminders,
   getOrganizationEntitlements,
@@ -207,73 +207,16 @@ export async function PATCH(
       }
     }
 
-    // If the frontend sends the new block-based JSON for checklists, extract it to flat structure
-    if (body.checklistBlocks) {
-      body.journalLogs = extractTasksFromTipTap(body.checklistBlocks);
-    }
-
-    const journalPayload =
-      body.journalLogs === undefined
-        ? undefined
-        : body.journalLogs === null
-          ? null
-          : Array.isArray(body.journalLogs)
-            ? body.journalLogs.map(
-                (e: {
-                  id?: string;
-                  text?: string;
-                  createdAt?: string;
-                  created_at?: string;
-                  updatedAt?: string;
-                  updated_at?: string;
-                  done?: boolean;
-                  assigneeId?: string | null;
-                  assignee_id?: string | null;
-                  dueDate?: string | null;
-                  due_date?: string | null;
-                  reminders?: string[] | null;
-                }) => {
-                  const created_at = e.createdAt ?? e.created_at;
-                  const updated_at = e.updatedAt ?? e.updated_at;
-                  const row: Record<string, unknown> = {
-                    id: e.id,
-                    text: e.text,
-                    created_at,
-                  };
-                  if (e.done === true) {
-                    row.done = true;
-                  }
-                  if (typeof updated_at === "string" && updated_at.length > 0) {
-                    row.updated_at = updated_at;
-                  }
-                  if (
-                    Object.prototype.hasOwnProperty.call(e, "assigneeId") ||
-                    Object.prototype.hasOwnProperty.call(e, "assignee_id")
-                  ) {
-                    const a = e.assigneeId ?? e.assignee_id;
-                    row.assignee_id = typeof a === "string" && a ? a : null;
-                  }
-                  if (
-                    Object.prototype.hasOwnProperty.call(e, "dueDate") ||
-                    Object.prototype.hasOwnProperty.call(e, "due_date")
-                  ) {
-                    const d = e.dueDate ?? e.due_date;
-                    row.due_date = typeof d === "string" && d ? d : null;
-                  }
-                  if (Object.prototype.hasOwnProperty.call(e, "reminders")) {
-                    row.reminders = Array.isArray(e.reminders)
-                      ? e.reminders.filter(
-                          (x) => typeof x === "string" && x.length > 0,
-                        )
-                      : null;
-                  }
-                  return row;
-                },
-              )
-            : undefined;
+    const checklistWasUpdated = Object.prototype.hasOwnProperty.call(
+      body ?? {},
+      "checklistBlocks",
+    );
+    const nextChecklistItems = checklistWasUpdated
+      ? extractChecklistItemsFromTipTap(body.checklistBlocks)
+      : null;
 
     // Server-side paywall: Free cannot set advanced scheduled reminders.
-    // We enforce this for both task-level reminders and checklist-row reminders inside journal_logs.
+    // We enforce this for both task-level reminders and checklist taskItem reminders.
     {
       const ent = await getOrganizationEntitlements(
         String(actor.organization_id),
@@ -314,20 +257,12 @@ export async function PATCH(
         }
       }
 
-      // Checklist-row reminders: only allow "when due" for rows where due_date exists.
-      if (!canAdvanced && Array.isArray(body.journalLogs)) {
-        for (const row of body.journalLogs as any[]) {
-          if (!row || typeof row !== "object") continue;
-          if (!Object.prototype.hasOwnProperty.call(row, "reminders")) continue;
-          const next = Array.isArray(row.reminders)
-            ? row.reminders.filter(
-                (x: any) => typeof x === "string" && x.length > 0,
-              )
-            : [];
+      // Checklist reminders: only allow "when due" for items with a due date.
+      if (!canAdvanced && nextChecklistItems) {
+        for (const row of nextChecklistItems) {
+          const next = row.reminders;
           if (next.length === 0) continue;
-          const dueAt = parseDueDateFromApi(
-            row.dueDate ?? row.due_date ?? null,
-          );
+          const dueAt = parseDueDateFromApi(row.dueDate);
           const allowed = dueAt
             ? computeReminderInstantsUtcIso({ dueAt, preset: "when_due" })[0]
             : null;
@@ -358,12 +293,9 @@ export async function PATCH(
         body.customerId === undefined ? undefined : body.customerId || null,
       project_id:
         body.projectId === undefined ? undefined : body.projectId || null,
-      learnings: body.learnings, // Keep old string field for compatibility if needed
       checklist_blocks: body.checklistBlocks,
-      learnings_blocks: body.learningsBlocks,
-      journal_logs: journalPayload,
       board_position: body.boardPosition,
-    } as any); // Type cast due to new DB columns not yet generated in TS types
+    });
 
     if (!updatedTask) {
       return NextResponse.json<ApiResponse<null>>(
@@ -397,15 +329,13 @@ export async function PATCH(
     }
 
     // Checklist row assignee changes → in-app + push (deduped).
-    if (Array.isArray(body.journalLogs) && actor?.id) {
-      const oldArr = Array.isArray((originalTask as any).journal_logs)
-        ? ((originalTask as any).journal_logs as any[])
-        : [];
-      const oldMap = new Map<string, any>(
-        oldArr.map((r) => [String(r?.id ?? ""), r]),
+    if (nextChecklistItems && actor?.id) {
+      const oldItems = extractChecklistItemsFromTipTap(
+        (originalTask as any).checklist_blocks,
       );
-      const newMap = new Map<string, any>(
-        body.journalLogs.map((r: any) => [String(r?.id ?? ""), r]),
+      const oldMap = new Map(oldItems.map((item) => [item.id, item]));
+      const newMap = new Map(
+        nextChecklistItems.map((item) => [item.id, item]),
       );
       const orgId = String(actor.organization_id ?? "");
       const actorUserId = String(actor.id);
@@ -434,16 +364,16 @@ export async function PATCH(
         }
       }
 
-      // 2. Cleanup old reminder notifications if reminders or due_date were revised.
-      for (const e of body.journalLogs as any[]) {
-        const id = String(e?.id ?? "");
+      // 2. Cleanup old reminder notifications if reminders or due date were revised.
+      for (const e of nextChecklistItems) {
+        const id = e.id;
         if (!id || id.startsWith("__")) continue;
         const prev = oldMap.get(id);
         if (prev) {
           const prevReminders = JSON.stringify(prev.reminders ?? []);
           const nextReminders = JSON.stringify(e.reminders ?? []);
-          const prevDue = prev.dueDate ?? prev.due_date;
-          const nextDue = e.dueDate ?? e.due_date;
+          const prevDue = prev.dueDate;
+          const nextDue = e.dueDate;
           if (prevReminders !== nextReminders || prevDue !== nextDue) {
             try {
               await notificationDb.deleteChecklistNotifications(
@@ -461,27 +391,12 @@ export async function PATCH(
         }
       }
 
-      for (const e of body.journalLogs as any[]) {
-        const id = String(e?.id ?? "");
+      for (const e of nextChecklistItems) {
+        const id = e.id;
         if (!id || id.startsWith("__")) continue;
         const prev = oldMap.get(id);
-        const nextAssignee =
-          e && Object.prototype.hasOwnProperty.call(e, "assigneeId")
-            ? ((e.assigneeId as string | null) ?? null)
-            : e && Object.prototype.hasOwnProperty.call(e, "assignee_id")
-              ? ((e.assignee_id as string | null) ?? null)
-              : undefined;
-        if (nextAssignee === undefined) continue;
-        const prevAssignee =
-          prev == null
-            ? null
-            : typeof (prev as any).assignee_id === "string" &&
-                (prev as any).assignee_id
-              ? String((prev as any).assignee_id)
-              : typeof (prev as any).assigneeId === "string" &&
-                  (prev as any).assigneeId
-                ? String((prev as any).assigneeId)
-                : null;
+        const nextAssignee = e.assigneeId;
+        const prevAssignee = prev?.assigneeId ?? null;
         const nextNorm = nextAssignee || null;
         const prevNorm = prevAssignee || null;
         if (!nextNorm || nextNorm === prevNorm || nextNorm === actorUserId)
