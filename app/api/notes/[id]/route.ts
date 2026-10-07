@@ -76,7 +76,16 @@ export async function DELETE(
     const access = await requireNoteAccess(params.id, { mutate: true });
     if (access instanceof NextResponse) return access;
 
-    await noteDb.delete(params.id);
+    const deleted = await noteDb.delete(params.id, {
+      organizationId: String((access.note as any).organization_id),
+      teamId: String((access.note as any).team_id),
+    });
+    if (!deleted) {
+      return NextResponse.json<ApiResponse<null>>(
+        { success: false, error: 'Note not found' },
+        { status: 404 },
+      );
+    }
     return NextResponse.json<ApiResponse<null>>({ success: true, data: null });
   } catch (error) {
     console.error('Error deleting action note:', error);

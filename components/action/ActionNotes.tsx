@@ -15,6 +15,7 @@ import {
   BookOpen,
   CheckCircle2,
   Lightbulb,
+  Loader2,
   Plus,
   StickyNote,
   Trash2,
@@ -59,6 +60,11 @@ interface LocalNoteDraft {
   title: string;
   type: NoteType;
   content: any;
+}
+
+interface InflightNoteSave {
+  patch: UpdateNoteRequest;
+  request: Promise<boolean>;
 }
 
 const NOTE_TYPE_META: Record<
@@ -148,11 +154,27 @@ export function ActionNotes({
   const draftCounterRef = useRef(0);
   const pendingRef = useRef<{ id: string; patch: UpdateNoteRequest } | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const deletingIdsRef = useRef(new Set<string>());
+  const inflightSavesRef = useRef(new Map<string, Set<InflightNoteSave>>());
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const selectedNote = useMemo(
     () => notes.find((note) => note.id === selectedId) ?? null,
     [notes, selectedId],
   );
+
+  const trackInflightSave = useCallback((id: string, save: InflightNoteSave) => {
+    const saves = inflightSavesRef.current.get(id) ?? new Set<InflightNoteSave>();
+    saves.add(save);
+    inflightSavesRef.current.set(id, saves);
+    void save.request.then(() => {
+      const current = inflightSavesRef.current.get(id);
+      current?.delete(save);
+      if (current?.size === 0) inflightSavesRef.current.delete(id);
+    });
+  }, []);
 
   const persistNow = useCallback(() => {
     if (timerRef.current) {
@@ -161,7 +183,7 @@ export function ActionNotes({
     }
     const pending = pendingRef.current;
     pendingRef.current = null;
-    if (!pending || !canEdit) return;
+    if (!pending || !canEdit || deletingIdsRef.current.has(pending.id)) return;
 
     setNotes((current) =>
       current.map((note) =>
@@ -173,24 +195,31 @@ export function ActionNotes({
       .update(pending.id, pending.patch)
       .then((result) => {
         if (!result.success || !result.data) {
-          toast.error(result.error || "Could not save note");
+          if (!deletingIdsRef.current.has(pending.id)) {
+            toast.error(result.error || "Could not save note");
+          }
           return false;
         }
-        setNotes((current) =>
-          current.map((note) =>
-            note.id === pending.id
-              ? { ...note, updatedAt: result.data!.updatedAt }
-              : note,
-          ),
-        );
+        if (!deletingIdsRef.current.has(pending.id)) {
+          setNotes((current) =>
+            current.map((note) =>
+              note.id === pending.id
+                ? { ...note, updatedAt: result.data!.updatedAt }
+                : note,
+            ),
+          );
+        }
         return true;
       })
       .catch(() => {
-        toast.error("Could not save note");
+        if (!deletingIdsRef.current.has(pending.id)) {
+          toast.error("Could not save note");
+        }
         return false;
       });
+    trackInflightSave(pending.id, { patch: pending.patch, request });
     onTrackSave(request);
-  }, [canEdit, onTrackSave, setNotes]);
+  }, [canEdit, onTrackSave, setNotes, trackInflightSave]);
 
   useEffect(() => {
     flushRef.current = persistNow;
@@ -208,7 +237,7 @@ export function ActionNotes({
 
   const schedulePersist = useCallback(
     (id: string, patch: UpdateNoteRequest) => {
-      if (!canEdit) return;
+      if (!canEdit || deletingIdsRef.current.has(id)) return;
       if (pendingRef.current && pendingRef.current.id !== id) persistNow();
       pendingRef.current = {
         id,
@@ -371,19 +400,45 @@ export function ActionNotes({
 
   const deleteSelected = async () => {
     const deleteId = draft?.persistedId ?? selectedNote?.id;
-    if (!deleteId || !canEdit) return;
-    if (pendingRef.current?.id === deleteId) pendingRef.current = null;
-    if (timerRef.current) {
+    if (!deleteId || !canEdit || deletingIdsRef.current.has(deleteId)) return;
+
+    deletingIdsRef.current.add(deleteId);
+    setDeletingId(deleteId);
+    setDeleteError(null);
+    const canceledPending =
+      pendingRef.current?.id === deleteId ? pendingRef.current : null;
+    if (canceledPending) pendingRef.current = null;
+    if (canceledPending && timerRef.current) {
       clearTimeout(timerRef.current);
       timerRef.current = null;
     }
-    const responsePromise = noteApi.delete(deleteId);
+
+    const inflightSaves = Array.from(inflightSavesRef.current.get(deleteId) ?? []);
+    const inflightResults = await Promise.all(
+      inflightSaves.map((save) => save.request),
+    );
+
+    const responsePromise = noteApi.delete(deleteId).catch(() => ({
+      success: false as const,
+      error: "Could not delete note",
+    }));
     onTrackSave(responsePromise.then((result) => result.success));
     const result = await responsePromise;
     if (!result.success) {
-      toast.error(result.error || "Could not delete note");
+      deletingIdsRef.current.delete(deleteId);
+      setDeletingId(null);
+      setDeleteError(result.error || "Could not delete note");
+      const retryPatch = inflightSaves.reduce<UpdateNoteRequest | null>(
+        (combined, save, index) =>
+          inflightResults[index]
+            ? combined
+            : { ...(combined ?? {}), ...save.patch },
+        canceledPending?.patch ?? null,
+      );
+      if (retryPatch) schedulePersist(deleteId, retryPatch);
       return;
     }
+
     setNotes((current) => current.filter((note) => note.id !== deleteId));
     if (draft) {
       draftSessionsRef.current.delete(draft.clientId);
@@ -392,6 +447,9 @@ export function ActionNotes({
     } else {
       setSelectedId(null);
     }
+    deletingIdsRef.current.delete(deleteId);
+    setDeletingId(null);
+    setDeleteDialogOpen(false);
   };
 
   if (loading) {
@@ -449,6 +507,7 @@ export function ActionNotes({
     const meta = NOTE_TYPE_META[editorNote.type];
     const persistedId = draft?.persistedId ?? selectedNote?.id ?? null;
     const editorKey = draft?.clientId ?? selectedNote!.id;
+    const isDeleting = Boolean(persistedId && deletingId === persistedId);
     return (
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-4 md:px-6">
         <div className="flex items-center gap-2">
@@ -457,6 +516,7 @@ export function ActionNotes({
             variant="ghost"
             size="sm"
             className="h-8 gap-1.5 px-2 text-muted-foreground"
+            disabled={isDeleting}
             onClick={closeNote}
           >
             <ArrowLeft className="h-4 w-4" aria-hidden />
@@ -465,7 +525,7 @@ export function ActionNotes({
           <div className="flex-1" />
           <Select
             value={editorNote.type}
-            disabled={!canEdit}
+            disabled={!canEdit || isDeleting}
             onValueChange={(value: NoteType) => {
               if (draft) {
                 updateDraft({ type: value });
@@ -487,7 +547,14 @@ export function ActionNotes({
             </SelectContent>
           </Select>
           {canEdit && persistedId ? (
-            <AlertDialog>
+            <AlertDialog
+              open={deleteDialogOpen}
+              onOpenChange={(open) => {
+                if (isDeleting) return;
+                setDeleteDialogOpen(open);
+                if (!open) setDeleteError(null);
+              }}
+            >
               <AlertDialogTrigger asChild>
                 <Button
                   type="button"
@@ -499,20 +566,39 @@ export function ActionNotes({
                   <Trash2 className="h-4 w-4" aria-hidden />
                 </Button>
               </AlertDialogTrigger>
-              <AlertDialogContent>
+              <AlertDialogContent
+                overlayClassName="z-[70]"
+                className="z-[71] max-w-sm"
+              >
                 <AlertDialogHeader>
                   <AlertDialogTitle>Delete this note?</AlertDialogTitle>
                   <AlertDialogDescription>
                     This note will be permanently removed from the action.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
+                {deleteError ? (
+                  <p role="alert" className="text-xs text-destructive">
+                    {deleteError}
+                  </p>
+                ) : null}
                 <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
                   <AlertDialogAction
-                    onClick={() => void deleteSelected()}
+                    disabled={isDeleting}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      void deleteSelected();
+                    }}
                     className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                   >
-                    Delete
+                    {isDeleting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+                        Deleting…
+                      </>
+                    ) : (
+                      "Delete"
+                    )}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -523,7 +609,7 @@ export function ActionNotes({
         <Input
           value={editorNote.title}
           autoFocus={Boolean(draft)}
-          disabled={!canEdit}
+          disabled={!canEdit || isDeleting}
           maxLength={240}
           placeholder="Note title (optional)"
           className="h-auto border-0 bg-transparent px-0 text-lg font-semibold shadow-none focus-visible:ring-0"
@@ -546,7 +632,7 @@ export function ActionNotes({
             documentPlaceholder
             placeholder="Capture a thought, learning, idea, or decision…"
             members={members}
-            className={!canEdit ? "pointer-events-none opacity-60" : ""}
+            className={!canEdit || isDeleting ? "pointer-events-none opacity-60" : ""}
             onChange={(content) => {
               if (draft) {
                 updateDraft({ content }, false);

@@ -938,10 +938,20 @@ export const noteDb = {
     return data;
   },
 
-  async delete(id: string) {
-    const { error } = await db.from('notes').delete().eq('id', id);
+  async delete(
+    id: string,
+    scope: { organizationId: string; teamId: string },
+  ) {
+    const { data, error } = await db
+      .from('notes')
+      .delete()
+      .eq('id', id)
+      .eq('organization_id', scope.organizationId)
+      .eq('team_id', scope.teamId)
+      .select('id')
+      .maybeSingle();
     if (error) throw error;
-    return true;
+    return Boolean(data?.id);
   },
 };
 
