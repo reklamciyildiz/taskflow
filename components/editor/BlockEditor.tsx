@@ -24,6 +24,8 @@ interface BlockEditorProps {
   emptyContent?: any;
   onChange?: (content: any) => void;
   placeholder?: string;
+  /** Show one placeholder only while the whole document is empty. */
+  documentPlaceholder?: boolean;
   className?: string;
   /** Team member list — passed via storage to TaskItemNodeView to avoid context re-renders */
   members?: { id: string; name: string }[];
@@ -40,6 +42,7 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
       emptyContent,
       onChange,
       placeholder = 'Write something...',
+      documentPlaceholder = false,
       className,
       members,
       hideToolbar = false,
@@ -62,10 +65,12 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
         nested: true,
       }),
       Placeholder.configure({
-        placeholder,
+        placeholder: ({ editor }) =>
+          documentPlaceholder && !editor.isEmpty ? '' : placeholder,
         // Checklists are `taskList > taskItem > paragraph`; without this the empty
         // paragraph inside the first task item never gets the placeholder decoration.
-        includeChildren: true,
+        // Document-style notes instead show a single placeholder only when fully empty.
+        includeChildren: !documentPlaceholder,
       }),
     ],
     content: initialContent || emptyContent || EMPTY_DOC,

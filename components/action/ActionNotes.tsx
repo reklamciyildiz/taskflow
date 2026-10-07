@@ -6,7 +6,9 @@ import {
   useMemo,
   useRef,
   useState,
+  type Dispatch,
   type MutableRefObject,
+  type SetStateAction,
 } from "react";
 import {
   ArrowLeft,
@@ -101,47 +103,34 @@ function noteDate(value: string): string {
 
 interface ActionNotesProps {
   taskId: string;
+  notes: Note[];
+  setNotes: Dispatch<SetStateAction<Note[]>>;
+  loading: boolean;
+  loadError: string | null;
+  onRetry: () => void;
   canEdit: boolean;
   members?: { id: string; name: string }[];
   flushRef: MutableRefObject<(() => void) | null>;
   onTrackSave: (request: Promise<boolean>) => void;
-  onCountChange?: (count: number) => void;
 }
 
 export function ActionNotes({
   taskId,
+  notes,
+  setNotes,
+  loading,
+  loadError,
+  onRetry,
   canEdit,
   members,
   flushRef,
   onTrackSave,
-  onCountChange,
 }: ActionNotesProps) {
-  const [notes, setNotes] = useState<Note[]>([]);
-  const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [newType, setNewType] = useState<NoteType>("note");
   const pendingRef = useRef<{ id: string; patch: UpdateNoteRequest } | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    void noteApi.getByTask(taskId).then((result) => {
-      if (cancelled) return;
-      if (!result.success || !result.data) {
-        toast.error(result.error || "Could not load notes");
-        setLoading(false);
-        return;
-      }
-      setNotes(result.data);
-      onCountChange?.(result.data.length);
-      setLoading(false);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [onCountChange, taskId]);
 
   const selectedNote = useMemo(
     () => notes.find((note) => note.id === selectedId) ?? null,
@@ -184,7 +173,7 @@ export function ActionNotes({
         return false;
       });
     onTrackSave(request);
-  }, [canEdit, onTrackSave]);
+  }, [canEdit, onTrackSave, setNotes]);
 
   useEffect(() => {
     flushRef.current = persistNow;
@@ -214,7 +203,7 @@ export function ActionNotes({
         current.map((note) => (note.id === id ? { ...note, ...patch } : note)),
       );
     },
-    [],
+    [setNotes],
   );
 
   const createNote = async () => {
@@ -232,7 +221,6 @@ export function ActionNotes({
       return;
     }
     setNotes((current) => [result.data!, ...current]);
-    onCountChange?.(notes.length + 1);
     setSelectedId(result.data.id);
   };
 
@@ -262,14 +250,55 @@ export function ActionNotes({
       return;
     }
     setNotes((current) => current.filter((note) => note.id !== deletedId));
-    onCountChange?.(Math.max(0, notes.length - 1));
     setSelectedId(null);
   };
 
   if (loading) {
     return (
-      <div className="flex min-h-[220px] items-center justify-center text-muted-foreground">
-        <Loader2 className="h-5 w-5 animate-spin" aria-label="Loading notes" />
+      <div
+        className="mx-auto flex w-full max-w-3xl animate-pulse flex-col gap-4 px-4 py-4 md:px-6"
+        aria-busy="true"
+        aria-label="Loading notes"
+      >
+        <div className="flex h-12 items-center gap-2 rounded-xl border border-border/40 bg-muted/10 p-2">
+          <div className="h-8 w-[126px] rounded-md bg-muted/50" />
+          <div className="h-8 flex-1 rounded-md bg-muted/50" />
+        </div>
+        {[0, 1, 2].map((item) => (
+          <div key={item} className="rounded-xl border border-border/40 p-3">
+            <div className="flex gap-3">
+              <div className="h-7 w-7 shrink-0 rounded-lg bg-muted/50" />
+              <div className="min-w-0 flex-1 space-y-2">
+                <div className="h-4 w-1/3 rounded bg-muted/50" />
+                <div className="h-3 w-4/5 rounded bg-muted/35" />
+                <div className="h-3 w-1/4 rounded bg-muted/35" />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="mx-auto flex w-full max-w-3xl flex-col px-4 py-4 md:px-6">
+        <div className="flex min-h-[220px] flex-col items-center justify-center rounded-xl border border-dashed border-border/70 px-6 text-center">
+          <StickyNote className="mb-3 h-8 w-8 text-muted-foreground/55" aria-hidden />
+          <p className="text-sm font-medium">Could not load notes</p>
+          <p className="mt-1 max-w-sm text-xs leading-relaxed text-muted-foreground">
+            {loadError}
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="mt-4"
+            onClick={onRetry}
+          >
+            Try again
+          </Button>
+        </div>
       </div>
     );
   }
@@ -361,6 +390,7 @@ export function ActionNotes({
             key={selectedNote.id}
             initialContent={selectedNote.content}
             hideToolbar
+            documentPlaceholder
             placeholder="Capture a thought, learning, idea, or decision…"
             members={members}
             className={!canEdit ? "pointer-events-none opacity-60" : ""}

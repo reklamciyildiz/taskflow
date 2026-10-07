@@ -84,6 +84,8 @@ import { DueFlowPicker } from "@/components/due/DueFlowPicker";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
 import { ActionNotes } from "@/components/action/ActionNotes";
+import { noteApi } from "@/lib/api";
+import type { Note } from "@/lib/types";
 
 export interface ActionPanelProps {
   task: Task | null;
@@ -550,11 +552,34 @@ function ActionPanelContent({
   const [learningsHasContent, setLearningsHasContent] = useState(
     () => previewTextFromTipTap(learningsBlocksRef.current, 1).length > 0,
   );
-  const [notesCount, setNotesCount] = useState(0);
+  // Prefetch once per mounted ActionPanelContent. This component is keyed by task.id,
+  // so data from different actions can never share the same state bucket.
+  const [notes, setNotes] = useState<Note[]>([]);
+  const [notesLoading, setNotesLoading] = useState(true);
+  const [notesLoadError, setNotesLoadError] = useState<string | null>(null);
+  const notesRequestRef = useRef(0);
   const notesFlushRef = useRef<(() => void) | null>(null);
-  const handleNotesCountChange = useCallback((count: number) => {
-    setNotesCount(count);
-  }, []);
+  const loadNotes = useCallback(async () => {
+    const requestId = ++notesRequestRef.current;
+    setNotesLoading(true);
+    setNotesLoadError(null);
+    const result = await noteApi.getByTask(taskId);
+    if (requestId !== notesRequestRef.current) return;
+    if (!result.success || !result.data) {
+      setNotesLoadError(result.error || "Please try again.");
+      setNotesLoading(false);
+      return;
+    }
+    setNotes(result.data);
+    setNotesLoading(false);
+  }, [taskId]);
+  useEffect(() => {
+    void loadNotes();
+    return () => {
+      notesRequestRef.current += 1;
+    };
+  }, [loadNotes]);
+  const notesCount = notes.length;
 
   /** Which document is open. Checklist first: it is the working surface; learnings are the retro. */
   const [tab, setTab] = useState<WorkTab>("checklist");
@@ -1372,11 +1397,15 @@ function ActionPanelContent({
           <TabsContent value="notes" className="mt-0 outline-none">
             <ActionNotes
               taskId={taskId}
+              notes={notes}
+              setNotes={setNotes}
+              loading={notesLoading}
+              loadError={notesLoadError}
+              onRetry={() => void loadNotes()}
               canEdit={canEdit}
               members={currentTeam?.members}
               flushRef={notesFlushRef}
               onTrackSave={trackSave}
-              onCountChange={handleNotesCountChange}
             />
           </TabsContent>
 
