@@ -43,6 +43,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { noteApi } from "@/lib/api";
+import { notifyKnowledgeSourcesChanged } from "@/lib/knowledge-events";
 import { previewTextFromTipTap } from "@/lib/tiptap-parser";
 import type { Note, NoteType, UpdateNoteRequest } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -208,6 +209,7 @@ export function ActionNotes({
                 : note,
             ),
           );
+          notifyKnowledgeSourcesChanged(result.data.teamId);
         }
         return true;
       })
@@ -301,6 +303,7 @@ export function ActionNotes({
       }
 
       const created = result.data;
+      notifyKnowledgeSourcesChanged(created.teamId);
       const persistedNote: Note = {
         ...created,
         title: latest.title,
@@ -401,6 +404,7 @@ export function ActionNotes({
   const deleteSelected = async () => {
     const deleteId = draft?.persistedId ?? selectedNote?.id;
     if (!deleteId || !canEdit || deletingIdsRef.current.has(deleteId)) return;
+    const deleteTeamId = notes.find((note) => note.id === deleteId)?.teamId ?? null;
 
     deletingIdsRef.current.add(deleteId);
     setDeletingId(deleteId);
@@ -440,6 +444,7 @@ export function ActionNotes({
     }
 
     setNotes((current) => current.filter((note) => note.id !== deleteId));
+    notifyKnowledgeSourcesChanged(deleteTeamId);
     if (draft) {
       draftSessionsRef.current.delete(draft.clientId);
       activeDraftRef.current = null;

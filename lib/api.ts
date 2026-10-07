@@ -132,6 +132,9 @@ export const taskApi = {
 };
 
 export const noteApi = {
+  getForKnowledge: (teamId: string) =>
+    fetchApi<Note[]>(`/knowledge?teamId=${encodeURIComponent(teamId)}`),
+
   getByTask: (taskId: string) =>
     fetchApi<Note[]>(`/tasks/${taskId}/notes`),
 

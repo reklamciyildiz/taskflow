@@ -23,14 +23,15 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import {
-  buildKnowledgeHubCards,
   formatKnowledgeEntryDate,
-  knowledgeMapsFromContext,
   normalizeKnowledgePinId,
-  type KnowledgeEntryType,
+  searchKnowledgeCards,
+  setChecklistItemChecked,
+  type KnowledgeContentFilter,
   type KnowledgeHubCard,
-} from '@/lib/knowledge-entries';
-export type { KnowledgeEntryType, KnowledgeHubCard } from '@/lib/knowledge-entries';
+} from '@/lib/knowledge-retrieval';
+import { useKnowledgeRetrieval } from '@/hooks/useKnowledgeRetrieval';
+export type { KnowledgeHubCard } from '@/lib/knowledge-retrieval';
 
 const PIN_KEY = 'taskflow:pinnedKnowledgeEntryIds';
 
@@ -39,8 +40,7 @@ export function KnowledgeHubView() {
   const { tasks, projects, teams, currentTeam, loading, openTaskEditor, updateTask, canEditTask } =
     useTaskContext();
   const [query, setQuery] = useState('');
-  type TypeFilter = 'all' | KnowledgeEntryType;
-  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
+  const [typeFilter, setTypeFilter] = useState<KnowledgeContentFilter>('all');
   const [projectFilter, setProjectFilter] = useState<string>('all');
   const [pinnedIds, setPinnedIds] = useState<string[]>([]);
 
@@ -54,42 +54,23 @@ export function KnowledgeHubView() {
     return projects.filter((p) => !p.teamId || p.teamId === currentTeam.id);
   }, [projects, currentTeam]);
 
-  const { projectNameById, teamNameById } = useMemo(
-    () => knowledgeMapsFromContext(projectsScoped, teams),
-    [projectsScoped, teams]
-  );
-
-  const allCards = useMemo(
-    () => buildKnowledgeHubCards(tasksScoped, projectNameById, teamNameById),
-    [tasksScoped, projectNameById, teamNameById]
-  );
+  const {
+    cards: allCards,
+    notesLoading,
+    notesError,
+    retryNotes,
+  } = useKnowledgeRetrieval({
+    tasks: tasksScoped,
+    projects: projectsScoped,
+    teams,
+    teamId: currentTeam?.id ?? null,
+  });
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return allCards.filter((c) => {
-      if (typeFilter === 'learnings' && !c.learningsPreview) return false;
-      if (typeFilter === 'action_notes' && c.checklistItems.length === 0) return false;
-      if (projectFilter !== 'all') {
-        if (projectFilter === '__none__') {
-          if (c.projectId != null) return false;
-        } else if (c.projectId !== projectFilter) return false;
-      }
-      if (!q) return true;
-      const hay = [
-        c.taskTitle,
-        c.projectName ?? '',
-        c.teamName,
-        c.learningsPreview ?? '',
-        ...c.checklistItems.map((i) => i.text),
-        // search helpers
-        'learning',
-        'learnings',
-        'journal',
-        'notes',
-      ]
-        .join(' ')
-        .toLowerCase();
-      return hay.includes(q);
+    return searchKnowledgeCards(allCards, {
+      query,
+      content: typeFilter,
+      projectId: projectFilter,
     });
   }, [allCards, query, typeFilter, projectFilter]);
 
@@ -142,9 +123,9 @@ export function KnowledgeHubView() {
                 </button>
               </PopoverTrigger>
               <PopoverContent side="bottom" align="start" className="max-w-[320px] p-4 text-sm leading-relaxed z-[100]">
-                Your action <span className="font-medium text-foreground">learnings</span> (free-form notes) and{' '}
-                <span className="font-medium text-foreground">journal notes</span> (checklist items in the action journal) are collected here.
-                You can tick items without opening the board—click a card for full details.
+                Search across your <span className="font-medium text-foreground">actions</span>,{' '}
+                <span className="font-medium text-foreground">checklists</span>, and{' '}
+                <span className="font-medium text-foreground">notes</span>. Results stay grouped by action so you can return to the full context.
               </PopoverContent>
             </Popover>
           </div>
@@ -162,14 +143,14 @@ export function KnowledgeHubView() {
             aria-label="Knowledge Hub search"
           />
         </div>
-        <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as TypeFilter)}>
+        <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as KnowledgeContentFilter)}>
           <SelectTrigger className="h-11 w-full sm:w-[220px]">
             <SelectValue placeholder="Content" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All content</SelectItem>
-            <SelectItem value="learnings">Learnings</SelectItem>
-            <SelectItem value="action_notes">Journal notes</SelectItem>
+            <SelectItem value="notes">Notes</SelectItem>
+            <SelectItem value="checklist">Checklist</SelectItem>
           </SelectContent>
         </Select>
         <Select value={projectFilter} onValueChange={setProjectFilter}>
@@ -188,7 +169,16 @@ export function KnowledgeHubView() {
         </Select>
       </div>
 
-      {loading ? (
+      {notesError && !notesLoading ? (
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+          <span>Notes could not be loaded. Action and checklist results are still available.</span>
+          <Button type="button" variant="ghost" size="sm" className="h-7" onClick={() => void retryNotes()}>
+            Retry
+          </Button>
+        </div>
+      ) : null}
+
+      {loading || notesLoading ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
       ) : allCards.length === 0 ? (
         <div className="columns-1 gap-4 [column-fill:_balance] md:columns-2 lg:columns-3 xl:columns-4">
@@ -198,10 +188,10 @@ export function KnowledgeHubView() {
               <div className="p-4">
                 <Badge variant="secondary" className="gap-1">
                   <FileText className="h-3 w-3" />
-                  Journal
+                  Checklist
                 </Badge>
                 <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
-                  Example: meeting note, interview item…
+                  Example: a checklist item tied to an action…
                 </p>
               </div>
             </div>
@@ -214,9 +204,9 @@ export function KnowledgeHubView() {
                     <Inbox className="h-6 w-6" aria-hidden />
                   </div>
                   <div className="min-w-0">
-                    <p className="font-semibold text-foreground">No notes yet</p>
+                    <p className="font-semibold text-foreground">No knowledge yet</p>
                     <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                      Open an action on the board and add journal notes or learnings—quick capture can also land items in Inbox.
+                      Open an action on the board and add checklist items or notes.
                     </p>
                     <Button variant="default" className="mt-4 gap-2" onClick={() => router.push('/board')}>
                       <LayoutGrid className="h-4 w-4" />
@@ -241,12 +231,15 @@ export function KnowledgeHubView() {
         </div>
       ) : (
         <div className="columns-1 gap-4 [column-fill:_balance] md:columns-2 lg:columns-3 xl:columns-4">
-          {filtered.map((card) => {
+          {filtered.map(({ card, matches }) => {
             const pinId = normalizeKnowledgePinId(card.id);
             const isPinned = pinnedIds.includes(pinId);
-            const hasLearn = !!card.learningsPreview;
+            const hasNotes = card.notes.length > 0;
             const hasList = card.checklistItems.length > 0;
-            const accent = hasLearn && !hasList ? 'emerald' : 'amber';
+            const accent = hasNotes && !hasList ? 'emerald' : 'amber';
+            const primaryMatch = query.trim()
+              ? matches.find((match) => match.sourceType !== 'action') ?? matches[0]
+              : null;
 
             return (
               <div key={card.id} className="mb-4 break-inside-avoid">
@@ -274,17 +267,19 @@ export function KnowledgeHubView() {
                   <CardContent className="p-4">
                     <div className="mb-3 flex items-start justify-between gap-2">
                       <div className="min-w-0 flex flex-wrap items-center gap-2">
-                        {hasLearn ? (
+                        {hasNotes ? (
                           <Badge className="gap-1 bg-emerald-600 hover:bg-emerald-600">
                             <BookOpen className="h-3 w-3" />
-                            Learnings
+                            Notes
                           </Badge>
-                        ) : (
+                        ) : null}
+                        {hasList ? (
                           <Badge variant="secondary" className="gap-1">
                             <FileText className="h-3 w-3" />
-                            Journal
+                            Checklist
                           </Badge>
-                        )}
+                        ) : null}
+                        {!hasNotes && !hasList ? <Badge variant="secondary">Action</Badge> : null}
                         {isPinned && <span aria-label="Pinned">⭐</span>}
                       </div>
                       <div className="flex shrink-0 items-center gap-1">
@@ -313,8 +308,8 @@ export function KnowledgeHubView() {
 
                     {hasList && (
                       <ul className="mb-3 space-y-1.5">
-                        {card.checklistItems.slice(0, 10).map((item) => {
-                          const task = tasks.find((t) => t.id === card.taskId);
+                        {card.checklistItems.slice(0, 6).map((item) => {
+                          const task = tasksScoped.find((candidate) => candidate.id === card.taskId);
                           const editable = task ? canEditTask(task.createdBy, task.assigneeId) : false;
                           return (
                             <li
@@ -325,15 +320,19 @@ export function KnowledgeHubView() {
                             >
                               <Checkbox
                                 checked={item.done}
-                                disabled={!editable}
+                                disabled={!editable || !item.persistedId}
                                 className="mt-0.5"
                                 onCheckedChange={(v) => {
-                                  const t = tasks.find((x) => x.id === card.taskId);
-                                  if (!t || !editable) return;
-                                  const next = (t.journalLogs ?? []).map((row) =>
-                                    row.id === item.id ? { ...row, done: v === true } : row
+                                  const currentTask = tasksScoped.find(
+                                    (candidate) => candidate.id === card.taskId,
                                   );
-                                  void updateTask(card.taskId, { journalLogs: next });
+                                  if (!currentTask || !editable || !item.persistedId) return;
+                                  const next = setChecklistItemChecked(
+                                    currentTask.checklistBlocks,
+                                    item.persistedId,
+                                    v === true,
+                                  );
+                                  if (next) void updateTask(card.taskId, { checklistBlocks: next });
                                 }}
                               />
                               <span
@@ -347,17 +346,45 @@ export function KnowledgeHubView() {
                             </li>
                           );
                         })}
-                        {card.checklistItems.length > 10 && (
-                          <li className="text-xs text-muted-foreground">+{card.checklistItems.length - 10} more…</li>
+                        {card.checklistItems.length > 6 && (
+                          <li className="text-xs text-muted-foreground">+{card.checklistItems.length - 6} more…</li>
                         )}
                       </ul>
                     )}
 
-                    {hasLearn && (
-                      <p className="mb-3 whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground/90">
-                        {card.learningsPreview}
-                      </p>
-                    )}
+                    {hasNotes ? (
+                      <div className="mb-3 space-y-2">
+                        {card.notes.slice(0, 2).map((note) => (
+                          <div key={note.id} className="rounded-md border border-border/50 bg-background/35 px-2.5 py-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                                {note.type}
+                              </span>
+                              <span className="truncate text-xs font-medium">
+                                {note.title || note.text || 'Untitled note'}
+                              </span>
+                            </div>
+                            {note.title && note.text ? (
+                              <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+                                {note.text}
+                              </p>
+                            ) : null}
+                          </div>
+                        ))}
+                        {card.notes.length > 2 ? (
+                          <p className="text-xs text-muted-foreground">+{card.notes.length - 2} more notes…</p>
+                        ) : null}
+                      </div>
+                    ) : null}
+
+                    {primaryMatch ? (
+                      <div className="mb-3 rounded-md bg-primary/5 px-2.5 py-2 text-xs leading-relaxed">
+                        <span className="font-medium text-primary">Matched {primaryMatch.label}</span>
+                        {primaryMatch.snippet ? (
+                          <p className="mt-1 line-clamp-2 text-muted-foreground">{primaryMatch.snippet}</p>
+                        ) : null}
+                      </div>
+                    ) : null}
 
                     <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
                       {card.projectName ? (
@@ -393,7 +420,7 @@ export function KnowledgeHubView() {
         </div>
       )}
 
-      {!loading && allCards.length > 0 && (
+      {!loading && !notesLoading && allCards.length > 0 && (
         <p className="text-center text-xs text-muted-foreground">
           {filtered.length} / {allCards.length} cards
         </p>

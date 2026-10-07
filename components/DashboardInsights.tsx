@@ -7,12 +7,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
-  buildKnowledgeHubCards,
-  knowledgeMapsFromContext,
   formatKnowledgeEntryDate,
   normalizeKnowledgePinId,
   type KnowledgeHubCard,
-} from '@/lib/knowledge-entries';
+} from '@/lib/knowledge-retrieval';
+import { useKnowledgeRetrieval } from '@/hooks/useKnowledgeRetrieval';
 import {
   FALLBACK_BOARD_COLUMNS,
   resolveTaskBoardColumnId,
@@ -40,28 +39,25 @@ const COLORS = [
 function hubCardPreview(c: KnowledgeHubCard): string {
   const first = c.checklistItems[0]?.text;
   if (first) return first;
-  if (c.learningsPreview) return c.learningsPreview;
+  const note = c.notes[0];
+  if (note) return note.title || note.text;
   return c.taskTitle;
 }
 
-function hubCardIsLearningOnly(c: KnowledgeHubCard): boolean {
-  return !!c.learningsPreview && c.checklistItems.length === 0;
+function hubCardIsNoteOnly(c: KnowledgeHubCard): boolean {
+  return c.notes.length > 0 && c.checklistItems.length === 0;
 }
 
 export function DashboardInsights() {
   const { tasks, projects, teams, currentTeam, loading, openTaskEditor } = useTaskContext();
   const router = useRouter();
   const [pinnedIds, setPinnedIds] = useState<string[]>([]);
-
-  const { projectNameById, teamNameById } = useMemo(
-    () => knowledgeMapsFromContext(projects, teams),
-    [projects, teams]
-  );
-
-  const allKnowledgeCards = useMemo(
-    () => buildKnowledgeHubCards(tasks, projectNameById, teamNameById),
-    [tasks, projectNameById, teamNameById]
-  );
+  const { cards: allKnowledgeCards, notesLoading } = useKnowledgeRetrieval({
+    tasks,
+    projects,
+    teams,
+    teamId: currentTeam?.id ?? null,
+  });
 
   const recentFeed = useMemo(() => allKnowledgeCards.slice(0, 5), [allKnowledgeCards]);
 
@@ -142,7 +138,7 @@ export function DashboardInsights() {
           </Button>
         </CardHeader>
         <CardContent className="pt-4 flex-1 overflow-auto pr-1 flex flex-col">
-          {loading ? (
+          {loading || notesLoading ? (
             <div className="space-y-4 pt-1">
               {Array.from({ length: 4 }).map((_, i) => (
                 <div key={i} className="flex items-start gap-3 py-1.5">
@@ -160,10 +156,10 @@ export function DashboardInsights() {
                 <Lightbulb className="h-6 w-6" aria-hidden />
               </div>
               <p className="text-sm font-medium text-foreground">
-                No learnings yet
+                No knowledge yet
               </p>
               <p className="text-sm text-muted-foreground max-w-sm mx-auto leading-relaxed">
-                Add Learnings or a checklist to an action—your latest entries will show up here.
+                Add a note or checklist to an action—your latest activity will show up here.
               </p>
               <Button variant="outline" size="sm" className="gap-1.5" onClick={() => router.push('/board')}>
                 <LayoutGrid className="h-3.5 w-3.5" />
@@ -238,7 +234,7 @@ export function DashboardInsights() {
                       >
                         <div className="flex items-start justify-between gap-2 mb-1.5">
                           <div className="flex items-start gap-2 min-w-0 flex-wrap">
-                            {hubCardIsLearningOnly(entry) ? (
+                            {hubCardIsNoteOnly(entry) ? (
                               <BookOpen className="h-3.5 w-3.5 text-emerald-600 shrink-0 mt-0.5" />
                             ) : (
                               <FileText className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />

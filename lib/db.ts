@@ -753,6 +753,16 @@ export const taskDb = {
     return data;
   },
 
+  async listKnowledgeScope(teamId: string) {
+    const { data, error } = await db
+      .from('tasks')
+      .select('id, project_id, organization_id')
+      .eq('team_id', teamId);
+
+    if (error) throw error;
+    return data ?? [];
+  },
+
   async getByOrganization(organizationId: string) {
     const { data, error } = await db
       .from('tasks')
@@ -907,6 +917,25 @@ export const noteDb = {
         )
       `)
       .eq('task_id', taskId)
+      .order('updated_at', { ascending: false });
+
+    if (error) throw error;
+    return data ?? [];
+  },
+
+  async getByTeamScope(scope: { organizationId: string; teamId: string }) {
+    const { data, error } = await db
+      .from('notes')
+      .select(`
+        *,
+        author:users!notes_author_id_fkey (
+          id,
+          name,
+          avatar_url
+        )
+      `)
+      .eq('organization_id', scope.organizationId)
+      .eq('team_id', scope.teamId)
       .order('updated_at', { ascending: false });
 
     if (error) throw error;

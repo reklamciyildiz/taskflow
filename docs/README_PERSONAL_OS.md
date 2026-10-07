@@ -28,24 +28,23 @@ Tek uygulamada: takım görevleri, **sürece özel kolonlar** (iş arama, yazıl
 
 ## Journaling (süreç günlüğü)
 
-- Görev düzenleme modalında **süreç günlüğü**: tarihli satırlar (`journal_logs` / `JournalLogEntry`).
-- **Neler öğrendim?** (`learnings`): tek metin alanı; uzun vadeli özet notlar (mülakat cevabı, bug çözümü vb.).
-- **Otomatik kayıt**: `learnings` alanında yazmayı bıraktıktan ~1,5 sn sonra arka planda `updateTask` (debounce); tümünü kaydetmek için formdaki kaydet hâlâ geçerli.
+- Action panelinde canonical içerikler **Checklist** (`checklist_blocks`) ve bağımsız **Notes** kayıtlarıdır.
+- Notes; `note`, `learning`, `idea` ve `decision` tiplerini destekler ve otomatik kaydedilir.
 
 ---
 
 ## Bilgi Merkezi (Knowledge Hub)
 
 - Rota: `/dashboard/knowledge-hub`.
-- Tüm org görevlerinden **öğrenme** ve **günlük** girişleri birleştirilir, tarihe göre sıralanır, arama ve filtre (tür, süreç) uygulanır.
-- Kaynak veri: `buildKnowledgeEntries` + `knowledgeMapsFromContext` (`lib/knowledge-entries.ts`).
+- Seçili takımın görünür Action metadata, Checklist ve Notes içerikleri Action bazında gruplanır; arama ve süreç/içerik filtresi uygulanır.
+- Kaynak veri: canonical scoped query + `buildKnowledgeRetrieval` (`lib/knowledge-retrieval.ts`).
 - Karta tıklanınca ilgili görevin düzenleme modalı açılır (`openTaskEditor` — `TaskContext` + shell içindeki `TaskEditModalHost`).
 
 ---
 
 ## Ana sayfa özet kartları (Dashboard Insights)
 
-- **Son bilgiler**: En yeni birkaç öğrenme/günlük özeti; satıra tıklayınca görev düzenleyici açılır.
+- **Son bilgiler**: En yeni Action/Checklist/Notes bağlamları; satıra tıklayınca görev düzenleyici açılır.
 - **Aktif süreç özeti**: Seçili takıma göre projeler; aşama sayısı, bitti/toplam, segment bar ve rozetler.
 
 ---
