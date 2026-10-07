@@ -306,6 +306,7 @@ export function KnowledgeHubView() {
                       {card.taskTitle}
                     </p>
 
+                    <div className="-mr-1 max-h-80 overflow-y-auto overscroll-contain pr-1 [scrollbar-width:thin]">
                     {hasList && (
                       <ul className="mb-3 space-y-1.5">
                         {card.checklistItems.slice(0, 6).map((item) => {
@@ -385,6 +386,7 @@ export function KnowledgeHubView() {
                         ) : null}
                       </div>
                     ) : null}
+                    </div>
 
                     <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
                       {card.projectName ? (
