@@ -15,7 +15,6 @@ import {
   BookOpen,
   CheckCircle2,
   Lightbulb,
-  Loader2,
   Plus,
   StickyNote,
   Trash2,
@@ -52,6 +51,15 @@ const EMPTY_NOTE_DOCUMENT = {
   content: [{ type: "paragraph" }],
 };
 const NOTE_SAVE_MS = 500;
+
+interface LocalNoteDraft {
+  clientId: string;
+  persistedId: string | null;
+  creating: boolean;
+  title: string;
+  type: NoteType;
+  content: any;
+}
 
 const NOTE_TYPE_META: Record<
   NoteType,
@@ -91,6 +99,13 @@ function notePreview(note: Note): string {
   return preview;
 }
 
+function hasMeaningfulDraftContent(draft: LocalNoteDraft): boolean {
+  return (
+    draft.title.trim().length > 0 ||
+    previewTextFromTipTap(draft.content, 1).trim().length > 0
+  );
+}
+
 function noteDate(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
@@ -126,9 +141,11 @@ export function ActionNotes({
   flushRef,
   onTrackSave,
 }: ActionNotesProps) {
-  const [creating, setCreating] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [newType, setNewType] = useState<NoteType>("note");
+  const [draft, setDraft] = useState<LocalNoteDraft | null>(null);
+  const activeDraftRef = useRef<LocalNoteDraft | null>(null);
+  const draftSessionsRef = useRef(new Map<string, LocalNoteDraft>());
+  const draftCounterRef = useRef(0);
   const pendingRef = useRef<{ id: string; patch: UpdateNoteRequest } | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -182,6 +199,12 @@ export function ActionNotes({
       if (flushRef.current === persistNow) flushRef.current = null;
     };
   }, [flushRef, persistNow]);
+  useEffect(
+    () => () => {
+      activeDraftRef.current = null;
+    },
+    [],
+  );
 
   const schedulePersist = useCallback(
     (id: string, patch: UpdateNoteRequest) => {
@@ -206,51 +229,169 @@ export function ActionNotes({
     [setNotes],
   );
 
-  const createNote = async () => {
-    if (!canEdit || creating) return;
-    setCreating(true);
-    const responsePromise = noteApi.create(taskId, {
-      type: newType,
+  const createDraftIfNeeded = useCallback(
+    async (clientId: string) => {
+      const current = draftSessionsRef.current.get(clientId);
+      if (
+        !current ||
+        current.creating ||
+        current.persistedId ||
+        !canEdit ||
+        !hasMeaningfulDraftContent(current)
+      ) {
+        return;
+      }
+
+      const submitted = { ...current, creating: true };
+      draftSessionsRef.current.set(clientId, submitted);
+      if (activeDraftRef.current?.clientId === clientId) {
+        activeDraftRef.current = submitted;
+        setDraft(submitted);
+      }
+
+      const responsePromise = noteApi.create(taskId, {
+        title: submitted.title,
+        type: submitted.type,
+        content: submitted.content,
+      });
+      onTrackSave(responsePromise.then((result) => result.success));
+      const result = await responsePromise;
+      const latest = draftSessionsRef.current.get(clientId) ?? submitted;
+
+      if (!result.success || !result.data) {
+        const retryable = { ...latest, creating: false };
+        if (activeDraftRef.current?.clientId === clientId) {
+          draftSessionsRef.current.set(clientId, retryable);
+          activeDraftRef.current = retryable;
+          setDraft(retryable);
+        } else {
+          draftSessionsRef.current.delete(clientId);
+        }
+        toast.error(result.error || "Could not create note");
+        return;
+      }
+
+      const created = result.data;
+      const persistedNote: Note = {
+        ...created,
+        title: latest.title,
+        type: latest.type,
+        content: latest.content,
+      };
+      setNotes((notesNow) => [
+        persistedNote,
+        ...notesNow.filter((note) => note.id !== created.id),
+      ]);
+
+      const changedDuringCreate =
+        latest.title !== submitted.title ||
+        latest.type !== submitted.type ||
+        JSON.stringify(latest.content) !== JSON.stringify(submitted.content);
+      if (changedDuringCreate) {
+        schedulePersist(created.id, {
+          title: latest.title,
+          type: latest.type,
+          content: latest.content,
+        });
+      }
+
+      const persistedDraft = {
+        ...latest,
+        persistedId: created.id,
+        creating: false,
+      };
+      if (activeDraftRef.current?.clientId === clientId) {
+        draftSessionsRef.current.set(clientId, persistedDraft);
+        activeDraftRef.current = persistedDraft;
+        setDraft(persistedDraft);
+      } else {
+        draftSessionsRef.current.delete(clientId);
+      }
+    },
+    [canEdit, onTrackSave, schedulePersist, setNotes, taskId],
+  );
+
+  const updateDraft = useCallback(
+    (patch: Partial<Pick<LocalNoteDraft, "title" | "type" | "content">>, render = true) => {
+      const current = activeDraftRef.current;
+      if (!current) return;
+      const next = { ...current, ...patch };
+      activeDraftRef.current = next;
+      draftSessionsRef.current.set(next.clientId, next);
+      if (render) setDraft(next);
+
+      if (next.persistedId) {
+        schedulePersist(next.persistedId, patch);
+      } else if (hasMeaningfulDraftContent(next)) {
+        void createDraftIfNeeded(next.clientId);
+      }
+    },
+    [createDraftIfNeeded, schedulePersist],
+  );
+
+  const beginDraft = () => {
+    if (!canEdit) return;
+    persistNow();
+    draftCounterRef.current += 1;
+    const next: LocalNoteDraft = {
+      clientId: `new-note-${draftCounterRef.current}`,
+      persistedId: null,
+      creating: false,
+      title: "",
+      type: "note",
       content: EMPTY_NOTE_DOCUMENT,
-    });
-    onTrackSave(responsePromise.then((result) => result.success));
-    const result = await responsePromise;
-    setCreating(false);
-    if (!result.success || !result.data) {
-      toast.error(result.error || "Could not create note");
-      return;
-    }
-    setNotes((current) => [result.data!, ...current]);
-    setSelectedId(result.data.id);
+    };
+    draftSessionsRef.current.set(next.clientId, next);
+    activeDraftRef.current = next;
+    setSelectedId(null);
+    setDraft(next);
   };
 
   const openNote = (id: string) => {
     persistNow();
+    setDraft(null);
+    activeDraftRef.current = null;
     setSelectedId(id);
   };
 
   const closeNote = () => {
+    const currentDraft = activeDraftRef.current;
+    if (currentDraft) {
+      if (currentDraft.persistedId) persistNow();
+      if (!currentDraft.creating) {
+        draftSessionsRef.current.delete(currentDraft.clientId);
+      }
+      activeDraftRef.current = null;
+      setDraft(null);
+      return;
+    }
     persistNow();
     setSelectedId(null);
   };
 
   const deleteSelected = async () => {
-    if (!selectedNote || !canEdit) return;
-    if (pendingRef.current?.id === selectedNote.id) pendingRef.current = null;
+    const deleteId = draft?.persistedId ?? selectedNote?.id;
+    if (!deleteId || !canEdit) return;
+    if (pendingRef.current?.id === deleteId) pendingRef.current = null;
     if (timerRef.current) {
       clearTimeout(timerRef.current);
       timerRef.current = null;
     }
-    const deletedId = selectedNote.id;
-    const responsePromise = noteApi.delete(deletedId);
+    const responsePromise = noteApi.delete(deleteId);
     onTrackSave(responsePromise.then((result) => result.success));
     const result = await responsePromise;
     if (!result.success) {
       toast.error(result.error || "Could not delete note");
       return;
     }
-    setNotes((current) => current.filter((note) => note.id !== deletedId));
-    setSelectedId(null);
+    setNotes((current) => current.filter((note) => note.id !== deleteId));
+    if (draft) {
+      draftSessionsRef.current.delete(draft.clientId);
+      activeDraftRef.current = null;
+      setDraft(null);
+    } else {
+      setSelectedId(null);
+    }
   };
 
   if (loading) {
@@ -260,9 +401,8 @@ export function ActionNotes({
         aria-busy="true"
         aria-label="Loading notes"
       >
-        <div className="flex h-12 items-center gap-2 rounded-xl border border-border/40 bg-muted/10 p-2">
-          <div className="h-8 w-[126px] rounded-md bg-muted/50" />
-          <div className="h-8 flex-1 rounded-md bg-muted/50" />
+        <div className="h-12 rounded-xl border border-border/40 bg-muted/10 p-2">
+          <div className="h-8 w-full rounded-md bg-muted/50" />
         </div>
         {[0, 1, 2].map((item) => (
           <div key={item} className="rounded-xl border border-border/40 p-3">
@@ -303,8 +443,12 @@ export function ActionNotes({
     );
   }
 
-  if (selectedNote) {
-    const meta = NOTE_TYPE_META[selectedNote.type];
+  const editorNote = draft ?? selectedNote;
+
+  if (editorNote) {
+    const meta = NOTE_TYPE_META[editorNote.type];
+    const persistedId = draft?.persistedId ?? selectedNote?.id ?? null;
+    const editorKey = draft?.clientId ?? selectedNote!.id;
     return (
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-4 md:px-6">
         <div className="flex items-center gap-2">
@@ -320,11 +464,15 @@ export function ActionNotes({
           </Button>
           <div className="flex-1" />
           <Select
-            value={selectedNote.type}
+            value={editorNote.type}
             disabled={!canEdit}
             onValueChange={(value: NoteType) => {
-              patchLocalNote(selectedNote.id, { type: value });
-              schedulePersist(selectedNote.id, { type: value });
+              if (draft) {
+                updateDraft({ type: value });
+              } else if (selectedNote) {
+                patchLocalNote(selectedNote.id, { type: value });
+                schedulePersist(selectedNote.id, { type: value });
+              }
             }}
           >
             <SelectTrigger className={cn("h-8 w-[132px] border-0 text-xs", meta.tone)}>
@@ -338,7 +486,7 @@ export function ActionNotes({
               ))}
             </SelectContent>
           </Select>
-          {canEdit ? (
+          {canEdit && persistedId ? (
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button
@@ -373,29 +521,38 @@ export function ActionNotes({
         </div>
 
         <Input
-          value={selectedNote.title}
+          value={editorNote.title}
+          autoFocus={Boolean(draft)}
           disabled={!canEdit}
           maxLength={240}
           placeholder="Note title (optional)"
           className="h-auto border-0 bg-transparent px-0 text-lg font-semibold shadow-none focus-visible:ring-0"
           onChange={(event) => {
             const title = event.target.value;
-            patchLocalNote(selectedNote.id, { title });
-            schedulePersist(selectedNote.id, { title });
+            if (draft) {
+              updateDraft({ title });
+            } else if (selectedNote) {
+              patchLocalNote(selectedNote.id, { title });
+              schedulePersist(selectedNote.id, { title });
+            }
           }}
         />
 
         <div className="rounded-xl border border-border/60 bg-muted/[0.12] px-3 py-2 md:px-4">
           <BlockEditor
-            key={selectedNote.id}
-            initialContent={selectedNote.content}
+            key={editorKey}
+            initialContent={editorNote.content}
             hideToolbar
             documentPlaceholder
             placeholder="Capture a thought, learning, idea, or decision…"
             members={members}
             className={!canEdit ? "pointer-events-none opacity-60" : ""}
             onChange={(content) => {
-              schedulePersist(selectedNote.id, { content });
+              if (draft) {
+                updateDraft({ content }, false);
+              } else if (selectedNote) {
+                schedulePersist(selectedNote.id, { content });
+              }
             }}
           />
         </div>
@@ -405,35 +562,15 @@ export function ActionNotes({
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-4 md:px-6">
-      <div className="flex items-center gap-2 rounded-xl border border-border/60 bg-muted/20 p-2">
-        <Select
-          value={newType}
-          disabled={!canEdit}
-          onValueChange={(value: NoteType) => setNewType(value)}
-        >
-          <SelectTrigger className="h-8 w-[126px] border-0 bg-background/60 text-xs shadow-none">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {(Object.keys(NOTE_TYPE_META) as NoteType[]).map((type) => (
-              <SelectItem key={type} value={type}>
-                {NOTE_TYPE_META[type].label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <div className="rounded-xl border border-border/60 bg-muted/20 p-2">
         <Button
           type="button"
           size="sm"
-          className="h-8 flex-1 gap-1.5"
-          disabled={!canEdit || creating}
-          onClick={() => void createNote()}
+          className="h-8 w-full gap-1.5"
+          disabled={!canEdit}
+          onClick={beginDraft}
         >
-          {creating ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-          ) : (
-            <Plus className="h-3.5 w-3.5" aria-hidden />
-          )}
+          <Plus className="h-3.5 w-3.5" aria-hidden />
           New note
         </Button>
       </div>
