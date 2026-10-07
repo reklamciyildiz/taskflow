@@ -110,15 +110,3 @@ export function migrateLegacyJournalToTipTap(logs: any[]) {
   };
 }
 
-export function migrateLegacyLearningsToTipTap(text: string) {
-  if (!text) return null;
-  const paragraphs = text.split('\n\n').map(p => ({
-    type: 'paragraph',
-    content: p ? [{ type: 'text', text: p }] : undefined
-  }));
-  return {
-    type: 'doc',
-    content: paragraphs
-  };
-}
-

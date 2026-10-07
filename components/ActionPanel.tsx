@@ -23,7 +23,6 @@ import {
   ChevronDown,
   Eye,
   EyeOff,
-  Lightbulb,
   ListChecks,
   Loader2,
   Maximize2,
@@ -54,8 +53,6 @@ import { BlockEditor } from '@/components/editor/BlockEditor';
 import {
   countTaskItems,
   migrateLegacyJournalToTipTap,
-  migrateLegacyLearningsToTipTap,
-  previewTextFromTipTap,
   type TaskItemCounts,
 } from '@/lib/tiptap-parser';
 import {
@@ -115,7 +112,7 @@ export interface ActionPanelProps {
  *     once and hard-unmounted a fully visible panel. AnimatePresence.onExitComplete
  *     is presence-based and immune to this.
  *  2. Draft state was hydrated in a useEffect after the first paint, then
- *     `hydratedTaskId` re-keyed both TipTap editors → two heavy mounts and a
+ *     `hydratedTaskId` re-keyed the TipTap editor → a second heavy mount and a
  *     layout jump while the sheet was fading in.
  *  3. Every close unconditionally PATCHed `journalLogs`, mutating `tasks` and
  *     re-rendering the whole app tree during the exit animation.
@@ -328,13 +325,6 @@ function resolveChecklistBlocks(task: Task): unknown | null {
   return migrateLegacyJournalToTipTap(task.journalLogs ?? []) ?? null;
 }
 
-/** TipTap document for the learnings editor; migrates the legacy free-text `learnings` column. */
-function resolveLearningsBlocks(task: Task): unknown | null {
-  if (task.learningsBlocks) return task.learningsBlocks;
-  const legacy = (task.learnings ?? "").trim();
-  return legacy ? migrateLegacyLearningsToTipTap(legacy) : null;
-}
-
 function initials(name: string): string {
   const parts = String(name || "")
     .trim()
@@ -358,9 +348,8 @@ interface ActionPanelContentProps {
   flushRef: MutableRefObject<(() => void) | null>;
 }
 
-type BlocksField = "checklistBlocks" | "learningsBlocks";
 type SaveState = "idle" | "saving" | "saved" | "error";
-type WorkTab = "checklist" | "notes" | "learnings";
+type WorkTab = "checklist" | "notes";
 
 const PRIORITY_LABEL: Record<TaskPriority, string> = {
   low: "Low",
@@ -399,7 +388,7 @@ function MetaChip({
 }
 
 const META_SAVE_MS = 450;
-const BLOCKS_SAVE_MS = 500;
+const CHECKLIST_SAVE_MS = 500;
 
 /**
  * A brand-new checklist starts as a task list, not a plain paragraph the user has to convert.
@@ -534,13 +523,8 @@ function ActionPanelContent({
     Array.isArray(task.reminders) ? task.reminders : [],
   );
   const [taskDueOpen, setTaskDueOpen] = useState(false);
-  /**
-   * TipTap documents. The refs are the single source of truth for the *latest* content.
-   * Exactly one editor per document is mounted at a time (the active tab), and it always
-   * mounts from the ref — so switching tabs never shows stale text.
-   */
+  /** Latest checklist document; switching tabs must never remount stale content. */
   const checklistBlocksRef = useRef<any>(resolveChecklistBlocks(task));
-  const learningsBlocksRef = useRef<any>(resolveLearningsBlocks(task));
   /** Stable per mount so re-renders and tab switches never reseed a different id. */
   const emptyChecklistRef = useRef<any>(null);
   if (emptyChecklistRef.current === null) emptyChecklistRef.current = emptyChecklistDoc();
@@ -548,10 +532,6 @@ function ActionPanelContent({
     countTaskItems(checklistBlocksRef.current),
   );
   const [hideDone, setHideDone] = useState(false);
-  /** Drives the small indicator dot on the Learnings tab. */
-  const [learningsHasContent, setLearningsHasContent] = useState(
-    () => previewTextFromTipTap(learningsBlocksRef.current, 1).length > 0,
-  );
   // Prefetch once per mounted ActionPanelContent. This component is keyed by task.id,
   // so data from different actions can never share the same state bucket.
   const [notes, setNotes] = useState<Note[]>([]);
@@ -581,7 +561,7 @@ function ActionPanelContent({
   }, [loadNotes]);
   const notesCount = notes.length;
 
-  /** Which document is open. Checklist first: it is the working surface; learnings are the retro. */
+  /** Which Action workspace is open. */
   const [tab, setTab] = useState<WorkTab>("checklist");
   /** Status / priority / assignee / due / description live behind the meta strip. */
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -628,13 +608,8 @@ function ActionPanelContent({
 
   const pendingMetaRef = useRef<TaskUpdateFields | null>(null);
   const metaTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const dirtyBlocksRef = useRef<Record<BlocksField, boolean>>({
-    checklistBlocks: false,
-    learningsBlocks: false,
-  });
-  const blocksTimerRef = useRef<
-    Record<BlocksField, ReturnType<typeof setTimeout> | null>
-  >({ checklistBlocks: null, learningsBlocks: null });
+  const checklistDirtyRef = useRef(false);
+  const checklistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const persistMetaNow = useCallback(() => {
     if (metaTimerRef.current) {
@@ -647,32 +622,24 @@ function ActionPanelContent({
     trackSave(updateTaskRef.current(taskId, patch));
   }, [taskId, trackSave]);
 
-  const persistBlocksNow = useCallback(
-    (field: BlocksField) => {
-      const timer = blocksTimerRef.current[field];
-      if (timer) {
-        clearTimeout(timer);
-        blocksTimerRef.current[field] = null;
-      }
-      if (!dirtyBlocksRef.current[field] || !canEditRef.current) return;
-      dirtyBlocksRef.current[field] = false;
-      const data =
-        field === "checklistBlocks"
-          ? checklistBlocksRef.current
-          : learningsBlocksRef.current;
-      if (data === null || data === undefined) return;
-      trackSave(updateTaskRef.current(taskId, { [field]: data }));
-    },
-    [taskId, trackSave],
-  );
+  const persistChecklistNow = useCallback(() => {
+    if (checklistTimerRef.current) {
+      clearTimeout(checklistTimerRef.current);
+      checklistTimerRef.current = null;
+    }
+    if (!checklistDirtyRef.current || !canEditRef.current) return;
+    checklistDirtyRef.current = false;
+    const data = checklistBlocksRef.current;
+    if (data === null || data === undefined) return;
+    trackSave(updateTaskRef.current(taskId, { checklistBlocks: data }));
+  }, [taskId, trackSave]);
 
   /** Flush every pending draft immediately (close, action switch, unmount). Idempotent. */
   const flushAll = useCallback(() => {
     persistMetaNow();
-    persistBlocksNow("checklistBlocks");
-    persistBlocksNow("learningsBlocks");
+    persistChecklistNow();
     notesFlushRef.current?.();
-  }, [persistMetaNow, persistBlocksNow]);
+  }, [persistMetaNow, persistChecklistNow]);
 
   /** Patches are merged, so editing title then description within the debounce window keeps both. */
   const scheduleMetaPersist = useCallback(
@@ -685,30 +652,20 @@ function ActionPanelContent({
     [persistMetaNow],
   );
 
-  const scheduleBlocksPersist = useCallback(
-    (field: BlocksField, data: any) => {
-      if (field === "checklistBlocks") {
-        checklistBlocksRef.current = data;
-        // Progress header: only re-render when the numbers actually change.
-        const next = countTaskItems(data);
-        setChecklistCounts((prev) =>
-          prev.total === next.total && prev.done === next.done ? prev : next,
-        );
-      } else {
-        learningsBlocksRef.current = data;
-        const has = previewTextFromTipTap(data, 1).length > 0;
-        setLearningsHasContent((prev) => (prev === has ? prev : has));
-      }
-      if (!canEditRef.current) return;
-      dirtyBlocksRef.current[field] = true;
-      const prev = blocksTimerRef.current[field];
-      if (prev) clearTimeout(prev);
-      blocksTimerRef.current[field] = setTimeout(
-        () => persistBlocksNow(field),
-        BLOCKS_SAVE_MS,
+  const scheduleChecklistPersist = useCallback(
+    (data: any) => {
+      checklistBlocksRef.current = data;
+      // Progress header: only re-render when the numbers actually change.
+      const next = countTaskItems(data);
+      setChecklistCounts((prev) =>
+        prev.total === next.total && prev.done === next.done ? prev : next,
       );
+      if (!canEditRef.current) return;
+      checklistDirtyRef.current = true;
+      if (checklistTimerRef.current) clearTimeout(checklistTimerRef.current);
+      checklistTimerRef.current = setTimeout(persistChecklistNow, CHECKLIST_SAVE_MS);
     },
-    [persistBlocksNow],
+    [persistChecklistNow],
   );
 
   // Unmount (exit finished, action switched, or task vanished): flush whatever is still pending.
@@ -737,18 +694,16 @@ function ActionPanelContent({
   /** Leaving a tab unmounts its editor; persist right away instead of waiting for the debounce. */
   const switchTab = useCallback(
     (next: string) => {
-      if (next !== "checklist" && next !== "notes" && next !== "learnings") return;
+      if (next !== "checklist" && next !== "notes") return;
       if (next === tab) return;
       if (tab === "notes") {
         notesFlushRef.current?.();
       } else {
-        persistBlocksNow(
-          tab === "checklist" ? "checklistBlocks" : "learningsBlocks",
-        );
+        persistChecklistNow();
       }
       setTab(next);
     },
-    [persistBlocksNow, tab],
+    [persistChecklistNow, tab],
   );
 
   const checklistProgress =
@@ -1304,24 +1259,6 @@ function ActionPanelContent({
                 </span>
               ) : null}
             </TabsTrigger>
-            <TabsTrigger
-              value="learnings"
-              className={cn(
-                "relative h-11 gap-1.5 rounded-none px-2 text-sm font-medium text-muted-foreground shadow-none md:gap-2 md:px-3",
-                "data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none",
-                "after:absolute after:inset-x-2 after:-bottom-px after:h-0.5 after:rounded-full after:bg-transparent",
-                "data-[state=active]:after:bg-primary",
-              )}
-            >
-              <Lightbulb className="h-4 w-4" aria-hidden />
-              Learnings
-              {learningsHasContent ? (
-                <span
-                  className="h-1.5 w-1.5 rounded-full bg-amber-500"
-                  aria-label="Has notes"
-                />
-              ) : null}
-            </TabsTrigger>
           </TabsList>
 
           {tab === "checklist" && checklistCounts.done > 0 ? (
@@ -1382,7 +1319,7 @@ function ActionPanelContent({
               initialContent={checklistBlocksRef.current}
               emptyContent={emptyChecklistRef.current}
               hideToolbar
-              onChange={(data) => scheduleBlocksPersist("checklistBlocks", data)}
+              onChange={scheduleChecklistPersist}
               placeholder="Add a step…"
               members={currentTeam?.members}
               className={!canEdit ? "pointer-events-none opacity-60" : ""}
@@ -1406,23 +1343,6 @@ function ActionPanelContent({
               members={currentTeam?.members}
               flushRef={notesFlushRef}
               onTrackSave={trackSave}
-            />
-          </TabsContent>
-
-          <TabsContent
-            value="learnings"
-            className="mt-0 flex flex-col px-4 py-4 outline-none md:px-6"
-          >
-            <BlockEditor
-              initialContent={learningsBlocksRef.current}
-              hideToolbar
-              onChange={(data) => scheduleBlocksPersist("learningsBlocks", data)}
-              placeholder="What did you learn? What would you do differently next time?"
-              members={currentTeam?.members}
-              className={cn(
-                "min-h-[220px]",
-                !canEdit ? "pointer-events-none opacity-60" : "",
-              )}
             />
           </TabsContent>
         </div>
