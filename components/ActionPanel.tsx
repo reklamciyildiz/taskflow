@@ -28,6 +28,7 @@ import {
   Loader2,
   Maximize2,
   Minimize2,
+  StickyNote,
   UserRound,
   X,
 } from "lucide-react";
@@ -82,6 +83,7 @@ import { v4 as uuidv4 } from "uuid";
 import { DueFlowPicker } from "@/components/due/DueFlowPicker";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
+import { ActionNotes } from "@/components/action/ActionNotes";
 
 export interface ActionPanelProps {
   task: Task | null;
@@ -356,7 +358,7 @@ interface ActionPanelContentProps {
 
 type BlocksField = "checklistBlocks" | "learningsBlocks";
 type SaveState = "idle" | "saving" | "saved" | "error";
-type WorkTab = "checklist" | "learnings";
+type WorkTab = "checklist" | "notes" | "learnings";
 
 const PRIORITY_LABEL: Record<TaskPriority, string> = {
   low: "Low",
@@ -548,6 +550,11 @@ function ActionPanelContent({
   const [learningsHasContent, setLearningsHasContent] = useState(
     () => previewTextFromTipTap(learningsBlocksRef.current, 1).length > 0,
   );
+  const [notesCount, setNotesCount] = useState(0);
+  const notesFlushRef = useRef<(() => void) | null>(null);
+  const handleNotesCountChange = useCallback((count: number) => {
+    setNotesCount(count);
+  }, []);
 
   /** Which document is open. Checklist first: it is the working surface; learnings are the retro. */
   const [tab, setTab] = useState<WorkTab>("checklist");
@@ -639,6 +646,7 @@ function ActionPanelContent({
     persistMetaNow();
     persistBlocksNow("checklistBlocks");
     persistBlocksNow("learningsBlocks");
+    notesFlushRef.current?.();
   }, [persistMetaNow, persistBlocksNow]);
 
   /** Patches are merged, so editing title then description within the debounce window keeps both. */
@@ -704,11 +712,15 @@ function ActionPanelContent({
   /** Leaving a tab unmounts its editor; persist right away instead of waiting for the debounce. */
   const switchTab = useCallback(
     (next: string) => {
-      if (next !== "checklist" && next !== "learnings") return;
+      if (next !== "checklist" && next !== "notes" && next !== "learnings") return;
       if (next === tab) return;
-      persistBlocksNow(
-        tab === "checklist" ? "checklistBlocks" : "learningsBlocks",
-      );
+      if (tab === "notes") {
+        notesFlushRef.current?.();
+      } else {
+        persistBlocksNow(
+          tab === "checklist" ? "checklistBlocks" : "learningsBlocks",
+        );
+      }
       setTab(next);
     },
     [persistBlocksNow, tab],
@@ -1228,7 +1240,7 @@ function ActionPanelContent({
             <TabsTrigger
               value="checklist"
               className={cn(
-                "relative h-11 gap-2 rounded-none px-3 text-sm font-medium text-muted-foreground shadow-none",
+                "relative h-11 gap-1.5 rounded-none px-2 text-sm font-medium text-muted-foreground shadow-none md:gap-2 md:px-3",
                 "data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none",
                 "after:absolute after:inset-x-2 after:-bottom-px after:h-0.5 after:rounded-full after:bg-transparent",
                 "data-[state=active]:after:bg-primary",
@@ -1251,9 +1263,26 @@ function ActionPanelContent({
               ) : null}
             </TabsTrigger>
             <TabsTrigger
+              value="notes"
+              className={cn(
+                "relative h-11 gap-1.5 rounded-none px-2 text-sm font-medium text-muted-foreground shadow-none md:gap-2 md:px-3",
+                "data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none",
+                "after:absolute after:inset-x-2 after:-bottom-px after:h-0.5 after:rounded-full after:bg-transparent",
+                "data-[state=active]:after:bg-primary",
+              )}
+            >
+              <StickyNote className="h-4 w-4" aria-hidden />
+              Notes
+              {notesCount > 0 ? (
+                <span className="hidden rounded-md bg-muted/70 px-1.5 py-px text-[11px] tabular-nums text-muted-foreground sm:inline">
+                  {notesCount}
+                </span>
+              ) : null}
+            </TabsTrigger>
+            <TabsTrigger
               value="learnings"
               className={cn(
-                "relative h-11 gap-2 rounded-none px-3 text-sm font-medium text-muted-foreground shadow-none",
+                "relative h-11 gap-1.5 rounded-none px-2 text-sm font-medium text-muted-foreground shadow-none md:gap-2 md:px-3",
                 "data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none",
                 "after:absolute after:inset-x-2 after:-bottom-px after:h-0.5 after:rounded-full after:bg-transparent",
                 "data-[state=active]:after:bg-primary",
@@ -1276,6 +1305,7 @@ function ActionPanelContent({
               variant="ghost"
               size="sm"
               className="h-7 gap-1.5 px-2 text-[11px] text-muted-foreground"
+              aria-label={hideDone ? `Show done (${checklistCounts.done})` : `Hide done (${checklistCounts.done})`}
               aria-pressed={hideDone}
               onClick={() => setHideDone((v) => !v)}
             >
@@ -1284,9 +1314,11 @@ function ActionPanelContent({
               ) : (
                 <EyeOff className="h-3.5 w-3.5" aria-hidden />
               )}
-              {hideDone
-                ? `Show done (${checklistCounts.done})`
-                : `Hide done (${checklistCounts.done})`}
+              <span className="hidden sm:inline">
+                {hideDone
+                  ? `Show done (${checklistCounts.done})`
+                  : `Hide done (${checklistCounts.done})`}
+              </span>
             </Button>
           ) : null}
         </div>
@@ -1335,6 +1367,17 @@ function ActionPanelContent({
                 Everything is done — all {checklistCounts.total} items are hidden.
               </p>
             ) : null}
+          </TabsContent>
+
+          <TabsContent value="notes" className="mt-0 outline-none">
+            <ActionNotes
+              taskId={taskId}
+              canEdit={canEdit}
+              members={currentTeam?.members}
+              flushRef={notesFlushRef}
+              onTrackSave={trackSave}
+              onCountChange={handleNotesCountChange}
+            />
           </TabsContent>
 
           <TabsContent

@@ -207,6 +207,44 @@ export interface Database {
           updated_at?: string
         }
       }
+      notes: {
+        Row: {
+          id: string
+          task_id: string
+          organization_id: string
+          team_id: string
+          author_id: string
+          title: string
+          type: 'note' | 'learning' | 'idea' | 'decision'
+          content: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          task_id: string
+          organization_id: string
+          team_id: string
+          author_id: string
+          title?: string
+          type?: 'note' | 'learning' | 'idea' | 'decision'
+          content?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          task_id?: string
+          organization_id?: string
+          team_id?: string
+          author_id?: string
+          title?: string
+          type?: 'note' | 'learning' | 'idea' | 'decision'
+          content?: Json
+          created_at?: string
+          updated_at?: string
+        }
+      }
       comments: {
         Row: {
           id: string

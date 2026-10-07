@@ -12,6 +12,9 @@ import {
   UpdateTeamRequest,
   AddMemberRequest,
   UpdateMemberRequest,
+  Note,
+  CreateNoteRequest,
+  UpdateNoteRequest,
 } from './types';
 
 const API_BASE = '/api';
@@ -125,6 +128,28 @@ export const taskApi = {
     fetchApi<Task>(`/tasks/${taskId}/comments`, {
       method: 'POST',
       body: JSON.stringify({ text }),
+    }),
+};
+
+export const noteApi = {
+  getByTask: (taskId: string) =>
+    fetchApi<Note[]>(`/tasks/${taskId}/notes`),
+
+  create: (taskId: string, note: CreateNoteRequest) =>
+    fetchApi<Note>(`/tasks/${taskId}/notes`, {
+      method: 'POST',
+      body: JSON.stringify(note),
+    }),
+
+  update: (id: string, updates: UpdateNoteRequest) =>
+    fetchApi<Note>(`/notes/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
+    }),
+
+  delete: (id: string) =>
+    fetchApi<null>(`/notes/${id}`, {
+      method: 'DELETE',
     }),
 };
 

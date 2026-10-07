@@ -9,6 +9,22 @@ export type DefaultPipelineStatusId = (typeof DEFAULT_PIPELINE_STATUS_IDS)[numbe
 
 export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent';
 export type UserRole = 'owner' | 'admin' | 'member' | 'viewer';
+export type NoteType = 'note' | 'learning' | 'idea' | 'decision';
+
+export interface Note {
+  id: string;
+  taskId: string;
+  organizationId: string;
+  teamId: string;
+  authorId: string;
+  authorName: string;
+  authorAvatar?: string | null;
+  title: string;
+  type: NoteType;
+  content: any;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export interface JournalLogEntry {
   id: string;
@@ -224,6 +240,18 @@ export interface UpdateTaskRequest {
   learningsBlocks?: any;
   learnings?: string | null;
   boardPosition?: number;
+}
+
+export interface CreateNoteRequest {
+  title?: string;
+  type?: NoteType;
+  content?: any;
+}
+
+export interface UpdateNoteRequest {
+  title?: string;
+  type?: NoteType;
+  content?: any;
 }
 
 export interface CreateTeamRequest {

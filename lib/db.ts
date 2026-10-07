@@ -851,6 +851,101 @@ export const taskDb = {
 };
 
 // =============================================
+// NOTE OPERATIONS
+// =============================================
+
+export const noteDb = {
+  async create(noteData: Database['public']['Tables']['notes']['Insert']) {
+    const { data, error } = await db
+      .from('notes')
+      .insert(noteData)
+      .select(`
+        *,
+        author:users!notes_author_id_fkey (
+          id,
+          name,
+          avatar_url
+        )
+      `)
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  async getById(id: string) {
+    const { data, error } = await db
+      .from('notes')
+      .select(`
+        *,
+        author:users!notes_author_id_fkey (
+          id,
+          name,
+          avatar_url
+        )
+      `)
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      const code = (error as unknown as { code?: string })?.code;
+      if (code === 'PGRST116') return null;
+      throw error;
+    }
+    return data ?? null;
+  },
+
+  async getByTask(taskId: string) {
+    const { data, error } = await db
+      .from('notes')
+      .select(`
+        *,
+        author:users!notes_author_id_fkey (
+          id,
+          name,
+          avatar_url
+        )
+      `)
+      .eq('task_id', taskId)
+      .order('updated_at', { ascending: false });
+
+    if (error) throw error;
+    return data ?? [];
+  },
+
+  async update(
+    id: string,
+    updates: Pick<Database['public']['Tables']['notes']['Update'], 'title' | 'type' | 'content'>,
+  ) {
+    const clean = Object.fromEntries(
+      Object.entries(updates).filter(([, value]) => value !== undefined),
+    );
+    const { data, error } = await db
+      .from('notes')
+      .update(clean)
+      .eq('id', id)
+      .select(`
+        *,
+        author:users!notes_author_id_fkey (
+          id,
+          name,
+          avatar_url
+        )
+      `)
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  async delete(id: string) {
+    const { error } = await db.from('notes').delete().eq('id', id);
+    if (error) throw error;
+    return true;
+  },
+};
+
+// =============================================
 // COMMENT OPERATIONS
 // =============================================
 
