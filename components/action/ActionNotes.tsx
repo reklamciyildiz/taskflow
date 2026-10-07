@@ -671,7 +671,7 @@ export function ActionNotes({
           <StickyNote className="mb-3 h-8 w-8 text-muted-foreground/55" aria-hidden />
           <p className="text-sm font-medium">No notes yet</p>
           <p className="mt-1 max-w-sm text-xs leading-relaxed text-muted-foreground">
-            Capture notes, learnings, ideas, and decisions without crowding the checklist.
+            Capture notes, learning notes, ideas, and decisions without crowding the checklist.
           </p>
         </div>
       ) : (

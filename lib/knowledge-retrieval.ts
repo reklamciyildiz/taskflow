@@ -116,7 +116,7 @@ function noteLabel(type: NoteType): string {
 
 function sourceSearchText(source: KnowledgeRetrievalDocument): string {
   const labels = source.sourceType === 'note'
-    ? `note notes ${source.noteType ?? ''} ${source.noteType === 'learning' ? 'learnings' : ''}`
+    ? `note notes ${source.noteType ?? ''}`
     : source.sourceType === 'checklist'
       ? 'checklist task item'
       : 'action task';
