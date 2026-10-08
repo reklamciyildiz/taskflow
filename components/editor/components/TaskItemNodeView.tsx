@@ -216,6 +216,10 @@ export const TaskItemNodeView = React.memo(
       const success = await convert({
         taskItemId: id,
         text,
+        content: {
+          type: 'doc',
+          content: node.toJSON().content ?? [{ type: 'paragraph' }],
+        },
         type: convertType,
         removeAfter,
       });
@@ -224,7 +228,7 @@ export const TaskItemNodeView = React.memo(
         setConverting(false);
       }
       if (success && mountedRef.current) setConvertOpen(false);
-    }, [convertType, id, removeAfter, taskItemStorage, text]);
+    }, [convertType, id, node, removeAfter, taskItemStorage, text]);
 
     return (
       <NodeViewWrapper

@@ -1,14 +1,31 @@
 import React, { forwardRef, useImperativeHandle } from 'react';
-import { useEditor, EditorContent } from '@tiptap/react';
+import { useEditor, useEditorState, EditorContent } from '@tiptap/react';
+import { BubbleMenu } from '@tiptap/react/menus';
 import StarterKit from '@tiptap/starter-kit';
 import TaskList from '@tiptap/extension-task-list';
 import Placeholder from '@tiptap/extension-placeholder';
+import Highlight from '@tiptap/extension-highlight';
 import { TextSelection } from '@tiptap/pm/state';
 import type { EditorView } from '@tiptap/pm/view';
 import { createPortal } from 'react-dom';
 import { AdvancedTaskItem } from './extensions/AdvancedTaskItem';
 import { Button } from '@/components/ui/button';
-import { CheckSquare, Heading1, Heading2, Type } from 'lucide-react';
+import {
+  Bold,
+  CheckSquare,
+  Code2,
+  Heading1,
+  Heading2,
+  Highlighter,
+  Italic,
+  Link2,
+  List,
+  ListOrdered,
+  Minus,
+  Strikethrough,
+  Type,
+  Underline,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { v4 as uuidv4 } from 'uuid';
 import type { NoteType } from '@/lib/types';
@@ -16,6 +33,7 @@ import type { NoteType } from '@/lib/types';
 export interface ChecklistNoteConversionRequest {
   taskItemId: string;
   text: string;
+  content: any;
   type: NoteType;
   removeAfter: boolean;
 }
@@ -56,7 +74,14 @@ interface BlockEditorProps {
 
 const EMPTY_DOC = { type: 'doc', content: [{ type: 'paragraph' }] };
 
-type ChecklistSlashCommand = 'taskItem' | 'section' | 'subheading' | 'text';
+type ChecklistSlashCommand =
+  | 'taskItem'
+  | 'section'
+  | 'subheading'
+  | 'text'
+  | 'bulletList'
+  | 'orderedList'
+  | 'divider';
 
 interface ChecklistSlashMenuState {
   blockFrom: number;
@@ -64,6 +89,7 @@ interface ChecklistSlashMenuState {
   from: number;
   to: number;
   query: string;
+  hasTrailingContent: boolean;
   selectedIndex: number;
   left: number;
   top: number;
@@ -79,12 +105,18 @@ const CHECKLIST_SLASH_COMMANDS: Array<{
   { id: 'section', label: 'Section heading', keywords: 'section heading title', icon: Heading1 },
   { id: 'subheading', label: 'Subheading', keywords: 'subheading subtitle', icon: Heading2 },
   { id: 'text', label: 'Text', keywords: 'text paragraph', icon: Type },
+  { id: 'bulletList', label: 'Bulleted list', keywords: 'bullet list', icon: List },
+  { id: 'orderedList', label: 'Numbered list', keywords: 'numbered ordered list', icon: ListOrdered },
+  { id: 'divider', label: 'Divider', keywords: 'divider separator rule', icon: Minus },
 ];
 
-function filteredSlashCommands(query: string) {
+function filteredSlashCommands(query: string, hasTrailingContent = false) {
   const normalized = query.trim().toLowerCase();
-  if (!normalized) return CHECKLIST_SLASH_COMMANDS;
-  return CHECKLIST_SLASH_COMMANDS.filter(({ label, keywords }) =>
+  const available = hasTrailingContent
+    ? CHECKLIST_SLASH_COMMANDS.filter((command) => command.id !== 'divider')
+    : CHECKLIST_SLASH_COMMANDS;
+  if (!normalized) return available;
+  return available.filter(({ label, keywords }) =>
     `${label} ${keywords}`.toLowerCase().includes(normalized),
   );
 }
@@ -99,9 +131,9 @@ function applyChecklistSlashCommand(
   if (!source || !['paragraph', 'heading'].includes(source.type.name)) return false;
 
   const transaction = view.state.tr;
+  const prefixSize = menu.to - menu.from;
+  const remainingContent = source.content.cut(prefixSize);
   if (command === 'taskItem') {
-    const prefixSize = menu.to - menu.from;
-    const remainingContent = source.content.cut(prefixSize);
     const taskItem = schema.nodes.taskItem.create(
       {
         checked: false,
@@ -121,6 +153,24 @@ function applyChecklistSlashCommand(
     transaction.setSelection(
       TextSelection.near(transaction.doc.resolve(menu.blockFrom + 3)),
     );
+  } else if (command === 'bulletList' || command === 'orderedList') {
+    const listItem = schema.nodes.listItem.create(
+      null,
+      schema.nodes.paragraph.create(null, remainingContent),
+    );
+    const listType = command === 'bulletList'
+      ? schema.nodes.bulletList
+      : schema.nodes.orderedList;
+    transaction.replaceWith(menu.blockFrom, menu.blockTo, listType.create(null, listItem));
+    transaction.setSelection(
+      TextSelection.near(transaction.doc.resolve(menu.blockFrom + 3)),
+    );
+  } else if (command === 'divider') {
+    if (menu.hasTrailingContent) return false;
+    transaction.replaceWith(menu.blockFrom, menu.blockTo, schema.nodes.horizontalRule.create());
+    transaction.setSelection(
+      TextSelection.near(transaction.doc.resolve(menu.blockFrom + 1)),
+    );
   } else {
     transaction.delete(menu.from, menu.to);
     const nodeType = command === 'text' ? schema.nodes.paragraph : schema.nodes.heading;
@@ -138,6 +188,49 @@ function applyChecklistSlashCommand(
   view.dispatch(transaction.scrollIntoView());
   view.focus();
   return true;
+}
+
+function normalizeLink(value: string): string | null {
+  const candidate = value.trim();
+  if (!candidate) return null;
+  if (/^mailto:/i.test(candidate)) return candidate;
+  try {
+    const url = new URL(candidate.includes('://') ? candidate : `https://${candidate}`);
+    return ['http:', 'https:'].includes(url.protocol) ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+function FormattingButton({
+  active = false,
+  label,
+  onPress,
+  children,
+}: {
+  active?: boolean;
+  label: string;
+  onPress: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      aria-pressed={active}
+      title={label}
+      className={cn(
+        'grid h-7 w-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground',
+        active && 'bg-accent text-foreground',
+      )}
+      onMouseDown={(event) => {
+        event.preventDefault();
+        onPress();
+      }}
+    >
+      {children}
+    </button>
+  );
 }
 
 export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
@@ -160,6 +253,9 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
   ) => {
   const slashMenuRef = React.useRef<ChecklistSlashMenuState | null>(null);
   const [slashMenu, setSlashMenu] = React.useState<ChecklistSlashMenuState | null>(null);
+  const [linkEditorOpen, setLinkEditorOpen] = React.useState(false);
+  const [linkUrl, setLinkUrl] = React.useState('');
+  const linkSelectionRef = React.useRef<{ from: number; to: number } | null>(null);
 
   const updateSlashMenu = React.useCallback(
     (next: ChecklistSlashMenuState | null) => {
@@ -182,7 +278,13 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
         // In Checklist mode these are compact semantic section levels. Notes
         // retain StarterKit's existing heading configuration.
         heading: checklistMode ? { levels: [1, 2] } : {},
+        link: {
+          openOnClick: false,
+          autolink: true,
+          linkOnPaste: true,
+        },
       }),
+      Highlight.configure({ multicolor: true }),
       TaskList,
       AdvancedTaskItem.configure({
         nested: true,
@@ -222,7 +324,10 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
         return;
       }
 
-      const commands = filteredSlashCommands(match[1]);
+      const commands = filteredSlashCommands(
+        match[1],
+        $from.parentOffset < $from.parent.content.size,
+      );
       if (commands.length === 0) {
         if (slashMenuRef.current) updateSlashMenu(null);
         return;
@@ -236,6 +341,7 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
         from: $from.start(1),
         to: $from.pos,
         query: match[1],
+        hasTrailingContent: $from.parentOffset < $from.parent.content.size,
         selectedIndex: Math.min(previous?.selectedIndex ?? 0, commands.length - 1),
         left: coords.left,
         top: coords.bottom + 6,
@@ -249,7 +355,10 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
       handleKeyDown: (view, event) => {
         const currentMenu = slashMenuRef.current;
         if (checklistMode && currentMenu) {
-          const commands = filteredSlashCommands(currentMenu.query);
+          const commands = filteredSlashCommands(
+            currentMenu.query,
+            currentMenu.hasTrailingContent,
+          );
           if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
             event.preventDefault();
             const direction = event.key === 'ArrowDown' ? 1 : -1;
@@ -291,7 +400,45 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
             break;
           }
         }
-        if (insideTaskItem || $from.depth !== 1) return false;
+        if (insideTaskItem) {
+          if (
+            $from.parent.type.name !== 'paragraph' ||
+            !$from.parent.textContent.trim() ||
+            $from.parentOffset !== $from.parent.content.size
+          ) return false;
+
+          let taskItemDepth = 0;
+          for (let depth = $from.depth; depth > 0; depth -= 1) {
+            if ($from.node(depth).type.name === 'taskItem') {
+              taskItemDepth = depth;
+              break;
+            }
+          }
+          if (!taskItemDepth) return false;
+
+          const { schema } = view.state;
+          const taskItem = schema.nodes.taskItem.create(
+            {
+              checked: false,
+              id: uuidv4(),
+              assigneeId: null,
+              dueDate: null,
+              reminders: [],
+              completedAt: null,
+            },
+            schema.nodes.paragraph.create(),
+          );
+          const insertAt = $from.after(taskItemDepth);
+          const transaction = view.state.tr.insert(insertAt, taskItem);
+          transaction.setSelection(
+            TextSelection.near(transaction.doc.resolve(insertAt + 2)),
+          );
+          transaction.setStoredMarks([]);
+          view.dispatch(transaction.scrollIntoView());
+          event.preventDefault();
+          return true;
+        }
+        if ($from.depth !== 1) return false;
         if (!['paragraph', 'heading'].includes($from.parent.type.name)) return false;
         if (!$from.parent.textContent.trim()) return false;
 
@@ -327,6 +474,7 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
         transaction.setSelection(
           TextSelection.near(transaction.doc.resolve(afterBlock + 3)),
         );
+        transaction.setStoredMarks([]);
         view.dispatch(transaction.scrollIntoView());
         event.preventDefault();
         return true;
@@ -359,6 +507,28 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
   React.useEffect(() => {
     if (!checklistMode && slashMenuRef.current) updateSlashMenu(null);
   }, [checklistMode, updateSlashMenu]);
+
+  const formattingState = useEditorState({
+    editor,
+    selector: ({ editor: currentEditor }) => ({
+      hasSelection: Boolean(
+        currentEditor &&
+          !currentEditor.state.selection.empty &&
+          currentEditor.state.selection.from !== currentEditor.state.selection.to,
+      ),
+      bold: Boolean(currentEditor?.isActive('bold')),
+      italic: Boolean(currentEditor?.isActive('italic')),
+      underline: Boolean(currentEditor?.isActive('underline')),
+      strike: Boolean(currentEditor?.isActive('strike')),
+      code: Boolean(currentEditor?.isActive('code')),
+      link: Boolean(currentEditor?.isActive('link')),
+      highlight: Boolean(currentEditor?.isActive('highlight')),
+    }),
+  });
+
+  React.useEffect(() => {
+    if (!formattingState?.hasSelection) setLinkEditorOpen(false);
+  }, [formattingState?.hasSelection]);
 
   useImperativeHandle(ref, () => ({
     insertContent: (content: any) => {
@@ -491,6 +661,26 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
 
   if (!editor) return null;
 
+  const applyLink = () => {
+    const selection = linkSelectionRef.current;
+    const href = normalizeLink(linkUrl);
+    const chain = editor.chain().focus();
+    if (selection) chain.setTextSelection(selection);
+    if (href) {
+      chain.setLink({ href, target: '_blank', rel: 'noopener noreferrer' }).run();
+    } else {
+      chain.unsetLink().run();
+    }
+    setLinkEditorOpen(false);
+  };
+
+  const openLinkEditor = () => {
+    const { from, to } = editor.state.selection;
+    linkSelectionRef.current = { from, to };
+    setLinkUrl(editor.getAttributes('link').href ?? '');
+    setLinkEditorOpen(true);
+  };
+
   return (
     <div className={cn('relative flex flex-col w-full', className)}>
       {hideToolbar ? null : (
@@ -516,6 +706,105 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
         <EditorContent editor={editor} className="min-h-[150px] outline-none" />
       </div>
 
+      {checklistMode ? (
+        <BubbleMenu
+          editor={editor}
+          shouldShow={({ state }) =>
+            !state.selection.empty && state.selection.from !== state.selection.to
+          }
+          options={{
+            placement: 'top',
+            strategy: 'fixed',
+            offset: 8,
+            flip: true,
+            shift: true,
+          }}
+          className="relative flex max-w-[calc(100vw-1rem)] items-center gap-0.5 rounded-lg border border-border/70 bg-popover p-1 shadow-xl"
+        >
+          <FormattingButton
+            label="Bold"
+            active={Boolean(formattingState?.bold)}
+            onPress={() => editor.chain().focus().toggleBold().run()}
+          >
+            <Bold className="h-3.5 w-3.5" aria-hidden />
+          </FormattingButton>
+          <FormattingButton
+            label="Italic"
+            active={Boolean(formattingState?.italic)}
+            onPress={() => editor.chain().focus().toggleItalic().run()}
+          >
+            <Italic className="h-3.5 w-3.5" aria-hidden />
+          </FormattingButton>
+          <FormattingButton
+            label="Underline"
+            active={Boolean(formattingState?.underline)}
+            onPress={() => editor.chain().focus().toggleUnderline().run()}
+          >
+            <Underline className="h-3.5 w-3.5" aria-hidden />
+          </FormattingButton>
+          <FormattingButton
+            label="Strikethrough"
+            active={Boolean(formattingState?.strike)}
+            onPress={() => editor.chain().focus().toggleStrike().run()}
+          >
+            <Strikethrough className="h-3.5 w-3.5" aria-hidden />
+          </FormattingButton>
+          <FormattingButton
+            label="Inline code"
+            active={Boolean(formattingState?.code)}
+            onPress={() => editor.chain().focus().toggleCode().run()}
+          >
+            <Code2 className="h-3.5 w-3.5" aria-hidden />
+          </FormattingButton>
+          <FormattingButton
+            label="Link"
+            active={Boolean(formattingState?.link)}
+            onPress={openLinkEditor}
+          >
+            <Link2 className="h-3.5 w-3.5" aria-hidden />
+          </FormattingButton>
+          <FormattingButton
+            label="Highlight"
+            active={Boolean(formattingState?.highlight)}
+            onPress={() =>
+              editor.chain().focus().toggleHighlight({ color: '#fbbf24' }).run()
+            }
+          >
+            <Highlighter className="h-3.5 w-3.5" aria-hidden />
+          </FormattingButton>
+
+          {linkEditorOpen ? (
+            <form
+              className="absolute left-0 top-[calc(100%+0.4rem)] flex w-64 gap-1 rounded-lg border border-border/70 bg-popover p-1.5 shadow-xl"
+              onSubmit={(event) => {
+                event.preventDefault();
+                applyLink();
+              }}
+              onMouseDown={(event) => event.stopPropagation()}
+            >
+              <input
+                autoFocus
+                value={linkUrl}
+                onChange={(event) => setLinkUrl(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Escape') {
+                    event.preventDefault();
+                    setLinkEditorOpen(false);
+                    editor.commands.focus();
+                  }
+                }}
+                placeholder="https://..."
+                aria-label="Link URL"
+                className="h-7 min-w-0 flex-1 rounded-md border border-border/60 bg-background px-2 text-xs outline-none focus:border-primary"
+              />
+              <Button type="submit" size="sm" className="h-7 px-2 text-xs">
+                Apply
+              </Button>
+            </form>
+          ) : null}
+        </BubbleMenu>
+      ) : null}
+
       {slashMenu && typeof document !== 'undefined'
         ? createPortal(
             <div
@@ -528,7 +817,10 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
               }}
               onMouseDown={(event) => event.preventDefault()}
             >
-              {filteredSlashCommands(slashMenu.query).map((command, index) => {
+              {filteredSlashCommands(
+                slashMenu.query,
+                slashMenu.hasTrailingContent,
+              ).map((command, index) => {
                 const Icon = command.icon;
                 return (
                   <button

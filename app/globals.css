@@ -127,6 +127,24 @@
   line-height: 1.4;
 }
 
+/* The editor suppresses list markers for taskList rows because their custom
+   NodeView draws a checkbox. Regular slash-command lists stay recognisable. */
+.checklist-editor .tiptap > ul:not([data-type="taskList"]),
+.checklist-editor .tiptap > ol {
+  margin: 0.35rem 0;
+  padding-left: 1.35rem;
+}
+
+.checklist-editor .tiptap > ul:not([data-type="taskList"]) > li::marker,
+.checklist-editor .tiptap > ol > li::marker {
+  color: hsl(var(--muted-foreground));
+}
+
+.checklist-editor .tiptap > hr {
+  margin: 0.7rem 0;
+  border-color: hsl(var(--border));
+}
+
 /* Completed checklist rows are stored in one canonical final taskList. Its
    first checked row marks the stable boundary without a persisted spacer. */
 .checklist-show-completed

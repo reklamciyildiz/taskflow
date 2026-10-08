@@ -727,7 +727,10 @@ function ActionPanelContent({
       const createRequest = noteApi.create(taskId, {
         title: checklistTextToNoteTitle(text),
         type: request.type,
-        content: checklistTextToNoteDocument(text),
+        content:
+          request.content?.type === "doc"
+            ? request.content
+            : checklistTextToNoteDocument(text),
       });
       trackSave(createRequest.then((result) => result.success));
       const result = await createRequest;
