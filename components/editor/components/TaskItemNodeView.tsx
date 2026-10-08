@@ -477,6 +477,12 @@ export const TaskItemNodeView = React.memo(
             onCloseAutoFocus={(event) => event.preventDefault()}
             className="flex max-h-[92dvh] min-h-0 w-[min(92vw,380px)] max-w-[min(92vw,380px)] flex-col gap-0 overflow-hidden p-0"
           >
+            <DialogHeader className="sr-only">
+              <DialogTitle>Checklist item due date</DialogTitle>
+              <DialogDescription>
+                Set a due date and reminders for this checklist item.
+              </DialogDescription>
+            </DialogHeader>
             <DueFlowPicker
               value={parseDueDateLocal(dueDate) ?? null}
               reminders={Array.isArray(reminders) ? reminders : []}
