@@ -7,6 +7,15 @@ import { AdvancedTaskItem } from './extensions/AdvancedTaskItem';
 import { Button } from '@/components/ui/button';
 import { CheckSquare, Type } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { v4 as uuidv4 } from 'uuid';
+import type { NoteType } from '@/lib/types';
+
+export interface ChecklistNoteConversionRequest {
+  taskItemId: string;
+  text: string;
+  type: NoteType;
+  removeAfter: boolean;
+}
 
 export interface BlockEditorRef {
   /**
@@ -16,6 +25,9 @@ export interface BlockEditorRef {
    */
   insertContent: (content: any) => void;
   focus: () => void;
+  appendTaskItem: (text: string) => boolean;
+  replaceContent: (content: any) => void;
+  removeTaskItem: (taskItemId: string) => boolean;
 }
 
 interface BlockEditorProps {
@@ -31,6 +43,12 @@ interface BlockEditorProps {
   members?: { id: string; name: string }[];
   /** Hide the "Checkboxes / Plain text" toolbar. */
   hideToolbar?: boolean;
+  checklistMode?: boolean;
+  hideDone?: boolean;
+  canUseAdvancedReminderPresets?: boolean;
+  onConvertTaskItemToNote?: (
+    request: ChecklistNoteConversionRequest,
+  ) => Promise<boolean>;
 }
 
 const EMPTY_DOC = { type: 'doc', content: [{ type: 'paragraph' }] };
@@ -46,6 +64,10 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
       className,
       members,
       hideToolbar = false,
+      checklistMode = false,
+      hideDone = false,
+      canUseAdvancedReminderPresets = true,
+      onConvertTaskItemToNote,
     },
     ref,
   ) => {
@@ -85,16 +107,27 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
     },
   });
 
-  // Sync members into editor storage so TaskItemNodeView can read them
+  // Sync checklist UI context into editor storage so TaskItemNodeView can read it
   // without subscribing to the global TaskContext (which would re-render
   // every row on any tasks array change, causing visible jitter).
   React.useEffect(() => {
-    if (editor && members) {
+    if (editor) {
       const storage = editor.storage as any;
       if (!storage.taskItem) storage.taskItem = {};
-      storage.taskItem.members = members;
+      storage.taskItem.members = members ?? [];
+      storage.taskItem.checklistMode = checklistMode;
+      storage.taskItem.hideDone = hideDone;
+      storage.taskItem.canUseAdvancedReminderPresets = canUseAdvancedReminderPresets;
+      storage.taskItem.onConvertToNote = onConvertTaskItemToNote;
     }
-  }, [editor, members]);
+  }, [
+    canUseAdvancedReminderPresets,
+    checklistMode,
+    editor,
+    hideDone,
+    members,
+    onConvertTaskItemToNote,
+  ]);
 
   useImperativeHandle(ref, () => ({
     insertContent: (content: any) => {
@@ -109,7 +142,105 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
     focus: () => {
       editor?.chain().focus('end').run();
     },
-  }), [editor]);
+    appendTaskItem: (text: string) => {
+      const value = text.trim();
+      if (!editor || !value) return false;
+
+      const paragraph = editor.schema.nodes.paragraph.create(
+        null,
+        editor.schema.text(value),
+      );
+      const taskItem = editor.schema.nodes.taskItem.create(
+        {
+          checked: false,
+          id: uuidv4(),
+          assigneeId: null,
+          dueDate: null,
+          reminders: [],
+        },
+        paragraph,
+      );
+
+      let taskListPos: number | null = null;
+      let taskListNode: any = null;
+      editor.state.doc.descendants((node, pos) => {
+        if (node.type.name === 'taskList') {
+          taskListPos = pos;
+          taskListNode = node;
+          return false;
+        }
+        return taskListPos === null;
+      });
+
+      if (taskListPos === null || !taskListNode) {
+        const taskList = editor.schema.nodes.taskList.create(null, taskItem);
+        editor.commands.setContent(
+          { type: 'doc', content: [taskList.toJSON()] },
+          { emitUpdate: true },
+        );
+        return true;
+      }
+
+      const first = taskListNode.childCount === 1 ? taskListNode.child(0) : null;
+      const firstIsBlank =
+        first &&
+        first.textContent.trim().length === 0 &&
+        !first.attrs?.checked &&
+        !first.attrs?.assigneeId &&
+        !first.attrs?.dueDate &&
+        (!Array.isArray(first.attrs?.reminders) || first.attrs.reminders.length === 0);
+
+      editor
+        .chain()
+        .command(({ tr, dispatch }) => {
+          if (!dispatch) return true;
+          const listStart = (taskListPos as number) + 1;
+          if (firstIsBlank) {
+            tr.replaceWith(listStart, listStart + first.nodeSize, taskItem);
+          } else {
+            let insertPos = listStart;
+            for (let index = 0; index < taskListNode.childCount; index += 1) {
+              const child = taskListNode.child(index);
+              if (child.attrs?.checked === true || child.attrs?.checked === 'true') break;
+              insertPos += child.nodeSize;
+            }
+            tr.insert(insertPos, taskItem);
+          }
+          return true;
+        })
+        .run();
+      return true;
+    },
+    replaceContent: (content: any) => {
+      if (!editor) return;
+      editor.commands.setContent(content || emptyContent || EMPTY_DOC, {
+        emitUpdate: false,
+      });
+    },
+    removeTaskItem: (taskItemId: string) => {
+      if (!editor || !taskItemId) return false;
+      let removed = false;
+      const prune = (node: any): any | null => {
+        if (!node || typeof node !== 'object') return node;
+        if (node.type === 'taskItem' && node.attrs?.id === taskItemId) {
+          removed = true;
+          return null;
+        }
+        if (!Array.isArray(node.content)) return node;
+        const content = node.content
+          .map(prune)
+          .filter((child: any) => child !== null);
+        if (node.type === 'taskList' && content.length === 0) return null;
+        return { ...node, content };
+      };
+      const next = prune(editor.getJSON());
+      if (!removed) return false;
+      editor.commands.setContent(next || emptyContent || EMPTY_DOC, {
+        emitUpdate: true,
+      });
+      return true;
+    },
+  }), [editor, emptyContent]);
 
   const toggleAllCheckboxes = () => {
     if (!editor) return;

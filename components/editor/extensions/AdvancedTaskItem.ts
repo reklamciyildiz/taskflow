@@ -9,6 +9,10 @@ export const AdvancedTaskItem = TaskItem.extend({
   addStorage() {
     return {
       members: [] as { id: string; name: string }[],
+      checklistMode: false,
+      hideDone: false,
+      canUseAdvancedReminderPresets: true,
+      onConvertToNote: null,
     };
   },
 
@@ -41,4 +45,3 @@ export const AdvancedTaskItem = TaskItem.extend({
     return ReactNodeViewRenderer(TaskItemNodeView);
   },
 });
-

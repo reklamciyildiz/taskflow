@@ -27,10 +27,12 @@ import {
   Loader2,
   Maximize2,
   Minimize2,
+  Plus,
   StickyNote,
   UserRound,
   X,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,7 +51,15 @@ import {
   TaskUpdateFields,
   useTaskContext,
 } from "@/components/TaskContext";
-import { BlockEditor } from '@/components/editor/BlockEditor';
+import {
+  BlockEditor,
+  type BlockEditorRef,
+  type ChecklistNoteConversionRequest,
+} from '@/components/editor/BlockEditor';
+import {
+  normalizeChecklistDocument,
+  sanitizeChecklistDocument,
+} from '@/components/editor/reorderChecklistItem';
 import {
   countTaskItems,
   type TaskItemCounts,
@@ -75,12 +85,12 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { format } from "date-fns";
-import { v4 as uuidv4 } from "uuid";
 import { DueFlowPicker } from "@/components/due/DueFlowPicker";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
 import { ActionNotes } from "@/components/action/ActionNotes";
 import { noteApi } from "@/lib/api";
+import { notifyKnowledgeSourcesChanged } from "@/lib/knowledge-events";
 import type { Note } from "@/lib/types";
 
 export interface ActionPanelProps {
@@ -383,27 +393,32 @@ function MetaChip({
 const META_SAVE_MS = 450;
 const CHECKLIST_SAVE_MS = 500;
 
-/**
- * A brand-new checklist starts as a task list, not a plain paragraph the user has to convert.
- * The seed row carries an id up front: `TaskItemNodeView` back-fills missing ids with a
- * transaction, which would otherwise fire `onUpdate` → a PATCH the moment the panel opens.
- */
+/** Empty editor seed; the dedicated capture row creates the first taskItem. */
 function emptyChecklistDoc() {
   return {
     type: "doc",
-    content: [
-      {
-        type: "taskList",
-        content: [
-          {
-            type: "taskItem",
-            attrs: { checked: false, id: uuidv4() },
-            content: [{ type: "paragraph" }],
-          },
-        ],
-      },
-    ],
+    content: [{ type: "paragraph" }],
   };
+}
+
+function checklistTextToNoteDocument(text: string) {
+  const paragraphs = text
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => ({
+      type: "paragraph",
+      content: [{ type: "text", text: line }],
+    }));
+  return {
+    type: "doc",
+    content: paragraphs.length > 0 ? paragraphs : [{ type: "paragraph" }],
+  };
+}
+
+function checklistTextToNoteTitle(text: string): string {
+  const firstLine = text.split(/\n/)[0]?.trim() ?? "";
+  return firstLine.length <= 90 ? firstLine : `${firstLine.slice(0, 87).trimEnd()}…`;
 }
 
 function SaveStatus({ state }: { state: SaveState }) {
@@ -517,7 +532,13 @@ function ActionPanelContent({
   );
   const [taskDueOpen, setTaskDueOpen] = useState(false);
   /** Latest checklist document; switching tabs must never remount stale content. */
-  const checklistBlocksRef = useRef<any>(task.checklistBlocks ?? null);
+  const checklistBlocksRef = useRef<any>(
+    normalizeChecklistDocument(task.checklistBlocks ?? null),
+  );
+  const lastPersistedChecklistRef = useRef<any>(task.checklistBlocks ?? null);
+  const checklistEditorRef = useRef<BlockEditorRef | null>(null);
+  const checklistRevisionRef = useRef(0);
+  const [newChecklistItem, setNewChecklistItem] = useState("");
   /** Stable per mount so re-renders and tab switches never reseed a different id. */
   const emptyChecklistRef = useRef<any>(null);
   if (emptyChecklistRef.current === null) emptyChecklistRef.current = emptyChecklistDoc();
@@ -603,6 +624,8 @@ function ActionPanelContent({
   const metaTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const checklistDirtyRef = useRef(false);
   const checklistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const checklistSaveInFlightRef = useRef(false);
+  const persistChecklistNowRef = useRef<() => void>(() => undefined);
 
   const persistMetaNow = useCallback(() => {
     if (metaTimerRef.current) {
@@ -621,11 +644,45 @@ function ActionPanelContent({
       checklistTimerRef.current = null;
     }
     if (!checklistDirtyRef.current || !canEditRef.current) return;
+    if (checklistSaveInFlightRef.current) return;
     checklistDirtyRef.current = false;
-    const data = checklistBlocksRef.current;
-    if (data === null || data === undefined) return;
-    trackSave(updateTaskRef.current(taskId, { checklistBlocks: data }));
+    checklistSaveInFlightRef.current = true;
+    const data = sanitizeChecklistDocument(checklistBlocksRef.current);
+    if (data === null || data === undefined) {
+      checklistSaveInFlightRef.current = false;
+      return;
+    }
+    const revision = checklistRevisionRef.current;
+    const rollback = lastPersistedChecklistRef.current;
+    const request = updateTaskRef.current(taskId, { checklistBlocks: data });
+    trackSave(request);
+    void request.then((ok) => {
+      checklistSaveInFlightRef.current = false;
+      if (ok) {
+        lastPersistedChecklistRef.current = data;
+      } else if (
+        revision === checklistRevisionRef.current &&
+        !checklistDirtyRef.current
+      ) {
+        // No newer edit can supersede this failed snapshot: restore the last
+        // server-confirmed document so UI and database cannot silently diverge.
+        checklistBlocksRef.current = rollback;
+        checklistEditorRef.current?.replaceContent(
+          rollback ?? emptyChecklistRef.current,
+        );
+        const next = countTaskItems(rollback);
+        setChecklistCounts(next);
+        toast.error("Checklist couldn't be saved. Your latest change was restored.");
+      } else if (!ok) {
+        toast.error("Checklist couldn't be saved yet. Retrying your latest changes.");
+      }
+
+      if (checklistDirtyRef.current) {
+        window.setTimeout(() => persistChecklistNowRef.current(), 0);
+      }
+    });
   }, [taskId, trackSave]);
+  persistChecklistNowRef.current = persistChecklistNow;
 
   /** Flush every pending draft immediately (close, action switch, unmount). Idempotent. */
   const flushAll = useCallback(() => {
@@ -648,6 +705,7 @@ function ActionPanelContent({
   const scheduleChecklistPersist = useCallback(
     (data: any) => {
       checklistBlocksRef.current = data;
+      checklistRevisionRef.current += 1;
       // Progress header: only re-render when the numbers actually change.
       const next = countTaskItems(data);
       setChecklistCounts((prev) =>
@@ -659,6 +717,45 @@ function ActionPanelContent({
       checklistTimerRef.current = setTimeout(persistChecklistNow, CHECKLIST_SAVE_MS);
     },
     [persistChecklistNow],
+  );
+
+  const convertChecklistItemToNote = useCallback(
+    async (request: ChecklistNoteConversionRequest): Promise<boolean> => {
+      const text = request.text.trim();
+      if (!text || !canEditRef.current) return false;
+
+      const createRequest = noteApi.create(taskId, {
+        title: checklistTextToNoteTitle(text),
+        type: request.type,
+        content: checklistTextToNoteDocument(text),
+      });
+      trackSave(createRequest.then((result) => result.success));
+      const result = await createRequest;
+      if (!result.success || !result.data) {
+        toast.error(result.error || "The note couldn't be created.");
+        return false;
+      }
+
+      setNotes((current) => {
+        if (current.some((note) => note.id === result.data!.id)) return current;
+        return [result.data!, ...current];
+      });
+      notifyKnowledgeSourcesChanged(result.data.teamId);
+
+      if (request.removeAfter) {
+        const removed = checklistEditorRef.current?.removeTaskItem(
+          request.taskItemId,
+        );
+        if (!removed) {
+          toast.success("Note created. The checklist item was kept.");
+          return true;
+        }
+      }
+
+      toast.success(request.removeAfter ? "Converted to Note" : "Note created");
+      return true;
+    },
+    [taskId, trackSave],
   );
 
   // Unmount (exit finished, action switched, or task vanished): flush whatever is still pending.
@@ -1305,17 +1402,56 @@ function ActionPanelContent({
             value="checklist"
             className={cn(
               "mt-0 px-4 py-4 outline-none md:px-6",
-              hideDone && "[&_[data-type=taskItem][data-checked=true]]:hidden",
+              hideDone &&
+                "[&_[data-type=taskItem][data-checked=true]:not([data-completion-pending=true])]:hidden",
             )}
           >
+            {canEdit ? (
+              <form
+                className="mb-3 flex items-center gap-2 rounded-lg border border-border/60 bg-muted/15 px-2.5 transition-colors focus-within:border-primary/50 focus-within:bg-background/70 focus-within:ring-2 focus-within:ring-primary/10"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  const value = newChecklistItem.trim();
+                  if (!value) {
+                    setNewChecklistItem("");
+                    return;
+                  }
+                  if (!checklistEditorRef.current?.appendTaskItem(value)) return;
+                  setNewChecklistItem("");
+                }}
+              >
+                <Plus className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                <Input
+                  value={newChecklistItem}
+                  onChange={(event) => setNewChecklistItem(event.target.value)}
+                  placeholder="Add checklist item..."
+                  aria-label="Add checklist item"
+                  className="h-9 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                />
+                <span className="hidden shrink-0 text-[10px] text-muted-foreground/70 sm:inline">
+                  Enter
+                </span>
+              </form>
+            ) : null}
             <BlockEditor
+              ref={checklistEditorRef}
               initialContent={checklistBlocksRef.current}
               emptyContent={emptyChecklistRef.current}
               hideToolbar
+              checklistMode
+              hideDone={hideDone}
+              canUseAdvancedReminderPresets={canUseAdvancedReminderPresets}
               onChange={scheduleChecklistPersist}
-              placeholder="Add a step…"
+              onConvertTaskItemToNote={convertChecklistItemToNote}
+              placeholder=""
               members={currentTeam?.members}
-              className={!canEdit ? "pointer-events-none opacity-60" : ""}
+              className={cn(
+                "checklist-editor",
+                !hideDone && "checklist-show-completed",
+                checklistCounts.total === 0 &&
+                  "pointer-events-none h-0 overflow-hidden opacity-0",
+                !canEdit && "pointer-events-none opacity-60",
+              )}
             />
             {hideDone && allDone ? (
               <p className="px-1 pt-2 text-xs text-muted-foreground">

@@ -110,3 +110,27 @@
   pointer-events: none;
   color: hsl(var(--muted-foreground) / 0.6);
 }
+
+/* Checklist rows are stored in one TipTap taskList. The first checked row marks
+   the stable open/completed boundary without introducing a persisted node. */
+.checklist-show-completed
+  .tiptap
+  > ul[data-type="taskList"]
+  > [data-type="taskItem"][data-checked="true"]:not([data-completion-pending="true"]):first-child::before,
+.checklist-show-completed
+  .tiptap
+  > ul[data-type="taskList"]
+  > [data-type="taskItem"][data-checked="false"]
+  + [data-type="taskItem"][data-checked="true"]:not([data-completion-pending="true"])::before {
+  content: "Completed";
+  display: block;
+  flex-basis: 100%;
+  width: 100%;
+  margin: 0.8rem 0 0.25rem 1.7rem;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  line-height: 1rem;
+  text-transform: uppercase;
+}
