@@ -3,6 +3,7 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import TaskList from '@tiptap/extension-task-list';
 import Placeholder from '@tiptap/extension-placeholder';
+import { TextSelection } from '@tiptap/pm/state';
 import { AdvancedTaskItem } from './extensions/AdvancedTaskItem';
 import { Button } from '@/components/ui/button';
 import { CheckSquare, Type } from 'lucide-react';
@@ -25,7 +26,7 @@ export interface BlockEditorRef {
    */
   insertContent: (content: any) => void;
   focus: () => void;
-  appendTaskItem: (text: string) => boolean;
+  prependTaskItem: (text: string) => boolean;
   replaceContent: (content: any) => void;
   removeTaskItem: (taskItemId: string) => boolean;
 }
@@ -104,6 +105,66 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
         // Kill default list indentations and margin via prose-ul:pl-0 prose-li:my-0
         class: 'focus:outline-none min-h-[120px] prose dark:prose-invert max-w-none text-sm prose-ul:pl-0 prose-ul:my-0 prose-li:my-0 prose-li:pl-0 marker:text-transparent',
       },
+      handleKeyDown: (view, event) => {
+        if (
+          !checklistMode ||
+          event.key !== 'Enter' ||
+          event.shiftKey ||
+          event.altKey ||
+          event.ctrlKey ||
+          event.metaKey ||
+          event.isComposing ||
+          view.state.selection.empty === false
+        ) return false;
+
+        const { $from } = view.state.selection;
+        let insideTaskItem = false;
+        for (let depth = $from.depth; depth > 0; depth -= 1) {
+          if ($from.node(depth).type.name === 'taskItem') {
+            insideTaskItem = true;
+            break;
+          }
+        }
+        if (insideTaskItem || $from.depth !== 1) return false;
+        if (!['paragraph', 'heading'].includes($from.parent.type.name)) return false;
+        if (!$from.parent.textContent.trim()) return false;
+
+        const { schema } = view.state;
+        const paragraph = schema.nodes.paragraph.create();
+        const taskItem = schema.nodes.taskItem.create(
+          {
+            checked: false,
+            id: uuidv4(),
+            assigneeId: null,
+            dueDate: null,
+            reminders: [],
+            completedAt: null,
+          },
+          paragraph,
+        );
+        const afterBlock = $from.after(1);
+        const blockIndex = $from.index(0);
+        const nextBlock =
+          blockIndex + 1 < view.state.doc.childCount
+            ? view.state.doc.child(blockIndex + 1)
+            : null;
+        const transaction = view.state.tr;
+
+        if (nextBlock?.type.name === 'taskList') {
+          transaction.insert(afterBlock + 1, taskItem);
+        } else {
+          transaction.insert(
+            afterBlock,
+            schema.nodes.taskList.create(null, taskItem),
+          );
+        }
+        transaction.setSelection(
+          TextSelection.near(transaction.doc.resolve(afterBlock + 3)),
+        );
+        view.dispatch(transaction.scrollIntoView());
+        event.preventDefault();
+        return true;
+      },
     },
   });
 
@@ -142,7 +203,7 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
     focus: () => {
       editor?.chain().focus('end').run();
     },
-    appendTaskItem: (text: string) => {
+    prependTaskItem: (text: string) => {
       const value = text.trim();
       if (!editor || !value) return false;
 
@@ -157,22 +218,17 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
           assigneeId: null,
           dueDate: null,
           reminders: [],
+          completedAt: null,
         },
         paragraph,
       );
 
-      let taskListPos: number | null = null;
-      let taskListNode: any = null;
-      editor.state.doc.descendants((node, pos) => {
-        if (node.type.name === 'taskList') {
-          taskListPos = pos;
-          taskListNode = node;
-          return false;
-        }
-        return taskListPos === null;
-      });
-
-      if (taskListPos === null || !taskListNode) {
+      const firstBlock = editor.state.doc.firstChild;
+      const emptySeed =
+        editor.state.doc.childCount === 1 &&
+        firstBlock?.type.name === 'paragraph' &&
+        firstBlock.textContent.trim().length === 0;
+      if (emptySeed) {
         const taskList = editor.schema.nodes.taskList.create(null, taskItem);
         editor.commands.setContent(
           { type: 'doc', content: [taskList.toJSON()] },
@@ -181,7 +237,20 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
         return true;
       }
 
-      const first = taskListNode.childCount === 1 ? taskListNode.child(0) : null;
+      if (firstBlock?.type.name !== 'taskList') {
+        editor
+          .chain()
+          .command(({ tr, dispatch }) => {
+            if (dispatch) {
+              tr.insert(0, editor.schema.nodes.taskList.create(null, taskItem));
+            }
+            return true;
+          })
+          .run();
+        return true;
+      }
+
+      const first = firstBlock.childCount === 1 ? firstBlock.child(0) : null;
       const firstIsBlank =
         first &&
         first.textContent.trim().length === 0 &&
@@ -194,17 +263,11 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
         .chain()
         .command(({ tr, dispatch }) => {
           if (!dispatch) return true;
-          const listStart = (taskListPos as number) + 1;
+          const listStart = 1;
           if (firstIsBlank) {
             tr.replaceWith(listStart, listStart + first.nodeSize, taskItem);
           } else {
-            let insertPos = listStart;
-            for (let index = 0; index < taskListNode.childCount; index += 1) {
-              const child = taskListNode.child(index);
-              if (child.attrs?.checked === true || child.attrs?.checked === 'true') break;
-              insertPos += child.nodeSize;
-            }
-            tr.insert(insertPos, taskItem);
+            tr.insert(listStart, taskItem);
           }
           return true;
         })

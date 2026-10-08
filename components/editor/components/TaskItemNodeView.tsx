@@ -101,6 +101,7 @@ export const TaskItemNodeView = React.memo(
           checklistMode?: boolean;
           hideDone?: boolean;
           canUseAdvancedReminderPresets?: boolean;
+          nextCompletedAt?: () => string;
           onConvertToNote?: (request: ChecklistNoteConversionRequest) => Promise<boolean>;
         }
       | undefined;
@@ -149,7 +150,12 @@ export const TaskItemNodeView = React.memo(
         }
         if (completionTimerRef.current) clearTimeout(completionTimerRef.current);
 
-        updateAttributes({ checked: next });
+        updateAttributes({
+          checked: next,
+          completedAt: next
+            ? (taskItemStorage?.nextCompletedAt?.() ?? new Date().toISOString())
+            : null,
+        });
         setCompletionPending(true);
         setCompletionExiting(false);
 
@@ -241,10 +247,18 @@ export const TaskItemNodeView = React.memo(
           contentEditable={false}
         >
           <div
-            className="mr-0.5 cursor-grab touch-none px-0.5 py-0.5 text-muted-foreground/30 transition-colors hover:text-muted-foreground"
-            data-drag-handle
+            className={cn(
+              'mr-0.5 touch-none px-0.5 py-0.5 text-muted-foreground/30 transition-colors',
+              checked
+                ? 'cursor-default opacity-50'
+                : 'cursor-grab hover:text-muted-foreground',
+            )}
+            data-drag-handle={checked ? undefined : ''}
+            onDragStart={(event) => {
+              if (checked) event.preventDefault();
+            }}
             onTouchStart={(event) => {
-              if (!editor?.isEditable || !id) return;
+              if (!editor?.isEditable || !id || checked) return;
               if (
                 !window.matchMedia('(pointer: coarse)').matches &&
                 !('ontouchstart' in window)

@@ -7,11 +7,17 @@ export const AdvancedTaskItem = TaskItem.extend({
   draggable: true,
 
   addStorage() {
+    let completionClock = 0;
     return {
       members: [] as { id: string; name: string }[],
       checklistMode: false,
       hideDone: false,
       canUseAdvancedReminderPresets: true,
+      nextCompletedAt: () => {
+        const next = Math.max(Date.now(), completionClock + 1);
+        completionClock = next;
+        return new Date(next).toISOString();
+      },
       onConvertToNote: null,
     };
   },
@@ -36,6 +42,10 @@ export const AdvancedTaskItem = TaskItem.extend({
       },
       reminders: {
         default: [],
+        keepOnSplit: false,
+      },
+      completedAt: {
+        default: null,
         keepOnSplit: false,
       },
     };

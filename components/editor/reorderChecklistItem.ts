@@ -1,134 +1,17 @@
 import type { Editor } from '@tiptap/core';
-import { Fragment, type Node as ProseMirrorNode } from '@tiptap/pm/model';
 
 function isCheckedAttr(value: unknown): boolean {
   return value === true || value === 'true';
 }
 
-/**
- * Sibling order after a row is toggled: every still-open item, then the toggled
- * row, then the rest of the done items.
- *
- * That is the original ActionChecklist rule — a newly completed item drops to
- * the top of the completed group (immediately under the last open item).
- * Unchecking lifts it to the bottom of the open group.
- */
-export function desiredChecklistSiblingOrder(
-  siblingChecked: boolean[],
-  toggledIndex: number,
-  checked = !siblingChecked[toggledIndex],
-): number[] {
-  const nextChecked = siblingChecked.map((value, index) =>
-    index === toggledIndex ? checked : value,
-  );
-  const open: number[] = [];
-  const done: number[] = [];
-  nextChecked.forEach((value, index) => {
-    (value ? done : open).push(index);
-  });
-  return [...open, ...done];
-}
-
-/**
- * Set `checked` and move the taskItem inside its parent taskList in one
- * transaction. Avoids `setContent` (which remounts every React node view and
- * often leaves the DOM order unchanged).
- */
-export function applyChecklistToggleSort(
-  editor: Editor,
-  getPos: (() => number | undefined) | boolean | undefined,
-  checked: boolean,
-): boolean {
-  if (!editor || editor.isDestroyed) return false;
-  if (typeof getPos !== 'function') return false;
-
-  return editor
-    .chain()
-    .command(({ tr, state, dispatch }) => {
-      const pos = getPos();
-      if (typeof pos !== 'number' || pos < 0) return false;
-
-      const node = state.doc.nodeAt(pos);
-      if (!node || node.type.name !== 'taskItem') return false;
-
-      const $pos = state.doc.resolve(pos);
-      const parent = $pos.parent;
-      if (parent.type.name !== 'taskList') return false;
-
-      const index = $pos.index();
-      const siblingChecked: boolean[] = [];
-      for (let i = 0; i < parent.childCount; i++) {
-        siblingChecked.push(isCheckedAttr(parent.child(i).attrs?.checked));
-      }
-
-      const order = desiredChecklistSiblingOrder(siblingChecked, index, checked);
-      const orderUnchanged = order.every((orig, i) => orig === i);
-      const alreadyChecked = siblingChecked[index] === checked;
-      if (orderUnchanged && alreadyChecked) return true;
-
-      const children = order.map((orig) => {
-        const child = parent.child(orig);
-        if (orig !== index) return child;
-        return child.type.create({ ...child.attrs, checked }, child.content, child.marks);
-      });
-
-      if (dispatch) {
-        tr.replaceWith(
-          $pos.before($pos.depth),
-          $pos.after($pos.depth),
-          parent.copy(Fragment.from(children)),
-        );
-      }
-      return true;
-    })
-    .run();
-}
-
-/**
- * Move the identified row to the active/completed boundary after the brief
- * completion feedback window. This is one ProseMirror transaction and never
- * recreates the whole document.
- */
+/** Move all completed top-level taskItems into one canonical final taskList. */
 export function groupChecklistItem(editor: Editor, taskItemId: string): boolean {
   if (!editor || editor.isDestroyed || !taskItemId) return false;
-
-  let taskItemPos: number | null = null;
-  editor.state.doc.descendants((node, pos) => {
-    if (node.type.name === 'taskItem' && node.attrs?.id === taskItemId) {
-      taskItemPos = pos;
-      return false;
-    }
-    return taskItemPos === null;
-  });
-  if (taskItemPos === null) return false;
-
-  return editor
-    .chain()
-    .command(({ tr, state, dispatch }) => {
-      const $pos = state.doc.resolve(taskItemPos as number);
-      const parent = $pos.parent;
-      if (parent.type.name !== 'taskList') return false;
-
-      const open: ProseMirrorNode[] = [];
-      const done: ProseMirrorNode[] = [];
-      for (let index = 0; index < parent.childCount; index += 1) {
-        const child = parent.child(index);
-        (isCheckedAttr(child.attrs?.checked) ? done : open).push(child);
-      }
-      const children = [...open, ...done];
-      const alreadyGrouped = children.every((child, index) => child === parent.child(index));
-      if (alreadyGrouped) return true;
-
-      if (dispatch) {
-        tr.replaceWith(
-          $pos.before($pos.depth),
-          $pos.after($pos.depth),
-          parent.copy(Fragment.from(children)),
-        );
-      }
-      return true;
-    })
-    .run();
+  const current = editor.getJSON();
+  const next = normalizeChecklistDocument(current, taskItemId);
+  if (JSON.stringify(next) === JSON.stringify(current)) return true;
+  editor.commands.setContent(next, { emitUpdate: true });
+  return true;
 }
 
 /** Update a row by stable id (safe even after its NodeView was reordered/remounted). */
@@ -136,6 +19,7 @@ export function setChecklistItemChecked(
   editor: Editor,
   taskItemId: string,
   checked: boolean,
+  completedAt: string | null = checked ? new Date().toISOString() : null,
 ): boolean {
   if (!editor || editor.isDestroyed || !taskItemId) return false;
   let taskItemPos: number | null = null;
@@ -152,6 +36,7 @@ export function setChecklistItemChecked(
   const transaction = editor.state.tr.setNodeMarkup(taskItemPos, undefined, {
     ...node.attrs,
     checked,
+    completedAt,
   });
   editor.view.dispatch(transaction);
   return true;
@@ -176,18 +61,86 @@ function isMeaningfulTaskItem(node: any): boolean {
   );
 }
 
-/** Normalize existing documents on open without changing either group's order. */
-export function normalizeChecklistDocument(document: any): any {
-  if (!document || typeof document !== 'object') return document;
-  const normalizeNode = (node: any): any => {
-    if (!Array.isArray(node?.content)) return node;
-    const content = node.content.map(normalizeNode);
-    if (node.type !== 'taskList') return { ...node, content };
-    const open = content.filter((child: any) => !isCheckedAttr(child?.attrs?.checked));
-    const done = content.filter((child: any) => isCheckedAttr(child?.attrs?.checked));
-    return { ...node, content: [...open, ...done] };
-  };
-  return normalizeNode(document);
+function completedAtTime(node: any): number | null {
+  const value = node?.attrs?.completedAt;
+  if (typeof value !== 'string' || !value) return null;
+  const time = Date.parse(value);
+  return Number.isFinite(time) ? time : null;
+}
+
+/**
+ * Canonical checklist layout:
+ * - paragraphs/headings and active task lists keep their document position;
+ * - checked top-level items live in one final taskList;
+ * - completedAt descending defines completion order, with legacy rows stable.
+ */
+export function normalizeChecklistDocument(
+  document: any,
+  preferredCompletedId?: string,
+): any {
+  if (
+    !document ||
+    typeof document !== 'object' ||
+    document.type !== 'doc' ||
+    !Array.isArray(document.content)
+  ) return document;
+
+  const activeBlocks: any[] = [];
+  const completed: Array<{ node: any; index: number }> = [];
+  let completedListTemplate: any = null;
+  let encounterIndex = 0;
+
+  for (const block of document.content) {
+    if (block?.type !== 'taskList' || !Array.isArray(block.content)) {
+      activeBlocks.push(block);
+      continue;
+    }
+
+    const activeItems: any[] = [];
+    for (const item of block.content) {
+      if (item?.type === 'taskItem' && isCheckedAttr(item.attrs?.checked)) {
+        completedListTemplate ??= block;
+        completed.push({ node: item, index: encounterIndex });
+        encounterIndex += 1;
+      } else {
+        activeItems.push(item);
+      }
+    }
+
+    if (activeItems.length > 0) {
+      activeBlocks.push({ ...block, content: activeItems });
+    }
+  }
+
+  completed.sort((left, right) => {
+    const leftId = left.node?.attrs?.id;
+    const rightId = right.node?.attrs?.id;
+    if (preferredCompletedId && leftId === preferredCompletedId && rightId !== preferredCompletedId) {
+      return -1;
+    }
+    if (preferredCompletedId && rightId === preferredCompletedId && leftId !== preferredCompletedId) {
+      return 1;
+    }
+
+    const leftTime = completedAtTime(left.node);
+    const rightTime = completedAtTime(right.node);
+    if (leftTime !== null || rightTime !== null) {
+      if (leftTime === null) return 1;
+      if (rightTime === null) return -1;
+      if (leftTime !== rightTime) return rightTime - leftTime;
+    }
+    return left.index - right.index;
+  });
+
+  if (completed.length > 0) {
+    const template = completedListTemplate ?? { type: 'taskList' };
+    activeBlocks.push({
+      ...template,
+      content: completed.map((entry) => entry.node),
+    });
+  }
+
+  return { ...document, content: activeBlocks };
 }
 
 /** Remove only metadata-free blank task rows before persistence. */

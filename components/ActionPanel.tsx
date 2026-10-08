@@ -646,12 +646,12 @@ function ActionPanelContent({
     if (!checklistDirtyRef.current || !canEditRef.current) return;
     if (checklistSaveInFlightRef.current) return;
     checklistDirtyRef.current = false;
+    const data = sanitizeChecklistDocument(
+      normalizeChecklistDocument(checklistBlocksRef.current),
+    );
+    if (data === null || data === undefined) return;
+    if (JSON.stringify(data) === JSON.stringify(lastPersistedChecklistRef.current)) return;
     checklistSaveInFlightRef.current = true;
-    const data = sanitizeChecklistDocument(checklistBlocksRef.current);
-    if (data === null || data === undefined) {
-      checklistSaveInFlightRef.current = false;
-      return;
-    }
     const revision = checklistRevisionRef.current;
     const rollback = lastPersistedChecklistRef.current;
     const request = updateTaskRef.current(taskId, { checklistBlocks: data });
@@ -1416,7 +1416,7 @@ function ActionPanelContent({
                     setNewChecklistItem("");
                     return;
                   }
-                  if (!checklistEditorRef.current?.appendTaskItem(value)) return;
+                  if (!checklistEditorRef.current?.prependTaskItem(value)) return;
                   setNewChecklistItem("");
                 }}
               >
