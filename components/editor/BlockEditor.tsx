@@ -4,9 +4,11 @@ import StarterKit from '@tiptap/starter-kit';
 import TaskList from '@tiptap/extension-task-list';
 import Placeholder from '@tiptap/extension-placeholder';
 import { TextSelection } from '@tiptap/pm/state';
+import type { EditorView } from '@tiptap/pm/view';
+import { createPortal } from 'react-dom';
 import { AdvancedTaskItem } from './extensions/AdvancedTaskItem';
 import { Button } from '@/components/ui/button';
-import { CheckSquare, Type } from 'lucide-react';
+import { CheckSquare, Heading1, Heading2, Type } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { v4 as uuidv4 } from 'uuid';
 import type { NoteType } from '@/lib/types';
@@ -54,6 +56,90 @@ interface BlockEditorProps {
 
 const EMPTY_DOC = { type: 'doc', content: [{ type: 'paragraph' }] };
 
+type ChecklistSlashCommand = 'taskItem' | 'section' | 'subheading' | 'text';
+
+interface ChecklistSlashMenuState {
+  blockFrom: number;
+  blockTo: number;
+  from: number;
+  to: number;
+  query: string;
+  selectedIndex: number;
+  left: number;
+  top: number;
+}
+
+const CHECKLIST_SLASH_COMMANDS: Array<{
+  id: ChecklistSlashCommand;
+  label: string;
+  keywords: string;
+  icon: typeof CheckSquare;
+}> = [
+  { id: 'taskItem', label: 'Checklist item', keywords: 'checklist task todo', icon: CheckSquare },
+  { id: 'section', label: 'Section heading', keywords: 'section heading title', icon: Heading1 },
+  { id: 'subheading', label: 'Subheading', keywords: 'subheading subtitle', icon: Heading2 },
+  { id: 'text', label: 'Text', keywords: 'text paragraph', icon: Type },
+];
+
+function filteredSlashCommands(query: string) {
+  const normalized = query.trim().toLowerCase();
+  if (!normalized) return CHECKLIST_SLASH_COMMANDS;
+  return CHECKLIST_SLASH_COMMANDS.filter(({ label, keywords }) =>
+    `${label} ${keywords}`.toLowerCase().includes(normalized),
+  );
+}
+
+function applyChecklistSlashCommand(
+  view: EditorView,
+  menu: ChecklistSlashMenuState,
+  command: ChecklistSlashCommand,
+): boolean {
+  const { schema } = view.state;
+  const source = view.state.doc.nodeAt(menu.blockFrom);
+  if (!source || !['paragraph', 'heading'].includes(source.type.name)) return false;
+
+  const transaction = view.state.tr;
+  if (command === 'taskItem') {
+    const prefixSize = menu.to - menu.from;
+    const remainingContent = source.content.cut(prefixSize);
+    const taskItem = schema.nodes.taskItem.create(
+      {
+        checked: false,
+        id: uuidv4(),
+        assigneeId: null,
+        dueDate: null,
+        reminders: [],
+        completedAt: null,
+      },
+      schema.nodes.paragraph.create(null, remainingContent),
+    );
+    transaction.replaceWith(
+      menu.blockFrom,
+      menu.blockTo,
+      schema.nodes.taskList.create(null, taskItem),
+    );
+    transaction.setSelection(
+      TextSelection.near(transaction.doc.resolve(menu.blockFrom + 3)),
+    );
+  } else {
+    transaction.delete(menu.from, menu.to);
+    const nodeType = command === 'text' ? schema.nodes.paragraph : schema.nodes.heading;
+    const attrs = command === 'section'
+      ? { level: 1 }
+      : command === 'subheading'
+        ? { level: 2 }
+        : undefined;
+    transaction.setNodeMarkup(menu.blockFrom, nodeType, attrs);
+    transaction.setSelection(
+      TextSelection.near(transaction.doc.resolve(menu.blockFrom + 1)),
+    );
+  }
+
+  view.dispatch(transaction.scrollIntoView());
+  view.focus();
+  return true;
+}
+
 export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
   (
     {
@@ -72,6 +158,17 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
     },
     ref,
   ) => {
+  const slashMenuRef = React.useRef<ChecklistSlashMenuState | null>(null);
+  const [slashMenu, setSlashMenu] = React.useState<ChecklistSlashMenuState | null>(null);
+
+  const updateSlashMenu = React.useCallback(
+    (next: ChecklistSlashMenuState | null) => {
+      slashMenuRef.current = next;
+      setSlashMenu(next);
+    },
+    [],
+  );
+
   const editor = useEditor({
     // This editor only ever mounts client-side after a user interaction (never during SSR/hydration).
     // Without this, @tiptap/react defaults to `false` under Next.js, returns `null` on the first
@@ -82,6 +179,9 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
       StarterKit.configure({
         bulletList: { keepMarks: true, keepAttributes: false },
         orderedList: { keepMarks: true, keepAttributes: false },
+        // In Checklist mode these are compact semantic section levels. Notes
+        // retain StarterKit's existing heading configuration.
+        heading: checklistMode ? { levels: [1, 2] } : {},
       }),
       TaskList,
       AdvancedTaskItem.configure({
@@ -100,12 +200,78 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
     onUpdate: ({ editor }) => {
       onChange?.(editor.getJSON());
     },
+    onTransaction: ({ editor }) => {
+      if (!checklistMode || !editor.isEditable || !editor.state.selection.empty) {
+        if (slashMenuRef.current) updateSlashMenu(null);
+        return;
+      }
+
+      const { $from } = editor.state.selection;
+      if (
+        $from.depth !== 1 ||
+        !['paragraph', 'heading'].includes($from.parent.type.name)
+      ) {
+        if (slashMenuRef.current) updateSlashMenu(null);
+        return;
+      }
+
+      const beforeCursor = $from.parent.textBetween(0, $from.parentOffset, undefined, '\ufffc');
+      const match = beforeCursor.match(/^\/([^\s/]*)$/);
+      if (!match) {
+        if (slashMenuRef.current) updateSlashMenu(null);
+        return;
+      }
+
+      const commands = filteredSlashCommands(match[1]);
+      if (commands.length === 0) {
+        if (slashMenuRef.current) updateSlashMenu(null);
+        return;
+      }
+
+      const coords = editor.view.coordsAtPos($from.pos);
+      const previous = slashMenuRef.current;
+      updateSlashMenu({
+        blockFrom: $from.before(1),
+        blockTo: $from.after(1),
+        from: $from.start(1),
+        to: $from.pos,
+        query: match[1],
+        selectedIndex: Math.min(previous?.selectedIndex ?? 0, commands.length - 1),
+        left: coords.left,
+        top: coords.bottom + 6,
+      });
+    },
     editorProps: {
       attributes: {
         // Kill default list indentations and margin via prose-ul:pl-0 prose-li:my-0
         class: 'focus:outline-none min-h-[120px] prose dark:prose-invert max-w-none text-sm prose-ul:pl-0 prose-ul:my-0 prose-li:my-0 prose-li:pl-0 marker:text-transparent',
       },
       handleKeyDown: (view, event) => {
+        const currentMenu = slashMenuRef.current;
+        if (checklistMode && currentMenu) {
+          const commands = filteredSlashCommands(currentMenu.query);
+          if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+            event.preventDefault();
+            const direction = event.key === 'ArrowDown' ? 1 : -1;
+            const selectedIndex =
+              (currentMenu.selectedIndex + direction + commands.length) % commands.length;
+            updateSlashMenu({ ...currentMenu, selectedIndex });
+            return true;
+          }
+          if (event.key === 'Escape') {
+            event.preventDefault();
+            updateSlashMenu(null);
+            return true;
+          }
+          if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            const command = commands[currentMenu.selectedIndex];
+            if (command) applyChecklistSlashCommand(view, currentMenu, command.id);
+            updateSlashMenu(null);
+            return true;
+          }
+        }
+
         if (
           !checklistMode ||
           event.key !== 'Enter' ||
@@ -189,6 +355,10 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
     members,
     onConvertTaskItemToNote,
   ]);
+
+  React.useEffect(() => {
+    if (!checklistMode && slashMenuRef.current) updateSlashMenu(null);
+  }, [checklistMode, updateSlashMenu]);
 
   useImperativeHandle(ref, () => ({
     insertContent: (content: any) => {
@@ -345,6 +515,48 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
       <div className="py-1 px-0">
         <EditorContent editor={editor} className="min-h-[150px] outline-none" />
       </div>
+
+      {slashMenu && typeof document !== 'undefined'
+        ? createPortal(
+            <div
+              role="listbox"
+              aria-label="Checklist block type"
+              className="fixed z-[100] w-52 overflow-hidden rounded-lg border border-border/70 bg-popover p-1 text-popover-foreground shadow-xl"
+              style={{
+                left: Math.min(slashMenu.left, window.innerWidth - 220),
+                top: Math.min(slashMenu.top, window.innerHeight - 190),
+              }}
+              onMouseDown={(event) => event.preventDefault()}
+            >
+              {filteredSlashCommands(slashMenu.query).map((command, index) => {
+                const Icon = command.icon;
+                return (
+                  <button
+                    key={command.id}
+                    type="button"
+                    role="option"
+                    aria-selected={index === slashMenu.selectedIndex}
+                    className={cn(
+                      'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors',
+                      index === slashMenu.selectedIndex
+                        ? 'bg-accent text-accent-foreground'
+                        : 'hover:bg-accent/70',
+                    )}
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      applyChecklistSlashCommand(editor.view, slashMenu, command.id);
+                      updateSlashMenu(null);
+                    }}
+                  >
+                    <Icon className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+                    {command.label}
+                  </button>
+                );
+              })}
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 });

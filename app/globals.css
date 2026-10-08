@@ -111,8 +111,24 @@
   color: hsl(var(--muted-foreground) / 0.6);
 }
 
-/* Checklist rows are stored in one TipTap taskList. The first checked row marks
-   the stable open/completed boundary without introducing a persisted node. */
+/* Checklist-only semantic headings. They remain compact inside ActionPanel
+   while preserving real heading nodes in the TipTap document. */
+.checklist-editor .tiptap > h1 {
+  margin: 0.8rem 0 0.25rem;
+  font-size: 0.98rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.checklist-editor .tiptap > h2 {
+  margin: 0.6rem 0 0.2rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+/* Completed checklist rows are stored in one canonical final taskList. Its
+   first checked row marks the stable boundary without a persisted spacer. */
 .checklist-show-completed
   .tiptap
   > ul[data-type="taskList"]

@@ -68,6 +68,13 @@ function completedAtTime(node: any): number | null {
   return Number.isFinite(time) ? time : null;
 }
 
+function isEmptyBoundaryParagraph(node: any): boolean {
+  return (
+    node?.type === 'paragraph' &&
+    (!Array.isArray(node.content) || node.content.length === 0)
+  );
+}
+
 /**
  * Canonical checklist layout:
  * - paragraphs/headings and active task lists keep their document position;
@@ -133,6 +140,16 @@ export function normalizeChecklistDocument(
   });
 
   if (completed.length > 0) {
+    // ProseMirror can leave an empty top-level paragraph at the position from
+    // which a list was split or moved. Once completed rows are collected into
+    // their canonical final taskList, those structural boundary paragraphs
+    // would accumulate before the completed group on every reorder. Only trim
+    // contiguous, truly empty paragraphs at this managed boundary; intentional
+    // text, headings, hard breaks and spacing elsewhere remain untouched.
+    while (isEmptyBoundaryParagraph(activeBlocks[activeBlocks.length - 1])) {
+      activeBlocks.pop();
+    }
+
     const template = completedListTemplate ?? { type: 'taskList' };
     activeBlocks.push({
       ...template,
