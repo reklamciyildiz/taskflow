@@ -10,6 +10,7 @@ export const AdvancedTaskItem = TaskItem.extend({
     let completionClock = 0;
     return {
       members: [] as { id: string; name: string }[],
+      taskId: null as string | null,
       checklistMode: false,
       hideDone: false,
       canUseAdvancedReminderPresets: true,
@@ -42,6 +43,10 @@ export const AdvancedTaskItem = TaskItem.extend({
       },
       reminders: {
         default: [],
+        keepOnSplit: false,
+      },
+      schedule: {
+        default: null,
         keepOnSplit: false,
       },
       completedAt: {

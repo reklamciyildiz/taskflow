@@ -10,6 +10,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "test:scheduling": "tsx scripts/test-scheduling-domain.ts",
     "migrate:auth": "tsx scripts/migrate-users-to-supabase-auth.ts"
   },
   "dependencies": {

@@ -16,6 +16,8 @@ import {
   CreateNoteRequest,
   UpdateNoteRequest,
 } from './types';
+import type { PlannerTodayProjection, PlannerUpcomingProjection } from './planner-projection';
+import type { WorkSchedule, WorkScheduleInput, WorkSource } from './scheduling-domain';
 
 const API_BASE = '/api';
 
@@ -154,6 +156,68 @@ export const noteApi = {
     fetchApi<null>(`/notes/${id}`, {
       method: 'DELETE',
     }),
+};
+
+export const plannerApi = {
+  getToday: (input: { date: string; teamId: string; timeZone: string }) => {
+    const params = new URLSearchParams(input);
+    return fetchApi<PlannerTodayProjection>(`/planner/today?${params.toString()}`);
+  },
+  getUpcoming: (input: { startDate: string; teamId: string; horizonDays?: string }) => {
+    const params = new URLSearchParams({
+      startDate: input.startDate,
+      teamId: input.teamId,
+      horizonDays: input.horizonDays ?? '14',
+    });
+    return fetchApi<PlannerUpcomingProjection>(`/planner/upcoming?${params.toString()}`);
+  },
+  setOccurrenceCompleted: (input: {
+    scheduleId: string;
+    occurrenceDate: string;
+    completed: boolean;
+  }) => fetchApi<{ occurrence: unknown }>('/planner/occurrences', {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  }),
+  getOccurrence: (scheduleId: string, occurrenceDate: string) => {
+    const params = new URLSearchParams({ scheduleId, occurrenceDate });
+    return fetchApi<{ state: 'pending' | 'completed' | 'skipped'; occurrence: unknown }>(
+      `/planner/occurrences?${params.toString()}`,
+    );
+  },
+  mutateOccurrence: (input: {
+    scheduleId: string;
+    occurrenceDate: string;
+    action: 'complete' | 'uncomplete' | 'skip' | 'reschedule';
+    effectiveDate?: string;
+  }) => fetchApi<{ occurrence: unknown }>('/planner/occurrences', {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  }),
+};
+
+function scheduleParams(source: WorkSource): string {
+  const params = new URLSearchParams({ taskId: source.taskId });
+  if (source.sourceType === 'checklist_item') params.set('checklistItemId', source.checklistItemId);
+  return params.toString();
+}
+
+export const scheduleApi = {
+  get: (source: WorkSource) => fetchApi<WorkSchedule | null>(`/schedules?${scheduleParams(source)}`),
+  save: (input: WorkScheduleInput) => fetchApi<WorkSchedule>('/schedules', {
+    method: 'PUT',
+    body: JSON.stringify({
+      ...input,
+      taskId: input.source.taskId,
+      checklistItemId: input.source.sourceType === 'checklist_item'
+        ? input.source.checklistItemId
+        : null,
+      source: undefined,
+    }),
+  }),
+  remove: (source: WorkSource) => fetchApi<null>(`/schedules?${scheduleParams(source)}`, {
+    method: 'DELETE',
+  }),
 };
 
 // Team API

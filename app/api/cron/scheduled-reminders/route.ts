@@ -3,7 +3,7 @@ import { cronRemindersUnauthorizedResponse } from '@/lib/cron-reminders-guard';
 import { processScheduledReminders } from '@/lib/process-scheduled-reminders';
 
 /**
- * Absolute scheduled reminders (ISO instants on tasks + checklist rows).
+ * Absolute scheduled reminders from canonical work_schedules reminder policies.
  *
  * Prefer `/api/cron/reminders-tick` for production (runs scheduled + due together).
  * This route remains for backwards compatibility and GitHub Actions links.

@@ -10,7 +10,14 @@ import { sendPushToUser } from '@/lib/push';
 import { syncGoogleCalendarForTaskForRelevantUsers } from '@/lib/google-calendar-sync';
 import { canUseAdvancedReminders, getOrganizationEntitlements } from '@/lib/entitlements';
 import { computeReminderInstantsUtcIso } from '@/lib/reminder-presets';
-import { parseDueDateFromApi } from '@/lib/due-date';
+import {
+  getUserSchedulingTimeZone,
+  hydrateTaskWithCanonicalSchedules,
+  hydrateTasksWithCanonicalSchedules,
+  syncOneOffScheduleCommand,
+} from '@/lib/scheduling-runtime-server';
+import { legacyDueValueToSchedule, scheduleDueInstantIso } from '@/lib/scheduling-runtime';
+import { SchedulingValidationError } from '@/lib/scheduling-domain';
 
 // GET /api/tasks - Get all tasks (optionally filtered by teamId or organizationId)
 export async function GET(request: NextRequest) {
@@ -86,9 +93,10 @@ export async function GET(request: NextRequest) {
       tasks = [];
     }
 
+    const hydratedTasks = await hydrateTasksWithCanonicalSchedules(tasks);
     return NextResponse.json<ApiResponse<any>>({
       success: true,
-      data: tasks,
+      data: hydratedTasks,
     });
   } catch (error) {
     console.error('Error fetching tasks:', error);
@@ -131,13 +139,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const actor: any = session?.user?.email ? await userDb.getByEmail(session.user.email) : null;
+    const schedulingTimeZone = await getUserSchedulingTimeZone(String(actor?.id ?? userId));
+
     // Server-side paywall: Free cannot set advanced scheduled reminders.
     // Allow only the basic "when due" reminder (exact instant) and only when a due date is present.
     {
       const ent = await getOrganizationEntitlements(String(organizationId));
       const wantsReminders = Array.isArray(body.reminders) && body.reminders.length > 0;
       if (wantsReminders && !canUseAdvancedReminders(ent)) {
-        const dueAt = parseDueDateFromApi(body.dueDate ?? null);
+        const dueAt = body.dueDate
+          ? new Date(scheduleDueInstantIso(
+              legacyDueValueToSchedule(String(body.dueDate), schedulingTimeZone),
+              schedulingTimeZone,
+            ))
+          : undefined;
         const allowed = dueAt ? computeReminderInstantsUtcIso({ dueAt, preset: 'when_due' })[0] : null;
         const first = typeof body.reminders?.[0] === 'string' ? String(body.reminders[0]) : '';
         if (!allowed || first !== allowed) {
@@ -155,7 +171,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Require that the actor is a member of the team they are creating a task in (or org admin).
-    const actor: any = session?.user?.email ? await userDb.getByEmail(session.user.email) : null;
     if (actor) {
       const isOrgAdmin = actor.role === 'admin' || actor.role === 'owner';
       const mem = await teamMemberDb.getMembership(body.teamId, actor.id);
@@ -175,8 +190,6 @@ export async function POST(request: NextRequest) {
       description: body.description || null,
       status: body.status || 'todo',
       priority: body.priority || 'medium',
-      due_date: body.dueDate || null,
-      reminders: Array.isArray(body.reminders) ? body.reminders : [],
       assignee_id: body.assigneeId || null,
       customer_id: body.customerId || null,
       project_id: body.projectId ?? null,
@@ -184,6 +197,29 @@ export async function POST(request: NextRequest) {
       organization_id: organizationId,
       created_by: userId,
     });
+
+    const scheduleActor: any = actor ?? await userDb.getById(userId);
+    try {
+      if (body.dueDate != null || (Array.isArray(body.reminders) && body.reminders.length > 0)) {
+        await syncOneOffScheduleCommand(
+          {
+            userId: String(scheduleActor.id),
+            organizationId: String(organizationId),
+            role: scheduleActor.role,
+          },
+          { sourceType: 'action', taskId: String(task.id) },
+          {
+            dueDate: body.dueDate ?? null,
+            reminders: Array.isArray(body.reminders) ? body.reminders : [],
+          },
+        );
+      }
+    } catch (scheduleError) {
+      // Compensate creation so callers never receive an Action whose requested schedule was lost.
+      await taskDb.delete(String(task.id));
+      throw scheduleError;
+    }
+    const hydratedTask = await hydrateTaskWithCanonicalSchedules(task as any);
 
     // Send notification if task is assigned to someone
     if (body.assigneeId && body.assigneeId !== userId) {
@@ -223,7 +259,7 @@ export async function POST(request: NextRequest) {
           description: task.description || '',
           status: task.status,
           priority: task.priority,
-          dueDate: task.due_date,
+          dueDate: hydratedTask.due_date,
           assigneeId: task.assignee_id,
           customerId: task.customer_id,
           teamId: task.team_id,
@@ -258,17 +294,22 @@ export async function POST(request: NextRequest) {
         id: task.id,
         title: task.title,
         description: task.description,
-        due_date: task.due_date,
       },
     });
 
     return NextResponse.json<ApiResponse<any>>({
       success: true,
-      data: task,
+      data: hydratedTask,
       message: 'Task created successfully',
     }, { status: 201 });
   } catch (error) {
     console.error('Error creating task:', error);
+    if (error instanceof SchedulingValidationError) {
+      return NextResponse.json<ApiResponse<null>>(
+        { success: false, error: error.message },
+        { status: 400 },
+      );
+    }
     return NextResponse.json<ApiResponse<null>>(
       { success: false, error: 'Internal server error' },
       { status: 500 }

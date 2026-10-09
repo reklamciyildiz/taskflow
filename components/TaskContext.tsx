@@ -30,6 +30,7 @@ import {
   writeCustomerTerminology,
   type CustomerTerminology,
 } from '@/lib/customer-directory-label';
+import { SCHEDULE_CHANGED_EVENT, type ScheduleChangedDetail } from '@/lib/schedule-events';
 
 export type {
   Task,
@@ -120,7 +121,7 @@ interface TaskContextType {
   canCompleteTask: (taskAssigneeId?: string | null) => boolean;
   /** Global action editor (Board, List, Knowledge Hub) */
   editingTaskId: string | null;
-  openTaskEditor: (taskId: string) => void;
+  openTaskEditor: (taskId: string, checklistItemId?: string | null) => void;
   /** Alias for `openTaskEditor` — opens the Aksiyon panel. */
   openActionEditor: (taskId: string) => void;
   closeTaskEditor: () => void;
@@ -175,7 +176,11 @@ function partialTaskToUpdateRequest(updates: TaskUpdateFields): UpdateTaskReques
   if (updates.priority !== undefined) api.priority = updates.priority;
   if (Object.prototype.hasOwnProperty.call(updates, 'dueDate')) {
     const d = updates.dueDate;
-    api.dueDate = d == null ? null : d.toISOString();
+    api.dueDate = d == null
+      ? null
+      : d.getHours() === 12 && d.getMinutes() === 0 && d.getSeconds() === 0
+        ? formatDueDateYmdLocal(d)
+        : d.toISOString();
   }
   if (updates.reminders !== undefined) api.reminders = updates.reminders ?? null;
   if (updates.assigneeId !== undefined) api.assigneeId = updates.assigneeId;
@@ -195,10 +200,11 @@ function transformTask(apiTask: any): Task {
     description: apiTask.description || '',
     status: String(apiTask.status ?? 'todo'),
     priority: apiTask.priority as TaskPriority,
-    dueDate: apiTask.due_date ? new Date(apiTask.due_date) : undefined,
+    dueDate: parseDueDateFromApi(apiTask.due_date),
     reminders: Array.isArray(apiTask.reminders)
       ? (apiTask.reminders.filter((x: any) => typeof x === 'string' && x) as string[])
       : [],
+    schedule: apiTask.work_schedule ?? null,
     assigneeId: apiTask.assignee_id,
     customerId: apiTask.customer_id,
     customerName: apiTask.customer?.name,
@@ -300,6 +306,25 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   const sessionRef = useRef(session);
   sessionRef.current = session;
   const lastFetchedScopeRef = useRef<{ teamId: string; orgId: string } | null>(null);
+  const scheduleRefreshRevisionRef = useRef(new Map<string, number>());
+
+  useEffect(() => {
+    const onScheduleChanged = async (event: Event) => {
+      const taskId = (event as CustomEvent<ScheduleChangedDetail>).detail.source.taskId;
+      const revision = (scheduleRefreshRevisionRef.current.get(taskId) ?? 0) + 1;
+      scheduleRefreshRevisionRef.current.set(taskId, revision);
+      const response = await taskApi.getById(taskId);
+      if (
+        !response.success
+        || !response.data
+        || scheduleRefreshRevisionRef.current.get(taskId) !== revision
+      ) return;
+      const refreshed = transformTask(response.data);
+      setTasks((current) => current.map((task) => task.id === taskId ? refreshed : task));
+    };
+    window.addEventListener(SCHEDULE_CHANGED_EVENT, onScheduleChanged);
+    return () => window.removeEventListener(SCHEDULE_CHANGED_EVENT, onScheduleChanged);
+  }, []);
 
   // Sync ref with current states for async access
   useEffect(() => {
@@ -330,8 +355,11 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     );
   }, []);
 
-  const openTaskEditor = useCallback((taskId: string) => {
+  const openTaskEditor = useCallback((taskId: string, checklistItemId?: string | null) => {
     if (Date.now() < suppressTaskEditorOpenUntilRef.current) return;
+    pendingChecklistFocusRef.current = checklistItemId
+      ? { taskId, checklistId: checklistItemId }
+      : null;
     setEditingTaskId(taskId);
   }, []);
 
@@ -750,10 +778,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       params.delete('project');
     }
 
-    openTaskEditor(task.id);
-    if (checklistQueryParam) {
-      pendingChecklistFocusRef.current = { taskId: task.id, checklistId: checklistQueryParam };
-    }
+    openTaskEditor(task.id, checklistQueryParam);
 
     const q = params.toString();
     router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false });
@@ -916,16 +941,17 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
 
   // Update task via API with optimistic update — returns false if rolled back
   const updateTask = useCallback(async (id: string, updates: TaskUpdateFields): Promise<boolean> => {
-    let rollbackSnapshot: Task[] | null = null;
+    let rollbackTask: Task | null = null;
+    const optimisticUpdatedAt = new Date();
     setTasks((prev) => {
-      rollbackSnapshot = prev;
+      rollbackTask = prev.find((task) => task.id === id) ?? null;
       return prev.map((task) => {
         if (task.id !== id) return task;
         const { dueDate: duePatch, ...restUpdates } = updates;
         return {
           ...task,
           ...restUpdates,
-          updatedAt: new Date(),
+          updatedAt: optimisticUpdatedAt,
           ...(Object.prototype.hasOwnProperty.call(updates, 'dueDate')
             ? { dueDate: duePatch != null ? duePatch : undefined }
             : {}),
@@ -938,13 +964,21 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
 
       if (!response.success) {
         console.error('Failed to update task:', response.error);
-        if (rollbackSnapshot) setTasks(rollbackSnapshot);
+        if (rollbackTask) {
+          setTasks((current) => current.map((task) =>
+            task.id === id && task.updatedAt === optimisticUpdatedAt ? rollbackTask! : task
+          ));
+        }
         return false;
       }
       return true;
     } catch (err) {
       console.error('Error updating task:', err);
-      if (rollbackSnapshot) setTasks(rollbackSnapshot);
+      if (rollbackTask) {
+        setTasks((current) => current.map((task) =>
+          task.id === id && task.updatedAt === optimisticUpdatedAt ? rollbackTask! : task
+        ));
+      }
       return false;
     }
   }, []);

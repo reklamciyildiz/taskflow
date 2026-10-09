@@ -54,6 +54,7 @@ export interface ChecklistItemData {
   assigneeId: string | null;
   dueDate: string | null;
   reminders: string[];
+  completedAt: string | null;
 }
 
 /** Extracts reminder/assignment metadata from canonical TipTap taskItem nodes. */
@@ -76,6 +77,9 @@ export function extractChecklistItemsFromTipTap(json: any): ChecklistItemData[] 
         reminders: Array.isArray(attrs.reminders)
           ? attrs.reminders.filter((value: unknown): value is string => typeof value === 'string' && value.length > 0)
           : [],
+        completedAt: typeof attrs.completedAt === 'string' && attrs.completedAt
+          ? attrs.completedAt
+          : null,
       });
     }
 
@@ -107,6 +111,7 @@ export function appendChecklistItemToTipTap(
       assigneeId: null,
       dueDate: null,
       reminders: [],
+      completedAt: null,
     },
     content: [
       {

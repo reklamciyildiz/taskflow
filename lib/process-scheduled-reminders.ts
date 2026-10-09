@@ -1,50 +1,53 @@
 import { parseDueDateFromApi } from '@/lib/due-date';
-import { notificationDb, taskDb } from '@/lib/db';
+import { notificationDb } from '@/lib/db';
 import { canUseAdvancedReminders, getOrganizationEntitlements, type Entitlements } from '@/lib/entitlements';
 import { computeReminderInstantsUtcIso } from '@/lib/reminder-presets';
 import { sendPushToUser } from '@/lib/push';
-import { extractChecklistItemsFromTipTap, type ChecklistItemData } from '@/lib/tiptap-parser';
-
-function isoToMs(iso: string): number | null {
-  const t = Date.parse(iso);
-  return Number.isFinite(t) ? t : null;
-}
+import { listActiveScheduledWorkForDates } from '@/lib/scheduling-runtime-server';
+import { isWhenDueReminderRule, reminderInstantsForOccurrence, scheduleToLegacyDueValue } from '@/lib/scheduling-runtime';
+import { addCalendarDays } from '@/lib/scheduling-domain';
+import type { ReminderPresetId } from '@/lib/reminder-presets';
 
 function boardLink(params: Record<string, string>) {
-  const qs = new URLSearchParams();
-  for (const [k, v] of Object.entries(params)) {
-    if (v) qs.set(k, v);
-  }
-  return `/board?${qs.toString()}`;
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) if (value) query.set(key, value);
+  return `/board?${query.toString()}`;
 }
 
-function rowReminders(row: ChecklistItemData): string[] {
-  return row.reminders;
-}
-
-function taskReminders(raw: unknown): string[] {
-  if (!Array.isArray(raw)) return [];
-  return raw.filter((x): x is string => typeof x === 'string' && x.length > 0);
-}
-
-/** Parity with task PATCH paywall: Free / lapsed paid may only fire the single `when_due` instant for a given due date. */
-function scheduledIsoAllowedForOrg(ent: Entitlements, dueRaw: unknown, iso: string): boolean {
-  if (canUseAdvancedReminders(ent)) return true;
-  const s = typeof dueRaw === 'string' ? dueRaw.trim() : '';
-  const dueAt = parseDueDateFromApi(s || null);
-  const allowed = dueAt ? computeReminderInstantsUtcIso({ dueAt, preset: 'when_due' })[0] : null;
+function scheduledIsoAllowedForOrg(
+  entitlements: Entitlements,
+  dueRaw: string,
+  iso: string,
+  reminderRules: Parameters<typeof isWhenDueReminderRule>[0],
+  preset: ReminderPresetId | null,
+): boolean {
+  if (canUseAdvancedReminders(entitlements)) return true;
+  if (preset === 'when_due') return true;
+  if (isWhenDueReminderRule(reminderRules, iso)) return true;
+  const dueAt = parseDueDateFromApi(dueRaw);
+  const allowed = dueAt
+    ? computeReminderInstantsUtcIso({ dueAt, preset: 'when_due' })[0]
+    : null;
   return Boolean(allowed && allowed === iso);
 }
 
-const FALLBACK_FREE_ENT: Entitlements = { plan: 'free', subscriptionStatus: 'active', seatLimit: 2 };
+const FALLBACK_FREE_ENT: Entitlements = {
+  plan: 'free',
+  subscriptionStatus: 'active',
+  seatLimit: 2,
+};
 
-async function entitlementsForOrg(orgId: string, cache: Map<string, Entitlements>): Promise<Entitlements> {
-  if (!orgId) return FALLBACK_FREE_ENT;
-  const hit = cache.get(orgId);
-  if (hit) return hit;
-  const ent = await getOrganizationEntitlements(orgId);
-  cache.set(orgId, ent);
-  return ent;
+async function entitlementsForOrg(
+  organizationId: string,
+  cache: Map<string, Entitlements>,
+): Promise<Entitlements> {
+  const cached = cache.get(organizationId);
+  if (cached) return cached;
+  const entitlements = organizationId
+    ? await getOrganizationEntitlements(organizationId)
+    : FALLBACK_FREE_ENT;
+  cache.set(organizationId, entitlements);
+  return entitlements;
 }
 
 export type ScheduledReminderRunStats = {
@@ -52,152 +55,103 @@ export type ScheduledReminderRunStats = {
   checklistRemindersFired: number;
 };
 
-/**
- * Frequent cron entrypoint: fire scheduled reminders (absolute instants).
- *
- * Design:
- * - Reminders are stored as UTC ISO timestamps on the task row (`tasks.reminders`)
- *   and optionally per checklist taskItem inside `tasks.checklist_blocks`.
- * - This job is idempotent via `notificationDb.hasRecentDuplicate` using a
- *   dedupe link containing the reminder ISO string.
- *
- * Note: We intentionally do NOT mutate tasks to delete fired reminders in v1.
- * Windowing + dedupe prevents repeats while keeping the feature low-risk.
- *
- * Task-level reminders notify `assignee_id` when set; otherwise `created_by`
- * (the user who created the action) so "Remind me" works for unassigned tasks.
- *
- * Plan enforcement: matches API paywall — orgs without advanced entitlement only fire
- * reminders whose ISO equals `when_due` for the row’s due date (stale Pro data after downgrade
- * does not keep firing).
- */
+/** Absolute reminder delivery sourced exclusively from work_schedules.reminder_rules. */
 export async function processScheduledReminders(input?: {
-  /** Sliding window to consider reminders as "due" (missed cron / deploy gaps). Default: 24h. */
   lookbackMs?: number;
 }): Promise<ScheduledReminderRunStats> {
-  const lookbackMs = Number.isFinite(input?.lookbackMs) ? Math.max(60_000, input!.lookbackMs!) : 24 * 60 * 60_000;
+  const lookbackMs = Number.isFinite(input?.lookbackMs)
+    ? Math.max(60_000, input!.lookbackMs!)
+    : 24 * 60 * 60_000;
   const now = Date.now();
-  const minMs = now - lookbackMs;
-
+  const minimum = now - lookbackMs;
   let taskRemindersFired = 0;
   let checklistRemindersFired = 0;
 
-  const tasks = await taskDb.listForDueReminders();
+  const utcToday = new Date(now).toISOString().slice(0, 10);
+  const reminderDates = [-2, -1, 0, 1, 2].map((days) => addCalendarDays(utcToday, days));
+  const scheduledWork = await listActiveScheduledWorkForDates(reminderDates);
   const entitlementsCache = new Map<string, Entitlements>();
+  for (const work of scheduledWork) {
+    if (!work.recipientId) continue;
+    const entitlements = await entitlementsForOrg(work.organizationId, entitlementsCache);
+    const dueValue = scheduleToLegacyDueValue(work.schedule);
+    const isChecklist = work.sourceType === 'checklist_item';
+    const baseParams: Record<string, string> = {
+      task: work.taskId,
+      ...(work.projectId ? { project: work.projectId } : {}),
+      ...(work.checklistItemId ? { checklist: work.checklistItemId } : {}),
+    };
+    const openLink = boardLink(baseParams);
 
-  for (const t of tasks as any[]) {
-    const orgId = String(t.organization_id ?? '');
-    const orgEnt = await entitlementsForOrg(orgId, entitlementsCache);
-    const taskId = String(t.id ?? '');
-    const title = String(t.title ?? 'Action');
-    const projectId = t.project_id ? String(t.project_id) : null;
-    const taskAssignee = t.assignee_id ? String(t.assignee_id) : null;
-    const taskCreator = t.created_by ? String(t.created_by) : null;
-    const taskReminderRecipient = taskAssignee || taskCreator;
+    const reminderCandidates = reminderInstantsForOccurrence(
+      work.schedule,
+      work.dueDate,
+    );
+    for (const candidate of reminderCandidates) {
+      const iso = candidate.at;
+      const instant = Date.parse(iso);
+      if (!Number.isFinite(instant) || instant > now || instant < minimum) continue;
+      if (!scheduledIsoAllowedForOrg(
+        entitlements,
+        dueValue,
+        iso,
+        work.schedule.reminderRules,
+        candidate.preset,
+      )) continue;
 
-    // Task-level scheduled reminders (assignee, else creator of the action).
-    if (taskReminderRecipient) {
-      for (const iso of taskReminders(t.reminders)) {
-        const ms = isoToMs(iso);
-        if (ms == null) continue;
-        if (ms > now || ms < minMs) continue;
-        if (!scheduledIsoAllowedForOrg(orgEnt, t.due_date ?? t.dueDate, iso)) continue;
-
-        const openLink = boardLink({ task: taskId, ...(projectId ? { project: projectId } : {}) });
-        const dedupeLink = boardLink({
-          task: taskId,
-          ...(projectId ? { project: projectId } : {}),
-          r: 'tRem',
-          at: iso,
-        });
-
-        const dup = await notificationDb.hasRecentDuplicate({
-          user_id: taskReminderRecipient,
-          type: 'task_reminder',
+      const dedupeLink = boardLink({
+        ...baseParams,
+        r: isChecklist ? 'cRem' : 'tRem',
+        schedule: work.schedule.id,
+        occurrence: work.occurrenceDate,
+        rule: candidate.ruleKey,
+      });
+      const legacyDedupeLink = boardLink({
+        ...baseParams,
+        r: isChecklist ? 'cRem' : 'tRem',
+        at: iso,
+      });
+      const type = isChecklist ? 'checklist_reminder' : 'task_reminder';
+      const [duplicate, legacyDuplicate] = await Promise.all([
+        notificationDb.hasRecentDuplicate({
+          user_id: work.recipientId,
+          type,
           link: dedupeLink,
           withinHours: 48,
-        });
-        if (dup) continue;
-
-        const ins = await notificationDb.tryInsert({
-          user_id: taskReminderRecipient,
-          organization_id: orgId,
-          type: 'task_reminder',
-          title: 'Reminder',
-          message: `"${title}"`,
-          link: dedupeLink,
-        });
-        if (!ins) continue;
-
-        await sendPushToUser(taskReminderRecipient, {
-          title: 'Reminder',
-          body: title,
-          url: openLink,
-          tag: `task_reminder:${taskId}:${iso}`,
-        });
-        taskRemindersFired += 1;
-      }
-    }
-
-    // Checklist-row scheduled reminders.
-    for (const row of extractChecklistItemsFromTipTap(t.checklist_blocks)) {
-      if (row.checked) continue;
-      const text = row.text.trim();
-      if (!text) continue;
-      const rowId = row.id;
-      if (!rowId || rowId.startsWith('__')) continue;
-
-      const assignee = row.assigneeId || taskAssignee || taskCreator;
-      if (!assignee) continue;
-
-      for (const iso of rowReminders(row)) {
-        const ms = isoToMs(iso);
-        if (ms == null) continue;
-        if (ms > now || ms < minMs) continue;
-        if (!scheduledIsoAllowedForOrg(orgEnt, row.dueDate, iso)) continue;
-
-        const openLink = boardLink({
-          task: taskId,
-          checklist: rowId,
-          ...(projectId ? { project: projectId } : {}),
-        });
-        const dedupeLink = boardLink({
-          task: taskId,
-          checklist: rowId,
-          ...(projectId ? { project: projectId } : {}),
-          r: 'cRem',
-          at: iso,
-        });
-
-        const dup = await notificationDb.hasRecentDuplicate({
-          user_id: assignee,
-          type: 'checklist_reminder',
-          link: dedupeLink,
+        }),
+        notificationDb.hasRecentDuplicate({
+          user_id: work.recipientId,
+          type,
+          link: legacyDedupeLink,
           withinHours: 48,
-        });
-        if (dup) continue;
+        }),
+      ]);
+      if (duplicate || legacyDuplicate) continue;
 
-        const ins = await notificationDb.tryInsert({
-          user_id: assignee,
-          organization_id: orgId,
-          type: 'checklist_reminder',
-          title: 'Reminder',
-          message: `"${title}" — ${text}`,
-          link: dedupeLink,
-        });
-        if (!ins) continue;
+      const inserted = await notificationDb.tryInsert({
+        user_id: work.recipientId,
+        organization_id: work.organizationId,
+        type,
+        title: 'Reminder',
+        message: isChecklist
+          ? `"${work.taskTitle}" — ${work.checklistItemText}`
+          : `"${work.taskTitle}"`,
+        link: dedupeLink,
+      });
+      if (!inserted) continue;
 
-        await sendPushToUser(assignee, {
-          title: 'Reminder',
-          body: text.slice(0, 120),
-          url: openLink,
-          tag: `checklist_reminder:${taskId}:${rowId}:${iso}`,
-        });
-        checklistRemindersFired += 1;
-      }
+      await sendPushToUser(work.recipientId, {
+        title: 'Reminder',
+        body: isChecklist
+          ? String(work.checklistItemText).slice(0, 120)
+          : work.taskTitle,
+        url: openLink,
+        tag: `schedule_reminder:${work.schedule.id}:${work.occurrenceDate}:${candidate.ruleKey}`,
+      });
+      if (isChecklist) checklistRemindersFired += 1;
+      else taskRemindersFired += 1;
     }
   }
 
   return { taskRemindersFired, checklistRemindersFired };
 }
-

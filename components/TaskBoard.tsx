@@ -91,7 +91,9 @@ export function TaskBoard() {
     
     // Apply quick filter from sidebar
     if (filter === 'dueToday') {
-      result = result.filter(task => task.dueDate && isToday(task.dueDate) && task.status !== 'done');
+      result = result.filter(
+        task => task.dueDate && isToday(task.dueDate) && !isTerminalBoardColumn(task.status, boardColumns),
+      );
     } else if (filter === 'highPriority') {
       result = result.filter(task => (task.priority === 'high' || task.priority === 'urgent') && task.status !== 'done');
     } else if (filter === 'assignedToMe') {
@@ -109,7 +111,7 @@ export function TaskBoard() {
     }
     
     return result;
-  }, [tasks, statusFilter, filter, customerFilter, currentUser?.id, currentTeam?.id, boardScope]);
+  }, [tasks, statusFilter, filter, customerFilter, currentUser?.id, currentTeam?.id, boardScope, boardColumns]);
 
   const onDragEnd = useCallback(
     (result: DropResult) => {

@@ -42,6 +42,31 @@ export function setChecklistItemChecked(
   return true;
 }
 
+/** Immutable variant used by execution surfaces that do not own a mounted editor. */
+export function setChecklistItemCheckedInDocument(
+  document: any,
+  taskItemId: string,
+  checked: boolean,
+  completedAt: string | null = checked ? new Date().toISOString() : null,
+): any | null {
+  if (!document || typeof document !== 'object' || !taskItemId) return null;
+  let found = false;
+  const update = (node: any): any => {
+    if (!node || typeof node !== 'object') return node;
+    if (node.type === 'taskItem' && node.attrs?.id === taskItemId) {
+      found = true;
+      return {
+        ...node,
+        attrs: { ...node.attrs, checked, completedAt },
+      };
+    }
+    if (!Array.isArray(node.content)) return node;
+    return { ...node, content: node.content.map(update) };
+  };
+  const updated = update(document);
+  return found ? normalizeChecklistDocument(updated, checked ? taskItemId : undefined) : null;
+}
+
 function taskItemText(node: any): string {
   if (!node || typeof node !== 'object') return '';
   if (typeof node.text === 'string') return node.text;

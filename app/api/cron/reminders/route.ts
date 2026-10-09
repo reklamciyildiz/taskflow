@@ -3,7 +3,7 @@ import { cronRemindersUnauthorizedResponse } from '@/lib/cron-reminders-guard';
 import { processTaskDueReminders } from '@/lib/process-task-reminders';
 
 /**
- * Due-date bucket reminders (task + checklist row due dates, UTC day granularity).
+ * Due-date bucket reminders from canonical Action/checklist schedules.
  *
  * Prefer `GET /api/cron/reminders-tick` for production (runs scheduled + due together).
  * This route remains for backwards compatibility and external cron links.

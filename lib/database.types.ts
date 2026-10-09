@@ -204,6 +204,100 @@ export interface Database {
           updated_at?: string
         }
       }
+      work_schedules: {
+        Row: {
+          id: string
+          organization_id: string
+          team_id: string
+          task_id: string
+          checklist_item_id: string | null
+          schedule_type: 'one_off' | 'recurring'
+          schedule_date: string
+          schedule_time: string | null
+          time_zone: string | null
+          recurrence_frequency: 'daily' | 'weekly' | null
+          recurrence_interval: number
+          recurrence_weekdays: number[]
+          ends_on: string | null
+          reminder_rules: Json
+          archived_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          organization_id: string
+          team_id: string
+          task_id: string
+          checklist_item_id?: string | null
+          schedule_type: 'one_off' | 'recurring'
+          schedule_date: string
+          schedule_time?: string | null
+          time_zone?: string | null
+          recurrence_frequency?: 'daily' | 'weekly' | null
+          recurrence_interval?: number
+          recurrence_weekdays?: number[]
+          ends_on?: string | null
+          reminder_rules?: Json
+          archived_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          organization_id?: string
+          team_id?: string
+          task_id?: string
+          checklist_item_id?: string | null
+          schedule_type?: 'one_off' | 'recurring'
+          schedule_date?: string
+          schedule_time?: string | null
+          time_zone?: string | null
+          recurrence_frequency?: 'daily' | 'weekly' | null
+          recurrence_interval?: number
+          recurrence_weekdays?: number[]
+          ends_on?: string | null
+          reminder_rules?: Json
+          archived_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      work_occurrences: {
+        Row: {
+          id: string
+          schedule_id: string
+          occurrence_date: string
+          effective_date: string
+          state: 'pending' | 'completed' | 'skipped'
+          completed_at: string | null
+          rescheduled_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          schedule_id: string
+          occurrence_date: string
+          effective_date: string
+          state?: 'pending' | 'completed' | 'skipped'
+          completed_at?: string | null
+          rescheduled_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          schedule_id?: string
+          occurrence_date?: string
+          effective_date?: string
+          state?: 'pending' | 'completed' | 'skipped'
+          completed_at?: string | null
+          rescheduled_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
       notes: {
         Row: {
           id: string
@@ -308,7 +402,18 @@ export interface Database {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      work_schedule_matches_date: {
+        Args: {
+          input_schedule_type: string
+          input_schedule_date: string
+          input_ends_on: string | null
+          input_frequency: string | null
+          input_interval: number
+          input_weekdays: number[]
+          candidate_date: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
       task_priority: 'low' | 'medium' | 'high' | 'urgent'

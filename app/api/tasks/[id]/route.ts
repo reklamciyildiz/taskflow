@@ -33,7 +33,19 @@ import {
   getOrganizationEntitlements,
 } from "@/lib/entitlements";
 import { computeReminderInstantsUtcIso } from "@/lib/reminder-presets";
-import { parseDueDateFromApi } from "@/lib/due-date";
+import {
+  getUserSchedulingTimeZone,
+  hydrateTaskWithCanonicalSchedules,
+  stripChecklistSchedulingMetadata,
+  syncChecklistScheduleCommands,
+  syncOneOffScheduleCommand,
+} from "@/lib/scheduling-runtime-server";
+import {
+  legacyDueValueToSchedule,
+  reminderRulesFromInstants,
+  scheduleDueInstantIso,
+} from "@/lib/scheduling-runtime";
+import { SchedulingValidationError } from "@/lib/scheduling-domain";
 
 // GET /api/tasks/[id] - Get a specific task
 export async function GET(
@@ -103,9 +115,10 @@ export async function GET(
       }
     }
 
+    const hydratedTask = await hydrateTaskWithCanonicalSchedules(task as any);
     return NextResponse.json<ApiResponse<any>>({
       success: true,
-      data: task,
+      data: hydratedTask,
     });
   } catch (error) {
     console.error("Error fetching task:", error);
@@ -141,13 +154,14 @@ export async function PATCH(
     }
 
     // Get original task for comparison
-    const originalTask = await taskDb.getById(params.id);
-    if (!originalTask) {
+    const originalTaskRaw = await taskDb.getById(params.id);
+    if (!originalTaskRaw) {
       return NextResponse.json<ApiResponse<null>>(
         { success: false, error: "Task not found" },
         { status: 404 },
       );
     }
+    const originalTask = await hydrateTaskWithCanonicalSchedules(originalTaskRaw as any);
 
     // Org boundary + team membership
     if (actor.organization_id !== (originalTask as any).organization_id) {
@@ -214,6 +228,12 @@ export async function PATCH(
     const nextChecklistItems = checklistWasUpdated
       ? extractChecklistItemsFromTipTap(body.checklistBlocks)
       : null;
+    const scheduleActor = {
+      userId: String(actor.id),
+      organizationId: String(actor.organization_id),
+      role: actor.role,
+    };
+    const actorTimeZone = await getUserSchedulingTimeZone(scheduleActor.userId);
 
     // Server-side paywall: Free cannot set advanced scheduled reminders.
     // We enforce this for both task-level reminders and checklist taskItem reminders.
@@ -240,7 +260,12 @@ export async function PATCH(
           )
             ? body.dueDate
             : (originalTask as any).due_date;
-          const dueAt = parseDueDateFromApi(dueSource ?? null);
+          const dueAt = dueSource
+            ? new Date(scheduleDueInstantIso(
+                legacyDueValueToSchedule(String(dueSource), actorTimeZone),
+                actorTimeZone,
+              ))
+            : undefined;
           const allowed = dueAt
             ? computeReminderInstantsUtcIso({ dueAt, preset: "when_due" })[0]
             : null;
@@ -262,7 +287,12 @@ export async function PATCH(
         for (const row of nextChecklistItems) {
           const next = row.reminders;
           if (next.length === 0) continue;
-          const dueAt = parseDueDateFromApi(row.dueDate);
+          const dueAt = row.dueDate
+            ? new Date(scheduleDueInstantIso(
+                legacyDueValueToSchedule(row.dueDate, actorTimeZone),
+                actorTimeZone,
+              ))
+            : undefined;
           const allowed = dueAt
             ? computeReminderInstantsUtcIso({ dueAt, preset: "when_due" })[0]
             : null;
@@ -280,43 +310,84 @@ export async function PATCH(
       }
     }
 
-    const updatedTask = await taskDb.update(params.id, {
+    // Validate all requested schedule commands before changing canonical content.
+    if (nextChecklistItems) {
+      const seenIds = new Set<string>();
+      for (const item of nextChecklistItems) {
+        if (!item.id || seenIds.has(item.id)) {
+          return NextResponse.json<ApiResponse<null>>(
+            { success: false, error: "Checklist items require unique stable IDs" },
+            { status: 400 },
+          );
+        }
+        seenIds.add(item.id);
+        if (item.dueDate) legacyDueValueToSchedule(item.dueDate, actorTimeZone);
+        reminderRulesFromInstants(item.reminders);
+        if (!item.dueDate && item.reminders.length > 0) {
+          return NextResponse.json<ApiResponse<null>>(
+            { success: false, error: "A checklist reminder requires a due date" },
+            { status: 400 },
+          );
+        }
+      }
+    }
+
+    const actionSchedulePatched = Object.prototype.hasOwnProperty.call(body ?? {}, "dueDate")
+      || Object.prototype.hasOwnProperty.call(body ?? {}, "reminders");
+    const actionScheduleResult = actionSchedulePatched
+      ? await syncOneOffScheduleCommand(
+          scheduleActor,
+          { sourceType: "action", taskId: params.id },
+          {
+            ...(Object.prototype.hasOwnProperty.call(body ?? {}, "dueDate")
+              ? { dueDate: body.dueDate ?? null }
+              : {}),
+            ...(Object.prototype.hasOwnProperty.call(body ?? {}, "reminders")
+              ? { reminders: Array.isArray(body.reminders) ? body.reminders : [] }
+              : {}),
+          },
+        )
+      : { schedule: null, changed: false };
+
+    const updatedTaskRaw = await taskDb.update(params.id, {
       title: body.title,
       description: body.description,
       status: body.status,
       priority: body.priority,
-      due_date: body.dueDate,
-      reminders: body.reminders,
       assignee_id:
         body.assigneeId === undefined ? undefined : body.assigneeId || null,
       customer_id:
         body.customerId === undefined ? undefined : body.customerId || null,
       project_id:
         body.projectId === undefined ? undefined : body.projectId || null,
-      checklist_blocks: body.checklistBlocks,
+      checklist_blocks: checklistWasUpdated
+        ? stripChecklistSchedulingMetadata(body.checklistBlocks)
+        : undefined,
       board_position: body.boardPosition,
     });
 
-    if (!updatedTask) {
+    if (!updatedTaskRaw) {
       return NextResponse.json<ApiResponse<null>>(
         { success: false, error: "Task not found" },
         { status: 404 },
       );
     }
 
+    const changedChecklistScheduleIds = nextChecklistItems
+      ? await syncChecklistScheduleCommands(
+          scheduleActor,
+          params.id,
+          nextChecklistItems.map((item) => ({
+            id: item.id,
+            dueDate: item.dueDate,
+            reminders: item.reminders,
+          })),
+        )
+      : [];
+    const updatedTask = await hydrateTaskWithCanonicalSchedules(updatedTaskRaw as any);
+
     // Task reminder/due date changes → cleanup old reminder notifications
-    const prevTaskReminders = JSON.stringify(
-      (originalTask as any).reminders ?? [],
-    );
-    const nextTaskReminders = JSON.stringify(
-      (updatedTask as any).reminders ?? [],
-    );
-    const prevTaskDue = (originalTask as any).due_date;
-    const nextTaskDue = (updatedTask as any).due_date;
-    if (
-      prevTaskReminders !== nextTaskReminders ||
-      prevTaskDue !== nextTaskDue
-    ) {
+    if (actionScheduleResult.changed) {
       try {
         await notificationDb.deleteChecklistNotifications(
           String(updatedTask.id),
@@ -370,11 +441,7 @@ export async function PATCH(
         if (!id || id.startsWith("__")) continue;
         const prev = oldMap.get(id);
         if (prev) {
-          const prevReminders = JSON.stringify(prev.reminders ?? []);
-          const nextReminders = JSON.stringify(e.reminders ?? []);
-          const prevDue = prev.dueDate;
-          const nextDue = e.dueDate;
-          if (prevReminders !== nextReminders || prevDue !== nextDue) {
+          if (changedChecklistScheduleIds.includes(id)) {
             try {
               await notificationDb.deleteChecklistNotifications(
                 String(updatedTask.id),
@@ -693,7 +760,6 @@ export async function PATCH(
             id: updatedTask.id,
             title: updatedTask.title,
             description: updatedTask.description,
-            due_date: updatedTask.due_date,
           },
         });
       }
@@ -708,6 +774,12 @@ export async function PATCH(
     });
   } catch (error) {
     console.error("Error updating task:", error);
+    if (error instanceof SchedulingValidationError) {
+      return NextResponse.json<ApiResponse<null>>(
+        { success: false, error: error.message },
+        { status: 400 },
+      );
+    }
     return NextResponse.json<ApiResponse<null>>(
       { success: false, error: "Internal server error" },
       { status: 500 },

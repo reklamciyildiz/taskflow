@@ -4,6 +4,7 @@ import { createContext, useContext, useState } from 'react';
 
 export type ViewType =
   | 'dashboard'
+  | 'planner'
   | 'processes'
   | 'board'
   | 'list'

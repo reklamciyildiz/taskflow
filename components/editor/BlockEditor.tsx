@@ -46,12 +46,15 @@ export interface BlockEditorRef {
    */
   insertContent: (content: any) => void;
   focus: () => void;
+  focusTaskItem: (taskItemId: string) => boolean;
   prependTaskItem: (text: string) => boolean;
   replaceContent: (content: any) => void;
   removeTaskItem: (taskItemId: string) => boolean;
 }
 
 interface BlockEditorProps {
+  /** Parent Action identity used by task-item scheduling commands. */
+  taskId?: string;
   initialContent?: any;
   /** Document used when `initialContent` is empty (e.g. start a checklist as a task list). */
   emptyContent?: any;
@@ -236,6 +239,7 @@ function FormattingButton({
 export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
   (
     {
+      taskId,
       initialContent,
       emptyContent,
       onChange,
@@ -490,6 +494,7 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
       const storage = editor.storage as any;
       if (!storage.taskItem) storage.taskItem = {};
       storage.taskItem.members = members ?? [];
+      storage.taskItem.taskId = taskId;
       storage.taskItem.checklistMode = checklistMode;
       storage.taskItem.hideDone = hideDone;
       storage.taskItem.canUseAdvancedReminderPresets = canUseAdvancedReminderPresets;
@@ -502,6 +507,7 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
     hideDone,
     members,
     onConvertTaskItemToNote,
+    taskId,
   ]);
 
   React.useEffect(() => {
@@ -542,6 +548,30 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
     },
     focus: () => {
       editor?.chain().focus('end').run();
+    },
+    focusTaskItem: (taskItemId: string) => {
+      if (!editor || !taskItemId) return false;
+      let position: number | null = null;
+      editor.state.doc.descendants((node, pos) => {
+        if (node.type.name === 'taskItem' && node.attrs?.id === taskItemId) {
+          position = pos;
+          return false;
+        }
+        return position === null;
+      });
+      if (position === null) return false;
+      const transaction = editor.state.tr
+        .setSelection(TextSelection.near(editor.state.doc.resolve(position + 2)))
+        .scrollIntoView();
+      editor.view.dispatch(transaction);
+      editor.view.focus();
+      const dom = editor.view.nodeDOM(position);
+      if (dom instanceof HTMLElement) {
+        dom.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        dom.dataset.plannerFocus = 'true';
+        window.setTimeout(() => delete dom.dataset.plannerFocus, 1600);
+      }
+      return true;
     },
     prependTaskItem: (text: string) => {
       const value = text.trim();

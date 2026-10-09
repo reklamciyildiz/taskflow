@@ -37,7 +37,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { DueFlowPicker } from '@/components/due/DueFlowPicker';
+import { WorkSchedulePicker } from '@/components/schedule/WorkSchedulePicker';
 import {
   groupChecklistItem,
   setChecklistItemChecked,
@@ -45,6 +45,18 @@ import {
 import type { ChecklistNoteConversionRequest } from '@/components/editor/BlockEditor';
 import type { NoteType } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { formatDueDateYmdLocal } from '@/lib/due-date';
+import { plannerApi } from '@/lib/api';
+import type { WorkOccurrence, WorkSchedule } from '@/lib/scheduling-domain';
+import { scheduleChipLabel } from '@/lib/schedule-presentation';
+import { scheduleToLegacyDueValue } from '@/lib/scheduling-runtime';
+import {
+  dispatchOccurrenceChanged,
+  OCCURRENCE_CHANGED_EVENT,
+  SCHEDULE_CHANGED_EVENT,
+  type OccurrenceChangedDetail,
+  type ScheduleChangedDetail,
+} from '@/lib/schedule-events';
 
 const COMPLETION_FEEDBACK_MS = 650;
 const COMPLETION_FADE_MS = 180;
@@ -59,21 +71,6 @@ function initials(name: string): string {
   return (first + last).toUpperCase() || '?';
 }
 
-function parseDueDateLocal(value: string | null | undefined): Date | undefined {
-  if (!value) return undefined;
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? undefined : date;
-}
-
-function shortDueDate(value: string | null | undefined): string {
-  const date = parseDueDateLocal(value);
-  if (!date) return 'Due date';
-  return new Intl.DateTimeFormat(undefined, {
-    month: 'short',
-    day: 'numeric',
-  }).format(date);
-}
-
 function looksLikeANote(text: string): boolean {
   const value = text.trim();
   if (value.length >= 180) return true;
@@ -83,7 +80,8 @@ function looksLikeANote(text: string): boolean {
 
 export const TaskItemNodeView = React.memo(
   ({ node, updateAttributes, editor, getPos }: any) => {
-    const { checked, id, assigneeId, dueDate, reminders } = node.attrs;
+    const { checked, id, assigneeId, schedule: scheduleAttr } = node.attrs;
+    const schedule = (scheduleAttr ?? null) as WorkSchedule | null;
     const [dueOpen, setDueOpen] = useState(false);
     const [convertOpen, setConvertOpen] = useState(false);
     const [convertType, setConvertType] = useState<NoteType>('note');
@@ -92,12 +90,19 @@ export const TaskItemNodeView = React.memo(
     const convertingRef = useRef(false);
     const [completionPending, setCompletionPending] = useState(false);
     const [completionExiting, setCompletionExiting] = useState(false);
+    const [occurrenceChecked, setOccurrenceChecked] = useState(false);
+    const [occurrenceLoading, setOccurrenceLoading] = useState(false);
+    const [occurrenceEffectiveDate, setOccurrenceEffectiveDate] = useState<string | null>(null);
+    const [occurrenceOriginDate, setOccurrenceOriginDate] = useState<string | null>(null);
     const completionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const mountedRef = useRef(true);
+    const occurrenceRequestRef = useRef(0);
+    const occurrenceMutationRef = useRef(false);
 
     const taskItemStorage = editor?.storage?.taskItem as
       | {
           members?: { id: string; name: string }[];
+          taskId?: string;
           checklistMode?: boolean;
           hideDone?: boolean;
           canUseAdvancedReminderPresets?: boolean;
@@ -115,10 +120,40 @@ export const TaskItemNodeView = React.memo(
     );
     const text = String(node.textContent ?? '').trim();
     const checklistMode = Boolean(taskItemStorage?.checklistMode);
-    const suggestConversion = Boolean(
-      checklistMode && taskItemStorage?.onConvertToNote && !checked && looksLikeANote(text),
-    );
     const disabled = !editor.isEditable;
+    const today = formatDueDateYmdLocal(new Date());
+    const recurring = schedule?.scheduleType === 'recurring';
+    const actionableOccurrence = Boolean(
+      recurring && occurrenceOriginDate && occurrenceEffectiveDate === today,
+    );
+    const effectiveChecked = recurring ? occurrenceChecked : Boolean(checked);
+    const suggestConversion = Boolean(
+      checklistMode && taskItemStorage?.onConvertToNote && !effectiveChecked && looksLikeANote(text),
+    );
+
+    const loadOccurrence = useCallback(async () => {
+      const requestId = ++occurrenceRequestRef.current;
+      if (!schedule || schedule.scheduleType !== 'recurring') {
+        setOccurrenceChecked(false);
+        setOccurrenceEffectiveDate(null);
+        setOccurrenceOriginDate(null);
+        return;
+      }
+      setOccurrenceLoading(true);
+      const response = await plannerApi.getOccurrence(schedule.id, today);
+      if (!mountedRef.current || requestId !== occurrenceRequestRef.current) return;
+      setOccurrenceLoading(false);
+      if (!response.success || !response.data) {
+        setOccurrenceChecked(false);
+        setOccurrenceEffectiveDate(null);
+        setOccurrenceOriginDate(null);
+        return;
+      }
+      setOccurrenceChecked(response.data.state === 'completed');
+      const occurrence = response.data.occurrence as WorkOccurrence | null;
+      setOccurrenceEffectiveDate(occurrence?.effectiveDate ?? today);
+      setOccurrenceOriginDate(occurrence?.occurrenceDate ?? today);
+    }, [schedule, today]);
 
     useEffect(() => {
       if (!id && typeof getPos === 'function') updateAttributes({ id: uuidv4() });
@@ -128,9 +163,46 @@ export const TaskItemNodeView = React.memo(
       mountedRef.current = true;
       return () => {
         mountedRef.current = false;
+        occurrenceRequestRef.current += 1;
         if (completionTimerRef.current) clearTimeout(completionTimerRef.current);
       };
     }, []);
+
+    useEffect(() => {
+      void loadOccurrence();
+    }, [loadOccurrence]);
+
+    useEffect(() => {
+      const onOccurrenceChanged = (event: Event) => {
+        const detail = (event as CustomEvent<OccurrenceChangedDetail>).detail;
+        if (
+          detail.scheduleId === schedule?.id
+          && (detail.occurrenceDate === today || detail.occurrenceDate === occurrenceOriginDate)
+        ) {
+          void loadOccurrence();
+        }
+      };
+      const onScheduleChanged = (event: Event) => {
+        const detail = (event as CustomEvent<ScheduleChangedDetail>).detail;
+        if (
+          detail.source.sourceType === 'checklist_item'
+          && detail.source.taskId === taskItemStorage?.taskId
+          && detail.source.checklistItemId === id
+        ) {
+          updateAttributes({
+            schedule: detail.schedule,
+            dueDate: detail.schedule ? scheduleToLegacyDueValue(detail.schedule) : null,
+            reminders: [],
+          });
+        }
+      };
+      window.addEventListener(OCCURRENCE_CHANGED_EVENT, onOccurrenceChanged);
+      window.addEventListener(SCHEDULE_CHANGED_EVENT, onScheduleChanged);
+      return () => {
+        window.removeEventListener(OCCURRENCE_CHANGED_EVENT, onOccurrenceChanged);
+        window.removeEventListener(SCHEDULE_CHANGED_EVENT, onScheduleChanged);
+      };
+    }, [id, loadOccurrence, occurrenceOriginDate, schedule?.id, taskItemStorage?.taskId, today, updateAttributes]);
 
     const finishGrouping = useCallback(() => {
       if (!id) return;
@@ -142,8 +214,33 @@ export const TaskItemNodeView = React.memo(
     }, [editor, id]);
 
     const handleToggle = useCallback(
-      (next: boolean) => {
-        if (disabled || next === Boolean(checked)) return;
+      async (next: boolean) => {
+        if (disabled || next === effectiveChecked) return;
+        if (recurring) {
+          if (occurrenceMutationRef.current) return;
+          if (!schedule || !actionableOccurrence) {
+            toast.message('This recurring item is not scheduled for today.');
+            return;
+          }
+          occurrenceMutationRef.current = true;
+          setOccurrenceLoading(true);
+          setOccurrenceChecked(next);
+          const response = await plannerApi.mutateOccurrence({
+            scheduleId: schedule.id,
+            occurrenceDate: occurrenceOriginDate ?? today,
+            action: next ? 'complete' : 'uncomplete',
+          });
+          occurrenceMutationRef.current = false;
+          if (mountedRef.current) setOccurrenceLoading(false);
+          if (!response.success) {
+            if (mountedRef.current) setOccurrenceChecked(!next);
+            toast.error(response.error || 'Could not update this occurrence');
+            return;
+          }
+          dispatchOccurrenceChanged(schedule.id, occurrenceOriginDate ?? today);
+          toast.success(next ? 'Today completed' : 'Today restored');
+          return;
+        }
         if (!checklistMode) {
           updateAttributes({ checked: next });
           return;
@@ -197,13 +294,18 @@ export const TaskItemNodeView = React.memo(
         toast.dismiss(`checklist-complete-${id}`);
         completionTimerRef.current = setTimeout(finishGrouping, 120);
       }, [
-        checked,
+        actionableOccurrence,
         checklistMode,
         disabled,
         editor,
+        effectiveChecked,
         finishGrouping,
         id,
+        occurrenceOriginDate,
+        recurring,
+        schedule,
         taskItemStorage,
+        today,
         updateAttributes,
       ],
     );
@@ -238,10 +340,10 @@ export const TaskItemNodeView = React.memo(
         )}
         data-type="taskItem"
         data-task-id={id}
-        data-checked={checked ? 'true' : 'false'}
+        data-checked={effectiveChecked ? 'true' : 'false'}
         data-completion-pending={completionPending ? 'true' : 'false'}
         onDragEnd={() => {
-          if (checklistMode && id) {
+          if (checklistMode && id && !recurring) {
             window.setTimeout(() => groupChecklistItem(editor, id), 0);
           }
         }}
@@ -253,16 +355,16 @@ export const TaskItemNodeView = React.memo(
           <div
             className={cn(
               'mr-0.5 touch-none px-0.5 py-0.5 text-muted-foreground/30 transition-colors',
-              checked
+              effectiveChecked
                 ? 'cursor-default opacity-50'
                 : 'cursor-grab hover:text-muted-foreground',
             )}
-            data-drag-handle={checked ? undefined : ''}
+            data-drag-handle={effectiveChecked ? undefined : ''}
             onDragStart={(event) => {
-              if (checked) event.preventDefault();
+              if (effectiveChecked) event.preventDefault();
             }}
             onTouchStart={(event) => {
-              if (!editor?.isEditable || !id || checked) return;
+              if (!editor?.isEditable || !id || effectiveChecked) return;
               if (
                 !window.matchMedia('(pointer: coarse)').matches &&
                 !('ontouchstart' in window)
@@ -370,12 +472,12 @@ export const TaskItemNodeView = React.memo(
           </div>
 
           <Checkbox
-            checked={Boolean(checked)}
-            disabled={disabled}
-            onCheckedChange={(value) => handleToggle(Boolean(value))}
+            checked={effectiveChecked}
+            disabled={disabled || occurrenceLoading || (recurring && !actionableOccurrence)}
+            onCheckedChange={(value) => void handleToggle(Boolean(value))}
             className={cn(
               'h-[18px] w-[18px] rounded border-border/50 shadow-sm transition-colors data-[state=checked]:border-primary data-[state=checked]:bg-primary',
-              checked && 'opacity-80',
+              effectiveChecked && 'opacity-80',
             )}
           />
         </div>
@@ -385,7 +487,7 @@ export const TaskItemNodeView = React.memo(
             <NodeViewContent
               className={cn(
                 'mt-[1px] inline-block min-w-0 flex-1',
-                checked && 'text-muted-foreground line-through',
+                effectiveChecked && 'text-muted-foreground line-through',
               )}
             />
 
@@ -404,14 +506,14 @@ export const TaskItemNodeView = React.memo(
                   <span className="hidden max-w-20 truncate sm:inline">{assignedMember.name}</span>
                 </span>
               ) : null}
-              {dueDate ? (
+              {schedule ? (
                 <span
                   className="inline-flex h-5 items-center gap-1 rounded-md bg-muted/60 px-1.5 text-[10px] text-muted-foreground"
-                  title={`Due ${shortDueDate(dueDate)}`}
+                  title={`Scheduled ${scheduleChipLabel(schedule)}`}
                 >
                   <CalendarIcon className="h-3 w-3" aria-hidden />
-                  {shortDueDate(dueDate)}
-                  {Array.isArray(reminders) && reminders.length > 0 ? (
+                  {scheduleChipLabel(schedule)}
+                  {schedule.reminderRules.length > 0 ? (
                     <Clock3 className="h-3 w-3" aria-label="Reminder set" />
                   ) : null}
                 </span>
@@ -460,7 +562,7 @@ export const TaskItemNodeView = React.memo(
                   </DropdownMenuSub>
                   <DropdownMenuItem onSelect={() => setDueOpen(true)}>
                     <CalendarIcon className="mr-2 h-4 w-4" aria-hidden />
-                    Due date
+                    Schedule
                   </DropdownMenuItem>
                   {taskItemStorage?.onConvertToNote ? (
                     <DropdownMenuItem
@@ -496,24 +598,35 @@ export const TaskItemNodeView = React.memo(
             className="flex max-h-[92dvh] min-h-0 w-[min(92vw,380px)] max-w-[min(92vw,380px)] flex-col gap-0 overflow-hidden p-0"
           >
             <DialogHeader className="sr-only">
-              <DialogTitle>Checklist item due date</DialogTitle>
+              <DialogTitle>Schedule checklist item</DialogTitle>
               <DialogDescription>
-                Set a due date and reminders for this checklist item.
+                Choose a date, recurrence, time, or reminder for this checklist item.
               </DialogDescription>
             </DialogHeader>
-            <DueFlowPicker
-              value={parseDueDateLocal(dueDate) ?? null}
-              reminders={Array.isArray(reminders) ? reminders : []}
+            {taskItemStorage?.taskId && id ? (
+            <WorkSchedulePicker
+              source={{
+                sourceType: 'checklist_item',
+                taskId: taskItemStorage.taskId,
+                checklistItemId: id,
+              }}
+              initialSchedule={schedule}
               canUseAdvancedReminderPresets={Boolean(
                 taskItemStorage?.canUseAdvancedReminderPresets,
               )}
               disabled={disabled}
-              onChange={(next) => {
-                updateAttributes({ dueDate: next ? next.toISOString() : null });
+              onScheduleChange={(next) => {
+                updateAttributes({
+                  schedule: next,
+                  dueDate: next ? scheduleToLegacyDueValue(next) : null,
+                  reminders: [],
+                });
               }}
-              onRemindersChange={(next) => updateAttributes({ reminders: next })}
               onRequestClose={() => setDueOpen(false)}
             />
+            ) : (
+              <p className="p-4 text-sm text-muted-foreground">Scheduling is unavailable for this item.</p>
+            )}
           </DialogContent>
         </Dialog>
 

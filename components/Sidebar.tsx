@@ -15,7 +15,7 @@ import {
   BarChart3,
   Settings,
   Users,
-  Calendar,
+  CalendarDays,
   Tag,
   Archive,
   Plus,
@@ -29,7 +29,6 @@ import { useTaskContext, Team } from '@/components/TaskContext';
 import { useView, ViewType } from '@/components/ViewContext';
 import { CreateTeamModal } from '@/components/CreateTeamModal';
 import { EditTeamModal } from '@/components/EditTeamModal';
-import { isToday } from 'date-fns';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { isTerminalBoardColumn } from '@/lib/types';
 
@@ -46,6 +45,7 @@ const VIEW_ROUTES: Partial<Record<ViewType, string>> = {
   settings: '/settings',
   profile: '/settings/profile',
   dashboard: '/',
+  planner: '/planner',
   board: '/board',
   list: '/list',
   customers: '/customers',
@@ -167,18 +167,17 @@ export function Sidebar({ mobileOpen, onCloseMobile, desktopCollapsed }: Sidebar
     return (status: string) => isTerminalBoardColumn(status, boardColumns);
   }, [boardColumns]);
 
-  const { dueTodayCount, highPriorityCount, assignedToMeCount } = useMemo(() => {
-    let due = 0, high = 0, assigned = 0;
+  const { highPriorityCount, assignedToMeCount } = useMemo(() => {
+    let high = 0, assigned = 0;
     for (const t of scopedTasks) {
       if (isCompletedInScope(t.status)) continue;
-      if (t.dueDate && isToday(t.dueDate)) due++;
       if (t.priority === 'high' || t.priority === 'urgent') high++;
       if (t.assigneeId === currentUser?.id) assigned++;
     }
-    return { dueTodayCount: due, highPriorityCount: high, assignedToMeCount: assigned };
+    return { highPriorityCount: high, assignedToMeCount: assigned };
   }, [scopedTasks, isCompletedInScope, currentUser?.id]);
 
-  const applyQuickFilter = (filterType: 'dueToday' | 'highPriority' | 'assignedToMe') => {
+  const applyQuickFilter = (filterType: 'highPriority' | 'assignedToMe') => {
     if (filter === filterType) {
       setFilter(null);
     } else {
@@ -191,6 +190,7 @@ export function Sidebar({ mobileOpen, onCloseMobile, desktopCollapsed }: Sidebar
   const menuItems: MenuItem[] = useMemo(
     () => [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'planner', label: 'Planner', icon: CalendarDays },
     { id: 'board', label: 'Projects / Board', icon: Columns3, count: teamTasks.length },
     { id: 'list', label: 'List View', icon: List, count: teamTasks.length },
     { id: 'knowledge-hub', label: 'Knowledge Hub', icon: Brain },
@@ -209,7 +209,7 @@ export function Sidebar({ mobileOpen, onCloseMobile, desktopCollapsed }: Sidebar
       'w-full gap-3 h-11 relative',
       narrow ? 'lg:justify-center lg:gap-0 lg:px-0 lg:h-11' : 'justify-start px-3',
       isActive && 'bg-secondary text-secondary-foreground font-medium ring-1 ring-primary/25',
-      (itemId === 'dashboard' || itemId === 'board') &&
+      (itemId === 'dashboard' || itemId === 'planner' || itemId === 'board') &&
         isActive &&
         'before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-1 before:rounded-r before:bg-primary lg:before:hidden'
     );
@@ -361,19 +361,6 @@ export function Sidebar({ mobileOpen, onCloseMobile, desktopCollapsed }: Sidebar
               <div className="pt-4">
                 <p className="mb-3 px-3 text-xs font-medium text-muted-foreground">QUICK FILTERS</p>
                 <div className="space-y-1">
-                  <Button
-                    asChild
-                    variant={filter === 'dueToday' ? 'secondary' : 'ghost'}
-                    className="h-9 w-full justify-start gap-3 px-3 text-sm"
-                  >
-                    <Link href="/board" prefetch scroll={false} onClick={() => applyQuickFilter('dueToday')}>
-                      <Calendar className="h-4 w-4 shrink-0" />
-                      Due Today
-                      <Badge variant={dueTodayCount > 0 ? 'destructive' : 'outline'} className="ml-auto h-5 px-2 text-xs">
-                        {dueTodayCount}
-                      </Badge>
-                    </Link>
-                  </Button>
                   <Button
                     asChild
                     variant={filter === 'highPriority' ? 'secondary' : 'ghost'}

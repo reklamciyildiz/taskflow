@@ -70,7 +70,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
-import { formatDueDateYmdLocal, parseYmdDateInput } from "@/lib/due-date";
+import { parseYmdDateInput } from "@/lib/due-date";
 import {
   Popover,
   PopoverContent,
@@ -84,14 +84,23 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { format } from "date-fns";
-import { DueFlowPicker } from "@/components/due/DueFlowPicker";
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { WorkSchedulePicker } from "@/components/schedule/WorkSchedulePicker";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
 import { ActionNotes } from "@/components/action/ActionNotes";
 import { noteApi } from "@/lib/api";
 import { notifyKnowledgeSourcesChanged } from "@/lib/knowledge-events";
 import type { Note } from "@/lib/types";
+import type { WorkSchedule } from "@/lib/scheduling-domain";
+import { scheduleChipLabel } from "@/lib/schedule-presentation";
+import { SCHEDULE_CHANGED_EVENT, type ScheduleChangedDetail } from "@/lib/schedule-events";
 
 export interface ActionPanelProps {
   task: Task | null;
@@ -475,12 +484,6 @@ function ActionPanelContent({
   const canEdit = canEditTask(task.createdBy, task.assigneeId);
   const taskId = task.id;
 
-  // Deep-link checklist focus is a one-shot token; consume it for this action on mount.
-  useEffect(() => {
-    consumeChecklistFocusForTask(taskId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only per task id
-  }, [taskId]);
-
   const [canUseAdvancedReminderPresets, setCanUseAdvancedReminderPresets] =
     useState(false);
   useEffect(() => {
@@ -524,11 +527,8 @@ function ActionPanelContent({
   const [customerId, setCustomerId] = useState<string>(
     task.customerId || "none",
   );
-  const [dueDate, setDueDate] = useState(() =>
-    task.dueDate ? formatDueDateYmdLocal(task.dueDate) : "",
-  ); // YYYY-MM-DD
-  const [taskReminders, setTaskReminders] = useState<string[]>(() =>
-    Array.isArray(task.reminders) ? task.reminders : [],
+  const [actionSchedule, setActionSchedule] = useState<WorkSchedule | null>(
+    () => task.schedule ?? null,
   );
   const [taskDueOpen, setTaskDueOpen] = useState(false);
   /** Latest checklist document; switching tabs must never remount stale content. */
@@ -579,6 +579,27 @@ function ActionPanelContent({
   const [tab, setTab] = useState<WorkTab>("checklist");
   /** Status / priority / assignee / due / description live behind the meta strip. */
   const [detailsOpen, setDetailsOpen] = useState(false);
+
+  // Planner/deep-link focus uses the taskItem stable UUID, never visible text or position.
+  useEffect(() => {
+    const checklistItemId = consumeChecklistFocusForTask(taskId);
+    if (!checklistItemId) return;
+    setTab("checklist");
+    let attempts = 0;
+    let timer: number | null = null;
+    let cancelled = false;
+    const focus = () => {
+      if (cancelled) return;
+      attempts += 1;
+      if (checklistEditorRef.current?.focusTaskItem(checklistItemId)) return;
+      if (attempts < 10) timer = window.setTimeout(focus, 50);
+    };
+    timer = window.setTimeout(focus, 0);
+    return () => {
+      cancelled = true;
+      if (timer) window.clearTimeout(timer);
+    };
+  }, [consumeChecklistFocusForTask, taskId]);
 
   // ── Persistence core ──
   // One place owns every debounce timer + dirty flag so close/unmount/switch can
@@ -782,7 +803,19 @@ function ActionPanelContent({
     return base;
   }, [boardColumns, status]);
 
-  const selectedDueDate = dueDate ? parseYmdDateInput(dueDate) : undefined;
+  const selectedDueDate = actionSchedule
+    ? parseYmdDateInput(actionSchedule.scheduleDate)
+    : undefined;
+
+  useEffect(() => {
+    const onScheduleChanged = (event: Event) => {
+      const detail = (event as CustomEvent<ScheduleChangedDetail>).detail;
+      if (detail.source.sourceType !== "action" || detail.source.taskId !== task.id) return;
+      setActionSchedule(detail.schedule);
+    };
+    window.addEventListener(SCHEDULE_CHANGED_EVENT, onScheduleChanged);
+    return () => window.removeEventListener(SCHEDULE_CHANGED_EVENT, onScheduleChanged);
+  }, [task.id]);
 
   /** Leaving a tab unmounts its editor; persist right away instead of waiting for the debounce. */
   const switchTab = useCallback(
@@ -911,9 +944,9 @@ function ActionPanelContent({
                   muted={!selectedDueDate}
                   icon={<CalendarIcon className="h-3 w-3" aria-hidden />}
                 >
-                  {selectedDueDate
-                    ? format(selectedDueDate, "MMM d")
-                    : "No due date"}
+                  {actionSchedule
+                    ? scheduleChipLabel(actionSchedule)
+                    : "No schedule"}
                 </MetaChip>
                 {customerName ? <MetaChip>{customerName}</MetaChip> : null}
                 {!canEdit ? <MetaChip muted>Read-only</MetaChip> : null}
@@ -1114,7 +1147,7 @@ function ActionPanelContent({
                           </div>
                           <div className="space-y-1.5">
                             <Label className="text-[11px] uppercase text-muted-foreground">
-                              Due date
+                              Schedule
                             </Label>
                             {isNarrow ? (
                               <Drawer
@@ -1137,42 +1170,21 @@ function ActionPanelContent({
                                       className="mr-2 h-4 w-4"
                                       aria-hidden
                                     />
-                                    {selectedDueDate
-                                      ? format(selectedDueDate, "PPP")
-                                      : "Select date"}
+                                    {actionSchedule
+                                      ? scheduleChipLabel(actionSchedule)
+                                      : "Schedule work"}
                                   </Button>
                                 </DrawerTrigger>
                                 <DrawerContent className="p-0">
                                   <div className="px-2 pb-3 pt-2">
-                                    <DueFlowPicker
-                                      value={task.dueDate ?? null}
-                                      reminders={taskReminders}
+                                    <WorkSchedulePicker
+                                      source={{ sourceType: "action", taskId: task.id }}
+                                      initialSchedule={actionSchedule}
                                       canUseAdvancedReminderPresets={
                                         canUseAdvancedReminderPresets
                                       }
                                       disabled={!canEdit}
-                                      onChange={(next) => {
-                                        if (!task || !canEdit) return;
-                                        setDueDate(
-                                          next
-                                            ? formatDueDateYmdLocal(next)
-                                            : "",
-                                        );
-                                        void updateTask(task.id, {
-                                          dueDate: next,
-                                          reminders: taskReminders,
-                                        });
-                                      }}
-                                      onRemindersChange={(next) => {
-                                        if (!task || !canEdit) return;
-                                        const arr = Array.isArray(next)
-                                          ? next
-                                          : [];
-                                        setTaskReminders(arr);
-                                        void updateTask(task.id, {
-                                          reminders: arr,
-                                        });
-                                      }}
+                                      onScheduleChange={setActionSchedule}
                                       onRequestClose={() =>
                                         setTaskDueOpen(false)
                                       }
@@ -1200,42 +1212,29 @@ function ActionPanelContent({
                                       className="mr-2 h-4 w-4"
                                       aria-hidden
                                     />
-                                    {selectedDueDate
-                                      ? format(selectedDueDate, "PPP")
-                                      : "Select date"}
+                                    {actionSchedule
+                                      ? scheduleChipLabel(actionSchedule)
+                                      : "Schedule work"}
                                   </Button>
                                 </DialogTrigger>
                                 <DialogContent
                                   hideClose
                                   className="flex max-h-[92dvh] min-h-0 w-[min(92vw,380px)] max-w-[min(92vw,380px)] flex-col gap-0 overflow-hidden p-0"
                                 >
-                                  <DueFlowPicker
-                                    value={task.dueDate ?? null}
-                                    reminders={taskReminders}
+                                  <DialogHeader className="sr-only">
+                                    <DialogTitle>Schedule action</DialogTitle>
+                                    <DialogDescription>
+                                      Choose a date, recurrence, time, or reminder for this action.
+                                    </DialogDescription>
+                                  </DialogHeader>
+                                  <WorkSchedulePicker
+                                    source={{ sourceType: "action", taskId: task.id }}
+                                    initialSchedule={actionSchedule}
                                     canUseAdvancedReminderPresets={
                                       canUseAdvancedReminderPresets
                                     }
                                     disabled={!canEdit}
-                                    onChange={(next) => {
-                                      if (!task || !canEdit) return;
-                                      setDueDate(
-                                        next ? formatDueDateYmdLocal(next) : "",
-                                      );
-                                      void updateTask(task.id, {
-                                        dueDate: next,
-                                        reminders: taskReminders,
-                                      });
-                                    }}
-                                    onRemindersChange={(next) => {
-                                      if (!task || !canEdit) return;
-                                      const arr = Array.isArray(next)
-                                        ? next
-                                        : [];
-                                      setTaskReminders(arr);
-                                      void updateTask(task.id, {
-                                        reminders: arr,
-                                      });
-                                    }}
+                                    onScheduleChange={setActionSchedule}
                                     onRequestClose={() => setTaskDueOpen(false)}
                                   />
                                 </DialogContent>
@@ -1438,6 +1437,7 @@ function ActionPanelContent({
             ) : null}
             <BlockEditor
               ref={checklistEditorRef}
+              taskId={task.id}
               initialContent={checklistBlocksRef.current}
               emptyContent={emptyChecklistRef.current}
               hideToolbar

@@ -1,4 +1,5 @@
 // Extended types for the application
+import type { WorkSchedule } from '@/lib/scheduling-domain';
 
 /** Pipeline column id (e.g. todo, applied, interview) — stored as tasks.status in DB */
 export type TaskStatus = string;
@@ -111,6 +112,8 @@ export interface Task {
   dueDate?: Date;
   /** Scheduled reminders (UTC ISO strings) for this action. */
   reminders?: string[];
+  /** Read projection of the canonical Action-level work schedule. */
+  schedule?: WorkSchedule | null;
   assigneeId?: string | null;
   customerId?: string | null;
   customerName?: string;

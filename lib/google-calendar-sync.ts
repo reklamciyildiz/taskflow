@@ -2,39 +2,14 @@ import { supabaseAdmin } from '@/lib/supabase-admin';
 import { decryptString } from '@/lib/crypto-app';
 import { deleteEvent, isGoogleInvalidGrantError, upsertAllDayTaskEvent, upsertTimedTaskEvent } from '@/lib/google-calendar';
 import { getPublicAppUrl } from '@/lib/app-url';
+import { scheduleToLegacyDueValue } from '@/lib/scheduling-runtime';
+import { workScheduleFromRow } from '@/lib/scheduling-domain';
 
 type TaskLike = {
   id: string;
   title: string;
   description?: string | null;
-  due_date?: string | null;
 };
-
-function isDateOnlyYmd(s: string): boolean {
-  return /^\d{4}-\d{2}-\d{2}$/.test(s.trim());
-}
-
-function isLegacyUtcMidnightIso(s: string): boolean {
-  // Legacy UI used `toISOString()` even for date-only picks, producing midnight UTC.
-  // Treat these as date-only to avoid "03:00–04:00" (or similar) time shifts.
-  const t = s.trim();
-  return /^\d{4}-\d{2}-\d{2}T00:00:00(?:\.\d{1,9})?(?:Z|[+-]00:00)$/.test(t);
-}
-
-function formatYmdInTimeZone(date: Date, timeZone: string): string {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(date);
-
-  const y = parts.find((p) => p.type === 'year')?.value;
-  const m = parts.find((p) => p.type === 'month')?.value;
-  const d = parts.find((p) => p.type === 'day')?.value;
-  if (!y || !m || !d) return date.toISOString().slice(0, 10);
-  return `${y}-${m}-${d}`;
-}
 
 function formatRfc3339InTimeZone(date: Date, timeZone: string): string {
   // Use Intl parts to build an offset datetime string acceptable by Google Calendar API.
@@ -72,13 +47,6 @@ function formatRfc3339InTimeZone(date: Date, timeZone: string): string {
   const minutes = String(Number(m[2] ?? 0)).padStart(2, '0');
   const offset = `${sign}${hours}:${minutes}`;
   return `${yyyy}-${mm}-${dd}T${HH}:${MM}:${SS}${offset}`;
-}
-
-async function getUserTimeZone(userId: string): Promise<string> {
-  const { data } = await supabaseAdmin.from('user_settings').select('time_zone').eq('user_id', userId).maybeSingle();
-  const tz = (data as any)?.time_zone as string | undefined;
-  if (tz && tz.trim().length > 0) return tz.trim();
-  return 'UTC';
 }
 
 async function getGoogleConnection(userId: string) {
@@ -156,54 +124,52 @@ export async function syncGoogleCalendarForUserTask(args: { userId: string; task
     const conn = await getGoogleConnection(args.userId);
     if (!conn) return;
 
-    const due = args.task.due_date;
-    if (!due) {
+    const { data: scheduleRow, error: scheduleError } = await supabaseAdmin
+      .from('work_schedules')
+      .select('*')
+      .eq('task_id', args.task.id)
+      .is('checklist_item_id', null)
+      .is('archived_at', null)
+      .maybeSingle();
+    if (scheduleError) throw scheduleError;
+    const schedule = scheduleRow ? workScheduleFromRow(scheduleRow) : null;
+    if (!schedule || schedule.scheduleType !== 'one_off') {
       await deleteLinkAndEvent(args.userId, args.task.id);
       return;
     }
 
-    const tz = await getUserTimeZone(args.userId);
     const appUrl = getPublicAppUrl();
-
-    const dueStr = String(due);
-    const parsed = new Date(dueStr);
-    if (Number.isNaN(parsed.getTime())) {
-      await deleteLinkAndEvent(args.userId, args.task.id);
-      return;
-    }
 
     const existing = await getEventLink(args.userId, args.task.id);
     const eventId = existing?.google_event_id as string | undefined;
 
     let result: { id: string; etag: string | null };
 
-    if (isDateOnlyYmd(dueStr) || isLegacyUtcMidnightIso(dueStr)) {
-      // Date-only semantics.
-      // - If stored as `YYYY-MM-DD`, use it literally.
-      // - If stored as legacy midnight-UTC ISO, convert to the user's calendar day.
-      const ymd = isDateOnlyYmd(dueStr) ? dueStr.trim() : formatYmdInTimeZone(parsed, tz);
+    if (!schedule.scheduleTime || !schedule.timeZone) {
       result = await upsertAllDayTaskEvent({
         refreshToken: conn.refreshToken,
         calendarId: conn.calendarId,
         eventId,
         title: args.task.title,
         description: args.task.description ?? '',
-        dueYmd: ymd,
+        dueYmd: schedule.scheduleDate,
         appUrl,
         taskId: args.task.id,
       });
     } else {
-      const start = formatRfc3339InTimeZone(parsed, tz);
+      const parsed = new Date(scheduleToLegacyDueValue(schedule));
+      const eventTimeZone = schedule.timeZone;
+      const start = formatRfc3339InTimeZone(parsed, eventTimeZone);
       const endDt = new Date(parsed.getTime() + 60 * 60 * 1000);
-      const end = formatRfc3339InTimeZone(endDt, tz);
+      const end = formatRfc3339InTimeZone(endDt, eventTimeZone);
       result = await upsertTimedTaskEvent({
         refreshToken: conn.refreshToken,
         calendarId: conn.calendarId,
         eventId,
         title: args.task.title,
         description: args.task.description ?? '',
-        start: { dateTime: start, timeZone: tz },
-        end: { dateTime: end, timeZone: tz },
+        start: { dateTime: start, timeZone: eventTimeZone },
+        end: { dateTime: end, timeZone: eventTimeZone },
         appUrl,
         taskId: args.task.id,
       });
