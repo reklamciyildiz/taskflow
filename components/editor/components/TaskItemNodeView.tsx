@@ -49,7 +49,6 @@ import { formatDueDateYmdLocal } from '@/lib/due-date';
 import { plannerApi } from '@/lib/api';
 import type { WorkOccurrence, WorkSchedule } from '@/lib/scheduling-domain';
 import { scheduleChipLabel } from '@/lib/schedule-presentation';
-import { scheduleToLegacyDueValue } from '@/lib/scheduling-runtime';
 import {
   dispatchOccurrenceChanged,
   OCCURRENCE_CHANGED_EVENT,
@@ -81,7 +80,9 @@ function looksLikeANote(text: string): boolean {
 export const TaskItemNodeView = React.memo(
   ({ node, updateAttributes, editor, getPos }: any) => {
     const { checked, id, assigneeId, schedule: scheduleAttr } = node.attrs;
-    const schedule = (scheduleAttr ?? null) as WorkSchedule | null;
+    const [schedule, setSchedule] = useState<WorkSchedule | null>(
+      (scheduleAttr ?? null) as WorkSchedule | null,
+    );
     const [dueOpen, setDueOpen] = useState(false);
     const [convertOpen, setConvertOpen] = useState(false);
     const [convertType, setConvertType] = useState<NoteType>('note');
@@ -133,7 +134,12 @@ export const TaskItemNodeView = React.memo(
 
     const loadOccurrence = useCallback(async () => {
       const requestId = ++occurrenceRequestRef.current;
-      if (!schedule || schedule.scheduleType !== 'recurring') {
+      if (
+        !schedule
+        || schedule.scheduleType !== 'recurring'
+        || schedule.id.startsWith('optimistic:')
+      ) {
+        setOccurrenceLoading(false);
         setOccurrenceChecked(false);
         setOccurrenceEffectiveDate(null);
         setOccurrenceOriginDate(null);
@@ -189,11 +195,7 @@ export const TaskItemNodeView = React.memo(
           && detail.source.taskId === taskItemStorage?.taskId
           && detail.source.checklistItemId === id
         ) {
-          updateAttributes({
-            schedule: detail.schedule,
-            dueDate: detail.schedule ? scheduleToLegacyDueValue(detail.schedule) : null,
-            reminders: [],
-          });
+          setSchedule(detail.schedule);
         }
       };
       window.addEventListener(OCCURRENCE_CHANGED_EVENT, onOccurrenceChanged);
@@ -202,7 +204,7 @@ export const TaskItemNodeView = React.memo(
         window.removeEventListener(OCCURRENCE_CHANGED_EVENT, onOccurrenceChanged);
         window.removeEventListener(SCHEDULE_CHANGED_EVENT, onScheduleChanged);
       };
-    }, [id, loadOccurrence, occurrenceOriginDate, schedule?.id, taskItemStorage?.taskId, today, updateAttributes]);
+    }, [id, loadOccurrence, occurrenceOriginDate, schedule?.id, taskItemStorage?.taskId, today]);
 
     const finishGrouping = useCallback(() => {
       if (!id) return;
@@ -615,13 +617,8 @@ export const TaskItemNodeView = React.memo(
                 taskItemStorage?.canUseAdvancedReminderPresets,
               )}
               disabled={disabled}
-              onScheduleChange={(next) => {
-                updateAttributes({
-                  schedule: next,
-                  dueDate: next ? scheduleToLegacyDueValue(next) : null,
-                  reminders: [],
-                });
-              }}
+              onOptimisticScheduleChange={setSchedule}
+              onScheduleChange={setSchedule}
               onRequestClose={() => setDueOpen(false)}
             />
             ) : (

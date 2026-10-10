@@ -406,16 +406,20 @@ export function PlannerToday() {
   }, [load, loadUpcoming, upcomingKey, view]);
 
   const taskRevision = useMemo(
-    () => tasks
+    () => new Map(tasks
       .filter((task) => task.teamId === currentTeam?.id)
-      .map((task) => `${task.id}:${task.updatedAt.getTime()}`)
-      .join('|'),
+      .map((task) => [task.id, task.updatedAt.getTime()] as const)),
     [currentTeam?.id, tasks],
   );
-  const initialRevisionRef = useRef(taskRevision);
+  const taskRevisionRef = useRef(taskRevision);
   useEffect(() => {
-    if (!visibleProjection || initialRevisionRef.current === taskRevision) return;
-    initialRevisionRef.current = taskRevision;
+    const previous = taskRevisionRef.current;
+    taskRevisionRef.current = taskRevision;
+    if (!visibleProjection) return;
+    const changedTaskIds = [...taskRevision.entries()]
+      .filter(([taskId, revision]) => previous.get(taskId) !== revision)
+      .map(([taskId]) => taskId);
+    if (!changedTaskIds.length) return;
     const timer = window.setTimeout(() => {
       if (mutationCountRef.current === 0) void load();
     }, 350);
@@ -526,7 +530,7 @@ export function PlannerToday() {
       toast.error('Could not update this item. Your change was restored.');
       return;
     }
-    dispatchOccurrenceChanged(item.scheduleId, item.occurrenceDate);
+    if (item.isRecurring) dispatchOccurrenceChanged(item.scheduleId, item.occurrenceDate);
   }, [
     canCompleteTask,
     canEditTask,

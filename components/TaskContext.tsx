@@ -31,6 +31,7 @@ import {
   type CustomerTerminology,
 } from '@/lib/customer-directory-label';
 import { SCHEDULE_CHANGED_EVENT, type ScheduleChangedDetail } from '@/lib/schedule-events';
+import { reminderInstantsFromRules, scheduleToLegacyDueValue } from '@/lib/scheduling-runtime';
 
 export type {
   Task,
@@ -51,6 +52,37 @@ export type UserRole = 'admin' | 'member' | 'viewer';
 interface MemberFormData extends Omit<TeamMember, 'id' | 'isOnline' | 'joinedAt'> {}
 
 export type FilterType = 'dueToday' | 'highPriority' | 'assignedToMe' | null;
+
+function applyChecklistSchedule(
+  value: any,
+  checklistItemId: string,
+  schedule: ScheduleChangedDetail['schedule'],
+): any {
+  if (!value || typeof value !== 'object') return value;
+  if (Array.isArray(value)) {
+    let changed = false;
+    const next = value.map((entry) => {
+      const updated = applyChecklistSchedule(entry, checklistItemId, schedule);
+      if (updated !== entry) changed = true;
+      return updated;
+    });
+    return changed ? next : value;
+  }
+  if (value.type === 'taskItem' && value.attrs?.id === checklistItemId) {
+    return {
+      ...value,
+      attrs: {
+        ...value.attrs,
+        schedule,
+        dueDate: schedule ? scheduleToLegacyDueValue(schedule) : null,
+        reminders: schedule ? reminderInstantsFromRules(schedule.reminderRules) : [],
+      },
+    };
+  }
+  if (!Array.isArray(value.content)) return value;
+  const content = applyChecklistSchedule(value.content, checklistItemId, schedule);
+  return content === value.content ? value : { ...value, content };
+}
 
 export type BoardScope =
   | { type: 'general' }
@@ -306,21 +338,32 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   const sessionRef = useRef(session);
   sessionRef.current = session;
   const lastFetchedScopeRef = useRef<{ teamId: string; orgId: string } | null>(null);
-  const scheduleRefreshRevisionRef = useRef(new Map<string, number>());
-
   useEffect(() => {
-    const onScheduleChanged = async (event: Event) => {
-      const taskId = (event as CustomEvent<ScheduleChangedDetail>).detail.source.taskId;
-      const revision = (scheduleRefreshRevisionRef.current.get(taskId) ?? 0) + 1;
-      scheduleRefreshRevisionRef.current.set(taskId, revision);
-      const response = await taskApi.getById(taskId);
-      if (
-        !response.success
-        || !response.data
-        || scheduleRefreshRevisionRef.current.get(taskId) !== revision
-      ) return;
-      const refreshed = transformTask(response.data);
-      setTasks((current) => current.map((task) => task.id === taskId ? refreshed : task));
+    const onScheduleChanged = (event: Event) => {
+      const detail = (event as CustomEvent<ScheduleChangedDetail>).detail;
+      setTasks((current) => current.map((task) => {
+        if (task.id !== detail.source.taskId) return task;
+        if (detail.source.sourceType === 'action') {
+          return {
+            ...task,
+            schedule: detail.schedule,
+            dueDate: detail.schedule
+              ? parseDueDateFromApi(scheduleToLegacyDueValue(detail.schedule))
+              : undefined,
+            reminders: detail.schedule
+              ? reminderInstantsFromRules(detail.schedule.reminderRules)
+              : [],
+          };
+        }
+        return {
+          ...task,
+          checklistBlocks: applyChecklistSchedule(
+            task.checklistBlocks,
+            detail.source.checklistItemId,
+            detail.schedule,
+          ),
+        };
+      }));
     };
     window.addEventListener(SCHEDULE_CHANGED_EVENT, onScheduleChanged);
     return () => window.removeEventListener(SCHEDULE_CHANGED_EVENT, onScheduleChanged);

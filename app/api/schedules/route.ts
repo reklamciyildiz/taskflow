@@ -2,10 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuthedUser } from '@/lib/server-authz';
 import {
   SchedulingAccessError,
-  createWorkSchedule,
-  removeWorkSchedule,
+  removeWorkScheduleForSource,
   resolveScheduleForSource,
-  updateWorkSchedule,
+  saveWorkScheduleForSource,
 } from '@/lib/work-schedule-server';
 import {
   SchedulingValidationError,
@@ -63,9 +62,12 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
+  const startedAt = performance.now();
   try {
+    const authStartedAt = performance.now();
     const identity = await actor();
     if (identity instanceof NextResponse) return identity;
+    const authDuration = performance.now() - authStartedAt;
     const body = await request.json();
     const source = sourceFromValues(body?.taskId, body?.checklistItemId);
     const input: WorkScheduleInput = {
@@ -80,25 +82,40 @@ export async function PUT(request: NextRequest) {
       endsOn: body?.endsOn ?? null,
       reminderRules: body?.reminderRules ?? [],
     };
-    const existing = await resolveScheduleForSource(identity, source);
-    const schedule = existing
-      ? await updateWorkSchedule(identity, existing.id, input)
-      : await createWorkSchedule(identity, input);
-    return NextResponse.json<ApiResponse<typeof schedule>>({ success: true, data: schedule });
+    const mutationStartedAt = performance.now();
+    const timings = {};
+    const schedule = await saveWorkScheduleForSource(identity, input, timings);
+    const mutationDuration = performance.now() - mutationStartedAt;
+    const response = NextResponse.json<ApiResponse<typeof schedule>>({ success: true, data: schedule });
+    response.headers.set(
+      'Server-Timing',
+      `auth;dur=${authDuration.toFixed(1)}, source;dur=${Number((timings as any).sourceAccessMs ?? 0).toFixed(1)}, lookup;dur=${Number((timings as any).lookupMs ?? 0).toFixed(1)}, write;dur=${Number((timings as any).writeMs ?? 0).toFixed(1)}, schedule;dur=${mutationDuration.toFixed(1)}, total;dur=${(performance.now() - startedAt).toFixed(1)}`,
+    );
+    return response;
   } catch (error) {
     return errorResponse(error);
   }
 }
 
 export async function DELETE(request: NextRequest) {
+  const startedAt = performance.now();
   try {
+    const authStartedAt = performance.now();
     const identity = await actor();
     if (identity instanceof NextResponse) return identity;
+    const authDuration = performance.now() - authStartedAt;
     const params = new URL(request.url).searchParams;
     const source = sourceFromValues(params.get('taskId'), params.get('checklistItemId'));
-    const existing = await resolveScheduleForSource(identity, source);
-    if (existing) await removeWorkSchedule(identity, existing.id);
-    return NextResponse.json<ApiResponse<null>>({ success: true, data: null });
+    const mutationStartedAt = performance.now();
+    const timings = {};
+    await removeWorkScheduleForSource(identity, source, timings);
+    const mutationDuration = performance.now() - mutationStartedAt;
+    const response = NextResponse.json<ApiResponse<null>>({ success: true, data: null });
+    response.headers.set(
+      'Server-Timing',
+      `auth;dur=${authDuration.toFixed(1)}, source;dur=${Number((timings as any).sourceAccessMs ?? 0).toFixed(1)}, lookup;dur=${Number((timings as any).lookupMs ?? 0).toFixed(1)}, write;dur=${Number((timings as any).writeMs ?? 0).toFixed(1)}, schedule;dur=${mutationDuration.toFixed(1)}, total;dur=${(performance.now() - startedAt).toFixed(1)}`,
+    );
+    return response;
   } catch (error) {
     return errorResponse(error);
   }

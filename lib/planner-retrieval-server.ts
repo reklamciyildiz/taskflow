@@ -1,6 +1,5 @@
 import 'server-only';
 
-import { projectDb, teamMemberDb } from '@/lib/db';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { isOrgAdmin } from '@/lib/server-authz';
 import { extractChecklistItemsFromTipTap } from '@/lib/tiptap-parser';
@@ -33,6 +32,15 @@ import {
 type ProjectionOptions = {
   teamId?: string;
   includeOverdueOneOff?: boolean;
+  teamAccessVerified?: boolean;
+  timings?: PlannerRetrievalTimings;
+};
+
+export type PlannerRetrievalTimings = {
+  schedulesMs?: number;
+  sourcesMs?: number;
+  visibilityMs?: number;
+  projectionMs?: number;
 };
 
 function projectionId(scheduleId: string, occurrenceDate: string): string {
@@ -133,59 +141,133 @@ async function getPlannerProjectionForDates(
   const dates = [...new Set(requestedDates)].sort();
   if (!dates.length) return [];
   for (const date of dates) assertCalendarDate(date, 'date');
+  const minimumDate = dates[0];
   const maximumDate = dates[dates.length - 1];
 
-  let schedulesQuery = supabaseAdmin
+  const schedulesStartedAt = performance.now();
+  let oneOffQuery = supabaseAdmin
     .from('work_schedules')
     .select('*')
     .eq('organization_id', actor.organizationId)
     .is('archived_at', null)
+    .eq('schedule_type', 'one_off')
     .lte('schedule_date', maximumDate);
-  if (options.teamId) schedulesQuery = schedulesQuery.eq('team_id', options.teamId);
+  if (!options.includeOverdueOneOff) oneOffQuery = oneOffQuery.gte('schedule_date', minimumDate);
+  let recurringQuery = supabaseAdmin
+    .from('work_schedules')
+    .select('*')
+    .eq('organization_id', actor.organizationId)
+    .is('archived_at', null)
+    .eq('schedule_type', 'recurring')
+    .lte('schedule_date', maximumDate)
+    .or(`ends_on.is.null,ends_on.gte.${minimumDate}`);
+  if (options.teamId) {
+    oneOffQuery = oneOffQuery.eq('team_id', options.teamId);
+    recurringQuery = recurringQuery.eq('team_id', options.teamId);
+  }
 
-  const { data: scheduleRows, error: scheduleError } = await schedulesQuery;
-  if (scheduleError) throw scheduleError;
+  const [oneOffResult, recurringResult] = await Promise.all([oneOffQuery, recurringQuery]);
+  if (oneOffResult.error) throw oneOffResult.error;
+  if (recurringResult.error) throw recurringResult.error;
+  const scheduleRows = [...(oneOffResult.data ?? []), ...(recurringResult.data ?? [])];
+  if (options.timings) options.timings.schedulesMs = performance.now() - schedulesStartedAt;
   if (!scheduleRows?.length) return [];
 
   const schedules = scheduleRows.map(workScheduleFromRow);
-  const scheduleIds = schedules.map((schedule) => schedule.id);
-  const { data: occurrenceRows, error: occurrenceError } = await supabaseAdmin
-    .from('work_occurrences')
-    .select('*')
-    .in('schedule_id', scheduleIds);
-  if (occurrenceError) throw occurrenceError;
-  const occurrences = (occurrenceRows ?? []).map(workOccurrenceFromRow);
-
   const orgAdmin = isOrgAdmin({
     id: actor.userId,
     organization_id: actor.organizationId,
     role: actor.role,
   });
-  const visibleProjectById = new Map<string, any>();
   const allowedTeamIds = new Set<string>();
-  for (const teamId of [...new Set(schedules.map((schedule) => schedule.teamId))]) {
-    const membership = await teamMemberDb.getMembership(teamId, actor.userId);
-    if (!membership && !orgAdmin) continue;
-    allowedTeamIds.add(teamId);
-    const visibleProjects = await projectDb.getVisibleForUser({
-      organizationId: actor.organizationId,
-      teamId,
-      userId: actor.userId,
-    });
-    for (const project of visibleProjects) visibleProjectById.set(String(project.id), project);
+  const scheduledTeamIds = [...new Set(schedules.map((schedule) => schedule.teamId))];
+  if (options.teamAccessVerified && options.teamId) {
+    allowedTeamIds.add(options.teamId);
+  } else {
+    const membershipResults = await Promise.all(scheduledTeamIds.map(async (teamId) => {
+      if (orgAdmin) return { teamId, allowed: true };
+      const { data, error } = await supabaseAdmin
+        .from('team_members')
+        .select('team_id')
+        .eq('team_id', teamId)
+        .eq('user_id', actor.userId)
+        .maybeSingle();
+      if (error) throw error;
+      return { teamId, allowed: Boolean(data) };
+    }));
+    for (const result of membershipResults) if (result.allowed) allowedTeamIds.add(result.teamId);
   }
 
   const accessibleSchedules = schedules.filter((schedule) => allowedTeamIds.has(schedule.teamId));
   if (!accessibleSchedules.length) return [];
+  const sourcesStartedAt = performance.now();
+  const scheduleIds = accessibleSchedules.map((schedule) => schedule.id);
   const taskIds = [...new Set(accessibleSchedules.map((schedule) => schedule.source.taskId))];
-  const { data: taskRows, error: taskError } = await supabaseAdmin
-    .from('tasks')
-    .select('id,title,status,assignee_id,project_id,team_id,organization_id,checklist_blocks,updated_at')
-    .eq('organization_id', actor.organizationId)
-    .in('id', taskIds);
+  const [occurrenceResult, taskResult] = await Promise.all([
+    supabaseAdmin
+      .from('work_occurrences')
+      .select('*')
+      .in('schedule_id', scheduleIds)
+      .or(`occurrence_date.lte.${maximumDate},and(effective_date.gte.${minimumDate},effective_date.lte.${maximumDate})`),
+    supabaseAdmin
+      .from('tasks')
+      .select('id,title,status,assignee_id,project_id,team_id,organization_id,checklist_blocks,updated_at')
+      .eq('organization_id', actor.organizationId)
+      .in('id', taskIds),
+  ]);
+  if (occurrenceResult.error) throw occurrenceResult.error;
+  const { data: taskRows, error: taskError } = taskResult;
   if (taskError) throw taskError;
+  if (options.timings) options.timings.sourcesMs = performance.now() - sourcesStartedAt;
+  const occurrences = (occurrenceResult.data ?? []).map(workOccurrenceFromRow);
   const taskById = new Map((taskRows ?? []).map((task: any) => [String(task.id), task]));
 
+  const visibilityStartedAt = performance.now();
+  const projectIds = [...new Set((taskRows ?? [])
+    .map((task: any) => task.project_id ? String(task.project_id) : null)
+    .filter((id: string | null): id is string => Boolean(id)))];
+  const visibleProjectById = new Map<string, any>();
+  if (projectIds.length) {
+    const [projectResult, projectMemberResult] = await Promise.all([
+      supabaseAdmin
+        .from('projects')
+        .select('id,name,column_config,organization_id,team_id,visibility,created_by')
+        .eq('organization_id', actor.organizationId)
+        .in('id', projectIds),
+      supabaseAdmin
+        .from('project_members')
+        .select('project_id')
+        .in('project_id', projectIds)
+        .eq('user_id', actor.userId),
+    ]);
+    if (projectResult.error) throw projectResult.error;
+    if (projectMemberResult.error) throw projectMemberResult.error;
+    const memberProjectIds = new Set((projectMemberResult.data ?? []).map((row: any) => String(row.project_id)));
+    for (const project of projectResult.data ?? []) {
+      const teamId = project.team_id ? String(project.team_id) : null;
+      const visibility = String(project.visibility ?? 'team');
+      const inTeamScope = teamId === null || allowedTeamIds.has(teamId);
+      const visible = inTeamScope && (
+        visibility === 'team'
+        || visibility === 'restricted' && memberProjectIds.has(String(project.id))
+        || visibility === 'private' && (
+          String(project.created_by) === actor.userId
+          || memberProjectIds.has(String(project.id))
+        )
+      );
+      if (visible) visibleProjectById.set(String(project.id), project);
+    }
+  }
+  if (options.timings) options.timings.visibilityMs = performance.now() - visibilityStartedAt;
+
+  const projectionStartedAt = performance.now();
+  const occurrencesByScheduleId = new Map<string, WorkOccurrence[]>();
+  for (const occurrence of occurrences) {
+    const current = occurrencesByScheduleId.get(occurrence.scheduleId) ?? [];
+    current.push(occurrence);
+    occurrencesByScheduleId.set(occurrence.scheduleId, current);
+  }
+  const checklistByTaskId = new Map<string, Map<string, ReturnType<typeof extractChecklistItemsFromTipTap>[number]>>();
   const result: PlannerProjectionItem[] = [];
   for (const schedule of accessibleSchedules) {
     const task: any = taskById.get(schedule.source.taskId);
@@ -198,17 +280,23 @@ async function getPlannerProjectionForDates(
     const checklistItemId = schedule.source.sourceType === 'checklist_item'
       ? schedule.source.checklistItemId
       : null;
-    const checklistItem = checklistItemId
-      ? extractChecklistItemsFromTipTap(task.checklist_blocks)
-          .find((item) => item.id === checklistItemId) ?? null
-      : null;
+    let checklistItem = null;
+    if (checklistItemId) {
+      let itemById = checklistByTaskId.get(schedule.source.taskId);
+      if (!itemById) {
+        itemById = new Map(extractChecklistItemsFromTipTap(task.checklist_blocks).map((item) => [item.id, item]));
+        checklistByTaskId.set(schedule.source.taskId, itemById);
+      }
+      checklistItem = itemById.get(checklistItemId) ?? null;
+    }
     // A removed checklist node is no longer executable; do not surface an orphan schedule.
     if (schedule.source.sourceType === 'checklist_item' && !checklistItem) continue;
 
     for (const candidateDate of dates) {
+      const scheduleOccurrences = occurrencesByScheduleId.get(schedule.id) ?? [];
       for (const occurrence of occurrencesForDate(
         schedule,
-        occurrences,
+        scheduleOccurrences,
         candidateDate,
         Boolean(options.includeOverdueOneOff && dates.length === 1),
       )) {
@@ -252,12 +340,14 @@ async function getPlannerProjectionForDates(
         endsOn: schedule.endsOn,
         reminderRules: schedule.reminderRules,
         missedCount: occurrence.effectiveDate === candidateDate
-          ? missedOccurrencesBefore(schedule, occurrences, candidateDate)
+          ? missedOccurrencesBefore(schedule, scheduleOccurrences, candidateDate)
           : 0,
       });
       }
     }
   }
+
+  if (options.timings) options.timings.projectionMs = performance.now() - projectionStartedAt;
 
   return result.sort((left, right) => {
     const leftTime = left.scheduleTime ?? '';
@@ -280,7 +370,7 @@ export async function getPlannerUpcomingProjection(
   actor: SchedulingActor,
   startDate: string,
   horizonDays: number,
-  options: { teamId?: string },
+  options: { teamId?: string; teamAccessVerified?: boolean; timings?: PlannerRetrievalTimings },
 ): Promise<PlannerUpcomingProjection> {
   assertCalendarDate(startDate, 'startDate');
   if (!Number.isInteger(horizonDays) || horizonDays < 1 || horizonDays > 31) {
@@ -288,7 +378,11 @@ export async function getPlannerUpcomingProjection(
   }
   const endDate = addCalendarDays(startDate, horizonDays - 1);
   const dates = calendarDatesInRange(startDate, endDate);
-  const perDate = await getPlannerProjectionForDates(actor, dates, { teamId: options.teamId });
+  const perDate = await getPlannerProjectionForDates(actor, dates, {
+    teamId: options.teamId,
+    teamAccessVerified: options.teamAccessVerified,
+    timings: options.timings,
+  });
   const unique = new Map<string, PlannerProjectionItem>();
   for (const item of perDate) unique.set(item.id, item);
   return buildPlannerUpcomingProjection([...unique.values()], startDate, endDate);
@@ -297,7 +391,12 @@ export async function getPlannerUpcomingProjection(
 export async function getPlannerTodayProjection(
   actor: SchedulingActor,
   date: string,
-  options: { teamId?: string; timeZone: string },
+  options: {
+    teamId?: string;
+    timeZone: string;
+    teamAccessVerified?: boolean;
+    timings?: PlannerRetrievalTimings;
+  },
 ): Promise<PlannerTodayProjection> {
   assertCalendarDate(date, 'date');
   if (!isIanaTimeZone(options.timeZone)) {
@@ -306,6 +405,8 @@ export async function getPlannerTodayProjection(
   const items = await getPlannerProjectionForDate(actor, date, {
     teamId: options.teamId,
     includeOverdueOneOff: true,
+    teamAccessVerified: options.teamAccessVerified,
+    timings: options.timings,
   });
   return buildPlannerTodayProjection(items, date, options.timeZone);
 }

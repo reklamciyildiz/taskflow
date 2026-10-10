@@ -1184,6 +1184,7 @@ function ActionPanelContent({
                                         canUseAdvancedReminderPresets
                                       }
                                       disabled={!canEdit}
+                                      onOptimisticScheduleChange={setActionSchedule}
                                       onScheduleChange={setActionSchedule}
                                       onRequestClose={() =>
                                         setTaskDueOpen(false)
@@ -1234,6 +1235,7 @@ function ActionPanelContent({
                                       canUseAdvancedReminderPresets
                                     }
                                     disabled={!canEdit}
+                                    onOptimisticScheduleChange={setActionSchedule}
                                     onScheduleChange={setActionSchedule}
                                     onRequestClose={() => setTaskDueOpen(false)}
                                   />

@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { authOptions } from '@/lib/auth';
 import { ApiResponse } from '@/lib/types';
 import { teamDb, teamMemberDb, userDb } from '@/lib/db';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 
 type DbUser = {
   id: string;
@@ -67,6 +68,42 @@ export async function requireTeamMemberOrOrgAdmin(
     return NextResponse.json<ApiResponse<null>>({ success: false, error: 'Forbidden' }, { status: 403 });
   }
   return { team, membership: membership ?? { role: 'viewer' }, orgAdmin };
+}
+
+/** Lightweight scope check for read models that do not need hydrated team members. */
+export async function requireTeamScopeAccess(
+  teamId: string,
+  authed: AuthedContext,
+): Promise<{ teamId: string; organizationId: string; orgAdmin: boolean } | NextResponse<ApiResponse<null>>> {
+  const orgAdmin = isOrgAdmin(authed.user);
+  const [teamResult, membershipResult] = await Promise.all([
+    supabaseAdmin
+      .from('teams')
+      .select('id,organization_id')
+      .eq('id', teamId)
+      .maybeSingle(),
+    orgAdmin
+      ? Promise.resolve({ data: { team_id: teamId }, error: null })
+      : supabaseAdmin
+          .from('team_members')
+          .select('team_id')
+          .eq('team_id', teamId)
+          .eq('user_id', authed.user.id)
+          .maybeSingle(),
+  ]);
+  if (teamResult.error) throw teamResult.error;
+  if (membershipResult.error) throw membershipResult.error;
+  const team = teamResult.data;
+  if (!team) {
+    return NextResponse.json<ApiResponse<null>>({ success: false, error: 'Team not found' }, { status: 404 });
+  }
+  if (!authed.user.organization_id || team.organization_id !== authed.user.organization_id) {
+    return NextResponse.json<ApiResponse<null>>({ success: false, error: 'Forbidden' }, { status: 403 });
+  }
+  if (!membershipResult.data && !orgAdmin) {
+    return NextResponse.json<ApiResponse<null>>({ success: false, error: 'Forbidden' }, { status: 403 });
+  }
+  return { teamId, organizationId: String(team.organization_id), orgAdmin };
 }
 
 export async function requireTeamAdminOrOrgAdmin(

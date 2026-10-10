@@ -32,6 +32,7 @@ export function WorkSchedulePicker({
   disabled = false,
   canUseAdvancedReminderPresets = true,
   onScheduleChange,
+  onOptimisticScheduleChange,
   onRequestClose,
 }: {
   source: WorkSource;
@@ -39,6 +40,7 @@ export function WorkSchedulePicker({
   disabled?: boolean;
   canUseAdvancedReminderPresets?: boolean;
   onScheduleChange?: (schedule: WorkSchedule | null) => void;
+  onOptimisticScheduleChange?: (schedule: WorkSchedule | null) => void;
   onRequestClose?: () => void;
 }) {
   const today = formatDueDateYmdLocal(new Date());
@@ -84,13 +86,40 @@ export function WorkSchedulePicker({
 
   const commit = async (input: WorkScheduleInput) => {
     if (disabled || savingRef.current) return false;
+    const previous = schedule;
+    const now = new Date().toISOString();
+    const optimistic: WorkSchedule = {
+      id: previous?.id ?? `optimistic:${source.sourceType}:${source.taskId}`,
+      organizationId: previous?.organizationId ?? '',
+      teamId: previous?.teamId ?? '',
+      source,
+      scheduleType: input.scheduleType,
+      scheduleDate: input.scheduleDate,
+      scheduleTime: input.scheduleTime ?? null,
+      timeZone: input.timeZone ?? null,
+      recurrenceFrequency: input.recurrenceFrequency ?? null,
+      recurrenceInterval: input.recurrenceInterval ?? 1,
+      recurrenceWeekdays: input.recurrenceWeekdays ?? [],
+      endsOn: input.endsOn ?? null,
+      reminderRules: input.reminderRules ?? [],
+      archivedAt: null,
+      createdAt: previous?.createdAt ?? now,
+      updatedAt: now,
+    };
     savingRef.current = true;
     setSaving(true);
+    setSchedule(optimistic);
+    setStartDate(optimistic.scheduleDate);
+    setEndsOn(optimistic.endsOn ?? '');
+    setWeekdays(optimistic.recurrenceWeekdays);
+    onOptimisticScheduleChange?.(optimistic);
     const response = await scheduleApi.save(input).finally(() => {
       savingRef.current = false;
       setSaving(false);
     });
     if (!response.success || !response.data) {
+      setSchedule(previous);
+      onOptimisticScheduleChange?.(previous);
       toast.error(response.error || 'Could not save schedule');
       return false;
     }
@@ -129,7 +158,7 @@ export function WorkSchedulePicker({
       toast.error('Choose at least one weekday');
       return;
     }
-    const ok = await commit({
+    const request = commit({
       source,
       scheduleType: 'recurring',
       scheduleDate: startDate,
@@ -143,18 +172,24 @@ export function WorkSchedulePicker({
       endsOn: endsOn || null,
       reminderRules: schedule?.reminderRules ?? [],
     });
-    if (ok) setView('main');
+    setView('main');
+    await request;
   };
 
   const remove = async () => {
     if (disabled || savingRef.current) return;
+    const previous = schedule;
     savingRef.current = true;
     setSaving(true);
+    setSchedule(null);
+    onOptimisticScheduleChange?.(null);
     const response = await scheduleApi.remove(source).finally(() => {
       savingRef.current = false;
       setSaving(false);
     });
     if (!response.success) {
+      setSchedule(previous);
+      onOptimisticScheduleChange?.(previous);
       toast.error(response.error || 'Could not remove schedule');
       return;
     }
@@ -254,7 +289,8 @@ export function WorkSchedulePicker({
             selected={parseYmdDateInput(schedule?.scheduleDate ?? startDate)}
             onSelect={(selected) => {
               if (!selected) return;
-              void oneOff(formatDueDateYmdLocal(selected)).then((ok) => ok && setView('main'));
+              setView('main');
+              void oneOff(formatDueDateYmdLocal(selected));
             }}
             initialFocus
           />
@@ -306,7 +342,7 @@ export function WorkSchedulePicker({
                   onClick={async () => {
                     if (!schedule) return;
                     if (locked) return toast.message('Upgrade to Pro to unlock advanced reminders.');
-                    const ok = await commit({
+                    const request = commit({
                       source,
                       scheduleType: schedule.scheduleType,
                       scheduleDate: schedule.scheduleDate,
@@ -318,7 +354,8 @@ export function WorkSchedulePicker({
                       endsOn: schedule.endsOn,
                       reminderRules: reminderRuleForPreset(preset.id as ReminderPresetId),
                     });
-                    if (ok) setView('main');
+                    setView('main');
+                    await request;
                   }}
                 >
                   <Bell className="h-4 w-4" /><span>{preset.label}</span>
@@ -328,7 +365,7 @@ export function WorkSchedulePicker({
             })}
             <button className="schedule-menu-row" onClick={async () => {
               if (!schedule) return;
-              const ok = await commit({
+              const request = commit({
                 source,
                 scheduleType: schedule.scheduleType,
                 scheduleDate: schedule.scheduleDate,
@@ -340,7 +377,8 @@ export function WorkSchedulePicker({
                 endsOn: schedule.endsOn,
                 reminderRules: [],
               });
-              if (ok) setView('main');
+              setView('main');
+              await request;
             }}><X className="h-4 w-4" /><span>Clear reminder</span></button>
           </div>
         ) : null}

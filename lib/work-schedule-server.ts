@@ -1,7 +1,6 @@
 import 'server-only';
 
 import { supabaseAdmin } from '@/lib/supabase-admin';
-import { projectDb, taskDb, teamMemberDb } from '@/lib/db';
 import { canMutateTeamTasks, isOrgAdmin } from '@/lib/server-authz';
 import { extractChecklistItemsFromTipTap } from '@/lib/tiptap-parser';
 import {
@@ -26,6 +25,12 @@ export type SchedulingActor = {
   role?: string | null;
 };
 
+export type ScheduleMutationTimings = {
+  sourceAccessMs?: number;
+  lookupMs?: number;
+  writeMs?: number;
+};
+
 export class SchedulingAccessError extends Error {
   readonly code: 'NOT_FOUND' | 'FORBIDDEN' | 'CONFLICT';
 
@@ -43,13 +48,48 @@ async function requireSourceAccess(
   source: WorkSource,
   mutate: boolean,
 ): Promise<SourceAccess> {
-  const task = await taskDb.getById(source.taskId);
+  const { data: task, error: taskError } = await supabaseAdmin
+    .from('tasks')
+    .select('id,organization_id,team_id,project_id,checklist_blocks')
+    .eq('id', source.taskId)
+    .maybeSingle();
+  if (taskError) throw taskError;
   if (!task || String((task as any).organization_id) !== actor.organizationId) {
     throw new SchedulingAccessError('NOT_FOUND', 'Work source not found');
   }
 
   const orgAdmin = isOrgAdmin({ id: actor.userId, organization_id: actor.organizationId, role: actor.role });
-  const membership = await teamMemberDb.getMembership(String((task as any).team_id), actor.userId);
+  const teamId = String((task as any).team_id);
+  const projectId = (task as any).project_id ? String((task as any).project_id) : null;
+  const [membershipResult, projectResult, projectMembershipResult] = await Promise.all([
+    orgAdmin
+      ? Promise.resolve({ data: { role: 'admin' }, error: null })
+      : supabaseAdmin
+          .from('team_members')
+          .select('role')
+          .eq('team_id', teamId)
+          .eq('user_id', actor.userId)
+          .maybeSingle(),
+    projectId
+      ? supabaseAdmin
+          .from('projects')
+          .select('id,organization_id,team_id,visibility,created_by')
+          .eq('id', projectId)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+    projectId
+      ? supabaseAdmin
+          .from('project_members')
+          .select('project_id')
+          .eq('project_id', projectId)
+          .eq('user_id', actor.userId)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+  ]);
+  if (membershipResult.error) throw membershipResult.error;
+  if (projectResult.error) throw projectResult.error;
+  if (projectMembershipResult.error) throw projectMembershipResult.error;
+  const membership = membershipResult.data;
   if (!membership && !orgAdmin) {
     throw new SchedulingAccessError('FORBIDDEN', 'Work source is outside the actor team scope');
   }
@@ -57,14 +97,19 @@ async function requireSourceAccess(
     throw new SchedulingAccessError('FORBIDDEN', 'Read-only team members cannot change schedules');
   }
 
-  const projectId = (task as any).project_id ? String((task as any).project_id) : null;
   if (projectId) {
-    const visible = await projectDb.getVisibleForUser({
-      organizationId: actor.organizationId,
-      teamId: String((task as any).team_id),
-      userId: actor.userId,
-    });
-    if (!visible.some((project: any) => String(project.id) === projectId)) {
+    const project: any = projectResult.data;
+    const projectMember = Boolean(projectMembershipResult.data);
+    const visibility = String(project?.visibility ?? 'team');
+    const inScope = project
+      && String(project.organization_id) === actor.organizationId
+      && (!project.team_id || String(project.team_id) === teamId);
+    const visible = inScope && (
+      visibility === 'team'
+      || visibility === 'restricted' && projectMember
+      || visibility === 'private' && (String(project.created_by) === actor.userId || projectMember)
+    );
+    if (!visible) {
       throw new SchedulingAccessError('NOT_FOUND', 'Work source not found');
     }
   }
@@ -135,6 +180,82 @@ function scheduleInsert(input: WorkScheduleInput, task: any) {
 
 function isUniqueViolation(error: unknown): boolean {
   return (error as { code?: string } | null)?.code === '23505';
+}
+
+async function activeScheduleRowForSource(
+  actor: SchedulingActor,
+  source: WorkSource,
+): Promise<any | null> {
+  let query = supabaseAdmin
+    .from('work_schedules')
+    .select('*')
+    .eq('organization_id', actor.organizationId)
+    .eq('task_id', source.taskId)
+    .is('archived_at', null);
+  query = source.sourceType === 'action'
+    ? query.is('checklist_item_id', null)
+    : query.eq('checklist_item_id', source.checklistItemId);
+  const { data, error } = await query.maybeSingle();
+  if (error) throw error;
+  return data ?? null;
+}
+
+/** Single-pass source authorization + create/update for interactive Schedule UX. */
+export async function saveWorkScheduleForSource(
+  actor: SchedulingActor,
+  input: WorkScheduleInput,
+  timings?: ScheduleMutationTimings,
+): Promise<WorkSchedule> {
+  const normalized = normalizeWorkScheduleInput(input);
+  const sourceStartedAt = performance.now();
+  const access = await requireSourceAccess(actor, normalized.source, true);
+  if (timings) timings.sourceAccessMs = performance.now() - sourceStartedAt;
+  const lookupStartedAt = performance.now();
+  const existing = await activeScheduleRowForSource(actor, normalized.source);
+  if (timings) timings.lookupMs = performance.now() - lookupStartedAt;
+  const payload = scheduleInsert(normalized, access.task);
+  const mutation = existing
+    ? supabaseAdmin
+        .from('work_schedules')
+        .update(payload)
+        .eq('id', existing.id)
+        .eq('organization_id', actor.organizationId)
+        .is('archived_at', null)
+    : supabaseAdmin.from('work_schedules').insert(payload);
+  const writeStartedAt = performance.now();
+  const { data, error } = await mutation.select('*').single();
+  if (timings) timings.writeMs = performance.now() - writeStartedAt;
+  if (error) {
+    if (isUniqueViolation(error)) {
+      throw new SchedulingAccessError('CONFLICT', 'This work source already has an active schedule');
+    }
+    throw error;
+  }
+  return workScheduleFromRow(data);
+}
+
+/** Archives a source schedule without repeating source and schedule authorization. */
+export async function removeWorkScheduleForSource(
+  actor: SchedulingActor,
+  source: WorkSource,
+  timings?: ScheduleMutationTimings,
+): Promise<void> {
+  const sourceStartedAt = performance.now();
+  await requireSourceAccess(actor, source, true);
+  if (timings) timings.sourceAccessMs = performance.now() - sourceStartedAt;
+  const lookupStartedAt = performance.now();
+  const existing = await activeScheduleRowForSource(actor, source);
+  if (timings) timings.lookupMs = performance.now() - lookupStartedAt;
+  if (!existing) return;
+  const writeStartedAt = performance.now();
+  const { error } = await supabaseAdmin
+    .from('work_schedules')
+    .update({ archived_at: new Date().toISOString() })
+    .eq('id', existing.id)
+    .eq('organization_id', actor.organizationId)
+    .is('archived_at', null);
+  if (timings) timings.writeMs = performance.now() - writeStartedAt;
+  if (error) throw error;
 }
 
 export async function createWorkSchedule(
@@ -225,17 +346,7 @@ export async function resolveScheduleForSource(
   source: WorkSource,
 ): Promise<WorkSchedule | null> {
   await requireSourceAccess(actor, source, false);
-  let query = supabaseAdmin
-    .from('work_schedules')
-    .select('*')
-    .eq('organization_id', actor.organizationId)
-    .eq('task_id', source.taskId)
-    .is('archived_at', null);
-  query = source.sourceType === 'action'
-    ? query.is('checklist_item_id', null)
-    : query.eq('checklist_item_id', source.checklistItemId);
-  const { data, error } = await query.maybeSingle();
-  if (error) throw error;
+  const data = await activeScheduleRowForSource(actor, source);
   return data ? workScheduleFromRow(data) : null;
 }
 

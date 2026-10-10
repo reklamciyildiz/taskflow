@@ -158,10 +158,21 @@ export const noteApi = {
     }),
 };
 
+const plannerRequestInFlight = new Map<string, Promise<ApiResponse<any>>>();
+
+function coalescedPlannerRequest<T>(key: string, request: () => Promise<ApiResponse<T>>): Promise<ApiResponse<T>> {
+  const existing = plannerRequestInFlight.get(key) as Promise<ApiResponse<T>> | undefined;
+  if (existing) return existing;
+  const pending = request().finally(() => plannerRequestInFlight.delete(key));
+  plannerRequestInFlight.set(key, pending);
+  return pending;
+}
+
 export const plannerApi = {
   getToday: (input: { date: string; teamId: string; timeZone: string }) => {
     const params = new URLSearchParams(input);
-    return fetchApi<PlannerTodayProjection>(`/planner/today?${params.toString()}`);
+    const endpoint = `/planner/today?${params.toString()}`;
+    return coalescedPlannerRequest(endpoint, () => fetchApi<PlannerTodayProjection>(endpoint));
   },
   getUpcoming: (input: { startDate: string; teamId: string; horizonDays?: string }) => {
     const params = new URLSearchParams({
@@ -169,7 +180,8 @@ export const plannerApi = {
       teamId: input.teamId,
       horizonDays: input.horizonDays ?? '14',
     });
-    return fetchApi<PlannerUpcomingProjection>(`/planner/upcoming?${params.toString()}`);
+    const endpoint = `/planner/upcoming?${params.toString()}`;
+    return coalescedPlannerRequest(endpoint, () => fetchApi<PlannerUpcomingProjection>(endpoint));
   },
   setOccurrenceCompleted: (input: {
     scheduleId: string;
