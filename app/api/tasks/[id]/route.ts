@@ -1,3 +1,6 @@
+import { stageErrorMessage, validateTaskStage } from '@/lib/stage-server';
+import { resolveStageLifecycle } from '@/lib/stage-lifecycle';
+import { FALLBACK_BOARD_COLUMNS, parseColumnConfigFromJson } from '@/lib/types';
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -121,6 +124,8 @@ export async function GET(
       data: hydratedTask,
     });
   } catch (error) {
+    const stageError = stageErrorMessage(error);
+    if (stageError) return NextResponse.json({ success: false, error: stageError }, { status: 400 });
     console.error("Error fetching task:", error);
     return NextResponse.json<ApiResponse<null>>(
       { success: false, error: "Internal server error" },
@@ -220,6 +225,20 @@ export async function PATCH(
         );
       }
     }
+
+    if (body.status !== undefined || nextProjectId !== undefined) {
+      await validateTaskStage({
+        projectId: nextProjectId === undefined ? currentProjectId : nextProjectId,
+        organizationId: originalTask.organization_id,
+        teamId: originalTask.team_id,
+        status: body.status === undefined ? originalTask.status : body.status,
+      });
+    }
+    const stageChanged = (body.status !== undefined && body.status !== originalTask.status)
+      || (nextProjectId !== undefined && nextProjectId !== currentProjectId);
+    const previousProject = stageChanged && currentProjectId ? await projectDb.getById(currentProjectId) : null;
+    const lifecycleColumns = previousProject ? parseColumnConfigFromJson(previousProject.column_config) : FALLBACK_BOARD_COLUMNS;
+    const wasTerminal = resolveStageLifecycle(originalTask.status, lifecycleColumns).isTerminal;
 
     const checklistWasUpdated = Object.prototype.hasOwnProperty.call(
       body ?? {},
@@ -645,8 +664,11 @@ export async function PATCH(
         );
       }
 
-      // Task completed webhook (if status changed to done)
-      if (body.status === "done" && originalTask.status !== "done") {
+      // Emit closure only for an explicit open-to-terminal transition, not title edits.
+      const finalProjectId = updatedTask.project_id ?? null;
+      const finalProject = !stageChanged ? null : finalProjectId === currentProjectId ? previousProject : finalProjectId ? await projectDb.getById(finalProjectId) : null;
+      const finalColumns = finalProject ? parseColumnConfigFromJson(finalProject.column_config) : FALLBACK_BOARD_COLUMNS;
+      if (stageChanged && !wasTerminal && resolveStageLifecycle(updatedTask.status, finalColumns).isTerminal) {
         const completedByUserId = session?.user
           ? (session.user as any).id
           : originalTask.created_by;
@@ -773,6 +795,8 @@ export async function PATCH(
       message: "Task updated successfully",
     });
   } catch (error) {
+    const stageError = stageErrorMessage(error);
+    if (stageError) return NextResponse.json({ success: false, error: stageError }, { status: 400 });
     console.error("Error updating task:", error);
     if (error instanceof SchedulingValidationError) {
       return NextResponse.json<ApiResponse<null>>(
@@ -884,6 +908,8 @@ export async function DELETE(
       message: "Task deleted successfully",
     });
   } catch (error) {
+    const stageError = stageErrorMessage(error);
+    if (stageError) return NextResponse.json({ success: false, error: stageError }, { status: 400 });
     console.error("Error deleting task:", error);
     return NextResponse.json<ApiResponse<null>>(
       { success: false, error: "Internal server error" },

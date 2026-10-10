@@ -148,11 +148,11 @@ export function Achievements() {
   // ── Column resolver (same pattern as Analytics) ────────────────────────────
   const columnsForTask = useMemo(() => {
     const map = new Map<string, ProjectColumnConfig[]>(
-      projects.map(p => [p.id, p.columnConfig.length > 0 ? p.columnConfig : FALLBACK_BOARD_COLUMNS])
+      projects.map(p => [p.id, p.columnConfig])
     );
     const fallbackGeneral = generalBoardColumns.length > 0 ? generalBoardColumns : FALLBACK_BOARD_COLUMNS;
     return (task: Task): ProjectColumnConfig[] =>
-      task.projectId ? (map.get(task.projectId) ?? FALLBACK_BOARD_COLUMNS) : fallbackGeneral;
+      task.projectId ? (map.get(task.projectId) ?? []) : fallbackGeneral;
   }, [projects, generalBoardColumns]);
 
   const isComplete = useMemo(

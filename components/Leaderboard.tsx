@@ -7,9 +7,10 @@ import { Badge } from '@/components/ui/badge';
 import { useTaskContext } from '@/components/TaskContext';
 import { TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { resolveActionLifecycle } from '@/lib/stage-lifecycle';
 
 export function Leaderboard() {
-  const { tasks, currentTeam } = useTaskContext();
+  const { tasks, currentTeam, projects, generalBoardColumns } = useTaskContext();
 
   const teamTasks = tasks.filter(task => task.teamId === currentTeam?.id);
 
@@ -18,7 +19,7 @@ export function Leaderboard() {
 
     return currentTeam.members.map(member => {
       const memberTasks = teamTasks.filter(task => task.assigneeId === member.id);
-      const completedTasks = memberTasks.filter(task => task.status === 'done');
+      const completedTasks = memberTasks.filter(task => resolveActionLifecycle(task, projects, generalBoardColumns).isTerminal);
       
       // Calculate points
       let points = 0;
@@ -69,7 +70,7 @@ export function Leaderboard() {
           : 0
       };
     }).sort((a, b) => b.points - a.points);
-  }, [currentTeam, teamTasks]);
+  }, [currentTeam, teamTasks, projects, generalBoardColumns]);
 
   return (
     <Card>

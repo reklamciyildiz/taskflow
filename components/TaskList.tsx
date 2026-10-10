@@ -1,4 +1,5 @@
 'use client';
+import { toast } from 'sonner';
 
 import { useState, useMemo, useEffect } from 'react';
 import { useTaskContext, TaskPriority } from '@/components/TaskContext';
@@ -167,10 +168,12 @@ export function TaskList() {
     const terminalNow = isTerminalBoardColumn(resolvedColumnId, boardColumns);
     if (terminalNow) {
       const openCol = boardColumns.find((c) => !isTerminalBoardColumn(c.id, boardColumns));
-      void updateTask(taskId, { status: openCol?.id ?? 'todo' });
+      if (!openCol) { toast.error('This process has no open stage.'); return; }
+      void updateTask(taskId, { status: openCol.id }).then((ok) => { if (!ok) toast.error('Could not change stage'); });
     } else {
       const termCol = boardColumns.find((c) => isTerminalBoardColumn(c.id, boardColumns));
-      void updateTask(taskId, { status: termCol?.id ?? 'done' });
+      if (!termCol) { toast.error('This process has no terminal stage. Configure one to close Actions.'); return; }
+      void updateTask(taskId, { status: termCol.id }).then((ok) => { if (!ok) toast.error('Could not change stage'); });
     }
   };
 

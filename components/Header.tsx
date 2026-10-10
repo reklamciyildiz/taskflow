@@ -10,6 +10,7 @@ import { CreateTaskModal } from '@/components/CreateTaskModal';
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useTaskContext, type Task } from '@/components/TaskContext';
 import { useRouter } from 'next/navigation';
+import { resolveActionLifecycle } from '@/lib/stage-lifecycle';
 
 interface HeaderProps {
   onSidebarToggle: () => void;
@@ -30,6 +31,8 @@ export function Header({ onSidebarToggle, desktopSidebarExpanded = true }: Heade
     setBoardScope,
     setCurrentProjectId,
     setCurrentTeam,
+    projects,
+    generalBoardColumns,
   } = useTaskContext();
   const searchRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
@@ -177,7 +180,7 @@ export function Header({ onSidebarToggle, desktopSidebarExpanded = true }: Heade
                           className="w-full px-3 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
                         >
                           <span className={`w-2 h-2 rounded-full ${
-                            task.status === 'done' ? 'bg-green-500' :
+                            resolveActionLifecycle(task, projects, generalBoardColumns).isTerminal ? 'bg-green-500' :
                             task.status === 'progress' ? 'bg-blue-500' :
                             task.status === 'review' ? 'bg-orange-500' : 'bg-gray-400'
                           }`} />

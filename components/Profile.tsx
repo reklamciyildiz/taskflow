@@ -9,9 +9,10 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useTaskContext } from '@/components/TaskContext';
 import { User, Loader2, Check } from 'lucide-react';
 import { useSession } from 'next-auth/react';
+import { resolveActionLifecycle } from '@/lib/stage-lifecycle';
 
 export function Profile() {
-  const { currentUser, tasks, refreshData } = useTaskContext();
+  const { currentUser, tasks, refreshData, projects, generalBoardColumns } = useTaskContext();
   const { update: updateSession } = useSession();
   const [name, setName] = useState('');
   const [saving, setSaving] = useState(false);
@@ -26,7 +27,7 @@ export function Profile() {
 
   // Calculate user stats
   const userTasks = tasks.filter(t => t.assigneeId === currentUser?.id);
-  const completedTasks = userTasks.filter(t => t.status === 'done');
+  const completedTasks = userTasks.filter(t => resolveActionLifecycle(t, projects, generalBoardColumns).isTerminal);
   const inProgressTasks = userTasks.filter(t => t.status === 'progress');
 
   const handleSaveProfile = async () => {

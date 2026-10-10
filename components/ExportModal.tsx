@@ -9,6 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useTaskContext } from '@/components/TaskContext';
 import { Loader2, Download, FileText, FileSpreadsheet } from 'lucide-react';
 import { toast } from 'sonner';
+import { resolveActionLifecycle } from '@/lib/stage-lifecycle';
 
 interface ExportModalProps {
   open: boolean;
@@ -16,7 +17,7 @@ interface ExportModalProps {
 }
 
 export function ExportModal({ open, onClose }: ExportModalProps): JSX.Element {
-  const { tasks, currentTeam } = useTaskContext();
+  const { tasks, currentTeam, projects, generalBoardColumns } = useTaskContext();
   const [format, setFormat] = useState<'csv' | 'json'>('csv');
   const [loading, setLoading] = useState(false);
   const [includeCompleted, setIncludeCompleted] = useState(true);
@@ -31,7 +32,7 @@ export function ExportModal({ open, onClose }: ExportModalProps): JSX.Element {
       let filteredTasks = teamTasks;
       
       if (!includeCompleted) {
-        filteredTasks = filteredTasks.filter(t => t.status !== 'done');
+        filteredTasks = filteredTasks.filter(t => !resolveActionLifecycle(t, projects, generalBoardColumns).isTerminal);
       }
 
       if (format === 'csv') {

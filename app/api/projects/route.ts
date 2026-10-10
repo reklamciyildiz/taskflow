@@ -1,3 +1,4 @@
+import { stageErrorMessage } from '@/lib/stage-server';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
@@ -70,6 +71,8 @@ export async function GET(request: NextRequest) {
       data: projects,
     });
   } catch (error) {
+    const stageError = stageErrorMessage(error);
+    if (stageError) return NextResponse.json({ success: false, error: stageError }, { status: 400 });
     console.error('Error fetching projects:', error);
     return NextResponse.json<ApiResponse<null>>(
       { success: false, error: 'Internal server error' },
@@ -173,7 +176,7 @@ export async function POST(request: NextRequest) {
       name,
       organization_id: organizationId,
       team_id: teamId,
-      column_config: Array.isArray(columnConfig) ? columnConfig : undefined,
+      column_config: columnConfig,
       visibility,
       created_by: createdBy,
     });
@@ -183,6 +186,8 @@ export async function POST(request: NextRequest) {
       data: created,
     });
   } catch (error) {
+    const stageError = stageErrorMessage(error);
+    if (stageError) return NextResponse.json({ success: false, error: stageError }, { status: 400 });
     console.error('Error creating project:', error);
     return NextResponse.json<ApiResponse<null>>(
       { success: false, error: 'Internal server error' },

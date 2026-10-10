@@ -51,8 +51,7 @@ function actionState(task: any, project: any | null): WorkOccurrenceState {
   const columns = project
     ? parseColumnConfigFromJson(project.column_config)
     : FALLBACK_BOARD_COLUMNS;
-  const effectiveColumns = columns.length ? columns : FALLBACK_BOARD_COLUMNS;
-  return isTerminalBoardColumn(String(task.status), effectiveColumns) ? 'completed' : 'pending';
+  return isTerminalBoardColumn(String(task.status), columns) ? 'completed' : 'pending';
 }
 
 function occurrencesForDate(

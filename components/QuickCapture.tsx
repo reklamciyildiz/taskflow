@@ -1,5 +1,4 @@
 'use client';
-
 import { useState } from 'react';
 import { useTaskContext } from '@/components/TaskContext';
 import { Input } from '@/components/ui/input';
@@ -43,7 +42,6 @@ export function QuickCapture() {
       await addTask({
         title,
         description: '',
-        status: 'todo',
         priority: 'medium',
         teamId: currentTeam.id,
         projectId: inbox.projectId,
@@ -53,6 +51,8 @@ export function QuickCapture() {
       });
       setValue('');
       toast.success('Added to Inbox');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not create Action');
     } finally {
       setBusy(false);
     }

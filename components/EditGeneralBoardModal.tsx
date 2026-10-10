@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useTaskContext } from '@/components/TaskContext';
 import { FALLBACK_BOARD_COLUMNS, type ProjectColumnConfig } from '@/lib/types';
+import { newStageId, validateStageConfig, assertStagesRetained } from '@/lib/stage-lifecycle';
 import { cn } from '@/lib/utils';
 import { portalDndRowToBody } from '@/lib/dnd-body-portal';
 import { Settings2, CheckCircle2, Trash2, GripVertical } from 'lucide-react';
@@ -26,7 +27,7 @@ const COLUMN_COLOR_OPTIONS: { id: string; label: string; className: string }[] =
 ];
 
 export function EditGeneralBoardModal({ open, onClose }: EditGeneralBoardModalProps) {
-  const { generalBoardColumns, setGeneralBoardColumns, currentTeam } = useTaskContext();
+  const { generalBoardColumns, setGeneralBoardColumns, currentTeam, tasks } = useTaskContext();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [columnsDraft, setColumnsDraft] = useState<ProjectColumnConfig[]>(
@@ -49,17 +50,17 @@ export function EditGeneralBoardModal({ open, onClose }: EditGeneralBoardModalPr
   };
 
   const handleToggleTerminal = (index: number) => {
-    setColumnsDraft((prev) => prev.map((col, i) => ({ ...col, isTerminal: i === index })));
+    setColumnsDraft((prev) => prev.map((col, i) => i === index ? { ...col, isTerminal: !col.isTerminal } : col));
   };
 
   const handleAddColumn = () => {
     setColumnsDraft((prev) => [
       ...prev,
       {
-        id: `col-${Date.now()}`,
+        id: newStageId(),
         title: `Stage ${prev.length + 1}`,
         color: 'bg-slate-50 dark:bg-slate-900/40',
-        isTerminal: prev.length === 0,
+        isTerminal: false,
       },
     ]);
   };
@@ -68,50 +69,17 @@ export function EditGeneralBoardModal({ open, onClose }: EditGeneralBoardModalPr
     setColumnsDraft((prev) => prev.map((col, i) => (i === index ? { ...col, color: colorClass } : col)));
   };
 
-  const normalizedColumns = useMemo(() => {
-    const nonEmpty = columnsDraft
-      .map((c) => ({ ...c, title: (c.title ?? '').trim() }))
-      .filter((c) => c.title.length > 0);
-
-    if (nonEmpty.length === 0) return [];
-
-    let cols = nonEmpty;
-    if (!cols.some((c) => c.isTerminal)) {
-      cols = cols.map((c, idx) => ({ ...c, isTerminal: idx === cols.length - 1 }));
-    }
-
-    const usedIds = new Set<string>();
-    const makeId = (title: string, index: number): string => {
-      const base = title
-        .toLowerCase()
-        .replace(/\s+/g, '-')
-        .replace(/[^a-z0-9\-]/g, '')
-        .replace(/-+/g, '-')
-        .replace(/^-|-$/g, '');
-      let id = base || `col-${index + 1}`;
-      let counter = 2;
-      while (usedIds.has(id)) id = `${base || `col-${index + 1}`}-${counter++}`;
-      usedIds.add(id);
-      return id;
-    };
-
-    return cols.map((c, idx) => ({
-      ...c,
-      id: makeId(c.title, idx),
-    }));
-  }, [columnsDraft]);
+  const normalizedColumns = useMemo(() => columnsDraft.map((column) => ({
+    ...column, title: column.title.trim(),
+  })), [columnsDraft]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
     try {
-      const finalColumns = normalizedColumns;
-      if (finalColumns.length === 0) {
-        setError('Add at least one column.');
-        setLoading(false);
-        return;
-      }
+      const finalColumns = validateStageConfig(normalizedColumns);
+      assertStagesRetained(finalColumns, tasks.filter((task) => !task.projectId && task.teamId === currentTeam?.id).map((task) => task.status));
       setGeneralBoardColumns(finalColumns);
       onClose();
     } catch (err) {

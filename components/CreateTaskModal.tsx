@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,6 +44,7 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
     generalBoardColumns,
   } = useTaskContext();
   const [title, setTitle] = useState('');
+  const [saving, setSaving] = useState(false);
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState<TaskStatus>(defaultStatus || 'todo');
   const [priority, setPriority] = useState<TaskPriority>('medium');
@@ -74,7 +76,7 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
     if (!pid) return generalCols;
     const proj = projectsForTeam.find((p) => p.id === pid);
     const cfg = proj?.columnConfig;
-    return cfg && cfg.length > 0 ? cfg : FALLBACK_BOARD_COLUMNS;
+    return cfg ?? [];
   }, [resolvedProjectId, projectsForTeam, generalBoardColumns]);
 
   useEffect(() => {
@@ -99,12 +101,14 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
     return currentProject?.name ?? 'none';
   }, [boardScope, boardProject, projectsForTeam, currentProject]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!title.trim() || !currentTeam) return;
+    if (!title.trim() || !currentTeam || saving) return;
+    setSaving(true);
+    try {
 
-    addTask({
+    await addTask({
       title: title.trim(),
       description: description.trim(),
       status,
@@ -129,6 +133,11 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
     setCustomerId("none");
     setProjectId('__auto__');
     onClose();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not create Action');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -328,7 +337,7 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" disabled={!title.trim()}>
+            <Button type="submit" disabled={!title.trim() || saving || statusColumns.length === 0}>
               Create
             </Button>
           </div>

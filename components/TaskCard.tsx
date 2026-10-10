@@ -61,7 +61,7 @@ export function TaskCard({ task, dragHandleProps, onTaskClick }: TaskCardProps) 
     return format(task.dueDate, 'MMM d');
   };
   
-  const isDueSoon = task.dueDate && isPast(task.dueDate) && task.status !== 'done';
+  const isDueSoon = task.dueDate && isPast(task.dueDate) && !isTerminalBoardColumn(task.status, boardColumns);
 
   const handleCardClick = (e: React.MouseEvent) => {
     if (Date.now() < blockCardOpenUntilRef.current) {

@@ -27,6 +27,8 @@ import { isTerminalBoardColumn } from '@/lib/types';
 import { orderedColumnTasks, computeBoardDropPatches } from '@/lib/board-reorder';
 import { CreateProjectModal } from '@/components/CreateProjectModal';
 import { EditGeneralBoardModal } from '@/components/EditGeneralBoardModal';
+import { useProcessProperties } from '@/hooks/useProcessProperties';
+import { PropertyBoard } from '@/components/PropertyBoard';
 
 export function TaskBoard() {
   const [isMobileBoard, setIsMobileBoard] = useState(false);
@@ -67,6 +69,14 @@ export function TaskBoard() {
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const [editGeneralOpen, setEditGeneralOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<TaskStatus | null>(null);
+  const [groupBy, setGroupBy] = useState('stage');
+  const processId = boardScope.type === 'project' ? boardScope.projectId : null;
+  const properties = useProcessProperties(processId, currentTeam?.id);
+  const groupedProperty = properties.data?.properties.find(p => p.id === groupBy && !p.archived_at);
+  useEffect(() => { setGroupBy('stage'); }, [processId, currentTeam?.id]);
+  useEffect(() => {
+    if (properties.data && groupBy !== 'stage' && !groupedProperty) setGroupBy('stage');
+  }, [properties.data, groupBy, groupedProperty]);
   const DESKTOP_SCROLL_THRESHOLD = 4;
 
   const projectsForTeam = useMemo(() => {
@@ -95,9 +105,9 @@ export function TaskBoard() {
         task => task.dueDate && isToday(task.dueDate) && !isTerminalBoardColumn(task.status, boardColumns),
       );
     } else if (filter === 'highPriority') {
-      result = result.filter(task => (task.priority === 'high' || task.priority === 'urgent') && task.status !== 'done');
+      result = result.filter(task => (task.priority === 'high' || task.priority === 'urgent') && !isTerminalBoardColumn(task.status, boardColumns));
     } else if (filter === 'assignedToMe') {
-      result = result.filter(task => task.assigneeId === currentUser?.id && task.status !== 'done');
+      result = result.filter(task => task.assigneeId === currentUser?.id && !isTerminalBoardColumn(task.status, boardColumns));
     }
     
     // Apply customer filter
@@ -308,7 +318,27 @@ export function TaskBoard() {
             ))}
           </div>
       
-          <DragDropContext onDragEnd={onDragEnd}>
+          {filteredTasks.some((task) => !boardColumns.some((column) => column.id === task.status)) && (
+            <div className="mb-4 rounded-lg border border-amber-500/40 p-3 text-sm">
+              <p className="mb-2 text-muted-foreground">Unresolved stage — these Actions have not been moved. Open an Action to choose a valid stage.</p>
+              {filteredTasks.filter((task) => !boardColumns.some((column) => column.id === task.status)).map((task) => (
+                <button key={task.id} className="block py-1 text-left underline" onClick={() => openTaskEditor(task.id)}>{task.title}</button>
+              ))}
+            </div>
+          )}
+          {processId && <div className="mb-3 flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Group by</span>
+            <Select value={groupedProperty ? groupBy : 'stage'} onValueChange={setGroupBy} disabled={properties.loading || !!properties.error}>
+              <SelectTrigger aria-label="Group board by" className="h-8 w-48"><SelectValue /></SelectTrigger>
+              <SelectContent><SelectItem value="stage">Stage</SelectItem>
+                {properties.data?.properties.filter(p => !p.archived_at).map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            {properties.error && <button type="button" className="text-xs text-destructive underline" onClick={() => void properties.reload()}>Properties unavailable · Retry</button>}
+          </div>}
+          {groupedProperty && properties.data ? (
+            <PropertyBoard tasks={filteredTasks} property={groupedProperty} data={properties.data} onOpen={openTaskEditor} />
+          ) : <DragDropContext onDragEnd={onDragEnd}>
             <>
               {/* Board Instructions (Mobile Only) */}
               <div className="md:hidden mb-3 flex items-center gap-1.5 px-0.5">
@@ -388,7 +418,7 @@ export function TaskBoard() {
                 })}
               </div>
             </>
-          </DragDropContext>
+          </DragDropContext>}
         </>
       )}
 

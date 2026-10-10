@@ -1,3 +1,4 @@
+import { stageErrorMessage } from '@/lib/stage-server';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
@@ -72,7 +73,7 @@ export async function PATCH(
     const updated = await projectDb.update(params.id, {
       name: rawName,
       team_id: rawTeamId,
-      column_config: Array.isArray(columnConfig) ? columnConfig : undefined,
+      column_config: columnConfig,
       visibility,
     });
 
@@ -81,6 +82,8 @@ export async function PATCH(
       data: updated,
     });
   } catch (error) {
+    const stageError = stageErrorMessage(error);
+    if (stageError) return NextResponse.json({ success: false, error: stageError }, { status: 400 });
     console.error('Error updating project:', error);
     return NextResponse.json<ApiResponse<null>>(
       { success: false, error: 'Internal server error' },
@@ -144,6 +147,8 @@ export async function DELETE(
       data: null,
     });
   } catch (error) {
+    const stageError = stageErrorMessage(error);
+    if (stageError) return NextResponse.json({ success: false, error: stageError }, { status: 400 });
     console.error('Error deleting project:', error);
     return NextResponse.json<ApiResponse<null>>(
       { success: false, error: 'Internal server error' },

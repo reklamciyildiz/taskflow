@@ -1,4 +1,5 @@
 "use client";
+import { ActionPropertyFields } from '@/components/ActionPropertyFields';
 
 import {
   useCallback,
@@ -476,7 +477,8 @@ function ActionPanelContent({
     currentTeam,
     canEditTask,
     customers,
-    boardColumns,
+    projects,
+    generalBoardColumns,
     customerSingularLabel,
     consumeChecklistFocusForTask,
     organizationId,
@@ -796,12 +798,14 @@ function ActionPanelContent({
   }, [flushAll, flushRef]);
 
   const statusSelectOptions = useMemo(() => {
-    const base = boardColumns;
+    const base = task.projectId
+      ? projects.find((project) => project.id === task.projectId)?.columnConfig ?? []
+      : generalBoardColumns;
     if (status && !base.some((c) => c.id === status)) {
       return [{ id: status, title: status }, ...base];
     }
     return base;
-  }, [boardColumns, status]);
+  }, [projects, generalBoardColumns, task.projectId, status]);
 
   const selectedDueDate = actionSchedule
     ? parseYmdDateInput(actionSchedule.scheduleDate)
@@ -1277,6 +1281,7 @@ function ActionPanelContent({
                               </SelectContent>
                             </Select>
                           </div>
+                          {task.projectId && <ActionPropertyFields key={`${task.id}:${task.projectId}`} taskId={task.id} projectId={task.projectId} teamId={task.teamId} canEdit={canEdit} />}
                         </div>
                       </div>
 

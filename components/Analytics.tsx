@@ -169,11 +169,11 @@ export function Analytics() {
   // ── Resolve column config for any task ─────────────────────────────────────
   const columnsForTask = useMemo(() => {
     const map = new Map<string, ProjectColumnConfig[]>(
-      projects.map(p => [p.id, p.columnConfig.length > 0 ? p.columnConfig : FALLBACK_BOARD_COLUMNS])
+      projects.map(p => [p.id, p.columnConfig])
     );
     const fallbackGeneral = generalBoardColumns.length > 0 ? generalBoardColumns : FALLBACK_BOARD_COLUMNS;
     return (task: Task): ProjectColumnConfig[] =>
-      task.projectId ? (map.get(task.projectId) ?? FALLBACK_BOARD_COLUMNS) : fallbackGeneral;
+      task.projectId ? (map.get(task.projectId) ?? []) : fallbackGeneral;
   }, [projects, generalBoardColumns]);
 
   const isComplete = useMemo(
@@ -256,7 +256,7 @@ export function Analytics() {
   const processBreakdowns = useMemo(() => {
     return teamProjects.map(project => {
       const cols: ProjectColumnConfig[] =
-        project.columnConfig.length > 0 ? project.columnConfig : FALLBACK_BOARD_COLUMNS;
+        project.columnConfig;
       const pt = teamTasks.filter(t => t.projectId === project.id);
       const colStats: ColStat[] = cols.map(col => ({
         ...col,

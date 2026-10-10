@@ -118,7 +118,7 @@ function columnsForItem(
   projects: ReturnType<typeof useTaskContext>['projects'],
 ): ProjectColumnConfig[] {
   const configured = projects.find((project) => project.id === item.projectId)?.columnConfig;
-  return configured?.length ? configured : FALLBACK_BOARD_COLUMNS;
+  return item.projectId ? configured ?? [] : FALLBACK_BOARD_COLUMNS;
 }
 
 function PlannerRow({

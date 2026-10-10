@@ -1,5 +1,6 @@
 // Extended types for the application
 import type { WorkSchedule } from '@/lib/scheduling-domain';
+import { resolveStageLifecycle } from '@/lib/stage-lifecycle';
 
 /** Pipeline column id (e.g. todo, applied, interview) — stored as tasks.status in DB */
 export type TaskStatus = string;
@@ -34,7 +35,7 @@ export interface ProjectColumnConfig {
   isTerminal?: boolean;
 }
 
-/** Board columns when project has no column_config (To Do → In Progress → Done) */
+/** Defaults for new processes and the existing General board; not orphan recovery. */
 export const FALLBACK_BOARD_COLUMNS: ProjectColumnConfig[] = [
   { id: 'todo', title: 'To Do', color: 'bg-slate-100 dark:bg-slate-800' },
   { id: 'progress', title: 'In Progress', color: 'bg-blue-50 dark:bg-blue-500/10' },
@@ -55,30 +56,19 @@ export function parseColumnConfigFromJson(raw: unknown): ProjectColumnConfig[] {
     .filter((c) => c.id.length > 0);
 }
 
-/** Map task.status to a visible column id when using a reduced default board (e.g. legacy `review`). */
+/** Never reassign an unresolved persisted status to a different visible stage. */
 export function resolveTaskBoardColumnId(
   status: string,
   columns: ProjectColumnConfig[]
 ): string {
-  const ids = new Set(columns.map((c) => c.id));
-  if (ids.has(status)) return status;
-  if (status === 'review' && ids.has('progress')) return 'progress';
-  // DB still has `done` but the process has no `done` column (custom terminal id) — don't fall back to todo.
-  if (status === 'done' && !ids.has('done')) {
-    const terminal = columns.find((c) => c.isTerminal);
-    if (terminal) return terminal.id;
-  }
-  if (ids.has('todo')) return 'todo';
-  return columns[0]?.id ?? 'todo';
+  return status;
 }
 
 export function isTerminalBoardColumn(
   columnId: string,
   columns: ProjectColumnConfig[]
 ): boolean {
-  const col = columns.find((c) => c.id === columnId);
-  if (col?.isTerminal) return true;
-  return columnId === 'done';
+  return resolveStageLifecycle(columnId, columns).isTerminal;
 }
 
 export interface Project {

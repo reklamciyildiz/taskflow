@@ -10,10 +10,12 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useTaskContext } from '@/components/TaskContext';
 import { FALLBACK_BOARD_COLUMNS, type ProjectColumnConfig } from '@/lib/types';
+import { newStageId, validateStageConfig, assertStagesRetained } from '@/lib/stage-lifecycle';
 import { cn } from '@/lib/utils';
 import { portalDndRowToBody } from '@/lib/dnd-body-portal';
 import { Layers, CheckCircle2, Trash2, GripVertical } from 'lucide-react';
 import { UpgradePlanModal } from '@/components/billing/UpgradePlanModal';
+import { ProcessPropertiesManager } from '@/components/ProcessPropertiesManager';
 
 interface CreateProjectModalProps {
   open: boolean;
@@ -52,7 +54,7 @@ const COLUMN_COLOR_OPTIONS: { id: string; label: string; className: string }[] =
 export function CreateProjectModal({ open, onClose, mode = 'create', projectId }: CreateProjectModalProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { organizationId, teams, currentTeam, refreshData, projects } = useTaskContext();
+  const { organizationId, teams, currentTeam, refreshData, projects, tasks } = useTaskContext();
   const editingProject = useMemo(
     () => (mode === 'edit' && projectId ? projects.find((p) => p.id === projectId) ?? null : null),
     [mode, projectId, projects]
@@ -69,9 +71,9 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId }
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [columnsDraft, setColumnsDraft] = useState<ProjectColumnConfig[]>(
     () =>
-      editingProject?.columnConfig?.length
+      editingProject
         ? editingProject.columnConfig.map((c) => ({ ...c }))
-        : PRESETS[0]?.columns.map((c) => ({ ...c })) ?? FALLBACK_BOARD_COLUMNS.map((c) => ({ ...c }))
+        : FALLBACK_BOARD_COLUMNS.map((c) => ({ ...c, id: newStageId() }))
   );
 
   const [visibility, setVisibility] = useState<'team' | 'restricted' | 'private'>(() => {
@@ -126,7 +128,7 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId }
     const preset = PRESETS.find((p) => p.id === value);
     const base = preset ? preset.columns : FALLBACK_BOARD_COLUMNS;
     // Copy so edits do not mutate preset definitions
-    setColumnsDraft(base.map((c) => ({ ...c })));
+    setColumnsDraft(base.map((c) => ({ ...c, id: newStageId() })));
   };
 
   const handleColumnTitleChange = (index: number, title: string) => {
@@ -137,7 +139,7 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId }
 
   const handleToggleTerminal = (index: number) => {
     setColumnsDraft((prev) =>
-      prev.map((col, i) => ({ ...col, isTerminal: i === index }))
+      prev.map((col, i) => i === index ? { ...col, isTerminal: !col.isTerminal } : col)
     );
   };
 
@@ -153,10 +155,10 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId }
     setColumnsDraft((prev) => [
       ...prev,
       {
-        id: `col-${Date.now()}`,
+        id: newStageId(),
         title: `Stage ${prev.length + 1}`,
         color: 'bg-slate-50 dark:bg-slate-900/40',
-        isTerminal: prev.length === 0, // first column cannot be terminal in practice, but mark if single
+        isTerminal: false,
       },
     ]);
   };
@@ -167,41 +169,9 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId }
     );
   };
 
-  const normalizedColumns = useMemo(() => {
-    const nonEmpty = columnsDraft
-      .map((c) => ({ ...c, title: (c.title ?? '').trim() }))
-      .filter((c) => c.title.length > 0);
-
-    if (nonEmpty.length === 0) return [];
-
-    // Ensure at least one terminal column; if none selected, mark last as terminal.
-    let cols = nonEmpty;
-    if (!cols.some((c) => c.isTerminal)) {
-      cols = cols.map((c, idx) => ({ ...c, isTerminal: idx === cols.length - 1 }));
-    }
-
-    const usedIds = new Set<string>();
-    const makeId = (title: string, index: number): string => {
-      const base = title
-        .toLowerCase()
-        .replace(/\s+/g, '-')
-        .replace(/[^a-z0-9\-]/g, '')
-        .replace(/-+/g, '-')
-        .replace(/^-|-$/g, '');
-      let id = base || `col-${index + 1}`;
-      let counter = 2;
-      while (usedIds.has(id)) {
-        id = `${base || `col-${index + 1}`}-${counter++}`;
-      }
-      usedIds.add(id);
-      return id;
-    };
-
-    return cols.map((c, idx) => ({
-      ...c,
-      id: makeId(c.title, idx),
-    }));
-  }, [columnsDraft]);
+  const normalizedColumns = useMemo(() => columnsDraft.map((column) => ({
+    ...column, title: column.title.trim(),
+  })), [columnsDraft]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -217,13 +187,10 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId }
 
     setLoading(true);
     try {
-      const finalColumns = normalizedColumns;
+      const finalColumns = validateStageConfig(normalizedColumns);
+      if (mode === 'edit' && !editingProject) throw new Error('Process is not available. Reopen it before saving.');
 
-      if (finalColumns.length === 0) {
-        setError('Add at least one column.');
-        setLoading(false);
-        return;
-      }
+      if (editingProject) assertStagesRetained(finalColumns, tasks.filter((task) => task.projectId === editingProject.id).map((task) => task.status));
 
       const payload = {
         organizationId,
@@ -271,7 +238,7 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId }
         setName('');
         setPresetId('default');
         setColumnsDraft(
-          PRESETS[0]?.columns.map((c) => ({ ...c })) ?? FALLBACK_BOARD_COLUMNS.map((c) => ({ ...c }))
+          FALLBACK_BOARD_COLUMNS.map((c) => ({ ...c, id: newStageId() }))
         );
         setTeamId('__current__');
       }
@@ -408,7 +375,7 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId }
               <p className="text-xs text-muted-foreground">
                 {mode === 'edit'
                   ? 'You can edit the current columns below; choosing a template only affects the initial structure.'
-                  : 'After choosing a template, you can rename columns, add new columns, or remove them. The last column is treated as “Done” by default; you can also mark a different column as the terminal state.'}
+                  : 'After choosing a template, you can rename columns, add new columns, or remove them. Mark a column terminal only when Actions there are closed. Terminal does not imply success.'}
               </p>
             </div>
 
@@ -557,6 +524,10 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId }
             </div>
           </div>
 
+          {mode === 'edit' && editingProject && (editingProject.teamId || currentTeam?.id) && (
+            <ProcessPropertiesManager key={editingProject.id} projectId={editingProject.id} teamId={editingProject.teamId || currentTeam!.id} />
+          )}
+          {mode === 'create' && <p className="text-xs text-muted-foreground">After creating this process, open its settings to add single-select properties.</p>}
           {error && <p className="text-sm text-destructive">{error}</p>}
 
           <div className="flex flex-col-reverse gap-2 justify-end sm:flex-row">
@@ -564,7 +535,7 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId }
               Cancel
             </Button>
             <Button type="submit" disabled={loading || !name.trim()}>
-              {loading ? 'Creating…' : 'Create process'}
+              {loading ? 'Saving…' : mode === 'edit' ? 'Save process' : 'Create process'}
             </Button>
           </div>
         </form>

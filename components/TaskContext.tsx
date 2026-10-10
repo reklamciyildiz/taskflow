@@ -125,7 +125,7 @@ interface TaskContextType {
   openBoardForProject: (projectId: string) => void;
   setBoardScope: (scope: BoardScope) => void;
   setGeneralBoardColumns: (cols: ProjectColumnConfig[]) => void;
-  addTask: (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'attachments' | 'comments' | 'boardPosition'>) => Promise<void>;
+  addTask: (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'attachments' | 'comments' | 'boardPosition' | 'status'> & { status?: string }) => Promise<void>;
   updateTask: (id: string, updates: TaskUpdateFields) => Promise<boolean>;
   /** Optimistic multi-patch (e.g. kanban reorder); rolls back if any request fails. */
   applyTaskUpdates: (items: { id: string; changes: TaskUpdateFields }[]) => Promise<boolean>;
@@ -421,7 +421,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     }
     const cfg = boardProject?.columnConfig;
     if (cfg && cfg.length > 0) return cfg;
-    return FALLBACK_BOARD_COLUMNS;
+    return [];
   }, [boardScope.type, boardProject, generalBoardColumns]);
 
   const replaceProjectQuery = useCallback(
@@ -953,12 +953,12 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   }, [fetchCustomers]);
 
   // Add task via API
-  const addTask = useCallback(async (taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'attachments' | 'comments' | 'boardPosition'>) => {
+  const addTask = useCallback(async (taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'attachments' | 'comments' | 'boardPosition' | 'status'> & { status?: string }) => {
     try {
       const response = await taskApi.create({
         title: taskData.title,
         description: taskData.description,
-        status: taskData.status ?? 'todo',
+        status: taskData.status,
         priority: taskData.priority,
         dueDate: taskData.dueDate ? formatDueDateYmdLocal(taskData.dueDate) : undefined,
         assigneeId: taskData.assigneeId,
@@ -975,10 +975,11 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
         // Refresh customers to update task stats
         await fetchCustomers();
       } else {
-        console.error('Failed to create task:', response.error);
+        throw new Error(response.error || 'Could not create Action');
       }
     } catch (err) {
       console.error('Error creating task:', err);
+      throw err;
     }
   }, [fetchCustomers, currentProject?.id]);
 

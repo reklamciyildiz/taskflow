@@ -335,7 +335,7 @@ async function listActiveScheduledWorkTemplates(
       : FALLBACK_BOARD_COLUMNS;
     if (
       schedule.scheduleType === 'one_off'
-      && isTerminalBoardColumn(String(task.status), columns.length ? columns : FALLBACK_BOARD_COLUMNS)
+      && isTerminalBoardColumn(String(task.status), columns)
     ) {
       continue;
     }

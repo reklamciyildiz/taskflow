@@ -9,6 +9,21 @@ export type Json =
 export interface Database {
   public: {
     Tables: {
+      process_properties: {
+        Row: { id: string; project_id: string; name: string; type: 'single_select'; position: number; archived_at: string | null; created_at: string; updated_at: string }
+        Insert: { id?: string; project_id: string; name: string; type?: 'single_select'; position?: number; archived_at?: string | null; created_at?: string; updated_at?: string }
+        Update: { name?: string; position?: number; archived_at?: string | null; updated_at?: string }
+      }
+      process_property_options: {
+        Row: { id: string; project_id: string; property_id: string; label: string; color: string; position: number; archived_at: string | null; created_at: string; updated_at: string }
+        Insert: { id?: string; project_id: string; property_id: string; label: string; color?: string; position?: number; archived_at?: string | null; created_at?: string; updated_at?: string }
+        Update: { label?: string; color?: string; position?: number; archived_at?: string | null; updated_at?: string }
+      }
+      action_property_values: {
+        Row: { task_id: string; project_id: string; property_id: string; option_id: string; created_at: string; updated_at: string }
+        Insert: { task_id: string; project_id: string; property_id: string; option_id: string; created_at?: string; updated_at?: string }
+        Update: { option_id?: string; updated_at?: string }
+      }
       organizations: {
         Row: {
           id: string
@@ -402,6 +417,10 @@ export interface Database {
       [_ in never]: never
     }
     Functions: {
+      reorder_process_property_items: {
+        Args: { p_project_id: string; p_property_id: string | null; p_ids: string[] }
+        Returns: undefined
+      }
       work_schedule_matches_date: {
         Args: {
           input_schedule_type: string

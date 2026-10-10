@@ -5,6 +5,9 @@ import { getSupabaseClient } from '@/lib/supabase';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import type { Database } from '@/lib/database.types';
 import { canonicalNotificationLink } from '@/lib/notification-nav-link';
+import { FALLBACK_BOARD_COLUMNS, parseColumnConfigFromJson } from '@/lib/types';
+import { newStageId, validateStageConfig, resolveStageLifecycle } from '@/lib/stage-lifecycle';
+import { validateProcessStageUpdate, validateTaskStage } from '@/lib/stage-server';
 
 type TasksInsert = Database['public']['Tables']['tasks']['Insert'];
 type TasksUpdate = Database['public']['Tables']['tasks']['Update'];
@@ -314,7 +317,8 @@ export const projectDb = {
         name: projectData.name,
         organization_id: projectData.organization_id,
         team_id: projectData.team_id ?? null,
-        column_config: projectData.column_config ?? [],
+        column_config: validateStageConfig(projectData.column_config === undefined
+          ? FALLBACK_BOARD_COLUMNS.map((column) => ({ ...column, id: newStageId() })) : projectData.column_config),
         visibility: projectData.visibility ?? 'team',
         created_by: projectData.created_by ?? null,
       })
@@ -336,7 +340,7 @@ export const projectDb = {
       .update({
         name: updates.name,
         team_id: updates.team_id,
-        column_config: updates.column_config,
+        column_config: updates.column_config === undefined ? undefined : await validateProcessStageUpdate(id, updates.column_config),
         visibility: updates.visibility,
       })
       .eq('id', id)
@@ -680,6 +684,7 @@ const TASK_SELECT = `
 
 export const taskDb = {
   async create(taskData: TasksInsert) {
+    taskData = { ...taskData, status: await validateTaskStage({ projectId: taskData.project_id ?? null, organizationId: taskData.organization_id, teamId: taskData.team_id, status: taskData.status }) };
     const { data, error } = await db
       .from('tasks')
       .insert(taskData)
@@ -740,6 +745,16 @@ export const taskDb = {
   },
 
   async update(id: string, updates: Partial<TasksUpdate>) {
+    if (updates.status !== undefined || updates.project_id !== undefined) {
+      const existing = await taskDb.getById(id);
+      if (!existing) return null;
+      const status = await validateTaskStage({
+        projectId: updates.project_id === undefined ? existing.project_id : updates.project_id,
+        organizationId: existing.organization_id, teamId: existing.team_id,
+        status: updates.status === undefined ? existing.status : updates.status,
+      });
+      updates = { ...updates, status };
+    }
     const payload = pickDefinedTaskUpdates(updates);
     if (Object.keys(payload).length === 0) {
       return taskDb.getById(id);
@@ -1441,13 +1456,15 @@ export const customerDb = {
   async getTaskStats(customerId: string) {
     const { data, error } = await db
       .from('tasks')
-      .select('status')
+      .select('status,project_id,projects(column_config)')
       .eq('customer_id', customerId);
     
     if (error) throw error;
     
     const total = data?.length || 0;
-    const completed = data?.filter((t: any) => t.status === 'done').length || 0;
+    const completed = data?.filter((t: any) => resolveStageLifecycle(t.status,
+      t.project_id ? parseColumnConfigFromJson(t.projects?.column_config) : FALLBACK_BOARD_COLUMNS
+    ).isTerminal).length || 0;
     
     return { total, completed };
   },

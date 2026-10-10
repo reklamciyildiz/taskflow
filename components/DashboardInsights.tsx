@@ -13,7 +13,6 @@ import {
 } from '@/lib/knowledge-retrieval';
 import { useKnowledgeRetrieval } from '@/hooks/useKnowledgeRetrieval';
 import {
-  FALLBACK_BOARD_COLUMNS,
   resolveTaskBoardColumnId,
   isTerminalBoardColumn,
   type Project,
@@ -24,7 +23,7 @@ import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 
 function projectColumns(p: Project): ProjectColumnConfig[] {
-  return p.columnConfig?.length ? p.columnConfig : FALLBACK_BOARD_COLUMNS;
+  return p.columnConfig ?? [];
 }
 
 const COLORS = [

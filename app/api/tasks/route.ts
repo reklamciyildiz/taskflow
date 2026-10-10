@@ -1,3 +1,4 @@
+import { stageErrorMessage } from '@/lib/stage-server';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
@@ -99,6 +100,8 @@ export async function GET(request: NextRequest) {
       data: hydratedTasks,
     });
   } catch (error) {
+    const stageError = stageErrorMessage(error);
+    if (stageError) return NextResponse.json({ success: false, error: stageError }, { status: 400 });
     console.error('Error fetching tasks:', error);
     return NextResponse.json<ApiResponse<null>>(
       { success: false, error: 'Internal server error' },
@@ -113,6 +116,10 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
     const body = await request.json();
 
+    if (!session?.user?.email) {
+      return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
+    }
+
     if (!body.title || !body.teamId) {
       return NextResponse.json<ApiResponse<null>>(
         { success: false, error: 'Title and teamId are required' },
@@ -120,17 +127,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get user from session or use provided userId
-    let userId = body.createdBy;
-    let organizationId = body.organizationId;
-
-    if (session?.user?.email) {
-      const user: any = await userDb.getByEmail(session.user.email);
-      if (user) {
-        userId = user.id;
-        organizationId = user.organization_id;
-      }
-    }
+    // Ownership is session-derived, never supplied by a stage/create payload.
+    const actor: any = await userDb.getByEmail(session.user.email);
+    const userId = actor?.id;
+    const organizationId = actor?.organization_id;
 
     if (!userId || !organizationId) {
       return NextResponse.json<ApiResponse<null>>(
@@ -139,7 +139,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const actor: any = session?.user?.email ? await userDb.getByEmail(session.user.email) : null;
     const schedulingTimeZone = await getUserSchedulingTimeZone(String(actor?.id ?? userId));
 
     // Server-side paywall: Free cannot set advanced scheduled reminders.
@@ -185,10 +184,16 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    if (body.projectId) {
+      const visible = await projectDb.getVisibleForUser({ organizationId, teamId: body.teamId, userId });
+      if (!visible.some((project: any) => project.id === body.projectId)) {
+        return NextResponse.json({ success: false, error: 'Process not accessible' }, { status: 403 });
+      }
+    }
     const task = await taskDb.create({
       title: body.title,
       description: body.description || null,
-      status: body.status || 'todo',
+      status: body.status,
       priority: body.priority || 'medium',
       assignee_id: body.assigneeId || null,
       customer_id: body.customerId || null,
@@ -303,6 +308,8 @@ export async function POST(request: NextRequest) {
       message: 'Task created successfully',
     }, { status: 201 });
   } catch (error) {
+    const stageError = stageErrorMessage(error);
+    if (stageError) return NextResponse.json({ success: false, error: stageError }, { status: 400 });
     console.error('Error creating task:', error);
     if (error instanceof SchedulingValidationError) {
       return NextResponse.json<ApiResponse<null>>(
