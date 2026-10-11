@@ -1,5 +1,12 @@
 /** Query keys used only for DB / cron dedupe; never needed for navigation or display. */
-const INTERNAL_DEDUPE_QUERY_KEYS = ['r', 'w', 'b'] as const;
+const INTERNAL_DEDUPE_QUERY_KEYS = [
+  'r',
+  'w',
+  'b',
+  'schedule',
+  'occurrence',
+  'rule',
+] as const;
 
 const DUMMY_ORIGIN = 'http://localhost';
 

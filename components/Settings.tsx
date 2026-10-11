@@ -933,7 +933,7 @@ export function Settings() {
               <div className="flex items-center justify-between">
                 <div>
                   <Label className="text-sm font-medium">Push Notifications</Label>
-                  <p className="text-xs text-muted-foreground">Get instant notifications in your browser</p>
+                  <p className="text-xs text-muted-foreground">Reminders, due dates, assignments, and updates in your browser</p>
                 </div>
                 <Switch 
                   checked={pushNotifications} 
@@ -951,7 +951,7 @@ export function Settings() {
                   </span>
                 ) : pushPermission === 'granted' ? (
                   pushNotifications ? (
-                    <span>Enabled (app toggle ON + browser permission granted).</span>
+                    <span>Enabled. Scheduled alerts arrive when their reminder or due window is reached.</span>
                   ) : (
                     <span>
                       Browser permission is granted, but push is <strong>disabled</strong> in Axiom (toggle is OFF).

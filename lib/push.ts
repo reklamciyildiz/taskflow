@@ -9,6 +9,14 @@ type PushPayload = {
   tag?: string;
 };
 
+export type PushDeliveryResult = {
+  configured: boolean;
+  subscriptions: number;
+  sent: number;
+  failed: number;
+  skipped: 'not_configured' | 'disabled' | 'no_subscription' | null;
+};
+
 function getVapid() {
   const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
   const privateKey = process.env.VAPID_PRIVATE_KEY;
@@ -45,13 +53,19 @@ async function isPushEnabledForUser(userId: string): Promise<boolean> {
 export async function sendPushToUser(
   userId: string,
   payload: PushPayload
-): Promise<void> {
-  if (!ensureConfigured()) return;
+): Promise<PushDeliveryResult> {
+  if (!ensureConfigured()) {
+    return { configured: false, subscriptions: 0, sent: 0, failed: 0, skipped: 'not_configured' };
+  }
   const enabled = await isPushEnabledForUser(userId);
-  if (!enabled) return;
+  if (!enabled) {
+    return { configured: true, subscriptions: 0, sent: 0, failed: 0, skipped: 'disabled' };
+  }
 
   const subs = await pushSubscriptionDb.listActiveByUser(userId);
-  if (subs.length === 0) return;
+  if (subs.length === 0) {
+    return { configured: true, subscriptions: 0, sent: 0, failed: 0, skipped: 'no_subscription' };
+  }
 
   const body = JSON.stringify({
     title: payload.title,
@@ -61,7 +75,7 @@ export async function sendPushToUser(
     origin: process.env.NEXT_PUBLIC_APP_URL,
   });
 
-  await Promise.all(
+  const deliveries = await Promise.all(
     subs.map(async (s) => {
       try {
         await webpush.sendNotification(
@@ -72,6 +86,7 @@ export async function sendPushToUser(
           } as any,
           body
         );
+        return true;
       } catch (err: any) {
         const status = err?.statusCode;
         if (status === 404 || status === 410) {
@@ -81,8 +96,22 @@ export async function sendPushToUser(
             // ignore
           }
         }
+        console.error('Web push delivery failed', {
+          userId,
+          statusCode: status ?? null,
+          tag: payload.tag ?? null,
+        });
+        return false;
       }
     })
   );
+  const sent = deliveries.filter(Boolean).length;
+  return {
+    configured: true,
+    subscriptions: subs.length,
+    sent,
+    failed: deliveries.length - sent,
+    skipped: null,
+  };
 }
 

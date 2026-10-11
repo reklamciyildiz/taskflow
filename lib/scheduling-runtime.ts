@@ -109,6 +109,19 @@ export function scheduleDueInstantIso(
   );
 }
 
+/** User-friendly local delivery time for automatic (non-explicit) due buckets. */
+export function dueBucketDeliveryInstantIso(
+  calendarDate: string,
+  bucket: 'due_today' | 'due_tomorrow' | 'overdue',
+  timeZone: string,
+): string {
+  return scheduleDueInstantIso({
+    scheduleDate: calendarDate,
+    scheduleTime: bucket === 'due_tomorrow' ? '18:00:00' : '09:00:00',
+    timeZone,
+  }, timeZone);
+}
+
 /** Compatibility value returned to the existing date picker; storage remains relational. */
 export function scheduleToLegacyDueValue(schedule: WorkSchedule): string {
   if (!schedule.scheduleTime || !schedule.timeZone) return schedule.scheduleDate;

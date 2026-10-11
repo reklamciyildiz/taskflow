@@ -6,7 +6,7 @@ import { processTaskDueReminders } from '@/lib/process-task-reminders';
 /**
  * Single entrypoint for all reminder processing:
  * 1) Absolute instants from work_schedules reminder rules — needs frequent ticks for "5m before".
- * 2) Due-date buckets (overdue / today / tomorrow in UTC) — deduped; safe to run on the same cadence.
+ * 2) Due-date buckets (overdue / today / tomorrow in the recipient's IANA time zone) — deduped; safe on the same cadence.
  *
  * Auth: see `cronRemindersUnauthorizedResponse`.
  *
@@ -19,15 +19,22 @@ export async function GET(request: NextRequest) {
   if (denied) return denied;
 
   try {
-    const scheduled = await processScheduledReminders();
-    const due = await processTaskDueReminders();
-    return NextResponse.json({
+    const startedAt = performance.now();
+    const [scheduled, due] = await Promise.all([
+      processScheduledReminders(),
+      processTaskDueReminders(),
+    ]);
+    const response = NextResponse.json({
       ok: true,
+      ranAt: new Date().toISOString(),
       stats: {
         scheduled,
         due,
       },
     });
+    response.headers.set('Cache-Control', 'no-store');
+    response.headers.set('Server-Timing', `total;dur=${(performance.now() - startedAt).toFixed(1)}`);
+    return response;
   } catch (e) {
     console.error('cron reminders-tick failed', e);
     return NextResponse.json({ ok: false, error: 'Internal server error' }, { status: 500 });

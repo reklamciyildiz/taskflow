@@ -90,6 +90,22 @@ export function NotificationBell() {
     setNowMs(Date.now());
     void refresh();
 
+    try {
+      const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const captureKey = `axiom:time-zone-captured:${timeZone}`;
+      if (timeZone && window.sessionStorage.getItem(captureKey) !== '1') {
+        void fetch('/api/users/time-zone', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ timeZone }),
+        }).then((response) => {
+          if (response.ok) window.sessionStorage.setItem(captureKey, '1');
+        }).catch(() => undefined);
+      }
+    } catch {
+      // A missing browser time zone must not affect notification polling.
+    }
+
     const tick = () => {
       // Visible: poll more frequently.
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {

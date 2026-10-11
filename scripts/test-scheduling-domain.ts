@@ -9,6 +9,7 @@ import {
 } from '../lib/scheduling-domain';
 import {
   calendarDateInTimeZone,
+  dueBucketDeliveryInstantIso,
   legacyDueValueToSchedule,
   reminderInstantsFromRules,
   reminderRulesFromInstants,
@@ -23,6 +24,7 @@ import {
   type PlannerProjectionItem,
 } from '../lib/planner-projection';
 import { setChecklistItemCheckedInDocument } from '../components/editor/reorderChecklistItem';
+import { canonicalNotificationLink } from '../lib/notification-nav-link';
 
 const recurringBase: WorkSchedule = {
   id: 'schedule-1',
@@ -46,6 +48,14 @@ const recurringBase: WorkSchedule = {
 assert.equal(isCalendarDate('2026-10-09'), true);
 assert.equal(isCalendarDate('2026-02-30'), false);
 assert.equal(scheduleMatchesDate(recurringBase, '2026-10-09'), true);
+assert.equal(
+  dueBucketDeliveryInstantIso('2026-10-09', 'due_today', 'Europe/Istanbul'),
+  '2026-10-09T06:00:00.000Z',
+);
+assert.equal(
+  dueBucketDeliveryInstantIso('2026-10-09', 'due_tomorrow', 'Europe/Istanbul'),
+  '2026-10-09T15:00:00.000Z',
+);
 
 const everyOtherDay = { ...recurringBase, recurrenceInterval: 2 };
 assert.equal(scheduleMatchesDate(everyOtherDay, '2026-10-07'), true);
@@ -248,5 +258,14 @@ assert.equal(completedDocument.content[0].content[0].attrs.checked, true);
 const reopenedDocument = setChecklistItemCheckedInDocument(completedDocument, 'stable-item', false);
 assert.equal(reopenedDocument.content[0].content[0].attrs.id, 'stable-item');
 assert.equal(reopenedDocument.content[0].content[0].attrs.checked, false);
+
+assert.equal(
+  canonicalNotificationLink('/board?task=task-1&project=project-1&checklist=item-1&r=cRem&schedule=schedule-1&occurrence=2026-10-09&rule=preset%3Awhen_due%3A0'),
+  '/board?task=task-1&project=project-1&checklist=item-1',
+);
+assert.equal(
+  canonicalNotificationLink('/board?task=task-1&r=taskOverdue&w=2#details'),
+  '/board?task=task-1#details',
+);
 
 console.log('Scheduling and Planner projection tests passed.');

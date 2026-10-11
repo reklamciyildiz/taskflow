@@ -333,10 +333,7 @@ async function listActiveScheduledWorkTemplates(
     const columns = project
       ? parseColumnConfigFromJson(project.column_config)
       : FALLBACK_BOARD_COLUMNS;
-    if (
-      schedule.scheduleType === 'one_off'
-      && isTerminalBoardColumn(String(task.status), columns)
-    ) {
+    if (isTerminalBoardColumn(String(task.status), columns)) {
       continue;
     }
 

@@ -12,6 +12,8 @@ import {
   type WorkSource,
 } from '@/lib/scheduling-domain';
 import type { ApiResponse } from '@/lib/types';
+import { notificationDb } from '@/lib/db';
+import { captureMissingUserTimeZone } from '@/lib/user-time-zone-server';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,6 +48,25 @@ function errorResponse(error: unknown) {
     { success: false, error: 'Could not update schedule' },
     { status: 500 },
   );
+}
+
+async function cleanupObsoleteScheduleNotifications(source: WorkSource): Promise<void> {
+  try {
+    await notificationDb.deleteChecklistNotifications(
+      source.taskId,
+      source.sourceType === 'checklist_item' ? source.checklistItemId : undefined,
+      source.sourceType === 'checklist_item'
+        ? ['checklist_due_reminder', 'checklist_reminder']
+        : ['task_due_reminder', 'task_reminder'],
+    );
+  } catch (error) {
+    // The schedule mutation is already canonical and must not be reported as failed.
+    console.error('Could not clean obsolete schedule notifications', {
+      sourceType: source.sourceType,
+      taskId: source.taskId,
+      error,
+    });
+  }
 }
 
 export async function GET(request: NextRequest) {
@@ -84,7 +105,14 @@ export async function PUT(request: NextRequest) {
     };
     const mutationStartedAt = performance.now();
     const timings = {};
+    const timeZoneCapture = captureMissingUserTimeZone(identity.userId, body?.clientTimeZone)
+      .catch((error) => {
+        // Time-zone capture improves due buckets but must never make a canonical schedule write fail.
+        console.error('Could not capture scheduling time zone', { userId: identity.userId, error });
+      });
     const schedule = await saveWorkScheduleForSource(identity, input, timings);
+    await timeZoneCapture;
+    await cleanupObsoleteScheduleNotifications(source);
     const mutationDuration = performance.now() - mutationStartedAt;
     const response = NextResponse.json<ApiResponse<typeof schedule>>({ success: true, data: schedule });
     response.headers.set(
@@ -109,6 +137,7 @@ export async function DELETE(request: NextRequest) {
     const mutationStartedAt = performance.now();
     const timings = {};
     await removeWorkScheduleForSource(identity, source, timings);
+    await cleanupObsoleteScheduleNotifications(source);
     const mutationDuration = performance.now() - mutationStartedAt;
     const response = NextResponse.json<ApiResponse<null>>({ success: true, data: null });
     response.headers.set(

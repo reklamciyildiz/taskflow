@@ -276,6 +276,18 @@ async function getPlannerProjectionForDates(
     const project = projectId ? visibleProjectById.get(projectId) ?? null : null;
     if (projectId && !project) continue;
 
+    const parentActionCompleted = actionState(task, project) === 'completed';
+    // A recurring template must stay open during normal occurrence completion.
+    // If the user explicitly closes its parent Action, it is no longer executable.
+    // Likewise, a pending checklist row inside any closed Action must not leak into Planner.
+    if (
+      parentActionCompleted
+      && (
+        schedule.scheduleType === 'recurring'
+        || schedule.source.sourceType === 'checklist_item'
+      )
+    ) continue;
+
     const checklistItemId = schedule.source.sourceType === 'checklist_item'
       ? schedule.source.checklistItemId
       : null;
@@ -300,7 +312,7 @@ async function getPlannerProjectionForDates(
         Boolean(options.includeOverdueOneOff && dates.length === 1),
       )) {
       const sourceState = schedule.source.sourceType === 'action'
-        ? actionState(task, project)
+        ? parentActionCompleted ? 'completed' : 'pending'
         : checklistItem?.checked
           ? 'completed'
           : 'pending';

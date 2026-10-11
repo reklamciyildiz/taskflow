@@ -53,6 +53,12 @@ async function entitlementsForOrg(
 export type ScheduledReminderRunStats = {
   taskRemindersFired: number;
   checklistRemindersFired: number;
+  pushesSent: number;
+  pushFailures: number;
+  pushSkipped: number;
+  pushNotConfigured: number;
+  pushDisabled: number;
+  pushNoSubscription: number;
 };
 
 /** Absolute reminder delivery sourced exclusively from work_schedules.reminder_rules. */
@@ -66,6 +72,12 @@ export async function processScheduledReminders(input?: {
   const minimum = now - lookbackMs;
   let taskRemindersFired = 0;
   let checklistRemindersFired = 0;
+  let pushesSent = 0;
+  let pushFailures = 0;
+  let pushSkipped = 0;
+  let pushNotConfigured = 0;
+  let pushDisabled = 0;
+  let pushNoSubscription = 0;
 
   const utcToday = new Date(now).toISOString().slice(0, 10);
   const reminderDates = [-2, -1, 0, 1, 2].map((days) => addCalendarDays(utcToday, days));
@@ -140,7 +152,7 @@ export async function processScheduledReminders(input?: {
       });
       if (!inserted) continue;
 
-      await sendPushToUser(work.recipientId, {
+      const push = await sendPushToUser(work.recipientId, {
         title: 'Reminder',
         body: isChecklist
           ? String(work.checklistItemText).slice(0, 120)
@@ -148,10 +160,25 @@ export async function processScheduledReminders(input?: {
         url: openLink,
         tag: `schedule_reminder:${work.schedule.id}:${work.occurrenceDate}:${candidate.ruleKey}`,
       });
+      pushesSent += push.sent;
+      pushFailures += push.failed;
+      if (push.skipped) pushSkipped += 1;
+      if (push.skipped === 'not_configured') pushNotConfigured += 1;
+      if (push.skipped === 'disabled') pushDisabled += 1;
+      if (push.skipped === 'no_subscription') pushNoSubscription += 1;
       if (isChecklist) checklistRemindersFired += 1;
       else taskRemindersFired += 1;
     }
   }
 
-  return { taskRemindersFired, checklistRemindersFired };
+  return {
+    taskRemindersFired,
+    checklistRemindersFired,
+    pushesSent,
+    pushFailures,
+    pushSkipped,
+    pushNotConfigured,
+    pushDisabled,
+    pushNoSubscription,
+  };
 }

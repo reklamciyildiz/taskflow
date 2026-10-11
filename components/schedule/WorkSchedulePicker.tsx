@@ -355,7 +355,9 @@ export function WorkSchedulePicker({
                       reminderRules: reminderRuleForPreset(preset.id as ReminderPresetId),
                     });
                     setView('main');
-                    await request;
+                    if (await request) {
+                      toast.success(`Reminder set: ${preset.label}`);
+                    }
                   }}
                 >
                   <Bell className="h-4 w-4" /><span>{preset.label}</span>
@@ -378,8 +380,11 @@ export function WorkSchedulePicker({
                 reminderRules: [],
               });
               setView('main');
-              await request;
+              if (await request) toast.success('Reminder cleared');
             }}><X className="h-4 w-4" /><span>Clear reminder</span></button>
+            <p className="px-3 pt-2 text-[11px] leading-4 text-muted-foreground">
+              Notifications are delivered at the selected reminder time, not when the schedule is saved.
+            </p>
           </div>
         ) : null}
       </div>

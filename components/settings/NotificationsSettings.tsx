@@ -157,7 +157,7 @@ export function NotificationsSettings() {
           <div className="flex items-center justify-between">
             <div>
               <Label className="text-sm font-medium">Push Notifications</Label>
-              <p className="text-xs text-muted-foreground">Get instant notifications in your browser</p>
+              <p className="text-xs text-muted-foreground">Reminders, due dates, assignments, and updates in your browser</p>
             </div>
             <Switch checked={pushNotifications} onCheckedChange={handlePush} />
           </div>
@@ -169,7 +169,7 @@ export function NotificationsSettings() {
               'Blocked in browser settings. Chrome: Site settings → Notifications → Allow.'
             ) : pushPermission === 'granted' ? (
               pushNotifications
-                ? 'Enabled (app toggle ON + browser permission granted).'
+                ? 'Enabled. Scheduled alerts arrive when their reminder or due window is reached.'
                 : 'Browser permission is granted, but push is disabled in Axiom (toggle is OFF).'
             ) : pushNotifications ? (
               'Not allowed yet — turn ON to request permission.'

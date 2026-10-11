@@ -226,6 +226,9 @@ export const scheduleApi = {
       checklistItemId: input.source.sourceType === 'checklist_item'
         ? input.source.checklistItemId
         : null,
+      clientTimeZone: (() => {
+        try { return Intl.DateTimeFormat().resolvedOptions().timeZone || null; } catch { return null; }
+      })(),
       source: undefined,
     }),
   }),

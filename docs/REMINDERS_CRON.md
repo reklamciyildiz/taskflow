@@ -1,9 +1,11 @@
 # Reminders & cron (production)
 
-Axiom has **two reminder mechanisms**:
+Axiom has **two notification mechanisms**, both sourced from canonical `work_schedules`:
 
-1. **Absolute reminders** — ISO timestamps in `tasks.reminders` and optional TipTap taskItem reminders in `tasks.checklist_blocks` (e.g. “5 mins before due”). Processed by `processScheduledReminders()` (needs **frequent** ticks; deduped in DB).
-2. **Due-date buckets** — UTC calendar day: overdue / due today / due tomorrow for task due dates and checklist row due dates. Processed by `processTaskDueReminders()` (deduped; safe on the same cadence).
+1. **Explicit reminders** — reminder rules are resolved to absolute instants for the relevant one-off or recurring occurrence. Processed by `processScheduledReminders()` (needs **frequent** ticks; deduped in DB).
+2. **Due-date buckets** — overdue / due today / due tomorrow for one-off Action and Checklist schedules, evaluated in the recipient's saved IANA time zone. Processed by `processTaskDueReminders()` (deduped; safe on the same cadence).
+
+Saving a schedule does **not** immediately notify the user. A notification is created when an explicit reminder becomes due, or when a one-off schedule enters a due-date bucket on a cron tick.
 
 ## Unified endpoint (single URL)
 
@@ -69,7 +71,10 @@ Prefer **`reminders-tick`** so operators only maintain **one** URL.
 
 ## Behaviour notes
 
-- Absolute reminders fire when `reminder_time <= now` and within the processor **lookback** window (default 24h), with notification dedupe — they are **not** deleted from the task row after firing (v1).
-- Due-date reminders use **UTC dates**; “due today” / “due tomorrow” use a short dedupe window (~22h) per calendar day.
-- **Overdue** (task + checklist): at most **two** notifications **ever** per item — first **24h** after the UTC moment the item becomes overdue (midnight after the due date), second **48h** after that first window. No further overdue reminders for that item (until logic changes).
+- Explicit reminders fire when their resolved instant is at or before `now` and within the processor **lookback** window (default 24h). A recurring schedule resolves only the requested occurrence window; it does not materialize an infinite reminder array.
+- Due-date reminders use the recipient's saved IANA time zone. Due-today and first-overdue alerts become eligible at 09:00 local time; due-tomorrow alerts at 18:00 local time. The Schedule UI captures the browser time zone only when the user has no saved preference; it never overwrites an explicit Calendar setting.
+- If the user configured an explicit reminder, that policy replaces the generic due-today/due-tomorrow alert so the same work does not notify twice. Overdue protection still applies if the work remains open.
+- **Overdue** (Action + Checklist): at most **two** notifications per unchanged schedule — first at 09:00 on the first overdue calendar day in the recipient's zone, second 48 hours later. No further overdue reminders are sent unless the schedule is changed.
+- Completed Checklist items and Actions in terminal Process stages are excluded. Recipient order is Checklist assignee → Action assignee → creator.
+- In-app notification rows are created even when browser push is disabled. Web push additionally requires VAPID configuration, the user's Push setting, browser permission, and an active subscription.
 - **DB**: `notifications` has a **partial unique index** on `(user_id, type, link)` where `link` is set (`20260504120000_notifications_unique_user_type_link.sql`) so concurrent cron ticks cannot insert duplicates. In-app rows use the **dedupe** URL as `link` (still opens the board); push payloads use the clean board URL.
