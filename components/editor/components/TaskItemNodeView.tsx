@@ -334,10 +334,29 @@ export const TaskItemNodeView = React.memo(
       if (success && mountedRef.current) setConvertOpen(false);
     }, [convertType, id, node, removeAfter, taskItemStorage, text]);
 
+    const assigneeChoices = (
+      <>
+        <DropdownMenuItem onSelect={() => updateAttributes({ assigneeId: null })}>
+          <UserRound className="mr-2 h-4 w-4 text-muted-foreground" aria-hidden />
+          Unassigned
+          {!assigneeId ? <Check className="ml-auto h-4 w-4 text-primary" /> : null}
+        </DropdownMenuItem>
+        {memberOptions.map((member) => (
+          <DropdownMenuItem key={member.id} onSelect={() => updateAttributes({ assigneeId: member.id })}>
+            <span className="mr-2 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-muted text-[9px] font-semibold">
+              {initials(member.name)}
+            </span>
+            <span className="truncate">{member.name}</span>
+            {assigneeId === member.id ? <Check className="ml-auto h-4 w-4 text-primary" /> : null}
+          </DropdownMenuItem>
+        ))}
+      </>
+    );
+
     return (
       <NodeViewWrapper
         className={cn(
-          'group/checkitem my-1.5 flex flex-wrap items-start gap-x-1.5 transition-[opacity,transform] duration-200',
+          'checklist-item-layout group/checkitem my-1.5 flex flex-wrap items-start gap-x-1.5 transition-[opacity,transform] duration-200',
           completionExiting && 'translate-y-[-2px] opacity-0',
         )}
         data-type="taskItem"
@@ -350,8 +369,9 @@ export const TaskItemNodeView = React.memo(
           }
         }}
       >
+        <div className="checklist-item-row contents">
         <div
-          className="mt-[2px] flex select-none items-center justify-center"
+          className="checklist-item-controls mt-[2px] flex select-none items-center justify-center"
           contentEditable={false}
         >
           <div
@@ -484,42 +504,56 @@ export const TaskItemNodeView = React.memo(
           />
         </div>
 
-        <div className="min-w-0 flex-1">
-          <div className="relative flex min-w-0 items-start gap-1">
+        <div className="checklist-item-body min-w-0 flex-1">
+          <div className="checklist-item-main relative flex min-w-0 items-start gap-1">
             <NodeViewContent
               className={cn(
-                'mt-[1px] inline-block min-w-0 flex-1',
+                'checklist-item-content mt-[1px] inline-block min-w-0 flex-1',
                 effectiveChecked && 'text-muted-foreground line-through',
               )}
             />
 
-            <div
-              className="ml-1 flex shrink-0 items-center gap-1"
+            <div className="checklist-item-accessories ml-1 flex shrink-0 items-center gap-1" contentEditable={false}>
+            {assignedMember || schedule ? <div
+              className="checklist-item-metadata flex items-center gap-1"
               contentEditable={false}
             >
               {assignedMember ? (
-                <span
-                  className="inline-flex h-5 items-center gap-1 rounded-md bg-primary/10 px-1.5 text-[10px] font-medium text-primary"
-                  title={`Assigned to ${assignedMember.name}`}
+                <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  disabled={disabled}
+                  className="checklist-metadata-chip inline-flex min-h-5 items-center gap-1 rounded-md bg-primary/10 px-1.5 text-[10px] font-medium text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  aria-label={`Assign checklist item: ${assignedMember.name}`}
                 >
                   <span className="grid h-3.5 w-3.5 place-items-center rounded-full bg-primary/15 text-[8px] font-bold">
                     {initials(assignedMember.name)}
                   </span>
-                  <span className="hidden max-w-20 truncate sm:inline">{assignedMember.name}</span>
-                </span>
+                  <span className="max-w-20 truncate">{assignedMember.name}</span>
+                </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" collisionPadding={8} className="max-h-72 w-56 max-w-[calc(100vw-1rem)] overflow-y-auto">
+                  {assigneeChoices}
+                </DropdownMenuContent>
+                </DropdownMenu>
               ) : null}
               {schedule ? (
-                <span
-                  className="inline-flex h-5 items-center gap-1 rounded-md bg-muted/60 px-1.5 text-[10px] text-muted-foreground"
-                  title={`Scheduled ${scheduleChipLabel(schedule)}`}
+                <button
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => setDueOpen(true)}
+                  className="checklist-metadata-chip inline-flex min-h-5 items-center gap-1 rounded-md bg-muted/60 px-1.5 text-[10px] text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  aria-label={`Schedule checklist item: ${scheduleChipLabel(schedule)}`}
                 >
-                  <CalendarIcon className="h-3 w-3" aria-hidden />
-                  {scheduleChipLabel(schedule)}
+                  <CalendarIcon className="h-3 w-3 shrink-0" aria-hidden />
+                  <span>{scheduleChipLabel(schedule)}</span>
                   {schedule.reminderRules.length > 0 ? (
                     <Clock3 className="h-3 w-3" aria-label="Reminder set" />
                   ) : null}
-                </span>
+                </button>
               ) : null}
+            </div> : null}
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -528,7 +562,7 @@ export const TaskItemNodeView = React.memo(
                     variant="ghost"
                     size="icon"
                     disabled={disabled}
-                    className="h-6 w-6 rounded-md opacity-0 transition-opacity group-hover/checkitem:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
+                    className="checklist-item-actions h-6 w-6 rounded-md opacity-0 transition-opacity group-hover/checkitem:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
                     aria-label="Checklist item actions"
                   >
                     <MoreHorizontal className="h-3.5 w-3.5" aria-hidden />
@@ -540,26 +574,8 @@ export const TaskItemNodeView = React.memo(
                       <UserRound className="mr-2 h-4 w-4" aria-hidden />
                       Assign
                     </DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent className="max-h-72 w-56 overflow-y-auto">
-                      <DropdownMenuItem onSelect={() => updateAttributes({ assigneeId: null })}>
-                        <UserRound className="mr-2 h-4 w-4 text-muted-foreground" aria-hidden />
-                        Unassigned
-                        {!assigneeId ? <Check className="ml-auto h-4 w-4 text-primary" /> : null}
-                      </DropdownMenuItem>
-                      {memberOptions.map((member) => (
-                        <DropdownMenuItem
-                          key={member.id}
-                          onSelect={() => updateAttributes({ assigneeId: member.id })}
-                        >
-                          <span className="mr-2 grid h-5 w-5 place-items-center rounded-full bg-muted text-[9px] font-semibold">
-                            {initials(member.name)}
-                          </span>
-                          <span className="truncate">{member.name}</span>
-                          {assigneeId === member.id ? (
-                            <Check className="ml-auto h-4 w-4 text-primary" />
-                          ) : null}
-                        </DropdownMenuItem>
-                      ))}
+                    <DropdownMenuSubContent collisionPadding={8} className="max-h-72 w-56 max-w-[calc(100vw-1rem)] overflow-y-auto">
+                      {assigneeChoices}
                     </DropdownMenuSubContent>
                   </DropdownMenuSub>
                   <DropdownMenuItem onSelect={() => setDueOpen(true)}>
@@ -585,7 +601,7 @@ export const TaskItemNodeView = React.memo(
               type="button"
               contentEditable={false}
               onClick={() => setConvertOpen(true)}
-              className="mt-1 inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+              className="checklist-item-note-hint mt-1 inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
             >
               <StickyNote className="h-3 w-3" aria-hidden />
               This looks like a note <span aria-hidden>→</span> Convert to Note
@@ -593,6 +609,7 @@ export const TaskItemNodeView = React.memo(
           ) : null}
         </div>
 
+        </div>
         <Dialog open={dueOpen} onOpenChange={setDueOpen}>
           <DialogContent
             hideClose

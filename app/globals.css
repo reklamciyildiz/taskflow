@@ -180,3 +180,99 @@
   line-height: 1rem;
   text-transform: uppercase;
 }
+
+/* A task's contentDOM also owns its nested lists. Flatten only the layout
+   wrappers (never move ProseMirror DOM): children span the entire row instead
+   of inheriting every ancestor's metadata gutter. Each node measures its own
+   available width, including panel width and nesting, not the viewport. */
+.checklist-editor .checklist-item-layout {
+  display: block;
+  min-width: 0;
+  container: checklist-item / inline-size;
+}
+.checklist-editor .checklist-item-layout > .checklist-item-row {
+  display: grid;
+  grid-template-columns: 2.5rem minmax(0, 1fr) 1.75rem;
+  column-gap: 0.25rem;
+  align-items: start;
+}
+.checklist-editor .checklist-item-layout .checklist-item-body,
+.checklist-editor .checklist-item-layout .checklist-item-main,
+.checklist-editor .checklist-item-layout .checklist-item-content,
+.checklist-editor .checklist-item-layout .checklist-item-content > [data-node-view-content-react],
+.checklist-editor .checklist-item-layout .checklist-item-accessories {
+  display: contents;
+}
+.checklist-editor .checklist-item-layout .checklist-item-controls {
+  grid-column: 1;
+  grid-row: 1;
+}
+.checklist-editor .checklist-item-layout .checklist-item-actions {
+  grid-column: 3;
+  grid-row: 1;
+}
+.checklist-editor .checklist-item-layout .checklist-item-content > [data-node-view-content-react] > * {
+  grid-column: 2 / -1;
+  min-width: 0;
+  margin-block: 0;
+  /* Break a URL only when necessary; ordinary words retain normal wrapping. */
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+.checklist-editor .checklist-item-layout .checklist-item-content > [data-node-view-content-react] > :first-child {
+  grid-column: 2;
+  grid-row: 1;
+}
+.checklist-editor .checklist-item-layout .checklist-item-metadata {
+  grid-column: 2 / -1;
+  grid-row: 2;
+  min-width: 0;
+  flex-wrap: wrap;
+  margin-top: 0.2rem;
+}
+.checklist-editor .checklist-item-layout .checklist-metadata-chip {
+  max-width: 100%;
+  min-width: 0;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.checklist-editor .checklist-item-layout .checklist-item-note-hint {
+  grid-column: 2 / -1;
+  grid-row: 3;
+  justify-self: start;
+}
+.checklist-editor .checklist-item-layout .checklist-item-content > [data-node-view-content-react] > ul[data-type="taskList"] {
+  grid-column: 1 / -1;
+  margin-left: 0.75rem;
+  padding-left: 0;
+  border-left: 1px solid hsl(var(--border) / 0.65);
+}
+/* Stop further cumulative indentation when a nested row gets narrow. The
+   structural list and its guide remain; IDs and keyboard nesting are untouched. */
+@container checklist-item (max-width: 19rem) {
+  .checklist-editor .checklist-item-layout .checklist-item-content > [data-node-view-content-react] > ul[data-type="taskList"] {
+    margin-left: 0;
+  }
+}
+@container checklist-item (min-width: 38rem) {
+  .checklist-editor .checklist-item-layout > .checklist-item-row {
+    grid-template-columns: 2.5rem minmax(0, 1fr) minmax(0, auto) 1.75rem;
+  }
+  .checklist-editor .checklist-item-layout .checklist-item-metadata {
+    grid-column: 3;
+    grid-row: 1;
+    max-width: 18rem;
+    margin-top: 0;
+  }
+  .checklist-editor .checklist-item-layout .checklist-item-actions { grid-column: 4; }
+  .checklist-editor .checklist-item-layout .checklist-item-note-hint { grid-row: 2; }
+}
+@container checklist-item (max-width: 37.999rem) {
+  .checklist-editor .checklist-item-layout .checklist-item-actions { opacity: 1; min-height: 2rem; }
+  .checklist-editor .checklist-item-layout .checklist-metadata-chip { min-height: 2rem; }
+}
+@media (hover: none), (pointer: coarse) {
+  .checklist-editor .checklist-item-layout .checklist-item-actions { opacity: 1; min-height: 2rem; }
+  .checklist-editor .checklist-item-layout .checklist-metadata-chip { min-height: 2rem; }
+}
