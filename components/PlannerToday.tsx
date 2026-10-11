@@ -339,7 +339,7 @@ export function PlannerToday() {
   }, []);
 
   const load = useCallback(async (fresh = false) => {
-    if (!currentTeam || !localDay || loading) return;
+    if (!currentTeam || !localDay) return;
     const requestId = ++requestRef.current;
     setError(null);
     const response = await plannerApi.getToday({ date, teamId: currentTeam.id, timeZone }, fresh);
@@ -352,10 +352,10 @@ export function PlannerToday() {
     plannerCache.set(cacheKey, response.data);
     setProjection(response.data);
     setProjectionScopeKey(cacheKey);
-  }, [cacheKey, currentTeam, date, loading, localDay, timeZone]);
+  }, [cacheKey, currentTeam, date, localDay, timeZone]);
 
   const loadUpcoming = useCallback(async (fresh = false) => {
-    if (!currentTeam || !localDay || loading) return;
+    if (!currentTeam || !localDay) return;
     const requestId = ++upcomingRequestRef.current;
     setUpcomingError(null);
     const response = await plannerApi.getUpcoming({
@@ -375,7 +375,7 @@ export function PlannerToday() {
     upcomingCache.set(upcomingKey, response.data);
     setUpcoming(response.data);
     setUpcomingScopeKey(upcomingKey);
-  }, [currentTeam, date, loading, localDay, upcomingKey]);
+  }, [currentTeam, date, localDay, upcomingKey]);
 
   useEffect(() => {
     if (!cacheKey) return;
@@ -412,10 +412,12 @@ export function PlannerToday() {
     .map(project => [project.id, project.columnConfig
       .map(column => [column.id, column.isTerminal === true]).sort()]).sort()), [projects, currentTeam?.id]);
   const observedLifecycle = useRef({ teamId: currentTeam?.id, revision: lifecycleRevision });
+  const lifecycleReady = useRef(false);
   useEffect(() => {
     const previous = observedLifecycle.current;
-    if (previous.teamId !== currentTeam?.id || !cacheKey) {
+    if (loading || !lifecycleReady.current || previous.teamId !== currentTeam?.id || !cacheKey) {
       observedLifecycle.current = { teamId: currentTeam?.id, revision: lifecycleRevision };
+      lifecycleReady.current = !loading;
       return;
     }
     if (previous.revision === lifecycleRevision || loading || pendingTaskIds.size > 0) return;
@@ -435,9 +437,17 @@ export function PlannerToday() {
     [currentTeam?.id, tasks],
   );
   const taskRevisionRef = useRef(taskRevision);
+  const taskBaselineRef = useRef({ teamId: currentTeam?.id, ready: false });
   useEffect(() => {
     const previous = taskRevisionRef.current;
     taskRevisionRef.current = taskRevision;
+    // The initial Board snapshot is not a mutation. Planner has already fetched
+    // authoritative data while that unrelated request was still loading.
+    const baseline = taskBaselineRef.current;
+    if (loading || !baseline.ready || baseline.teamId !== currentTeam?.id) {
+      taskBaselineRef.current = { teamId: currentTeam?.id, ready: !loading };
+      return;
+    }
     if (!visibleProjection) return;
     const changedTaskIds = [...taskRevision.entries()]
       .filter(([taskId, revision]) => previous.get(taskId) !== revision)
@@ -447,7 +457,7 @@ export function PlannerToday() {
       if (mutationCountRef.current === 0) void load();
     }, 350);
     return () => window.clearTimeout(timer);
-  }, [load, taskRevision, visibleProjection]);
+  }, [load, taskRevision, visibleProjection, loading, currentTeam?.id]);
 
   const replaceProjectionItem = useCallback((item: PlannerProjectionItem) => {
     const cached = plannerCache.get(cacheKey);
@@ -656,7 +666,7 @@ export function PlannerToday() {
           key={item.id}
           item={item}
           completed={completed || item.state === 'completed'}
-          pending={pendingTaskIds.has(item.taskId)}
+          pending={loading || pendingTaskIds.has(item.taskId)}
           assigneeName={item.assigneeId ? members.get(item.assigneeId) ?? 'Assigned' : null}
           showDate={showDate}
           onToggle={(checked) => void toggle(item, checked)}

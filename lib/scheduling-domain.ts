@@ -222,6 +222,25 @@ export function addCalendarDays(date: string, days: number): string {
   return next.toISOString().slice(0, 10);
 }
 
+/** Count virtual slots without allocating/scanning every historical calendar day. */
+export function countRecurrenceBefore(schedule: WorkSchedule, before: string): number {
+  if (schedule.scheduleType !== 'recurring') return 0;
+  const start = calendarDayNumber(schedule.scheduleDate);
+  const end = Math.min(calendarDayNumber(before) - 1,
+    schedule.endsOn ? calendarDayNumber(schedule.endsOn) : Infinity);
+  const length = end - start + 1;
+  if (length <= 0) return 0;
+  if (schedule.recurrenceFrequency === 'daily') {
+    return Math.floor((length - 1) / schedule.recurrenceInterval) + 1;
+  }
+  const period = 7 * schedule.recurrenceInterval;
+  const startWeekday = isoWeekday(schedule.scheduleDate);
+  return schedule.recurrenceWeekdays.reduce((count, weekday) => {
+    const offset = (weekday - startWeekday + 7) % 7;
+    return count + (offset < length ? Math.floor((length - 1 - offset) / period) + 1 : 0);
+  }, 0);
+}
+
 export function calendarDatesInRange(startDate: string, endDate: string): string[] {
   assertCalendarDate(startDate, 'startDate');
   assertCalendarDate(endDate, 'endDate');

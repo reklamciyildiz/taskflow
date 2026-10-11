@@ -12,6 +12,7 @@ import {
   assertCalendarDate,
   addCalendarDays,
   calendarDatesInRange,
+  countRecurrenceBefore,
   isIanaTimeZone,
   scheduleMatchesDate,
   workOccurrenceFromRow,
@@ -117,11 +118,8 @@ function missedOccurrencesBefore(
   for (const row of persisted.filter((entry) => entry.scheduleId === schedule.id)) {
     if (row.effectiveDate !== row.occurrenceDate) exceptions.add(row.effectiveDate);
   }
-  let missed = 0;
-  for (const candidate of calendarDatesInRange(schedule.scheduleDate, addCalendarDays(date, -1))) {
-    if (scheduleMatchesDate(schedule, candidate) && !exceptions.has(candidate)) missed += 1;
-  }
-  return missed;
+  const excluded = [...exceptions].filter(candidate => candidate < date && scheduleMatchesDate(schedule, candidate)).length;
+  return Math.max(0, countRecurrenceBefore(schedule, date) - excluded);
 }
 
 /**
@@ -200,23 +198,31 @@ async function getPlannerProjectionForDates(
   const accessibleSchedules = schedules.filter((schedule) => allowedTeamIds.has(schedule.teamId));
   if (!accessibleSchedules.length) return [];
   const sourcesStartedAt = performance.now();
-  const scheduleIds = accessibleSchedules.map((schedule) => schedule.id);
-  const taskIds = [...new Set(accessibleSchedules.map((schedule) => schedule.source.taskId))];
-  const [occurrenceResult, taskResult] = await Promise.all([
-    supabaseAdmin
+  const scheduleIds = accessibleSchedules.filter(schedule => schedule.scheduleType === 'recurring').map(schedule => schedule.id);
+  const checklistTaskIds = [...new Set(accessibleSchedules
+    .filter(schedule => schedule.source.sourceType === 'checklist_item').map(schedule => schedule.source.taskId))];
+  const checklistTaskSet = new Set(checklistTaskIds);
+  const actionTaskIds = [...new Set(accessibleSchedules.map(schedule => schedule.source.taskId))]
+    .filter(id => !checklistTaskSet.has(id));
+  const taskFields = 'id,title,status,assignee_id,project_id,team_id,organization_id,updated_at';
+  const readTasks = (ids: string[], checklist: boolean) => ids.length
+    ? supabaseAdmin.from('tasks').select(checklist ? `${taskFields},checklist_blocks` : taskFields)
+      .eq('organization_id', actor.organizationId).in('id', ids)
+    : Promise.resolve({ data: [], error: null });
+  const [occurrenceResult, actionResult, checklistResult] = await Promise.all([
+    scheduleIds.length ? supabaseAdmin
       .from('work_occurrences')
       .select('*')
       .in('schedule_id', scheduleIds)
-      .or(`occurrence_date.lte.${maximumDate},and(effective_date.gte.${minimumDate},effective_date.lte.${maximumDate})`),
-    supabaseAdmin
-      .from('tasks')
-      .select('id,title,status,assignee_id,project_id,team_id,organization_id,checklist_blocks,updated_at')
-      .eq('organization_id', actor.organizationId)
-      .in('id', taskIds),
+      .or(`occurrence_date.lte.${maximumDate},and(effective_date.gte.${minimumDate},effective_date.lte.${maximumDate})`)
+      : Promise.resolve({ data: [], error: null }),
+    readTasks(actionTaskIds, false),
+    readTasks(checklistTaskIds, true),
   ]);
   if (occurrenceResult.error) throw occurrenceResult.error;
-  const { data: taskRows, error: taskError } = taskResult;
-  if (taskError) throw taskError;
+  if (actionResult.error) throw actionResult.error;
+  if (checklistResult.error) throw checklistResult.error;
+  const taskRows = [...(actionResult.data ?? []), ...(checklistResult.data ?? [])];
   if (options.timings) options.timings.sourcesMs = performance.now() - sourcesStartedAt;
   const occurrences = (occurrenceResult.data ?? []).map(workOccurrenceFromRow);
   const taskById = new Map((taskRows ?? []).map((task: any) => [String(task.id), task]));

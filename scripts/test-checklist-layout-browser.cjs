@@ -203,7 +203,11 @@ async function main() {
     await page.evaluate(() => window.qa.ref.current.prependTaskItem('Quick capture'));
     assert.equal(await page.evaluate(() => window.qa.editor.getJSON().content[0].content[0].content[0].content[0].text), 'Quick capture'); checks++;
     const fullDoc = await page.evaluate(() => window.qa.editor.getJSON());
-    await page.evaluate(() => { window.qa.editor.commands.setContent({ type: 'doc', content: [{ type: 'paragraph' }] }); window.qa.editor.commands.focus('end'); });
+    await page.evaluate(async () => {
+      window.qa.editor.commands.setContent({ type: 'doc', content: [{ type: 'paragraph' }] });
+      window.qa.editor.commands.focus('end');
+      await new Promise(requestAnimationFrame);
+    });
     await page.keyboard.type('/');
     await page.getByRole('option', { name: 'Section heading' }).click();
     await page.keyboard.type('Section');

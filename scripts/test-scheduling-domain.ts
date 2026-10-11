@@ -5,6 +5,9 @@ import {
   isCalendarDate,
   normalizeWorkScheduleInput,
   scheduleMatchesDate,
+  countRecurrenceBefore,
+  calendarDatesInRange,
+  addCalendarDays,
   type WorkSchedule,
 } from '../lib/scheduling-domain';
 import {
@@ -81,6 +84,35 @@ assert.equal(scheduleMatchesDate(alternateMondays, '2026-10-19'), true);
 const bounded = { ...recurringBase, endsOn: '2026-10-09' };
 assert.equal(scheduleMatchesDate(bounded, '2026-10-10'), false);
 assert.equal(implicitOccurrenceState(recurringBase, '2026-10-09', null), 'pending');
+
+// Differential check against the previous daily expansion, including interval
+// weeks anchored on a non-Monday and bounded schedules.
+for (const frequency of ['daily', 'weekly'] as const) {
+  for (const interval of [1, 2, 3, 7]) {
+    for (const end of [null, '2026-11-10']) {
+      const schedule = { ...recurringBase, scheduleDate: '2026-10-07',
+        recurrenceFrequency: frequency, recurrenceInterval: interval,
+        recurrenceWeekdays: frequency === 'weekly' ? [1, 3, 5, 7] : [], endsOn: end };
+      for (let days = 0; days < 100; days++) {
+        const before = addCalendarDays(schedule.scheduleDate, days);
+        const expected = days === 0 ? 0 : calendarDatesInRange(schedule.scheduleDate, addCalendarDays(before, -1))
+          .filter(date => scheduleMatchesDate(schedule, date)).length;
+        assert.equal(countRecurrenceBefore(schedule, before), expected);
+      }
+    }
+  }
+}
+const historical = { ...recurringBase, scheduleDate: '2016-01-01' };
+const sampleDates = calendarDatesInRange('2026-10-01', '2026-10-14');
+const baselineStarted = performance.now();
+const baselineCounts = sampleDates.map(date => calendarDatesInRange(historical.scheduleDate, addCalendarDays(date, -1))
+  .filter(day => scheduleMatchesDate(historical, day)).length);
+const baselineMs = performance.now() - baselineStarted;
+const optimizedStarted = performance.now();
+const optimizedCounts = sampleDates.map(date => countRecurrenceBefore(historical, date));
+const optimizedMs = performance.now() - optimizedStarted;
+assert.deepEqual(optimizedCounts, baselineCounts);
+console.log('14-day recurrence count, 10-year template (local CPU only):', { baselineMs, optimizedMs });
 
 const timed = normalizeWorkScheduleInput({
   source: { sourceType: 'checklist_item', taskId: 'task-1', checklistItemId: 'legacy-123' },

@@ -1,10 +1,14 @@
 import TaskItem from '@tiptap/extension-task-item';
 import { ReactNodeViewRenderer } from '@tiptap/react';
 import { TaskItemNodeView } from '../components/TaskItemNodeView';
-import { v4 as uuidv4 } from 'uuid';
+import { checklistIdentityPlugin } from './checklistIdentity';
 
 export const AdvancedTaskItem = TaskItem.extend({
   draggable: true,
+
+  addProseMirrorPlugins() {
+    return [...(this.parent?.() ?? []), checklistIdentityPlugin()];
+  },
 
   addStorage() {
     let completionClock = 0;
