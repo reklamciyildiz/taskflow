@@ -1,80 +1,132 @@
 'use client';
-import { toast } from 'sonner';
 
-import { useState, useMemo, useEffect } from 'react';
-import { useTaskContext, TaskPriority } from '@/components/TaskContext';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { toast } from 'sonner';
 import {
-  resolveTaskBoardColumnId,
-  isTerminalBoardColumn,
-  type ProjectColumnConfig,
-} from '@/lib/types';
+  ArrowDownAZ,
+  ArrowUpAZ,
+  CalendarDays,
+  CheckCircle2,
+  Columns3,
+  Filter,
+  Layers,
+  MoreHorizontal,
+  RotateCcw,
+  Search,
+  Settings2,
+} from 'lucide-react';
+import { useTaskContext, type Task, type TaskPriority } from '@/components/TaskContext';
 import { CreateProjectModal } from '@/components/CreateProjectModal';
-import { EditGeneralBoardModal } from '@/components/EditGeneralBoardModal';
+import { WorkSchedulePicker } from '@/components/schedule/WorkSchedulePicker';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { 
-  Search, 
-  Filter, 
-  SortAsc, 
-  Calendar,
-  User,
-  Flag,
-  MoreHorizontal,
-  CheckCircle2,
-  Paperclip,
-  MessageCircle,
-  Layers,
-  Settings2,
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { format, isToday, isPast } from 'date-fns';
-import { Card } from '@/components/ui/card';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useProcessProperties } from '@/hooks/useProcessProperties';
+import { PROPERTY_COLOR_CLASSES, type ProcessProperty } from '@/lib/process-properties';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+  filterAndSortOperationalTasks,
+  hasOperationalFilters,
+  propertyValuesByTask,
+  UNASSIGNED_FILTER,
+  type OperationalSort,
+  type OperationalSortField,
+  type OperationalTableFilters,
+} from '@/lib/operational-table';
+import { isTerminalBoardColumn } from '@/lib/types';
+import { scheduleChipLabel } from '@/lib/schedule-presentation';
+import { cn } from '@/lib/utils';
 
-/** Badge fallbacks for known ids when a column has no `color` configured. */
-const LEGACY_COLUMN_BADGE: Record<string, string> = {
-  todo: 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300',
-  progress: 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400',
-  review: 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400',
-  done: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400',
+const ALL = '__all__';
+const NATIVE_COLUMNS = ['stage', 'priority', 'assignee', 'schedule', 'client'] as const;
+type NativeColumn = typeof NATIVE_COLUMNS[number];
+type ColumnId = NativeColumn | `property:${string}`;
+
+const priorityConfig: Record<TaskPriority, { label: string }> = {
+  low: { label: 'Low' },
+  medium: { label: 'Medium' },
+  high: { label: 'High' },
+  urgent: { label: 'Urgent' },
 };
 
-function columnBadgeClass(columnId: string, columns: ProjectColumnConfig[]): string {
-  const col = columns.find((c) => c.id === columnId);
-  if (col?.color) return col.color;
-  return LEGACY_COLUMN_BADGE[columnId] ?? 'bg-muted text-muted-foreground';
+const emptyFilters = (): OperationalTableFilters => ({
+  stage: null,
+  priority: null,
+  assignee: null,
+  properties: {},
+});
+
+function tablePreferenceKey(organizationId: string | null, userId: string | undefined, teamId: string | undefined, processId: string | null) {
+  if (!organizationId || !userId || !teamId) return '';
+  return `axiom:operational-table:${organizationId}:${userId}:${teamId}:${processId ?? 'general'}`;
 }
 
-function columnLabel(columnId: string, columns: ProjectColumnConfig[]): string {
-  return columns.find((c) => c.id === columnId)?.title ?? columnId;
+function InlineSelect({
+  value,
+  disabled,
+  label,
+  onValueChange,
+  children,
+}: {
+  value: string;
+  disabled?: boolean;
+  label: string;
+  onValueChange: (value: string) => void;
+  children: ReactNode;
+}) {
+  return (
+    <Select value={value} disabled={disabled} onValueChange={onValueChange}>
+      <SelectTrigger aria-label={label} className="h-8 min-w-[128px] border-transparent bg-transparent px-2 text-xs hover:border-border/70 hover:bg-muted/40">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>{children}</SelectContent>
+    </Select>
+  );
 }
 
-const priorityConfig = {
-  low: { label: 'Low', color: 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300' },
-  medium: { label: 'Medium', color: 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400' },
-  high: { label: 'High', color: 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400' },
-  urgent: { label: 'Urgent', color: 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400' }
-};
+function ScheduleCell({ task, disabled }: { task: Task; disabled: boolean }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          disabled={disabled}
+          className="inline-flex h-8 max-w-[170px] items-center gap-1.5 rounded-md px-2 text-left text-xs text-muted-foreground hover:bg-muted/50 hover:text-foreground disabled:cursor-default disabled:opacity-70"
+        >
+          <CalendarDays className="h-3.5 w-3.5 shrink-0" />
+          <span className="truncate">{task.schedule ? scheduleChipLabel(task.schedule) : 'Unscheduled'}</span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-[min(92vw,380px)] border-0 bg-transparent p-0 shadow-none">
+        <WorkSchedulePicker
+          source={{ sourceType: 'action', taskId: task.id }}
+          initialSchedule={task.schedule ?? null}
+          disabled={disabled}
+          onRequestClose={() => setOpen(false)}
+        />
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 export function TaskList() {
   const {
     tasks,
     currentTeam,
+    currentUser,
+    organizationId,
     boardScope,
     setBoardScope,
     boardProject,
@@ -89,439 +141,290 @@ export function TaskList() {
     boardColumns,
     loading,
   } = useTaskContext();
+  const processId = boardScope.type === 'project' ? boardScope.projectId : null;
+  const properties = useProcessProperties(processId, currentTeam?.id);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterStatus, setFilterStatus] = useState<string | 'all'>('all');
-  const [filterPriority, setFilterPriority] = useState<TaskPriority | 'all'>('all');
-  const [sortBy, setSortBy] = useState<'dueDate' | 'priority' | 'created'>('dueDate');
+  const [filters, setFilters] = useState<OperationalTableFilters>(emptyFilters);
+  const [sort, setSort] = useState<OperationalSort>({ field: 'schedule', direction: 'asc' });
+  const [visibleColumns, setVisibleColumns] = useState<ColumnId[]>([...NATIVE_COLUMNS]);
+  const [pendingFields, setPendingFields] = useState<Set<string>>(() => new Set());
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
-  const [editGeneralOpen, setEditGeneralOpen] = useState(false);
-
-  useEffect(() => {
-    if (filterStatus === 'all') return;
-    if (!boardColumns.some((c) => c.id === filterStatus)) {
-      setFilterStatus('all');
-    }
-  }, [boardColumns, filterStatus]);
 
   const projectsForTeam = useMemo(() => {
     if (!currentTeam) return projects;
-    return projects.filter((p) => !p.teamId || p.teamId === currentTeam.id);
-  }, [projects, currentTeam?.id]);
+    return projects.filter((project) => !project.teamId || project.teamId === currentTeam.id);
+  }, [projects, currentTeam]);
+  const activeProperties = useMemo(
+    () => properties.data?.properties.filter((property) => !property.archived_at) ?? [],
+    [properties.data?.properties],
+  );
+  const propertySignature = activeProperties.map((property) => property.id).join(',');
+  const preferenceKey = tablePreferenceKey(organizationId, currentUser?.id, currentTeam?.id, processId);
 
-  const filteredTasks = useMemo(() => {
-    let list = tasks.filter((task) => task.teamId === currentTeam?.id);
+  useEffect(() => {
+    setSearchQuery('');
+    setFilters(emptyFilters());
+    setSort({ field: 'schedule', direction: 'asc' });
+  }, [processId, currentTeam?.id]);
 
-    if (boardScope.type === 'general') {
-      list = list.filter((task) => task.projectId == null);
-    } else {
-      list = list.filter((task) => task.projectId === boardScope.projectId);
-    }
-
-    const q = searchQuery.toLowerCase();
-    list = list.filter(
-      (task) =>
-        task.title.toLowerCase().includes(q) || task.description.toLowerCase().includes(q)
-    );
-    list = list.filter((task) => {
-      if (filterStatus === 'all') return true;
-      return resolveTaskBoardColumnId(task.status, boardColumns) === filterStatus;
-    });
-    list = list.filter((task) => filterPriority === 'all' || task.priority === filterPriority);
-
-    return [...list].sort((a, b) => {
-      switch (sortBy) {
-        case 'dueDate':
-          if (!a.dueDate && !b.dueDate) return 0;
-          if (!a.dueDate) return 1;
-          if (!b.dueDate) return -1;
-          return a.dueDate.getTime() - b.dueDate.getTime();
-        case 'priority': {
-          const priorityOrder = { urgent: 0, high: 1, medium: 2, low: 3 };
-          return priorityOrder[a.priority] - priorityOrder[b.priority];
+  useEffect(() => {
+    const available = new Set<ColumnId>([
+      ...NATIVE_COLUMNS,
+      ...activeProperties.map((property) => `property:${property.id}` as const),
+    ]);
+    let next: ColumnId[] = [...available];
+    if (preferenceKey) {
+      try {
+        const stored = window.localStorage.getItem(preferenceKey);
+        if (stored) {
+          const parsed = JSON.parse(stored) as unknown;
+          if (Array.isArray(parsed)) next = parsed.filter((value): value is ColumnId => typeof value === 'string' && available.has(value as ColumnId));
         }
-        case 'created':
-          return b.createdAt.getTime() - a.createdAt.getTime();
-        default:
-          return 0;
+      } catch {
+        // A corrupt local preference must not block the table.
       }
-    });
-  }, [
-    tasks,
-    currentTeam?.id,
-    boardScope,
-    searchQuery,
-    filterStatus,
-    filterPriority,
-    sortBy,
-    boardColumns,
-  ]);
-
-  const listSubtitle = `Process: ${boardProject?.name ?? 'Selected process'} — shared filters with the board`;
-
-  const toggleTaskComplete = (
-    taskId: string,
-    assigneeId: string | null | undefined,
-    resolvedColumnId: string
-  ) => {
-    if (!canCompleteTask(assigneeId)) return;
-    const terminalNow = isTerminalBoardColumn(resolvedColumnId, boardColumns);
-    if (terminalNow) {
-      const openCol = boardColumns.find((c) => !isTerminalBoardColumn(c.id, boardColumns));
-      if (!openCol) { toast.error('This process has no open stage.'); return; }
-      void updateTask(taskId, { status: openCol.id }).then((ok) => { if (!ok) toast.error('Could not change stage'); });
-    } else {
-      const termCol = boardColumns.find((c) => isTerminalBoardColumn(c.id, boardColumns));
-      if (!termCol) { toast.error('This process has no terminal stage. Configure one to close Actions.'); return; }
-      void updateTask(taskId, { status: termCol.id }).then((ok) => { if (!ok) toast.error('Could not change stage'); });
     }
+    setVisibleColumns(next);
+  }, [preferenceKey, propertySignature, activeProperties]);
+
+  useEffect(() => {
+    setFilters((current) => {
+      if (!current.stage || boardColumns.some((column) => column.id === current.stage)) return current;
+      return { ...current, stage: null };
+    });
+  }, [boardColumns]);
+
+  const scopedTasks = useMemo(() => tasks.filter((task) => {
+    if (task.teamId !== currentTeam?.id) return false;
+    return boardScope.type === 'general' ? task.projectId == null : task.projectId === boardScope.projectId;
+  }), [tasks, currentTeam?.id, boardScope]);
+  const selections = useMemo(
+    () => propertyValuesByTask(properties.data?.values ?? []),
+    [properties.data?.values],
+  );
+  const stageLabels = useMemo(() => new Map(boardColumns.map((column) => [column.id, column.title])), [boardColumns]);
+  const assigneeLabels = useMemo(
+    () => new Map((currentTeam?.members ?? []).map((member) => [member.id, member.name])),
+    [currentTeam?.members],
+  );
+  const filteredTasks = useMemo(() => filterAndSortOperationalTasks({
+    tasks: scopedTasks,
+    search: searchQuery,
+    filters,
+    sort,
+    values: properties.data?.values ?? [],
+    options: properties.data?.options ?? [],
+    stageLabels,
+    assigneeLabels,
+  }), [scopedTasks, searchQuery, filters, sort, properties.data?.values, properties.data?.options, stageLabels, assigneeLabels]);
+
+  const persistVisibleColumns = (next: ColumnId[]) => {
+    setVisibleColumns(next);
+    if (!preferenceKey) return;
+    try { window.localStorage.setItem(preferenceKey, JSON.stringify(next)); } catch { /* local preferences are best effort */ }
+  };
+  const toggleColumn = (id: ColumnId, checked: boolean) => {
+    persistVisibleColumns(checked
+      ? [...visibleColumns, id].filter((value, index, all) => all.indexOf(value) === index)
+      : visibleColumns.filter((column) => column !== id));
+  };
+
+  const mutateTaskField = async (task: Task, field: string, changes: Parameters<typeof updateTask>[1]) => {
+    const key = `${task.id}:${field}`;
+    if (pendingFields.has(key)) return;
+    setPendingFields((current) => new Set(current).add(key));
+    try {
+      const ok = await updateTask(task.id, changes);
+      if (!ok) toast.error('Action could not be updated. Your previous value was restored.');
+    } finally {
+      setPendingFields((current) => {
+        const next = new Set(current);
+        next.delete(key);
+        return next;
+      });
+    }
+  };
+  const isPending = (taskId: string, field: string) => pendingFields.has(`${taskId}:${field}`);
+  const toggleTaskComplete = (task: Task) => {
+    if (!canCompleteTask(task.assigneeId)) return;
+    const terminal = isTerminalBoardColumn(task.status, boardColumns);
+    const target = terminal
+      ? boardColumns.find((column) => !isTerminalBoardColumn(column.id, boardColumns))
+      : boardColumns.find((column) => isTerminalBoardColumn(column.id, boardColumns));
+    if (!target) {
+      toast.error(terminal ? 'This process has no open stage.' : 'This process has no terminal stage.');
+      return;
+    }
+    void mutateTaskField(task, 'status', { status: target.id });
+  };
+
+  const setPropertyFilter = (propertyId: string, value: string) => {
+    setFilters((current) => {
+      const next = { ...current.properties };
+      if (value === ALL) delete next[propertyId]; else next[propertyId] = value;
+      return { ...current, properties: next };
+    });
+  };
+  const propertyForColumn = (column: ColumnId): ProcessProperty | undefined =>
+    column.startsWith('property:')
+      ? activeProperties.find((property) => property.id === column.slice('property:'.length))
+      : undefined;
+  const setSortField = (field: string) => setSort((current) => ({ ...current, field: field as OperationalSortField }));
+
+  const headerLabel = (column: ColumnId) => {
+    if (column === 'stage') return 'Stage';
+    if (column === 'priority') return 'Priority';
+    if (column === 'assignee') return 'Assignee';
+    if (column === 'schedule') return 'Schedule';
+    if (column === 'client') return 'Client';
+    return propertyForColumn(column)?.name ?? 'Property';
   };
 
   return (
-    <div className="h-full">
-      <div className="mb-6 space-y-4">
+    <div className="h-full space-y-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Action list</h1>
-          <p className="mt-1 text-muted-foreground text-sm">{listSubtitle}</p>
+          <h1 className="text-2xl font-bold text-foreground">Action table</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {boardProject ? `${boardProject.name} · edit operational metadata inline` : 'General Actions'}
+          </p>
         </div>
-        {projectsForTeam.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          {projectsForTeam.length > 0 && (
+            <Select value={processId ?? ''} onValueChange={(projectId) => setBoardScope({ type: 'project', projectId })}>
+              <SelectTrigger aria-label="Table process" className="h-9 w-full min-w-[210px] sm:w-auto"><SelectValue placeholder="Choose process" /></SelectTrigger>
+              <SelectContent>{projectsForTeam.map((project) => <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>)}</SelectContent>
+            </Select>
+          )}
+          {currentUserRole === 'admin' && (
+            <>
+              <Button variant="outline" size="sm" className="h-9 gap-2" onClick={() => setIsCreateProjectOpen(true)}><Layers className="h-4 w-4" />New process</Button>
+              <Button variant="outline" size="icon" className="h-9 w-9" disabled={!boardProject} onClick={() => setEditingProjectId(boardProject?.id ?? null)} aria-label="Edit selected process"><Settings2 className="h-4 w-4" /></Button>
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-border/60 bg-card/40 p-3 shadow-sm">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+          <div className="relative min-w-0 flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search actions and property values…" className="h-9 pl-9" />
+          </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Select
-              value={boardScope.type === 'project' ? boardScope.projectId : ''}
-              onValueChange={(v) => {
-                setBoardScope({ type: 'project', projectId: v });
-              }}
-            >
-              <SelectTrigger
-                className="h-10 w-full min-w-[200px] max-w-md sm:w-auto"
-                aria-label="List scope — process or general actions"
-              >
-                <SelectValue placeholder="Choose process" />
-              </SelectTrigger>
+            <span className="inline-flex h-8 items-center gap-1.5 text-xs font-medium text-muted-foreground"><Filter className="h-3.5 w-3.5" />Filters</span>
+            <Select value={filters.stage ?? ALL} onValueChange={(value) => setFilters((current) => ({ ...current, stage: value === ALL ? null : value }))}>
+              <SelectTrigger aria-label="Filter by stage" className="h-8 w-[150px] text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent><SelectItem value={ALL}>All stages</SelectItem>{boardColumns.map((column) => <SelectItem key={column.id} value={column.id}>{column.title}</SelectItem>)}</SelectContent>
+            </Select>
+            <Select value={filters.priority ?? ALL} onValueChange={(value) => setFilters((current) => ({ ...current, priority: value === ALL ? null : value as TaskPriority }))}>
+              <SelectTrigger aria-label="Filter by priority" className="h-8 w-[138px] text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent><SelectItem value={ALL}>All priorities</SelectItem>{Object.entries(priorityConfig).map(([value, config]) => <SelectItem key={value} value={value}>{config.label}</SelectItem>)}</SelectContent>
+            </Select>
+            <Select value={filters.assignee ?? ALL} onValueChange={(value) => setFilters((current) => ({ ...current, assignee: value === ALL ? null : value }))}>
+              <SelectTrigger aria-label="Filter by assignee" className="h-8 w-[150px] text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent><SelectItem value={ALL}>All assignees</SelectItem><SelectItem value={UNASSIGNED_FILTER}>Unassigned</SelectItem>{currentTeam?.members.map((member) => <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>)}</SelectContent>
+            </Select>
+            {activeProperties.map((property) => (
+              <Select key={property.id} value={filters.properties[property.id] ?? ALL} onValueChange={(value) => setPropertyFilter(property.id, value)}>
+                <SelectTrigger aria-label={`Filter by ${property.name}`} className="h-8 w-[150px] text-xs"><SelectValue placeholder={property.name} /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL}>All {property.name}</SelectItem>
+                  <SelectItem value={UNASSIGNED_FILTER}>Unassigned</SelectItem>
+                  {properties.data?.options.filter((option) => option.property_id === property.id && !option.archived_at).map((option) => <SelectItem key={option.id} value={option.id}>{option.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            ))}
+            {(hasOperationalFilters(filters) || searchQuery) && <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => { setFilters(emptyFilters()); setSearchQuery(''); }}><RotateCcw className="h-3.5 w-3.5" />Clear</Button>}
+          </div>
+        </div>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border/50 pt-3">
+          <p className="text-xs text-muted-foreground">{filteredTasks.length} of {scopedTasks.length} Actions</p>
+          <div className="flex items-center gap-2">
+            <Select value={sort.field} onValueChange={setSortField}>
+              <SelectTrigger aria-label="Sort table" className="h-8 w-[150px] text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
-                {projectsForTeam.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.name}
-                  </SelectItem>
-                ))}
+                <SelectItem value="title">Sort by title</SelectItem><SelectItem value="stage">Sort by stage</SelectItem><SelectItem value="priority">Sort by priority</SelectItem><SelectItem value="assignee">Sort by assignee</SelectItem><SelectItem value="schedule">Sort by schedule</SelectItem><SelectItem value="client">Sort by client</SelectItem><SelectItem value="created">Sort by created</SelectItem>
+                {activeProperties.map((property) => <SelectItem key={property.id} value={`property:${property.id}`}>Sort by {property.name}</SelectItem>)}
               </SelectContent>
             </Select>
-            {currentUserRole === 'admin' && (
-              <>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-10 gap-2"
-                  onClick={() => setIsCreateProjectOpen(true)}
-                  title="Create a new process (project)"
-                >
-                  <Layers className="h-4 w-4" />
-                  New process
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="h-10 w-10"
-                  onClick={() => {
-                    setEditingProjectId(boardProject?.id ?? null);
-                  }}
-                  disabled={!boardProject}
-                  title="Edit selected process"
-                  aria-label="Edit selected process"
-                >
-                  <Settings2 className="h-4 w-4" />
-                </Button>
-              </>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Filters and Search */}
-      <div className="flex flex-col sm:flex-row gap-4 mb-6">
-        <div className="flex-1">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search actions…"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
+            <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setSort((current) => ({ ...current, direction: current.direction === 'asc' ? 'desc' : 'asc' }))} aria-label={`Sort ${sort.direction === 'asc' ? 'descending' : 'ascending'}`}>
+              {sort.direction === 'asc' ? <ArrowDownAZ className="h-4 w-4" /> : <ArrowUpAZ className="h-4 w-4" />}
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs"><Columns3 className="h-3.5 w-3.5" />Columns</Button></DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>Visible columns</DropdownMenuLabel>
+                <DropdownMenuCheckboxItem checked disabled>Action</DropdownMenuCheckboxItem>
+                {NATIVE_COLUMNS.map((column) => <DropdownMenuCheckboxItem key={column} checked={visibleColumns.includes(column)} onCheckedChange={(checked) => toggleColumn(column, checked === true)}>{headerLabel(column)}</DropdownMenuCheckboxItem>)}
+                {activeProperties.length > 0 && <DropdownMenuSeparator />}
+                {activeProperties.map((property) => {
+                  const column = `property:${property.id}` as const;
+                  return <DropdownMenuCheckboxItem key={property.id} checked={visibleColumns.includes(column)} onCheckedChange={(checked) => toggleColumn(column, checked === true)}>{property.name}</DropdownMenuCheckboxItem>;
+                })}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
-
-        <div className="flex gap-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-2 max-w-[min(100%,14rem)] sm:max-w-[16rem]">
-                <Filter className="h-4 w-4 shrink-0" />
-                <span className="truncate">
-                  Status: {filterStatus === 'all' ? 'All' : columnLabel(filterStatus, boardColumns)}
-                </span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="max-h-[min(60vh,320px)] overflow-y-auto">
-              <DropdownMenuItem onClick={() => setFilterStatus('all')}>All statuses</DropdownMenuItem>
-              {boardColumns.map((col) => (
-                <DropdownMenuItem key={col.id} onClick={() => setFilterStatus(col.id)}>
-                  {col.title}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-2">
-                <Flag className="h-4 w-4" />
-                Priority: {filterPriority === 'all' ? 'All' : priorityConfig[filterPriority as TaskPriority].label}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onClick={() => setFilterPriority('all')}>
-                All Priorities
-              </DropdownMenuItem>
-              {Object.entries(priorityConfig).map(([priority, config]) => (
-                <DropdownMenuItem 
-                  key={priority} 
-                  onClick={() => setFilterPriority(priority as TaskPriority)}
-                >
-                  {config.label}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-2">
-                <SortAsc className="h-4 w-4" />
-                Sort
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onClick={() => setSortBy('dueDate')}>
-                Due Date
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setSortBy('priority')}>
-                Priority
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setSortBy('created')}>
-                Created Date
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+        {properties.error && <p className="mt-2 text-xs text-destructive">Properties could not be loaded. <button className="underline" onClick={() => void properties.reload()}>Retry</button></p>}
       </div>
 
-      {/* Task List */}
-      <div className="space-y-2">
-        {filteredTasks.map((task) => {
-          const assignee = currentTeam?.members.find(m => m.id === task.assigneeId);
-          const resolvedCol = resolveTaskBoardColumnId(task.status, boardColumns);
-          const isTerminal = isTerminalBoardColumn(resolvedCol, boardColumns);
-          const isDueSoon = task.dueDate && isPast(task.dueDate) && !isTerminal;
-          
-          const getDueDateDisplay = () => {
-            if (!task.dueDate) return null;
-            if (isToday(task.dueDate)) return 'Today';
-            if (isPast(task.dueDate)) return format(task.dueDate, 'MMM d') + ' (Overdue)';
-            return format(task.dueDate, 'MMM d');
-          };
-
-          const handleTaskRowClick = (e: React.MouseEvent<HTMLDivElement>) => {
-            const target = e.target as HTMLElement;
-            // Checkbox slot (expanded hit target) or row controls — don't open editor on row click.
-            if (target.closest('[data-task-list-checkbox-slot]')) return;
-            if (target.closest('button')) return;
-            openTaskEditor(task.id);
-          };
-
-          return (
-            <Card 
-              key={task.id} 
-              className={cn(
-                "p-4 hover:shadow-md transition-all duration-200 group cursor-pointer",
-                isTerminal && "opacity-75"
-              )}
-              onClick={handleTaskRowClick}
-            >
-              <div className="flex items-center gap-4">
-                {/* Checkbox: larger target + stays on top; avoid clicks falling through when disabled */}
-                <div
-                  data-task-list-checkbox-slot
-                  className="relative z-10 flex shrink-0 items-center justify-center self-start rounded-md p-1.5 -m-1.5 min-h-9 min-w-9"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <Checkbox
-                    checked={isTerminal}
-                    onCheckedChange={() => toggleTaskComplete(task.id, task.assigneeId, resolvedCol)}
-                    disabled={!canCompleteTask(task.assigneeId)}
-                  />
-                </div>
-
-                {/* Content */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <h4 className={cn(
-                        "font-medium text-sm mb-1",
-                        isTerminal && "line-through text-muted-foreground"
-                      )}>
-                        {task.title}
-                      </h4>
-                      {task.description && (
-                        <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
-                          {task.description}
-                        </p>
-                      )}
-                      
-                      {/* Metadata */}
-                      <div className="flex items-center gap-3 flex-wrap">
-                        {/* Status */}
-                        <Badge
-                          variant="secondary"
-                          className={cn('text-xs px-2 py-0.5', columnBadgeClass(resolvedCol, boardColumns))}
-                        >
-                          {columnLabel(resolvedCol, boardColumns)}
-                        </Badge>
-
-                        {/* Priority */}
-                        <Badge 
-                          variant="secondary" 
-                          className={cn("text-xs px-2 py-0.5", priorityConfig[task.priority].color)}
-                        >
-                          {priorityConfig[task.priority].label}
-                        </Badge>
-
-                        {/* Customer */}
-                        {task.customerName && (
-                          <Badge 
-                            variant="outline" 
-                            className="text-xs px-2 py-0.5 bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-900/50 dark:text-purple-200 dark:border-purple-700"
-                          >
-                            {task.customerName}
-                          </Badge>
-                        )}
-
-                        {/* Due date */}
-                        {task.dueDate && (
-                          <div className={cn(
-                            "flex items-center gap-1 text-xs px-2 py-0.5 rounded-md",
-                            isDueSoon 
-                              ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300" 
-                              : "bg-muted text-muted-foreground"
-                          )}>
-                            <Calendar className="h-3 w-3" />
-                            <span>{getDueDateDisplay()}</span>
-                          </div>
-                        )}
-
-                        {/* Attachments and Comments */}
-                        {task.attachments.length > 0 && (
-                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <Paperclip className="h-3 w-3" />
-                            <span>{task.attachments.length}</span>
-                          </div>
-                        )}
-                        {task.comments.length > 0 && (
-                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <MessageCircle className="h-3 w-3" />
-                            <span>{task.comments.length}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Assignee and Actions */}
-                    <div className="flex items-center gap-2">
-                      {assignee && (
-                        <div className="flex items-center gap-2">
-                          <Avatar className="h-7 w-7">
-                            <AvatarImage src={assignee.avatar} alt={assignee.name} />
-                            <AvatarFallback className="text-xs">
-                              {assignee.name.charAt(0)}
-                            </AvatarFallback>
-                          </Avatar>
-                        </div>
-                      )}
-
-                      {(canEditTask(task.createdBy, task.assigneeId) || canDeleteTask(task.createdBy)) && (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                            >
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                          {canEditTask(task.createdBy, task.assigneeId) && (
-                            <DropdownMenuItem onClick={(e) => {
-                              e.stopPropagation();
-                              openTaskEditor(task.id);
-                            }}>
-                              Edit action
-                            </DropdownMenuItem>
-                          )}
-                          {canDeleteTask(task.createdBy) && (
-                            <DropdownMenuItem 
-                              className="text-red-600 focus:text-red-600"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                deleteTask(task.id);
-                              }}
-                            >
-                              Delete
-                            </DropdownMenuItem>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </Card>
-          );
-        })}
-
+      <div className="overflow-hidden rounded-xl border border-border/60 bg-card/30 shadow-sm">
+        <Table className="min-w-[760px]">
+          <TableHeader className="bg-muted/30">
+            <TableRow className="hover:bg-muted/30">
+              <TableHead className="w-10 px-3" />
+              <TableHead className="min-w-[240px] px-3">Action</TableHead>
+              {visibleColumns.map((column) => <TableHead key={column} className="min-w-[150px] px-3 text-xs uppercase tracking-wide">{headerLabel(column)}</TableHead>)}
+              <TableHead className="w-10 px-2" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredTasks.map((task) => {
+              const canEdit = canEditTask(task.createdBy, task.assigneeId);
+              const terminal = isTerminalBoardColumn(task.status, boardColumns);
+              const taskSelections = selections.get(task.id);
+              return (
+                <TableRow key={task.id} className={cn('group', terminal && 'opacity-70')}>
+                  <TableCell className="px-3 py-2">
+                    <Checkbox checked={terminal} disabled={!canCompleteTask(task.assigneeId) || isPending(task.id, 'status')} onCheckedChange={() => toggleTaskComplete(task)} aria-label={`Mark ${task.title} ${terminal ? 'open' : 'complete'}`} />
+                  </TableCell>
+                  <TableCell className="px-3 py-2">
+                    <button type="button" className={cn('block max-w-[360px] truncate text-left text-sm font-medium hover:text-primary hover:underline', terminal && 'line-through text-muted-foreground')} onClick={() => openTaskEditor(task.id)} title={task.title}>{task.title}</button>
+                  </TableCell>
+                  {visibleColumns.map((column) => {
+                    if (column === 'stage') return <TableCell key={column} className="px-2 py-1.5"><InlineSelect label={`Stage for ${task.title}`} value={task.status} disabled={!canEdit || isPending(task.id, 'status')} onValueChange={(status) => void mutateTaskField(task, 'status', { status })}>{!boardColumns.some((stage) => stage.id === task.status) && <SelectItem value={task.status}>Unresolved ({task.status})</SelectItem>}{boardColumns.map((stage) => <SelectItem key={stage.id} value={stage.id} disabled={isTerminalBoardColumn(stage.id, boardColumns) && !canCompleteTask(task.assigneeId)}>{stage.title}</SelectItem>)}</InlineSelect></TableCell>;
+                    if (column === 'priority') return <TableCell key={column} className="px-2 py-1.5"><InlineSelect label={`Priority for ${task.title}`} value={task.priority} disabled={!canEdit || isPending(task.id, 'priority')} onValueChange={(priority) => void mutateTaskField(task, 'priority', { priority: priority as TaskPriority })}>{Object.entries(priorityConfig).map(([value, config]) => <SelectItem key={value} value={value}>{config.label}</SelectItem>)}</InlineSelect></TableCell>;
+                    if (column === 'assignee') return <TableCell key={column} className="px-2 py-1.5"><InlineSelect label={`Assignee for ${task.title}`} value={task.assigneeId ?? UNASSIGNED_FILTER} disabled={!canEdit || isPending(task.id, 'assignee')} onValueChange={(assigneeId) => void mutateTaskField(task, 'assignee', { assigneeId: assigneeId === UNASSIGNED_FILTER ? null : assigneeId })}><SelectItem value={UNASSIGNED_FILTER}>Unassigned</SelectItem>{currentTeam?.members.map((member) => <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>)}</InlineSelect></TableCell>;
+                    if (column === 'schedule') return <TableCell key={column} className="px-2 py-1.5"><ScheduleCell task={task} disabled={!canEdit} /></TableCell>;
+                    if (column === 'client') return <TableCell key={column} className="px-3 py-2 text-xs text-muted-foreground">{task.customerName ?? '—'}</TableCell>;
+                    const property = propertyForColumn(column);
+                    if (!property) return null;
+                    const selected = taskSelections?.get(property.id) ?? UNASSIGNED_FILTER;
+                    const options = properties.data?.options.filter((option) => option.property_id === property.id && (!option.archived_at || option.id === selected)) ?? [];
+                    return <TableCell key={column} className="px-2 py-1.5"><InlineSelect label={`${property.name} for ${task.title}`} value={selected} disabled={!canEdit || properties.isValuePending(task.id, property.id)} onValueChange={(optionId) => { void properties.setValue(task.id, property.id, optionId === UNASSIGNED_FILTER ? null : optionId).catch((error) => toast.error(error instanceof Error ? error.message : 'Property could not be updated')); }}><SelectItem value={UNASSIGNED_FILTER}>Unassigned</SelectItem>{options.map((option) => <SelectItem key={option.id} value={option.id} disabled={!!option.archived_at}><span className="inline-flex items-center gap-2"><span className={`h-2 w-2 rounded-full ${PROPERTY_COLOR_CLASSES[option.color]}`} />{option.label}{option.archived_at ? ' (archived)' : ''}</span></SelectItem>)}</InlineSelect></TableCell>;
+                  })}
+                  <TableCell className="px-2 py-1.5">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7 opacity-100 md:opacity-0 md:group-hover:opacity-100" aria-label={`Actions for ${task.title}`}><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                      <DropdownMenuContent align="end"><DropdownMenuItem onSelect={() => openTaskEditor(task.id)}>Open Action</DropdownMenuItem>{canDeleteTask(task.createdBy) && <DropdownMenuItem className="text-destructive" onSelect={() => void deleteTask(task.id)}>Delete</DropdownMenuItem>}</DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
         {filteredTasks.length === 0 && (
-          <div className="text-center py-12">
-            {loading ? (
-              <p className="text-muted-foreground animate-pulse">Loading actions...</p>
-            ) : (
-              <>
-                <CheckCircle2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="font-medium text-foreground">No actions found</h3>
-                <p className="text-muted-foreground text-sm mt-1">
-                  {searchQuery || filterStatus !== 'all' || filterPriority !== 'all'
-                    ? 'Try adjusting your search or filters'
-                    : boardScope.type === 'project'
-                      ? 'No actions in this process yet (or they are filtered out)'
-                      : 'Create your first action to get started'}
-                </p>
-              </>
-            )}
+          <div className="px-6 py-14 text-center">
+            {loading ? <p className="animate-pulse text-sm text-muted-foreground">Loading actions…</p> : <><CheckCircle2 className="mx-auto mb-3 h-9 w-9 text-muted-foreground/60" /><h3 className="text-sm font-medium">No actions found</h3><p className="mt-1 text-xs text-muted-foreground">{searchQuery || hasOperationalFilters(filters) ? 'Try adjusting your search or filters.' : 'This process has no Actions yet.'}</p></>}
           </div>
         )}
       </div>
 
       <CreateProjectModal open={isCreateProjectOpen} onClose={() => setIsCreateProjectOpen(false)} />
-      <EditGeneralBoardModal open={editGeneralOpen} onClose={() => setEditGeneralOpen(false)} />
-      {editingProjectId && (
-        <CreateProjectModal
-          open={!!editingProjectId}
-          onClose={() => setEditingProjectId(null)}
-          mode="edit"
-          projectId={editingProjectId}
-        />
-      )}
+      {editingProjectId && <CreateProjectModal open onClose={() => setEditingProjectId(null)} mode="edit" projectId={editingProjectId} />}
     </div>
   );
 }

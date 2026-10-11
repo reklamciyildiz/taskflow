@@ -57,3 +57,20 @@ export function groupActionsByProperty<T extends { id: string; projectId?: strin
   }
   return [...groups.filter(group => !relevant.find(o => o.id === group.id)?.archived_at || group.tasks.length > 0), unassigned];
 }
+
+export function selectedPropertyOptionsForTask(
+  taskId: string,
+  propertyIds: readonly string[],
+  data: ProcessPropertyData,
+) {
+  const selected = new Map(
+    data.values.filter((value) => value.task_id === taskId).map((value) => [value.property_id, value.option_id]),
+  );
+  const properties = new Map(data.properties.map((property) => [property.id, property]));
+  const options = new Map(data.options.map((option) => [option.id, option]));
+  return propertyIds.flatMap((propertyId) => {
+    const property = properties.get(propertyId);
+    const option = options.get(selected.get(propertyId) ?? '');
+    return property && option ? [{ property, option }] : [];
+  });
+}

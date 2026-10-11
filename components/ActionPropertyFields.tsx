@@ -6,7 +6,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 import { Label } from '@/components/ui/label';
 
 export function ActionPropertyFields({ taskId, projectId, teamId, canEdit }: { taskId: string; projectId: string; teamId: string; canEdit: boolean }) {
-  const { data, error, loading, busy, setValue, reload } = useProcessProperties(projectId, teamId);
+  const { data, error, loading, busy, setValue, isValuePending, reload } = useProcessProperties(projectId, teamId);
   if (loading) return <p className="text-xs text-muted-foreground sm:col-span-2">Loading properties…</p>;
   if (error) return <p className="text-xs text-destructive sm:col-span-2">{error} <button type="button" className="underline" onClick={() => void reload()}>Retry</button></p>;
   if (!data) return null;
@@ -15,7 +15,7 @@ export function ActionPropertyFields({ taskId, projectId, teamId, canEdit }: { t
     const options = data.options.filter(o => o.property_id === property.id && (!o.archived_at || o.id === selected.get(property.id)));
     return <div key={property.id} className="space-y-1.5">
       <Label className="text-[11px] uppercase text-muted-foreground">{property.name}{property.archived_at ? ' (archived)' : ''}</Label>
-      <Select value={selected.get(property.id) ?? '__none__'} disabled={!canEdit || busy}
+      <Select value={selected.get(property.id) ?? '__none__'} disabled={!canEdit || busy || isValuePending(taskId, property.id)}
         onValueChange={value => { void setValue(taskId, property.id, value === '__none__' ? null : value).catch(error => toast.error(error.message)); }}>
         <SelectTrigger aria-label={property.name} className="h-9 border-border/60 bg-background/80"><SelectValue placeholder="Unassigned" /></SelectTrigger>
         <SelectContent><SelectItem value="__none__">Unassigned</SelectItem>

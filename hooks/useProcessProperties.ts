@@ -20,6 +20,7 @@ export function useProcessProperties(projectId: string | null | undefined, teamI
   const url = `/api/projects/${projectId}/properties?teamId=${encodeURIComponent(teamId ?? '')}`;
   const [state, setState] = useState<{ key: string; data?: ProcessPropertyData; error?: string }>({ key: '' });
   const [busy, setBusy] = useState(false);
+  const [pendingValues, setPendingValues] = useState<Set<string>>(() => new Set());
   const revision = useRef(0);
   const currentKey = useRef(key);
   currentKey.current = key;
@@ -45,6 +46,7 @@ export function useProcessProperties(projectId: string | null | undefined, teamI
   }, [key, url]);
   useEffect(() => {
     setBusy(false);
+    setPendingValues(new Set());
     void reload();
     const changed = (event: Event) => { if ((event as CustomEvent<string>).detail === key) void reload(); };
     const focus = () => { void reload(); };
@@ -62,13 +64,52 @@ export function useProcessProperties(projectId: string | null | undefined, teamI
       await reload();
     } finally { writes.delete(writeKey); if (currentKey.current === key) setBusy(false); }
   }, [key, reload]);
+  const setValue = useCallback(async (taskId: string, propertyId: string, optionId: string | null) => {
+    if (!key) throw new Error('Select a process first.');
+    const writeKey = `${key}:${taskId}:${propertyId}`;
+    if (writes.has(writeKey)) throw new Error('This property is already being saved.');
+    writes.add(writeKey);
+    setPendingValues((current) => new Set(current).add(writeKey));
+    let previousValue: ProcessPropertyData['values'][number] | undefined;
+    setState((current) => {
+      if (current.key !== key || !current.data) return current;
+      previousValue = current.data.values.find((value) => value.task_id === taskId && value.property_id === propertyId);
+      const values = current.data.values.filter((value) => !(value.task_id === taskId && value.property_id === propertyId));
+      if (optionId) values.push({ task_id: taskId, project_id: projectId!, property_id: propertyId, option_id: optionId });
+      return { key, data: { ...current.data, values } };
+    });
+    try {
+      await jsonRequest(`/api/tasks/${taskId}/properties`, {
+        method: 'PUT', body: JSON.stringify({ propertyId, optionId }),
+      });
+      requests.delete(key);
+      window.dispatchEvent(new CustomEvent(changedEvent, { detail: key }));
+    } catch (error) {
+      if (currentKey.current === key) {
+        setState((current) => {
+          if (current.key !== key || !current.data) return current;
+          const values = current.data.values.filter((value) => !(value.task_id === taskId && value.property_id === propertyId));
+          if (previousValue) values.push(previousValue);
+          return { key, data: { ...current.data, values } };
+        });
+      }
+      throw error;
+    } finally {
+      writes.delete(writeKey);
+      setPendingValues((current) => {
+        const next = new Set(current);
+        next.delete(writeKey);
+        return next;
+      });
+    }
+  }, [key, projectId]);
   return {
     data: state.key === key ? state.data : undefined,
     error: state.key === key ? state.error : undefined,
     loading: !!key && (state.key !== key || (!state.data && !state.error)), busy,
     reload,
     mutate: (command: PropertyCommand) => write(`${key}:definitions`, url, 'POST', command),
-    setValue: (taskId: string, propertyId: string, optionId: string | null) =>
-      write(`${key}:${taskId}:${propertyId}`, `/api/tasks/${taskId}/properties`, 'PUT', { propertyId, optionId }),
+    setValue,
+    isValuePending: (taskId: string, propertyId: string) => pendingValues.has(`${key}:${taskId}:${propertyId}`),
   };
 }

@@ -32,6 +32,7 @@ interface TaskCardProps {
   task: Task;
   dragHandleProps?: any;
   onTaskClick?: (task: Task) => void;
+  propertyBadges?: { id: string; label: string; colorClass: string }[];
 }
 
 const priorityColors = {
@@ -41,7 +42,7 @@ const priorityColors = {
   urgent: 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400'
 };
 
-export function TaskCard({ task, dragHandleProps, onTaskClick }: TaskCardProps) {
+export function TaskCard({ task, dragHandleProps, onTaskClick, propertyBadges = [] }: TaskCardProps) {
   const { currentTeam, updateTask, deleteTask, canEditTask, canDeleteTask, boardColumns, canCompleteTask, suppressTaskEditorOpenFor } = useTaskContext();
   /** After ⋮ → Change status, the menu close can trigger a ghost click on mobile; prevent opening the modal briefly. */
   const blockCardOpenUntilRef = useRef(0);
@@ -79,10 +80,10 @@ export function TaskCard({ task, dragHandleProps, onTaskClick }: TaskCardProps) 
 
   return (
     <Card 
-      className="p-4 bg-card hover:shadow-md transition-all duration-200 group border cursor-pointer"
+      className="cursor-pointer border bg-card p-3 transition-all duration-200 hover:shadow-md group"
       onClick={handleCardClick}
     >
-      <div className="space-y-3">
+      <div className="space-y-2">
         {/* Header */}
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -97,7 +98,7 @@ export function TaskCard({ task, dragHandleProps, onTaskClick }: TaskCardProps) 
             ) : (
               <div className="w-4 flex-shrink-0" />
             )}
-            <h4 className="font-medium text-sm line-clamp-2 leading-relaxed flex-1">
+            <h4 className="flex-1 line-clamp-2 text-sm font-medium leading-snug">
               {task.title}
             </h4>
           </div>
@@ -183,7 +184,7 @@ export function TaskCard({ task, dragHandleProps, onTaskClick }: TaskCardProps) 
 
         {/* Description */}
         {task.description && (
-          <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+          <p className="line-clamp-1 text-xs leading-relaxed text-muted-foreground">
             {task.description}
           </p>
         )}
@@ -215,6 +216,17 @@ export function TaskCard({ task, dragHandleProps, onTaskClick }: TaskCardProps) 
           </Badge>
         )}
 
+        {propertyBadges.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {propertyBadges.slice(0, 2).map((badge) => (
+              <Badge key={badge.id} variant="outline" className="max-w-full gap-1.5 px-2 py-0.5 text-[11px] font-normal">
+                <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', badge.colorClass)} />
+                <span className="truncate">{badge.label}</span>
+              </Badge>
+            ))}
+          </div>
+        )}
+
         {/* Priority and Due Date */}
         <div className="flex items-center gap-2 flex-wrap">
           <Badge 
@@ -242,7 +254,7 @@ export function TaskCard({ task, dragHandleProps, onTaskClick }: TaskCardProps) 
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between pt-2">
+        <div className="flex items-center justify-between pt-1">
           {/* Assignee */}
           <div className="flex items-center gap-2">
             {assignee && (

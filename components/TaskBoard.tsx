@@ -5,7 +5,7 @@ import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-p
 import { TaskCard } from '@/components/TaskCard';
 import { useTaskContext, type TaskStatus } from '@/components/TaskContext';
 import { Badge } from '@/components/ui/badge';
-import { Plus, X, Layers, Settings2, Info } from 'lucide-react';
+import { Plus, X, Layers, Settings2, Info, Columns3 } from 'lucide-react';
 import {
   Popover,
   PopoverContent,
@@ -29,6 +29,14 @@ import { CreateProjectModal } from '@/components/CreateProjectModal';
 import { EditGeneralBoardModal } from '@/components/EditGeneralBoardModal';
 import { useProcessProperties } from '@/hooks/useProcessProperties';
 import { PropertyBoard } from '@/components/PropertyBoard';
+import { PROPERTY_COLOR_CLASSES, selectedPropertyOptionsForTask } from '@/lib/process-properties';
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 export function TaskBoard() {
   const [isMobileBoard, setIsMobileBoard] = useState(false);
@@ -46,6 +54,7 @@ export function TaskBoard() {
     setFilter,
     currentUser,
     currentTeam,
+    organizationId,
     boardScope,
     boardProject,
     boardColumns,
@@ -70,19 +79,61 @@ export function TaskBoard() {
   const [editGeneralOpen, setEditGeneralOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<TaskStatus | null>(null);
   const [groupBy, setGroupBy] = useState('stage');
+  const [cardPropertyIds, setCardPropertyIds] = useState<string[]>([]);
   const processId = boardScope.type === 'project' ? boardScope.projectId : null;
   const properties = useProcessProperties(processId, currentTeam?.id);
   const groupedProperty = properties.data?.properties.find(p => p.id === groupBy && !p.archived_at);
+  const activeProperties = useMemo(
+    () => properties.data?.properties.filter(property => !property.archived_at) ?? [],
+    [properties.data?.properties],
+  );
+  const cardFieldsKey = organizationId && currentUser?.id && currentTeam?.id && processId
+    ? `axiom:board-card-properties:${organizationId}:${currentUser.id}:${currentTeam.id}:${processId}`
+    : '';
   useEffect(() => { setGroupBy('stage'); }, [processId, currentTeam?.id]);
   useEffect(() => {
     if (properties.data && groupBy !== 'stage' && !groupedProperty) setGroupBy('stage');
   }, [properties.data, groupBy, groupedProperty]);
+  useEffect(() => {
+    if (!cardFieldsKey) { setCardPropertyIds([]); return; }
+    const available = new Set(activeProperties.map(property => property.id));
+    try {
+      const stored = window.localStorage.getItem(cardFieldsKey);
+      if (stored) {
+        const parsed = JSON.parse(stored) as unknown;
+        if (Array.isArray(parsed)) {
+          setCardPropertyIds(parsed.filter((id): id is string => typeof id === 'string' && available.has(id)).slice(0, 2));
+          return;
+        }
+      }
+    } catch {
+      // Fall through to a useful process-local default.
+    }
+    setCardPropertyIds(activeProperties.slice(0, 2).map(property => property.id));
+  }, [cardFieldsKey, activeProperties]);
+  const setCardFieldVisible = (propertyId: string, visible: boolean) => {
+    const next = visible
+      ? [...cardPropertyIds, propertyId].filter((id, index, all) => all.indexOf(id) === index).slice(0, 2)
+      : cardPropertyIds.filter(id => id !== propertyId);
+    setCardPropertyIds(next);
+    if (cardFieldsKey) {
+      try { window.localStorage.setItem(cardFieldsKey, JSON.stringify(next)); } catch { /* preferences are best effort */ }
+    }
+  };
+  const propertyBadgesForTask = useCallback((taskId: string) => {
+    if (!properties.data) return [];
+    return selectedPropertyOptionsForTask(taskId, cardPropertyIds, properties.data).map(({ property, option }) => ({
+      id: property.id,
+      label: `${property.name}: ${option.label}`,
+      colorClass: PROPERTY_COLOR_CLASSES[option.color],
+    }));
+  }, [properties.data, cardPropertyIds]);
   const DESKTOP_SCROLL_THRESHOLD = 4;
 
   const projectsForTeam = useMemo(() => {
     if (!currentTeam) return projects;
     return projects.filter((p) => !p.teamId || p.teamId === currentTeam.id);
-  }, [projects, currentTeam?.id]);
+  }, [projects, currentTeam]);
   const hasProcesses = projectsForTeam.length > 0;
 
   const handleCreateTask = () => {
@@ -296,26 +347,36 @@ export function TaskBoard() {
         </div>
       ) : (
         <>
-          <div className="-mx-1 mb-4 flex gap-2 overflow-x-auto px-1 pb-1 overscroll-x-contain [scrollbar-width:thin]">
-            <Button 
-              variant={!statusFilter ? 'default' : 'outline'}
-              onClick={() => setStatusFilter(null)}
-              size="sm"
-              className="shrink-0"
-            >
-              All
-            </Button>
-            {boardColumns.map((column) => (
-              <Button 
-                key={column.id}
-                variant={statusFilter === column.id ? 'default' : 'outline'}
-                onClick={() => setStatusFilter(column.id)}
-                size="sm"
-                className="shrink-0"
-              >
-                {column.title}
-              </Button>
-            ))}
+          <div className="mb-4 rounded-xl border border-border/60 bg-card/40 p-3 shadow-sm">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Group board by</span>
+                <Select value={groupedProperty ? groupBy : 'stage'} onValueChange={setGroupBy} disabled={!processId || properties.loading || !!properties.error}>
+                  <SelectTrigger aria-label="Group board by" className="h-8 w-48"><SelectValue /></SelectTrigger>
+                  <SelectContent><SelectItem value="stage">Stage</SelectItem>
+                    {activeProperties.map(property => <SelectItem key={property.id} value={property.id}>{property.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                {activeProperties.length > 0 && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs"><Columns3 className="h-3.5 w-3.5" />Card fields</Button></DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-56">
+                      <DropdownMenuLabel>Show up to 2 properties</DropdownMenuLabel>
+                      {activeProperties.map(property => {
+                        const checked = cardPropertyIds.includes(property.id);
+                        return <DropdownMenuCheckboxItem key={property.id} checked={checked} disabled={!checked && cardPropertyIds.length >= 2} onCheckedChange={value => setCardFieldVisible(property.id, value === true)}>{property.name}</DropdownMenuCheckboxItem>;
+                      })}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+                {properties.error && <button type="button" className="text-xs text-destructive underline" onClick={() => void properties.reload()}>Properties unavailable · Retry</button>}
+              </div>
+              <div className="flex min-w-0 items-center gap-2 overflow-x-auto pb-1 lg:pb-0">
+                <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Filter by stage</span>
+                <Button variant={!statusFilter ? 'default' : 'outline'} onClick={() => setStatusFilter(null)} size="sm" className="h-8 shrink-0">All</Button>
+                {boardColumns.map((column) => <Button key={column.id} variant={statusFilter === column.id ? 'default' : 'outline'} onClick={() => setStatusFilter(column.id)} size="sm" className="h-8 shrink-0">{column.title}</Button>)}
+              </div>
+            </div>
           </div>
       
           {filteredTasks.some((task) => !boardColumns.some((column) => column.id === task.status)) && (
@@ -326,18 +387,8 @@ export function TaskBoard() {
               ))}
             </div>
           )}
-          {processId && <div className="mb-3 flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">Group by</span>
-            <Select value={groupedProperty ? groupBy : 'stage'} onValueChange={setGroupBy} disabled={properties.loading || !!properties.error}>
-              <SelectTrigger aria-label="Group board by" className="h-8 w-48"><SelectValue /></SelectTrigger>
-              <SelectContent><SelectItem value="stage">Stage</SelectItem>
-                {properties.data?.properties.filter(p => !p.archived_at).map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            {properties.error && <button type="button" className="text-xs text-destructive underline" onClick={() => void properties.reload()}>Properties unavailable · Retry</button>}
-          </div>}
           {groupedProperty && properties.data ? (
-            <PropertyBoard tasks={filteredTasks} property={groupedProperty} data={properties.data} onOpen={openTaskEditor} />
+            <PropertyBoard tasks={filteredTasks} property={groupedProperty} data={properties.data} onOpen={openTaskEditor} cardPropertyIds={cardPropertyIds} />
           ) : <DragDropContext onDragEnd={onDragEnd}>
             <>
               {/* Board Instructions (Mobile Only) */}
@@ -404,6 +455,7 @@ export function TaskBoard() {
                                       task={task}
                                       dragHandleProps={isMobileBoard ? undefined : provided.dragHandleProps}
                                       onTaskClick={(t) => openTaskEditor(t.id)}
+                                      propertyBadges={propertyBadgesForTask(task.id)}
                                     />
                                   </div>
                                 )}
