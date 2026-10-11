@@ -1,12 +1,12 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import { toast } from 'sonner';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { 
-  Clock, 
   MessageCircle, 
   Paperclip, 
   MoreVertical,
@@ -46,6 +46,8 @@ export function TaskCard({ task, dragHandleProps, onTaskClick, propertyBadges = 
   const { currentTeam, updateTask, deleteTask, canEditTask, canDeleteTask, boardColumns, canCompleteTask, suppressTaskEditorOpenFor } = useTaskContext();
   /** After ⋮ → Change status, the menu close can trigger a ghost click on mobile; prevent opening the modal briefly. */
   const blockCardOpenUntilRef = useRef(0);
+  const movePendingRef = useRef(false);
+  const [movePending, setMovePending] = useState(false);
   
   // Check permissions for this task
   const canEdit = canEditTask(task.createdBy, task.assigneeId);
@@ -72,7 +74,7 @@ export function TaskCard({ task, dragHandleProps, onTaskClick, propertyBadges = 
     }
     // Don't open modal if clicking on dropdown menu or drag handle
     const target = e.target as HTMLElement;
-    if (target.closest('[role="button"]') || target.closest('[data-drag-handle]')) {
+    if (target.closest('button, [role="button"], [role="menuitem"], [data-drag-handle]')) {
       return;
     }
     onTaskClick?.(task);
@@ -80,7 +82,8 @@ export function TaskCard({ task, dragHandleProps, onTaskClick, propertyBadges = 
 
   return (
     <Card 
-      className="cursor-pointer border bg-card p-3 transition-all duration-200 hover:shadow-md group"
+      className="min-w-0 cursor-pointer border bg-card p-3 transition-shadow duration-200 hover:shadow-md group"
+      aria-busy={movePending}
       onClick={handleCardClick}
     >
       <div className="space-y-2">
@@ -91,16 +94,14 @@ export function TaskCard({ task, dragHandleProps, onTaskClick, propertyBadges = 
               <div 
                 {...dragHandleProps}
                 data-drag-handle="true"
-                className="cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                className="cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity flex-shrink-0"
               >
                 <GripVertical className="h-4 w-4 text-muted-foreground" />
               </div>
-            ) : (
-              <div className="w-4 flex-shrink-0" />
-            )}
-            <h4 className="flex-1 line-clamp-2 text-sm font-medium leading-snug">
+            ) : null}
+            <button type="button" onClick={() => onTaskClick?.(task)} className="min-w-0 flex-1 break-words text-left text-sm font-medium leading-snug line-clamp-3 md:line-clamp-2 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" title={task.title}>
               {task.title}
-            </h4>
+            </button>
           </div>
           {(canEdit || canDelete) && (
             <DropdownMenu>
@@ -108,13 +109,16 @@ export function TaskCard({ task, dragHandleProps, onTaskClick, propertyBadges = 
                 <Button 
                   variant="ghost" 
                   size="sm" 
+                  aria-label={`Move or edit ${task.title}`}
+                  disabled={movePending}
                   className={cn(
-                    'h-6 w-6 p-0 transition-opacity',
+                    'h-11 shrink-0 gap-1 px-2 md:h-7 md:w-7 md:p-0 transition-opacity',
                     // Mobile: always visible. Desktop: show on hover.
-                    'opacity-100 md:opacity-0 md:group-hover:opacity-100'
+                    'opacity-100 md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100'
                   )}
                 >
                   <MoreVertical className="h-3 w-3" />
+                  <span className="text-xs md:hidden">{canEdit ? 'Move to' : 'Actions'}</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
@@ -122,7 +126,7 @@ export function TaskCard({ task, dragHandleProps, onTaskClick, propertyBadges = 
                   <>
                     <DropdownMenuLabel className="flex items-center gap-2">
                       <ArrowRightLeft className="h-4 w-4" />
-                      Change status
+                      Move to stage
                     </DropdownMenuLabel>
                     {boardColumns.map((col: ProjectColumnConfig) => {
                       const isCurrent = col.id === task.status;
@@ -131,13 +135,18 @@ export function TaskCard({ task, dragHandleProps, onTaskClick, propertyBadges = 
                       return (
                         <DropdownMenuItem
                           key={col.id}
-                          disabled={isCurrent || blocked}
+                          disabled={isCurrent || blocked || movePending}
+                          className="min-h-[44px] md:min-h-0"
                           onSelect={(e) => {
-                            e.preventDefault();
                             e.stopPropagation();
+                            if (movePendingRef.current) return;
+                            movePendingRef.current = true;
+                            setMovePending(true);
                             suppressTaskEditorOpenFor(1000);
                             blockCardOpenUntilRef.current = Date.now() + 550;
-                            void updateTask(task.id, { status: col.id });
+                            void updateTask(task.id, { status: col.id }).then(ok => {
+                              if (!ok) toast.error('Stage could not be saved. The previous stage was restored.');
+                            }).finally(() => { movePendingRef.current = false; setMovePending(false); });
                           }}
                         >
                           {col.title}
@@ -210,7 +219,7 @@ export function TaskCard({ task, dragHandleProps, onTaskClick, propertyBadges = 
         {task.customerName && (
           <Badge 
             variant="outline" 
-            className="text-xs px-2 py-0.5 bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-900/50 dark:text-purple-200 dark:border-purple-700"
+            className="max-w-full truncate text-xs px-2 py-0.5 bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-900/50 dark:text-purple-200 dark:border-purple-700"
           >
             {task.customerName}
           </Badge>
@@ -254,7 +263,7 @@ export function TaskCard({ task, dragHandleProps, onTaskClick, propertyBadges = 
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between pt-1">
+        {(assignee || task.attachments.length > 0 || task.comments.length > 0) && <div className="flex items-center justify-between pt-1">
           {/* Assignee */}
           <div className="flex items-center gap-2">
             {assignee && (
@@ -287,7 +296,7 @@ export function TaskCard({ task, dragHandleProps, onTaskClick, propertyBadges = 
               </div>
             )}
           </div>
-        </div>
+        </div>}
       </div>
     </Card>
   );

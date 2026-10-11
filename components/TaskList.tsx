@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import {
   ArrowDownAZ,
@@ -45,6 +45,8 @@ import {
   type OperationalTableFilters,
 } from '@/lib/operational-table';
 import { isTerminalBoardColumn } from '@/lib/types';
+import { resolveStageLifecycle } from '@/lib/stage-lifecycle';
+import type { ProjectColumnConfig } from '@/lib/types';
 import { scheduleChipLabel } from '@/lib/schedule-presentation';
 import { cn } from '@/lib/utils';
 
@@ -87,12 +89,39 @@ function InlineSelect({
 }) {
   return (
     <Select value={value} disabled={disabled} onValueChange={onValueChange}>
-      <SelectTrigger aria-label={label} className="h-8 min-w-[128px] border-transparent bg-transparent px-2 text-xs hover:border-border/70 hover:bg-muted/40">
+      <SelectTrigger aria-label={label} className="h-11 min-w-0 md:h-8 md:min-w-[128px] border-transparent bg-transparent px-2 text-xs hover:border-border/70 hover:bg-muted/40 disabled:opacity-100 disabled:text-muted-foreground">
         <SelectValue />
       </SelectTrigger>
       <SelectContent>{children}</SelectContent>
     </Select>
   );
+}
+
+function CompletionControl({ task, columns, disabled, onChange }: {
+  task: Task; columns: ProjectColumnConfig[]; disabled: boolean; onChange: (status: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const lifecycle = resolveStageLifecycle(task.status, columns);
+  const targets = columns.filter(column => isTerminalBoardColumn(column.id, columns) !== lifecycle.isTerminal);
+  const recurring = task.schedule?.scheduleType === 'recurring';
+  const unavailable = disabled || !lifecycle.resolved || !targets.length || recurring;
+  const label = recurring ? `Complete occurrences of ${task.title} in Planner`
+    : !targets.length ? `No ${lifecycle.isTerminal ? 'open' : 'terminal'} stage configured for ${task.title}`
+      : `Mark ${task.title} ${lifecycle.isTerminal ? 'open' : 'complete'}`;
+  return <Popover open={open} onOpenChange={next => setOpen(next && !unavailable && targets.length > 1)}>
+    <label className="flex h-11 w-11 items-center justify-center md:h-8 md:w-6" title={label}>
+      <PopoverTrigger asChild>
+        <Checkbox className="h-6 w-6 md:h-4 md:w-4" checked={lifecycle.isTerminal} disabled={unavailable}
+          aria-label={label} title={label} onCheckedChange={() => {
+            if (targets.length === 1) onChange(targets[0].id); else setOpen(true);
+          }} />
+      </PopoverTrigger>
+    </label>
+    <PopoverContent align="start" className="w-64 p-2">
+      <p className="px-2 py-1 text-xs text-muted-foreground">Choose {lifecycle.isTerminal ? 'an open' : 'a terminal'} stage</p>
+      {targets.map(stage => <button key={stage.id} type="button" className="block min-h-[44px] w-full rounded px-2 text-left text-sm hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring" onClick={() => { onChange(stage.id); setOpen(false); }}>{stage.title}</button>)}
+    </PopoverContent>
+  </Popover>;
 }
 
 function ScheduleCell({ task, disabled }: { task: Task; disabled: boolean }) {
@@ -103,7 +132,8 @@ function ScheduleCell({ task, disabled }: { task: Task; disabled: boolean }) {
         <button
           type="button"
           disabled={disabled}
-          className="inline-flex h-8 max-w-[170px] items-center gap-1.5 rounded-md px-2 text-left text-xs text-muted-foreground hover:bg-muted/50 hover:text-foreground disabled:cursor-default disabled:opacity-70"
+          aria-label={`Schedule for ${task.title}`}
+          className="inline-flex h-11 md:h-8 max-w-full md:max-w-[170px] items-center gap-1.5 rounded-md px-2 text-left text-xs text-muted-foreground hover:bg-muted/50 hover:text-foreground disabled:cursor-default"
         >
           <CalendarDays className="h-3.5 w-3.5 shrink-0" />
           <span className="truncate">{task.schedule ? scheduleChipLabel(task.schedule) : 'Unscheduled'}</span>
@@ -148,6 +178,9 @@ export function TaskList() {
   const [sort, setSort] = useState<OperationalSort>({ field: 'schedule', direction: 'asc' });
   const [visibleColumns, setVisibleColumns] = useState<ColumnId[]>([...NATIVE_COLUMNS]);
   const [pendingFields, setPendingFields] = useState<Set<string>>(() => new Set());
+  const pendingRef = useRef(new Set<string>());
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(() => new Set());
+  const [showFilters, setShowFilters] = useState(false);
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
 
@@ -166,6 +199,7 @@ export function TaskList() {
     setSearchQuery('');
     setFilters(emptyFilters());
     setSort({ field: 'schedule', direction: 'asc' });
+    setExpandedRows(new Set());
   }, [processId, currentTeam?.id]);
 
   useEffect(() => {
@@ -232,12 +266,14 @@ export function TaskList() {
 
   const mutateTaskField = async (task: Task, field: string, changes: Parameters<typeof updateTask>[1]) => {
     const key = `${task.id}:${field}`;
-    if (pendingFields.has(key)) return;
+    if (pendingRef.current.has(key)) return;
+    pendingRef.current.add(key);
     setPendingFields((current) => new Set(current).add(key));
     try {
       const ok = await updateTask(task.id, changes);
       if (!ok) toast.error('Action could not be updated. Your previous value was restored.');
     } finally {
+      pendingRef.current.delete(key);
       setPendingFields((current) => {
         const next = new Set(current);
         next.delete(key);
@@ -246,18 +282,6 @@ export function TaskList() {
     }
   };
   const isPending = (taskId: string, field: string) => pendingFields.has(`${taskId}:${field}`);
-  const toggleTaskComplete = (task: Task) => {
-    if (!canCompleteTask(task.assigneeId)) return;
-    const terminal = isTerminalBoardColumn(task.status, boardColumns);
-    const target = terminal
-      ? boardColumns.find((column) => !isTerminalBoardColumn(column.id, boardColumns))
-      : boardColumns.find((column) => isTerminalBoardColumn(column.id, boardColumns));
-    if (!target) {
-      toast.error(terminal ? 'This process has no open stage.' : 'This process has no terminal stage.');
-      return;
-    }
-    void mutateTaskField(task, 'status', { status: target.id });
-  };
 
   const setPropertyFilter = (propertyId: string, value: string) => {
     setFilters((current) => {
@@ -282,11 +306,11 @@ export function TaskList() {
   };
 
   return (
-    <div className="h-full space-y-5">
+    <div className="h-full min-w-0 max-w-full space-y-3 md:space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Action table</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <h1 className="text-xl md:text-2xl font-bold text-foreground">Action table</h1>
+          <p className="mt-1 hidden md:block text-sm text-muted-foreground">
             {boardProject ? `${boardProject.name} · edit operational metadata inline` : 'General Actions'}
           </p>
         </div>
@@ -310,9 +334,10 @@ export function TaskList() {
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
           <div className="relative min-w-0 flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search actions and property values…" className="h-9 pl-9" />
+            <Input aria-label="Search actions and property values" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search actions and property values…" className="h-11 md:h-9 pl-9" />
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <Button variant="ghost" className="h-11 md:hidden" aria-expanded={showFilters} aria-controls="table-filters" onClick={() => setShowFilters(value => !value)}><Filter className="mr-2 h-4 w-4" />Filters{hasOperationalFilters(filters) ? ' (active)' : ''}</Button>
+          <div id="table-filters" className={cn('flex-wrap items-center gap-2 md:flex max-md:[&_button]:min-h-[44px]', showFilters ? 'flex' : 'hidden')}>
             <span className="inline-flex h-8 items-center gap-1.5 text-xs font-medium text-muted-foreground"><Filter className="h-3.5 w-3.5" />Filters</span>
             <Select value={filters.stage ?? ALL} onValueChange={(value) => setFilters((current) => ({ ...current, stage: value === ALL ? null : value }))}>
               <SelectTrigger aria-label="Filter by stage" className="h-8 w-[150px] text-xs"><SelectValue /></SelectTrigger>
@@ -341,7 +366,7 @@ export function TaskList() {
         </div>
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border/50 pt-3">
           <p className="text-xs text-muted-foreground">{filteredTasks.length} of {scopedTasks.length} Actions</p>
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-2 max-md:[&_button]:min-h-[44px]">
             <Select value={sort.field} onValueChange={setSortField}>
               <SelectTrigger aria-label="Sort table" className="h-8 w-[150px] text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -370,9 +395,9 @@ export function TaskList() {
         {properties.error && <p className="mt-2 text-xs text-destructive">Properties could not be loaded. <button className="underline" onClick={() => void properties.reload()}>Retry</button></p>}
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-border/60 bg-card/30 shadow-sm">
-        <Table className="min-w-[760px]">
-          <TableHeader className="bg-muted/30">
+      <div className="min-w-0 max-w-full overflow-hidden rounded-xl border border-border/60 bg-card/30 shadow-sm">
+        <Table className="block md:table md:min-w-[760px]">
+          <TableHeader className="hidden md:table-header-group bg-muted/30">
             <TableRow className="hover:bg-muted/30">
               <TableHead className="w-10 px-3" />
               <TableHead className="min-w-[240px] px-3">Action</TableHead>
@@ -380,37 +405,43 @@ export function TaskList() {
               <TableHead className="w-10 px-2" />
             </TableRow>
           </TableHeader>
-          <TableBody>
+          <TableBody className="block md:table-row-group">
             {filteredTasks.map((task) => {
               const canEdit = canEditTask(task.createdBy, task.assigneeId);
               const terminal = isTerminalBoardColumn(task.status, boardColumns);
               const taskSelections = selections.get(task.id);
               return (
-                <TableRow key={task.id} className={cn('group', terminal && 'opacity-70')}>
-                  <TableCell className="px-3 py-2">
-                    <Checkbox checked={terminal} disabled={!canCompleteTask(task.assigneeId) || isPending(task.id, 'status')} onCheckedChange={() => toggleTaskComplete(task)} aria-label={`Mark ${task.title} ${terminal ? 'open' : 'complete'}`} />
+                <TableRow key={task.id} className="group relative grid grid-cols-2 gap-x-1 p-2 md:table-row md:p-0">
+                  <TableCell className="absolute left-2 top-2 flex h-11 w-9 items-center justify-center p-0 md:static md:table-cell md:h-auto md:w-auto md:px-3 md:py-2">
+                    <CompletionControl task={task} columns={boardColumns} disabled={!canCompleteTask(task.assigneeId) || isPending(task.id, 'status')} onChange={status => void mutateTaskField(task, 'status', { status })} />
                   </TableCell>
-                  <TableCell className="px-3 py-2">
-                    <button type="button" className={cn('block max-w-[360px] truncate text-left text-sm font-medium hover:text-primary hover:underline', terminal && 'line-through text-muted-foreground')} onClick={() => openTaskEditor(task.id)} title={task.title}>{task.title}</button>
+                  <TableCell className="col-span-2 min-w-0 py-2 pl-10 pr-11 md:px-3">
+                    <button type="button" className={cn('min-h-[28px] w-full break-words text-left text-sm font-medium line-clamp-3 hover:text-primary hover:underline md:line-clamp-none md:max-w-[360px] md:truncate', terminal && 'line-through text-muted-foreground')} onClick={() => openTaskEditor(task.id)} title={task.title}>{task.title}</button>
                   </TableCell>
                   {visibleColumns.map((column) => {
-                    if (column === 'stage') return <TableCell key={column} className="px-2 py-1.5"><InlineSelect label={`Stage for ${task.title}`} value={task.status} disabled={!canEdit || isPending(task.id, 'status')} onValueChange={(status) => void mutateTaskField(task, 'status', { status })}>{!boardColumns.some((stage) => stage.id === task.status) && <SelectItem value={task.status}>Unresolved ({task.status})</SelectItem>}{boardColumns.map((stage) => <SelectItem key={stage.id} value={stage.id} disabled={isTerminalBoardColumn(stage.id, boardColumns) && !canCompleteTask(task.assigneeId)}>{stage.title}</SelectItem>)}</InlineSelect></TableCell>;
-                    if (column === 'priority') return <TableCell key={column} className="px-2 py-1.5"><InlineSelect label={`Priority for ${task.title}`} value={task.priority} disabled={!canEdit || isPending(task.id, 'priority')} onValueChange={(priority) => void mutateTaskField(task, 'priority', { priority: priority as TaskPriority })}>{Object.entries(priorityConfig).map(([value, config]) => <SelectItem key={value} value={value}>{config.label}</SelectItem>)}</InlineSelect></TableCell>;
-                    if (column === 'assignee') return <TableCell key={column} className="px-2 py-1.5"><InlineSelect label={`Assignee for ${task.title}`} value={task.assigneeId ?? UNASSIGNED_FILTER} disabled={!canEdit || isPending(task.id, 'assignee')} onValueChange={(assigneeId) => void mutateTaskField(task, 'assignee', { assigneeId: assigneeId === UNASSIGNED_FILTER ? null : assigneeId })}><SelectItem value={UNASSIGNED_FILTER}>Unassigned</SelectItem>{currentTeam?.members.map((member) => <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>)}</InlineSelect></TableCell>;
-                    if (column === 'schedule') return <TableCell key={column} className="px-2 py-1.5"><ScheduleCell task={task} disabled={!canEdit} /></TableCell>;
-                    if (column === 'client') return <TableCell key={column} className="px-3 py-2 text-xs text-muted-foreground">{task.customerName ?? '—'}</TableCell>;
+                    const cellClass = cn('min-w-0 px-2 py-1 md:table-cell md:py-1.5 before:block before:text-[10px] before:text-muted-foreground before:content-[attr(data-label)] md:before:hidden',
+                      ['stage', 'priority', 'schedule'].includes(column) ? 'block' : 'col-span-2',
+                      !['stage', 'priority', 'schedule'].includes(column) && !expandedRows.has(task.id) ? 'hidden' : 'block');
+                    if (column === 'stage') return <TableCell key={column} data-label={headerLabel(column)} className={cellClass}><InlineSelect label={`Stage for ${task.title}`} value={task.status} disabled={!canEdit || isPending(task.id, 'status')} onValueChange={(status) => void mutateTaskField(task, 'status', { status })}>{!boardColumns.some((stage) => stage.id === task.status) && <SelectItem value={task.status}>Unresolved ({task.status})</SelectItem>}{boardColumns.map((stage) => <SelectItem key={stage.id} value={stage.id} disabled={isTerminalBoardColumn(stage.id, boardColumns) && !canCompleteTask(task.assigneeId)}>{stage.title}</SelectItem>)}</InlineSelect></TableCell>;
+                    if (column === 'priority') return <TableCell key={column} data-label={headerLabel(column)} className={cellClass}><InlineSelect label={`Priority for ${task.title}`} value={task.priority} disabled={!canEdit || isPending(task.id, 'priority')} onValueChange={(priority) => void mutateTaskField(task, 'priority', { priority: priority as TaskPriority })}>{Object.entries(priorityConfig).map(([value, config]) => <SelectItem key={value} value={value}>{config.label}</SelectItem>)}</InlineSelect></TableCell>;
+                    if (column === 'assignee') return <TableCell key={column} data-label={headerLabel(column)} className={cellClass}><InlineSelect label={`Assignee for ${task.title}`} value={task.assigneeId ?? UNASSIGNED_FILTER} disabled={!canEdit || isPending(task.id, 'assignee')} onValueChange={(assigneeId) => void mutateTaskField(task, 'assignee', { assigneeId: assigneeId === UNASSIGNED_FILTER ? null : assigneeId })}><SelectItem value={UNASSIGNED_FILTER}>Unassigned</SelectItem>{currentTeam?.members.map((member) => <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>)}</InlineSelect></TableCell>;
+                    if (column === 'schedule') return <TableCell key={column} data-label={headerLabel(column)} className={cellClass}><ScheduleCell task={task} disabled={!canEdit} /></TableCell>;
+                    if (column === 'client') return <TableCell key={column} data-label={headerLabel(column)} className={cn(cellClass, "text-xs text-muted-foreground break-words")}>{task.customerName ?? '—'}</TableCell>;
                     const property = propertyForColumn(column);
                     if (!property) return null;
                     const selected = taskSelections?.get(property.id) ?? UNASSIGNED_FILTER;
                     const options = properties.data?.options.filter((option) => option.property_id === property.id && (!option.archived_at || option.id === selected)) ?? [];
-                    return <TableCell key={column} className="px-2 py-1.5"><InlineSelect label={`${property.name} for ${task.title}`} value={selected} disabled={!canEdit || properties.isValuePending(task.id, property.id)} onValueChange={(optionId) => { void properties.setValue(task.id, property.id, optionId === UNASSIGNED_FILTER ? null : optionId).catch((error) => toast.error(error instanceof Error ? error.message : 'Property could not be updated')); }}><SelectItem value={UNASSIGNED_FILTER}>Unassigned</SelectItem>{options.map((option) => <SelectItem key={option.id} value={option.id} disabled={!!option.archived_at}><span className="inline-flex items-center gap-2"><span className={`h-2 w-2 rounded-full ${PROPERTY_COLOR_CLASSES[option.color]}`} />{option.label}{option.archived_at ? ' (archived)' : ''}</span></SelectItem>)}</InlineSelect></TableCell>;
+                    return <TableCell key={column} data-label={headerLabel(column)} className={cellClass}><InlineSelect label={`${property.name} for ${task.title}`} value={selected} disabled={!canEdit || properties.isValuePending(task.id, property.id)} onValueChange={(optionId) => { void properties.setValue(task.id, property.id, optionId === UNASSIGNED_FILTER ? null : optionId).catch((error) => toast.error(error instanceof Error ? error.message : 'Property could not be updated')); }}><SelectItem value={UNASSIGNED_FILTER}>Unassigned</SelectItem>{options.map((option) => <SelectItem key={option.id} value={option.id} disabled={!!option.archived_at}><span className="inline-flex items-center gap-2"><span className={`h-2 w-2 rounded-full ${PROPERTY_COLOR_CLASSES[option.color]}`} />{option.label}{option.archived_at ? ' (archived)' : ''}</span></SelectItem>)}</InlineSelect></TableCell>;
                   })}
-                  <TableCell className="px-2 py-1.5">
+                  <TableCell className="absolute right-2 top-2 p-0 md:static md:px-2 md:py-1.5">
                     <DropdownMenu>
-                      <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7 opacity-100 md:opacity-0 md:group-hover:opacity-100" aria-label={`Actions for ${task.title}`}><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                      <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-11 w-11 md:h-8 md:w-8 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100" aria-label={`Actions for ${task.title}`}><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                       <DropdownMenuContent align="end"><DropdownMenuItem onSelect={() => openTaskEditor(task.id)}>Open Action</DropdownMenuItem>{canDeleteTask(task.createdBy) && <DropdownMenuItem className="text-destructive" onSelect={() => void deleteTask(task.id)}>Delete</DropdownMenuItem>}</DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
+                  {visibleColumns.some(column => !['stage', 'priority', 'schedule'].includes(column)) && <TableCell className="self-end p-0 md:hidden">
+                    <button type="button" className="min-h-[44px] w-full rounded px-2 text-left text-xs text-muted-foreground hover:bg-muted" aria-expanded={expandedRows.has(task.id)} aria-label={`More details for ${task.title}`} onClick={() => setExpandedRows(current => { const next = new Set(current); if (next.has(task.id)) next.delete(task.id); else next.add(task.id); return next; })}>{expandedRows.has(task.id) ? 'Less details' : 'More details'}</button>
+                  </TableCell>}
                 </TableRow>
               );
             })}

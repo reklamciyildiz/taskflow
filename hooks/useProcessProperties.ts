@@ -7,6 +7,9 @@ const changedEvent = 'axiom:process-properties-changed';
 // In-flight request coalescing only, not another persisted content store.
 const requests = new Map<string, Promise<ProcessPropertyData>>();
 const writes = new Set<string>();
+const writeEpochs = new Map<string, number>();
+const hasWrites = (key: string) => [...writes].some(write => write.startsWith(`${key}:`));
+const advanceEpoch = (key: string) => writeEpochs.set(key, (writeEpochs.get(key) ?? 0) + 1);
 async function jsonRequest(url: string, init?: RequestInit) {
   const response = await fetch(url, { ...init, cache: 'no-store', headers: { 'Content-Type': 'application/json' } });
   const json = await response.json();
@@ -19,14 +22,17 @@ export function useProcessProperties(projectId: string | null | undefined, teamI
     ? `${organizationId}:${currentUser.id}:${teamId}:${projectId}` : '';
   const url = `/api/projects/${projectId}/properties?teamId=${encodeURIComponent(teamId ?? '')}`;
   const [state, setState] = useState<{ key: string; data?: ProcessPropertyData; error?: string }>({ key: '' });
+  const stateRef = useRef(state);
+  stateRef.current = state;
   const [busy, setBusy] = useState(false);
   const [pendingValues, setPendingValues] = useState<Set<string>>(() => new Set());
   const revision = useRef(0);
   const currentKey = useRef(key);
   currentKey.current = key;
   const reload = useCallback(async () => {
-    if (!key) return;
+    if (!key || hasWrites(key)) return;
     const version = ++revision.current;
+    const epoch = writeEpochs.get(key) ?? 0;
     let request = requests.get(key);
     if (!request) {
       request = jsonRequest(url).then(result => result.data as ProcessPropertyData);
@@ -36,9 +42,9 @@ export function useProcessProperties(projectId: string | null | undefined, teamI
     }
     try {
       const data = await request;
-      if (currentKey.current === key && version === revision.current) setState({ key, data });
+      if (currentKey.current === key && version === revision.current && epoch === (writeEpochs.get(key) ?? 0) && !hasWrites(key)) setState({ key, data });
     } catch (error) {
-      if (currentKey.current === key && version === revision.current) {
+      if (currentKey.current === key && version === revision.current && epoch === (writeEpochs.get(key) ?? 0)) {
         setState(previous => ({ key, data: previous.key === key ? previous.data : undefined,
           error: error instanceof Error ? error.message : 'Properties unavailable' }));
       }
@@ -56,24 +62,29 @@ export function useProcessProperties(projectId: string | null | undefined, teamI
   }, [key, reload]);
   const write = useCallback(async (writeKey: string, endpoint: string, method: string, payload: unknown) => {
     if (!key || writes.has(writeKey)) throw new Error('A property change is already being saved.');
-    writes.add(writeKey); setBusy(true);
+    writes.add(writeKey); advanceEpoch(key); setBusy(true);
     try {
       await jsonRequest(endpoint, { method, body: JSON.stringify(payload) });
-      requests.delete(key);
-      window.dispatchEvent(new CustomEvent(changedEvent, { detail: key }));
-      await reload();
-    } finally { writes.delete(writeKey); if (currentKey.current === key) setBusy(false); }
+    } finally {
+      writes.delete(writeKey); advanceEpoch(key); requests.delete(key);
+      if (currentKey.current === key) setBusy(false);
+      if (!hasWrites(key)) {
+        window.dispatchEvent(new CustomEvent(changedEvent, { detail: key }));
+        await reload();
+      }
+    }
   }, [key, reload]);
   const setValue = useCallback(async (taskId: string, propertyId: string, optionId: string | null) => {
     if (!key) throw new Error('Select a process first.');
     const writeKey = `${key}:${taskId}:${propertyId}`;
     if (writes.has(writeKey)) throw new Error('This property is already being saved.');
     writes.add(writeKey);
+    advanceEpoch(key);
     setPendingValues((current) => new Set(current).add(writeKey));
-    let previousValue: ProcessPropertyData['values'][number] | undefined;
+    const previousValue = stateRef.current.key === key
+      ? stateRef.current.data?.values.find(value => value.task_id === taskId && value.property_id === propertyId) : undefined;
     setState((current) => {
       if (current.key !== key || !current.data) return current;
-      previousValue = current.data.values.find((value) => value.task_id === taskId && value.property_id === propertyId);
       const values = current.data.values.filter((value) => !(value.task_id === taskId && value.property_id === propertyId));
       if (optionId) values.push({ task_id: taskId, project_id: projectId!, property_id: propertyId, option_id: optionId });
       return { key, data: { ...current.data, values } };
@@ -82,8 +93,6 @@ export function useProcessProperties(projectId: string | null | undefined, teamI
       await jsonRequest(`/api/tasks/${taskId}/properties`, {
         method: 'PUT', body: JSON.stringify({ propertyId, optionId }),
       });
-      requests.delete(key);
-      window.dispatchEvent(new CustomEvent(changedEvent, { detail: key }));
     } catch (error) {
       if (currentKey.current === key) {
         setState((current) => {
@@ -96,6 +105,9 @@ export function useProcessProperties(projectId: string | null | undefined, teamI
       throw error;
     } finally {
       writes.delete(writeKey);
+      advanceEpoch(key);
+      requests.delete(key);
+      if (!hasWrites(key)) window.dispatchEvent(new CustomEvent(changedEvent, { detail: key }));
       setPendingValues((current) => {
         const next = new Set(current);
         next.delete(writeKey);

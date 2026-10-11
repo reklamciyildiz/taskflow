@@ -32,6 +32,7 @@ import {
 } from '@/lib/customer-directory-label';
 import { SCHEDULE_CHANGED_EVENT, type ScheduleChangedDetail } from '@/lib/schedule-events';
 import { reminderInstantsFromRules, scheduleToLegacyDueValue } from '@/lib/scheduling-runtime';
+import { OptimisticTaskWrites } from '@/lib/optimistic-task-writes';
 
 export type {
   Task,
@@ -315,6 +316,9 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   const taskQueryParam = searchParams.get('task');
   const checklistQueryParam = searchParams.get('checklist');
   const [tasks, setTasks] = useState<Task[]>([]);
+  const tasksRef = useRef(tasks);
+  tasksRef.current = tasks;
+  const taskWrites = useRef(new OptimisticTaskWrites<Task>());
   const [teams, setTeams] = useState<Team[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -533,6 +537,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   const loadTasksAndProjectsForTeam = useCallback(
     async (teamId: string, orgId: string, isCancelled?: () => boolean) => {
       const aborted = () => isCancelled?.() ?? false;
+      const revisions = taskWrites.current.snapshot();
       try {
         const [tasksRes, projRes] = await Promise.all([
           taskApi.getAll(teamId),
@@ -540,7 +545,12 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
         ]);
         if (aborted()) return;
         if (tasksRes.success && tasksRes.data) {
-          setTasks(tasksRes.data.map(transformTask));
+          const fetched = tasksRes.data.map(transformTask);
+          setTasks(current => fetched.map(task => {
+            const edited = taskWrites.current.isPending(task.id)
+              || taskWrites.current.revision(task.id) !== (revisions.get(task.id) ?? 0);
+            return edited ? current.find(item => item.id === task.id) ?? task : task;
+          }));
         } else if (!hasLoadedWorkspaceRef.current) {
           // Only clear on the very first load. On a transient background failure
           // (e.g. a 500 during tab-refocus refresh) keep the last-good data so the
@@ -985,84 +995,34 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
 
   // Update task via API with optimistic update — returns false if rolled back
   const updateTask = useCallback(async (id: string, updates: TaskUpdateFields): Promise<boolean> => {
-    let rollbackTask: Task | null = null;
-    const optimisticUpdatedAt = new Date();
-    setTasks((prev) => {
-      rollbackTask = prev.find((task) => task.id === id) ?? null;
-      return prev.map((task) => {
-        if (task.id !== id) return task;
-        const { dueDate: duePatch, ...restUpdates } = updates;
-        return {
-          ...task,
-          ...restUpdates,
-          updatedAt: optimisticUpdatedAt,
-          ...(Object.prototype.hasOwnProperty.call(updates, 'dueDate')
-            ? { dueDate: duePatch != null ? duePatch : undefined }
-            : {}),
-        } satisfies Task;
-      });
-    });
-
-    try {
+    const base = tasksRef.current.find(task => task.id === id);
+    if (!base) return false;
+    const { dueDate, ...rest } = updates;
+    const patch: Partial<Task> = {
+      ...rest, updatedAt: new Date(),
+      ...(Object.prototype.hasOwnProperty.call(updates, 'dueDate') ? { dueDate: dueDate ?? undefined } : {}),
+    };
+    return taskWrites.current.enqueue(id, base, patch, changes => {
+      tasksRef.current = tasksRef.current.map(task => task.id === id ? { ...task, ...changes } : task);
+      setTasks(current => current.map(task => task.id === id ? { ...task, ...changes } : task));
+    }, async () => {
       const response = await taskApi.update(id, partialTaskToUpdateRequest(updates));
-
-      if (!response.success) {
-        console.error('Failed to update task:', response.error);
-        if (rollbackTask) {
-          setTasks((current) => current.map((task) =>
-            task.id === id && task.updatedAt === optimisticUpdatedAt ? rollbackTask! : task
-          ));
-        }
-        return false;
+      return response.success;
+    }).then(ok => {
+      // Consumers such as Planner must also revalidate AFTER persistence, not just
+      // on the optimistic edit (their first read can precede the PATCH commit).
+      if (!taskWrites.current.isPending(id)) {
+        setTasks(current => current.map(task => task.id === id
+          ? { ...task, updatedAt: new Date(Math.max(Date.now(), task.updatedAt.getTime() + 1)) } : task));
       }
-      return true;
-    } catch (err) {
-      console.error('Error updating task:', err);
-      if (rollbackTask) {
-        setTasks((current) => current.map((task) =>
-          task.id === id && task.updatedAt === optimisticUpdatedAt ? rollbackTask! : task
-        ));
-      }
-      return false;
-    }
+      return ok;
+    });
   }, []);
 
   const applyTaskUpdates = useCallback(async (items: { id: string; changes: TaskUpdateFields }[]): Promise<boolean> => {
-    if (items.length === 0) return true;
-    let rollbackSnapshot: Task[] | null = null;
-    setTasks((prev) => {
-      rollbackSnapshot = prev;
-      return prev.map((task) => {
-        const item = items.find((i) => i.id === task.id);
-        if (!item) return task;
-        const ch = item.changes;
-        const { dueDate: duePatch, ...restCh } = ch;
-        return {
-          ...task,
-          ...restCh,
-          updatedAt: new Date(),
-          ...(Object.prototype.hasOwnProperty.call(ch, 'dueDate')
-            ? { dueDate: duePatch != null ? duePatch : undefined }
-            : {}),
-        } satisfies Task;
-      });
-    });
-
-    try {
-      const results = await Promise.all(
-        items.map(({ id, changes }) => taskApi.update(id, partialTaskToUpdateRequest(changes)))
-      );
-      if (results.some((r) => !r.success)) {
-        if (rollbackSnapshot) setTasks(rollbackSnapshot);
-        return false;
-      }
-      return true;
-    } catch (err) {
-      console.error('Error applying task updates:', err);
-      if (rollbackSnapshot) setTasks(rollbackSnapshot);
-      return false;
-    }
-  }, []);
+    const results = await Promise.all(items.map(({ id, changes }) => updateTask(id, changes)));
+    return results.every(Boolean);
+  }, [updateTask]);
 
   // Delete task via API
   const deleteTask = useCallback(async (id: string) => {

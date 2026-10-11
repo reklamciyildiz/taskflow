@@ -52,6 +52,24 @@ async function main() {
   await db.query('UPDATE tasks SET status=$1,board_position=7 WHERE id=$2', [closed, task]);
   assert.deepEqual((await db.query('SELECT status,board_position FROM tasks WHERE id=$1', [task])).rows[0], { status: closed, board_position: 7 }); checks++;
   await db.query('UPDATE tasks SET status=$1 WHERE id=$2', [open, task]);
+  // A Done toggle reclassifies lifecycle; it must not touch Action state/history.
+  await db.exec(`
+    ALTER TABLE tasks ADD COLUMN checklist_blocks jsonb DEFAULT '{"type":"doc","content":[]}';
+    ALTER TABLE tasks ADD COLUMN updated_at timestamptz DEFAULT '2026-01-01T00:00:00Z';
+    CREATE TABLE task_update_audit (task_id uuid);
+    CREATE FUNCTION audit_task_update() RETURNS trigger LANGUAGE plpgsql AS $$
+      BEGIN INSERT INTO task_update_audit VALUES (NEW.id); RETURN NEW; END $$;
+    CREATE TRIGGER track_task_updates AFTER UPDATE ON tasks FOR EACH ROW EXECUTE FUNCTION audit_task_update();
+  `);
+  const beforeDoneToggle = (await db.query('SELECT to_jsonb(t) AS row FROM tasks t WHERE id=$1', [task])).rows[0].row;
+  for (const terminal of [true, false]) {
+    const next = config.map(column => column.id === open ? { ...column, isTerminal: terminal } : column);
+    await db.query('UPDATE projects SET column_config=$1 WHERE id=$2', [JSON.stringify(next), project]);
+    const stored = (await db.query('SELECT column_config FROM projects WHERE id=$1', [project])).rows[0].column_config;
+    assert.equal(stored.find(column => column.id === open).isTerminal, terminal); checks++;
+    assert.deepEqual((await db.query('SELECT to_jsonb(t) AS row FROM tasks t WHERE id=$1', [task])).rows[0].row, beforeDoneToggle); checks++;
+  }
+  assert.equal((await db.query('SELECT count(*)::int AS count FROM task_update_audit')).rows[0].count, 0); checks++;
   await db.query('INSERT INTO tasks(id,organization_id,team_id,status) VALUES ($1,$2,$3,$4)', ['40000000-0000-4000-8000-000000000002', org, team, 'review']); checks++;
   await db.query("UPDATE tasks SET title='Still editable' WHERE status='orphan'");
   const preflight = await db.exec(fs.readFileSync('supabase/validation/stage_identity_preflight.sql', 'utf8'));

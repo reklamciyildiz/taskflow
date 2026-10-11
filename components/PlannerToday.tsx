@@ -338,11 +338,11 @@ export function PlannerToday() {
     };
   }, []);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (fresh = false) => {
     if (!currentTeam || !localDay || loading) return;
     const requestId = ++requestRef.current;
     setError(null);
-    const response = await plannerApi.getToday({ date, teamId: currentTeam.id, timeZone });
+    const response = await plannerApi.getToday({ date, teamId: currentTeam.id, timeZone }, fresh);
     if (!mountedRef.current || requestId !== requestRef.current) return;
     if (activeCacheKeyRef.current !== cacheKey) return;
     if (!response.success || !response.data) {
@@ -354,7 +354,7 @@ export function PlannerToday() {
     setProjectionScopeKey(cacheKey);
   }, [cacheKey, currentTeam, date, loading, localDay, timeZone]);
 
-  const loadUpcoming = useCallback(async () => {
+  const loadUpcoming = useCallback(async (fresh = false) => {
     if (!currentTeam || !localDay || loading) return;
     const requestId = ++upcomingRequestRef.current;
     setUpcomingError(null);
@@ -362,7 +362,7 @@ export function PlannerToday() {
       startDate: addCalendarDays(date, 1),
       teamId: currentTeam.id,
       horizonDays: '14',
-    });
+    }, fresh);
     if (
       !mountedRef.current
       || requestId !== upcomingRequestRef.current
@@ -404,6 +404,29 @@ export function PlannerToday() {
       window.removeEventListener(OCCURRENCE_CHANGED_EVENT, refresh);
     };
   }, [load, loadUpcoming, upcomingKey, view]);
+
+  // A Done configuration edit changes lifecycle without changing ANY task row.
+  // Names, colors and column order do not change lifecycle and must not refetch it.
+  const lifecycleRevision = useMemo(() => JSON.stringify(projects
+    .filter(project => !project.teamId || project.teamId === currentTeam?.id)
+    .map(project => [project.id, project.columnConfig
+      .map(column => [column.id, column.isTerminal === true]).sort()]).sort()), [projects, currentTeam?.id]);
+  const observedLifecycle = useRef({ teamId: currentTeam?.id, revision: lifecycleRevision });
+  useEffect(() => {
+    const previous = observedLifecycle.current;
+    if (previous.teamId !== currentTeam?.id || !cacheKey) {
+      observedLifecycle.current = { teamId: currentTeam?.id, revision: lifecycleRevision };
+      return;
+    }
+    if (previous.revision === lifecycleRevision || loading || pendingTaskIds.size > 0) return;
+    observedLifecycle.current = { teamId: currentTeam?.id, revision: lifecycleRevision };
+    const refreshUpcoming = view === 'upcoming' || upcomingCache.has(upcomingKey);
+    for (const key of plannerCache.keys()) if (key.startsWith(`${currentTeam?.id}:`)) plannerCache.delete(key);
+    for (const key of upcomingCache.keys()) if (key.startsWith(`${currentTeam?.id}:`)) upcomingCache.delete(key);
+    // Do not coalesce with a GET that started before the configuration was saved.
+    void load(true);
+    if (refreshUpcoming) void loadUpcoming(true);
+  }, [lifecycleRevision, currentTeam?.id, cacheKey, upcomingKey, loading, pendingTaskIds.size, view, load, loadUpcoming]);
 
   const taskRevision = useMemo(
     () => new Map(tasks

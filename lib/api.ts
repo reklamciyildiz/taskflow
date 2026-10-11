@@ -160,28 +160,30 @@ export const noteApi = {
 
 const plannerRequestInFlight = new Map<string, Promise<ApiResponse<any>>>();
 
-function coalescedPlannerRequest<T>(key: string, request: () => Promise<ApiResponse<T>>): Promise<ApiResponse<T>> {
+function coalescedPlannerRequest<T>(key: string, request: () => Promise<ApiResponse<T>>, fresh = false): Promise<ApiResponse<T>> {
   const existing = plannerRequestInFlight.get(key) as Promise<ApiResponse<T>> | undefined;
-  if (existing) return existing;
-  const pending = request().finally(() => plannerRequestInFlight.delete(key));
+  if (existing && !fresh) return existing;
+  const pending = request().finally(() => {
+    if (plannerRequestInFlight.get(key) === pending) plannerRequestInFlight.delete(key);
+  });
   plannerRequestInFlight.set(key, pending);
   return pending;
 }
 
 export const plannerApi = {
-  getToday: (input: { date: string; teamId: string; timeZone: string }) => {
+  getToday: (input: { date: string; teamId: string; timeZone: string }, fresh = false) => {
     const params = new URLSearchParams(input);
     const endpoint = `/planner/today?${params.toString()}`;
-    return coalescedPlannerRequest(endpoint, () => fetchApi<PlannerTodayProjection>(endpoint));
+    return coalescedPlannerRequest(endpoint, () => fetchApi<PlannerTodayProjection>(endpoint), fresh);
   },
-  getUpcoming: (input: { startDate: string; teamId: string; horizonDays?: string }) => {
+  getUpcoming: (input: { startDate: string; teamId: string; horizonDays?: string }, fresh = false) => {
     const params = new URLSearchParams({
       startDate: input.startDate,
       teamId: input.teamId,
       horizonDays: input.horizonDays ?? '14',
     });
     const endpoint = `/planner/upcoming?${params.toString()}`;
-    return coalescedPlannerRequest(endpoint, () => fetchApi<PlannerUpcomingProjection>(endpoint));
+    return coalescedPlannerRequest(endpoint, () => fetchApi<PlannerUpcomingProjection>(endpoint), fresh);
   },
   setOccurrenceCompleted: (input: {
     scheduleId: string;

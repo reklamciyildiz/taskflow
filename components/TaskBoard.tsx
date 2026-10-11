@@ -5,12 +5,8 @@ import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-p
 import { TaskCard } from '@/components/TaskCard';
 import { useTaskContext, type TaskStatus } from '@/components/TaskContext';
 import { Badge } from '@/components/ui/badge';
-import { Plus, X, Layers, Settings2, Info, Columns3 } from 'lucide-react';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
+import { Plus, X, Layers, Settings2, Columns3 } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { CreateTaskModal } from '@/components/CreateTaskModal';
 import { VoiceToTaskButton } from '@/components/ai/VoiceToTaskButton';
@@ -29,7 +25,7 @@ import { CreateProjectModal } from '@/components/CreateProjectModal';
 import { EditGeneralBoardModal } from '@/components/EditGeneralBoardModal';
 import { useProcessProperties } from '@/hooks/useProcessProperties';
 import { PropertyBoard } from '@/components/PropertyBoard';
-import { PROPERTY_COLOR_CLASSES, selectedPropertyOptionsForTask } from '@/lib/process-properties';
+import { PROPERTY_COLOR_CLASSES, selectedPropertyOptionsForTask, groupActionsByProperty } from '@/lib/process-properties';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -79,6 +75,8 @@ export function TaskBoard() {
   const [editGeneralOpen, setEditGeneralOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<TaskStatus | null>(null);
   const [groupBy, setGroupBy] = useState('stage');
+  const [mobileGroupId, setMobileGroupId] = useState<string | null>(null);
+  const [showControls, setShowControls] = useState(false);
   const [cardPropertyIds, setCardPropertyIds] = useState<string[]>([]);
   const processId = boardScope.type === 'project' ? boardScope.projectId : null;
   const properties = useProcessProperties(processId, currentTeam?.id);
@@ -90,7 +88,8 @@ export function TaskBoard() {
   const cardFieldsKey = organizationId && currentUser?.id && currentTeam?.id && processId
     ? `axiom:board-card-properties:${organizationId}:${currentUser.id}:${currentTeam.id}:${processId}`
     : '';
-  useEffect(() => { setGroupBy('stage'); }, [processId, currentTeam?.id]);
+  useEffect(() => { setGroupBy('stage'); setStatusFilter(null); setMobileGroupId(null); }, [processId, currentTeam?.id]);
+  useEffect(() => { setMobileGroupId(null); }, [groupBy]);
   useEffect(() => {
     if (properties.data && groupBy !== 'stage' && !groupedProperty) setGroupBy('stage');
   }, [properties.data, groupBy, groupedProperty]);
@@ -194,7 +193,7 @@ export function TaskBoard() {
       const patches = computeBoardDropPatches(filteredTasks, boardColumns, result);
       if (!patches?.length) return;
 
-      void applyTaskUpdates(patches);
+      void applyTaskUpdates(patches).then(ok => { if (!ok) toast.error('Some moves could not be saved. Failed changes were restored.'); });
     },
     [filteredTasks, boardColumns, canEditTask, canCompleteTask, applyTaskUpdates]
   );
@@ -206,13 +205,20 @@ export function TaskBoard() {
     return null;
   };
 
+  const mobileGroups = groupedProperty && properties.data
+    ? groupActionsByProperty(filteredTasks, groupedProperty, properties.data.options, properties.data.values)
+    : boardColumns.filter(column => !statusFilter || column.id === statusFilter).map(column => ({
+      id: column.id, label: column.title, tasks: orderedColumnTasks(filteredTasks, column.id, boardColumns),
+    }));
+  const mobileGroup = mobileGroups.find(group => group.id === mobileGroupId) ?? mobileGroups[0];
+
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 max-w-full space-y-3 md:space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap items-center gap-3">
-          <h2 className="text-2xl font-bold">Panel</h2>
+        <div className="flex min-w-0 flex-wrap items-center gap-3">
+          <h2 className="sr-only md:not-sr-only md:text-2xl md:font-bold">Panel</h2>
           {hasProcesses && (
-            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+            <div className="flex min-w-0 items-center gap-2 w-full sm:w-auto">
               <Select
                 value={boardScope.type === 'project' ? boardScope.projectId : ''}
                 onValueChange={(v) => {
@@ -220,7 +226,7 @@ export function TaskBoard() {
                 }}
               >
                 <SelectTrigger
-                  className="h-10 w-full sm:w-auto sm:min-w-[200px]"
+                  className="h-11 min-w-0 flex-1 md:h-10 sm:w-auto sm:min-w-[160px]"
                   aria-label="Active process / project"
                 >
                   <SelectValue placeholder="Choose process" />
@@ -239,18 +245,18 @@ export function TaskBoard() {
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="h-10 gap-2"
+                    className="h-11 w-11 shrink-0 p-0 md:h-10 md:w-auto md:gap-2 md:px-3"
                     onClick={() => setIsCreateProjectOpen(true)}
                     title="Create a new process (project)"
                   >
                     <Layers className="h-4 w-4" />
-                    New process
+                    <span className="sr-only md:not-sr-only">New process</span>
                   </Button>
                   <Button
                     type="button"
                     variant="outline"
                     size="icon"
-                    className="h-10 w-10"
+                    className="h-11 w-11 shrink-0 md:h-10 md:w-10"
                     onClick={() => {
                       setEditingProjectId(boardProject?.id ?? null);
                     }}
@@ -267,7 +273,7 @@ export function TaskBoard() {
           {filter && (
             <Badge variant="secondary" className="flex items-center gap-1 px-3 py-1">
               {getFilterLabel()}
-              <button onClick={() => setFilter(null)} className="ml-1 hover:text-red-500">
+              <button aria-label="Clear quick filter" onClick={() => setFilter(null)} className="ml-1 hover:text-red-500">
                 <X className="h-3 w-3" />
               </button>
             </Badge>
@@ -275,7 +281,7 @@ export function TaskBoard() {
           {customerFilter && (
             <Badge variant="outline" className="flex items-center gap-1 px-3 py-1 bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-700">
               {customers.find(c => c.id === customerFilter)?.name || 'Customer'}
-              <button onClick={() => setCustomerFilter(null)} className="ml-1 hover:text-red-500">
+              <button aria-label="Clear client filter" onClick={() => setCustomerFilter(null)} className="ml-1 hover:text-red-500">
                 <X className="h-3 w-3" />
               </button>
             </Badge>
@@ -290,7 +296,7 @@ export function TaskBoard() {
               }
             >
               <SelectTrigger
-                className="h-10 w-full min-w-[180px] sm:w-auto"
+                className="h-11 min-w-0 flex-1 md:h-10 md:min-w-[180px] sm:w-auto"
                 aria-label={`Filter by ${customerSingularLabel.toLowerCase()}`}
               >
                 <SelectValue placeholder={`All ${customerDirectoryLabel}`} />
@@ -314,7 +320,7 @@ export function TaskBoard() {
                   // You can pass the AI-generated data to the modal if needed
                 }}
               />
-              <Button onClick={handleCreateTask}>
+              <Button className="h-11 md:h-10" onClick={handleCreateTask}>
                 <Plus className="mr-2 h-4 w-4" />
                 Yeni aksiyon
               </Button>
@@ -347,8 +353,9 @@ export function TaskBoard() {
         </div>
       ) : (
         <>
-          <div className="mb-4 rounded-xl border border-border/60 bg-card/40 p-3 shadow-sm">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="rounded-xl border border-border/60 bg-card/40 p-2 md:p-3 shadow-sm">
+            <Button variant="ghost" className="h-11 w-full justify-between md:hidden" aria-expanded={showControls} aria-controls="board-controls" onClick={() => setShowControls(value => !value)}><span>Group by {groupedProperty?.name ?? 'Stage'}{statusFilter ? ' · filtered' : ''}</span><Settings2 className="h-4 w-4" /></Button>
+            <div id="board-controls" className={cn('flex-col gap-3 md:flex lg:flex-row lg:items-center lg:justify-between max-md:[&_button]:min-h-[44px]', showControls ? 'flex' : 'hidden')}>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Group board by</span>
                 <Select value={groupedProperty ? groupBy : 'stage'} onValueChange={setGroupBy} disabled={!processId || properties.loading || !!properties.error}>
@@ -371,11 +378,14 @@ export function TaskBoard() {
                 )}
                 {properties.error && <button type="button" className="text-xs text-destructive underline" onClick={() => void properties.reload()}>Properties unavailable · Retry</button>}
               </div>
-              <div className="flex min-w-0 items-center gap-2 overflow-x-auto pb-1 lg:pb-0">
+              {isMobileBoard ? <Select value={statusFilter ?? '__all__'} onValueChange={value => setStatusFilter(value === '__all__' ? null : value)}>
+                <SelectTrigger aria-label="Filter by stage" className="h-11"><SelectValue /></SelectTrigger>
+                <SelectContent><SelectItem value="__all__">All stages</SelectItem>{boardColumns.map(column => <SelectItem key={column.id} value={column.id}>{column.title}</SelectItem>)}</SelectContent>
+              </Select> : <div className="flex min-w-0 items-center gap-2 overflow-x-auto pb-1 lg:pb-0">
                 <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Filter by stage</span>
                 <Button variant={!statusFilter ? 'default' : 'outline'} onClick={() => setStatusFilter(null)} size="sm" className="h-8 shrink-0">All</Button>
                 {boardColumns.map((column) => <Button key={column.id} variant={statusFilter === column.id ? 'default' : 'outline'} onClick={() => setStatusFilter(column.id)} size="sm" className="h-8 shrink-0">{column.title}</Button>)}
-              </div>
+              </div>}
             </div>
           </div>
       
@@ -387,26 +397,21 @@ export function TaskBoard() {
               ))}
             </div>
           )}
-          {groupedProperty && properties.data ? (
+          {isMobileBoard ? <section className="min-w-0 space-y-3" aria-label="Board actions">
+            {mobileGroup && <>
+              <Select value={mobileGroup.id} onValueChange={setMobileGroupId}>
+                <SelectTrigger aria-label="Active board group" className="h-11 w-full"><SelectValue /></SelectTrigger>
+                <SelectContent>{mobileGroups.map(group => <SelectItem key={group.id} value={group.id}>{group.label} ({group.tasks.length})</SelectItem>)}</SelectContent>
+              </Select>
+              <div className="space-y-2" aria-label={mobileGroup.label}>
+                {mobileGroup.tasks.map(task => <TaskCard key={task.id} task={task} onTaskClick={item => openTaskEditor(item.id)} propertyBadges={propertyBadgesForTask(task.id)} />)}
+                {!mobileGroup.tasks.length && <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">No Actions in this group.</p>}
+              </div>
+            </>}
+          </section> : groupedProperty && properties.data ? (
             <PropertyBoard tasks={filteredTasks} property={groupedProperty} data={properties.data} onOpen={openTaskEditor} cardPropertyIds={cardPropertyIds} />
           ) : <DragDropContext onDragEnd={onDragEnd}>
             <>
-              {/* Board Instructions (Mobile Only) */}
-              <div className="md:hidden mb-3 flex items-center gap-1.5 px-0.5">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <button type="button" className="text-muted-foreground hover:text-foreground">
-                      <Info className="h-4 w-4" />
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent side="right" className="max-w-[280px] p-3 text-xs leading-relaxed z-[100]">
-                    Swipe horizontally between columns. On mobile, move a card between columns from the ⋮ menu using{' '}
-                    <span className="font-medium text-foreground">Change status</span> (drag & drop is disabled to
-                    avoid scroll/drag conflicts).
-                  </PopoverContent>
-                </Popover>
-                <span className="text-xs text-muted-foreground font-medium">How to move cards on mobile</span>
-              </div>
               {/* Responsive Board Container */}
               <div
                 className="flex -mx-1 snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-3 pt-0.5 overscroll-x-contain [scrollbar-width:thin] [-webkit-overflow-scrolling:touch] md:grid md:gap-4 md:snap-none md:overflow-visible md:mx-0 md:px-0 md:pb-0 md:pt-0"
