@@ -242,6 +242,12 @@
   grid-row: 3;
   justify-self: start;
 }
+.checklist-editor .checklist-item-layout .checklist-item-files {
+  grid-column: 2 / -1;
+  grid-row: 4;
+  justify-self: start;
+  white-space: nowrap;
+}
 .checklist-editor .checklist-item-layout .checklist-item-content > [data-node-view-content-react] > ul[data-type="taskList"] {
   grid-column: 1 / -1;
   margin-left: 0.75rem;

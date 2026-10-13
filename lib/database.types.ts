@@ -9,6 +9,16 @@ export type Json =
 export interface Database {
   public: {
     Tables: {
+      attachments: {
+        Row: { id: string; task_id: string | null; organization_id: string; team_id: string; uploaded_by: string; filename: string; mime_type: string; size_bytes: number; stored_bytes: number | null; object_key: string; thumbnail_key: string | null; staging_key: string; status: 'pending' | 'processing' | 'ready' | 'deleting'; width: number | null; height: number | null; checksum: string | null; created_at: string; updated_at: string }
+        Insert: { id?: string; task_id: string; organization_id: string; team_id: string; uploaded_by: string; filename: string; mime_type: string; size_bytes: number; object_key: string; thumbnail_key?: string | null; staging_key: string; status?: 'pending' | 'processing' | 'ready' | 'deleting' }
+        Update: { filename?: string; mime_type?: string; stored_bytes?: number; thumbnail_key?: string | null; status?: 'pending' | 'processing' | 'ready' | 'deleting'; width?: number | null; height?: number | null; checksum?: string; updated_at?: string }
+      }
+      attachment_links: {
+        Row: { id: string; attachment_id: string; task_id: string; note_id: string | null; checklist_item_id: string | null; created_at: string }
+        Insert: { id?: string; attachment_id: string; task_id: string; note_id?: string | null; checklist_item_id?: string | null }
+        Update: { note_id?: string | null; checklist_item_id?: string | null }
+      }
       process_properties: {
         Row: { id: string; project_id: string; name: string; type: 'single_select'; position: number; archived_at: string | null; created_at: string; updated_at: string }
         Insert: { id?: string; project_id: string; name: string; type?: 'single_select'; position?: number; archived_at?: string | null; created_at?: string; updated_at?: string }

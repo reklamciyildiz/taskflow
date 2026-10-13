@@ -24,7 +24,7 @@ const nextConfig = {
   experimental: {
     // Keep these as runtime `require()` from node_modules instead of webpack vendor-chunks.
     // On Windows we have seen MODULE_NOT_FOUND for `./vendor-chunks/<pkg>.js` during dev/build.
-    serverComponentsExternalPackages: ['@supabase/supabase-js', '@supabase/ssr', 'next-auth'],
+    serverComponentsExternalPackages: ['@supabase/supabase-js', '@supabase/ssr', 'next-auth', 'sharp'],
     // Tree-shake icon / UI packages so only imported symbols ship to the client.
     optimizePackageImports: [
       'lucide-react',

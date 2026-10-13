@@ -38,6 +38,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { WorkSchedulePicker } from '@/components/schedule/WorkSchedulePicker';
+import { AttachmentList, useAttachments } from '@/components/attachments/AttachmentProvider';
+import { Paperclip } from 'lucide-react';
 import {
   groupChecklistItem,
   setChecklistItemChecked,
@@ -84,6 +86,9 @@ export const TaskItemNodeView = React.memo(
       (scheduleAttr ?? null) as WorkSchedule | null,
     );
     const [dueOpen, setDueOpen] = useState(false);
+    const attachments = useAttachments();
+    const [filesOpen, setFilesOpen] = useState(false);
+    const attachedCount = attachments?.files.filter(file => file.links.some(link => link.checklist_item_id === id)).length ?? 0;
     const [convertOpen, setConvertOpen] = useState(false);
     const [convertType, setConvertType] = useState<NoteType>('note');
     const [removeAfter, setRemoveAfter] = useState(false);
@@ -381,9 +386,9 @@ export const TaskItemNodeView = React.memo(
                 ? 'cursor-default opacity-50'
                 : 'cursor-grab hover:text-muted-foreground',
             )}
-            data-drag-handle={effectiveChecked ? undefined : ''}
+            data-drag-handle={effectiveChecked || disabled ? undefined : ''}
             onDragStart={(event) => {
-              if (effectiveChecked) event.preventDefault();
+              if (effectiveChecked || !editor.isEditable) event.preventDefault();
             }}
             onTouchStart={(event) => {
               if (!editor?.isEditable || !id || effectiveChecked) return;
@@ -582,6 +587,9 @@ export const TaskItemNodeView = React.memo(
                     <CalendarIcon className="mr-2 h-4 w-4" aria-hidden />
                     Schedule
                   </DropdownMenuItem>
+                  {attachments?.enabled && <DropdownMenuItem onSelect={() => setFilesOpen(true)}>
+                    <Paperclip className="mr-2 h-4 w-4" aria-hidden />Files
+                  </DropdownMenuItem>}
                   {taskItemStorage?.onConvertToNote ? (
                     <DropdownMenuItem
                       disabled={!text}
@@ -596,6 +604,10 @@ export const TaskItemNodeView = React.memo(
             </div>
           </div>
 
+          {attachedCount > 0 && <button type="button" contentEditable={false} onClick={() => setFilesOpen(true)}
+            className="checklist-item-files mt-1 flex min-h-8 items-center gap-1 rounded px-1.5 text-xs text-muted-foreground" aria-label={`${attachedCount} attached files`}>
+            <Paperclip className="h-3 w-3" />{attachedCount} file{attachedCount > 1 ? 's' : ''}
+          </button>}
           {suggestConversion ? (
             <button
               type="button"
@@ -610,6 +622,12 @@ export const TaskItemNodeView = React.memo(
         </div>
 
         </div>
+        <Dialog open={filesOpen} onOpenChange={setFilesOpen}>
+          <DialogContent className="z-[71] w-[calc(100vw-1rem)] max-w-lg max-h-[85dvh] overflow-y-auto" overlayClassName="z-[70]">
+            <DialogHeader><DialogTitle>Checklist files</DialogTitle><DialogDescription className="line-clamp-2">{text || 'Files for this checklist item'}</DialogDescription></DialogHeader>
+            {attachments && <AttachmentList target={{taskId:attachments.taskId,checklistItemId:id}} />}
+          </DialogContent>
+        </Dialog>
         <Dialog open={dueOpen} onOpenChange={setDueOpen}>
           <DialogContent
             hideClose

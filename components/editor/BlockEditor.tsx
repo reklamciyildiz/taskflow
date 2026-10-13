@@ -29,6 +29,12 @@ import {
 import { cn } from '@/lib/utils';
 import { v4 as uuidv4 } from 'uuid';
 import type { NoteType } from '@/lib/types';
+import { AttachmentNode } from './extensions/AttachmentNode';
+import { AttachmentList, useAttachments } from '@/components/attachments/AttachmentProvider';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { ATTACHMENT_ACCEPT, type AttachmentTarget } from '@/lib/attachments';
+import { Paperclip, Image as ImageIcon } from 'lucide-react';
+import { toast } from 'sonner';
 
 export interface ChecklistNoteConversionRequest {
   taskItemId: string;
@@ -53,6 +59,8 @@ export interface BlockEditorRef {
 }
 
 interface BlockEditorProps {
+  editable?: boolean;
+  prepareAttachmentTarget?: () => Promise<AttachmentTarget | null>;
   /** Parent Action identity used by task-item scheduling commands. */
   taskId?: string;
   initialContent?: any;
@@ -84,6 +92,7 @@ type ChecklistSlashCommand =
   | 'text'
   | 'bulletList'
   | 'orderedList'
+  | 'image'
   | 'divider';
 
 interface ChecklistSlashMenuState {
@@ -240,6 +249,7 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
   (
     {
       taskId,
+      editable = true,
       initialContent,
       emptyContent,
       onChange,
@@ -252,10 +262,25 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
       hideDone = false,
       canUseAdvancedReminderPresets = true,
       onConvertTaskItemToNote,
+      prepareAttachmentTarget,
     },
     ref,
   ) => {
   const slashMenuRef = React.useRef<ChecklistSlashMenuState | null>(null);
+  const attachments = useAttachments();
+  const fileInput = React.useRef<HTMLInputElement>(null);
+  const [libraryOpen,setLibraryOpen] = React.useState(false);
+  const uploadAtSelectionRef = React.useRef<(files:File[])=>void>(()=>{});
+  const commandsFor = (query:string, trailing=false) => {
+    const commands = filteredSlashCommands(query,trailing);
+    if (!checklistMode && prepareAttachmentTarget && attachments?.enabled && 'image file attachment'.includes(query.toLowerCase()))
+      commands.unshift({id:'image',label:'Image / file',keywords:'image file attachment',icon:ImageIcon});
+    return commands;
+  };
+  const runSlash = (view:EditorView,menu:ChecklistSlashMenuState,command:ChecklistSlashCommand) => {
+    if(command==='image') {view.dispatch(view.state.tr.delete(menu.from,menu.to));fileInput.current?.click();return;}
+    applyChecklistSlashCommand(view,menu,command);
+  };
   const [slashMenu, setSlashMenu] = React.useState<ChecklistSlashMenuState | null>(null);
   const [linkEditorOpen, setLinkEditorOpen] = React.useState(false);
   const [linkUrl, setLinkUrl] = React.useState('');
@@ -270,6 +295,7 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
   );
 
   const editor = useEditor({
+    editable,
     // This editor only ever mounts client-side after a user interaction (never during SSR/hydration).
     // Without this, @tiptap/react defaults to `false` under Next.js, returns `null` on the first
     // render, and the host panel paints once without the editor and once with it → visible flash.
@@ -290,6 +316,7 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
       }),
       Highlight.configure({ multicolor: true }),
       TaskList,
+      ...(!checklistMode ? [AttachmentNode] : []),
       AdvancedTaskItem.configure({
         nested: true,
       }),
@@ -307,7 +334,7 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
       onChange?.(editor.getJSON());
     },
     onTransaction: ({ editor }) => {
-      if (!checklistMode || !editor.isEditable || !editor.state.selection.empty) {
+      if ((!checklistMode && !prepareAttachmentTarget) || !editor.isEditable || !editor.state.selection.empty) {
         if (slashMenuRef.current) updateSlashMenu(null);
         return;
       }
@@ -328,7 +355,7 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
         return;
       }
 
-      const commands = filteredSlashCommands(
+      const commands = commandsFor(
         match[1],
         $from.parentOffset < $from.parent.content.size,
       );
@@ -352,14 +379,26 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
       });
     },
     editorProps: {
+      handlePaste: (_view,event) => {
+        const files=Array.from(event.clipboardData?.files??[]);
+        if(!prepareAttachmentTarget || !attachments?.canEdit || !files.length)return false;
+        uploadAtSelectionRef.current(files);return true;
+      },
+      handleDrop: (view,event) => {
+        const files=Array.from(event.dataTransfer?.files??[]);
+        if(!prepareAttachmentTarget || !attachments?.canEdit || !files.length)return false;
+        const position=view.posAtCoords({left:event.clientX,top:event.clientY});
+        if(position)view.dispatch(view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(position.pos))));
+        uploadAtSelectionRef.current(files);return true;
+      },
       attributes: {
         // Kill default list indentations and margin via prose-ul:pl-0 prose-li:my-0
         class: 'focus:outline-none min-h-[120px] prose dark:prose-invert max-w-none text-sm prose-ul:pl-0 prose-ul:my-0 prose-li:my-0 prose-li:pl-0 marker:text-transparent',
       },
       handleKeyDown: (view, event) => {
         const currentMenu = slashMenuRef.current;
-        if (checklistMode && currentMenu) {
-          const commands = filteredSlashCommands(
+        if (currentMenu) {
+          const commands = commandsFor(
             currentMenu.query,
             currentMenu.hasTrailingContent,
           );
@@ -379,7 +418,7 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
           if (event.key === 'Enter' && !event.shiftKey) {
             event.preventDefault();
             const command = commands[currentMenu.selectedIndex];
-            if (command) applyChecklistSlashCommand(view, currentMenu, command.id);
+            if (command) runSlash(view, currentMenu, command.id);
             updateSlashMenu(null);
             return true;
           }
@@ -486,9 +525,34 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
     },
   });
 
+  uploadAtSelectionRef.current = async (files:File[]) => {
+    if(!editor || !prepareAttachmentTarget || !attachments?.canEdit)return;
+    // Keep the intended insertion point mapped through edits while the upload runs.
+    let bookmark=editor.state.selection.getBookmark();
+    const map=({transaction}:any)=>{bookmark=bookmark.map(transaction.mapping);};
+    editor.on('transaction',map);
+    let completed=0;
+    try {
+      const target=await prepareAttachmentTarget();
+      if(!target || editor.isDestroyed){editor.off('transaction',map);return;}
+      attachments.upload(files,target,id=>{
+        if(editor.isDestroyed)return;
+        const selection=bookmark.resolve(editor.state.doc);
+        editor.commands.insertContentAt(selection.from,{type:'attachment',attrs:{attachmentId:id}});
+        if(++completed===files.length)editor.off('transaction',map);
+      });
+      // Subscription lives with this editor; remove on destruction as well.
+      editor.once('destroy',()=>editor.off('transaction',map));
+    } catch(error){editor.off('transaction',map);toast.error((error as Error).message);}
+  };
+
   // Sync checklist UI context into editor storage so TaskItemNodeView can read it
   // without subscribing to the global TaskContext (which would re-render
   // every row on any tasks array change, causing visible jitter).
+  React.useEffect(() => {
+    editor?.setEditable(editable, false);
+  }, [editor, editable]);
+
   React.useEffect(() => {
     if (editor) {
       const storage = editor.storage as any;
@@ -712,8 +776,23 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
   };
 
   return (
-    <div className={cn('relative flex flex-col w-full', className)}>
-      {hideToolbar ? null : (
+    <div data-attachment-note={prepareAttachmentTarget ? '' : undefined} className={cn('relative flex flex-col w-full', className)}>
+      {prepareAttachmentTarget && attachments?.enabled && attachments.canEdit && <div className="flex py-1">
+        <input ref={fileInput} type="file" multiple accept={ATTACHMENT_ACCEPT} className="sr-only" aria-label="Insert image or PDF" onChange={e=>{uploadAtSelectionRef.current(Array.from(e.target.files??[]));e.target.value='';}}/>
+        <button type="button" className="flex min-h-9 items-center gap-1 rounded px-2 text-xs text-muted-foreground hover:bg-muted" onMouseDown={e=>e.preventDefault()} onClick={()=>fileInput.current?.click()}><Paperclip className="h-3.5 w-3.5"/>Image / file</button>
+        <button type="button" className="min-h-9 rounded px-2 text-xs text-muted-foreground hover:bg-muted" onMouseDown={e=>e.preventDefault()} onClick={()=>setLibraryOpen(true)}>Existing file</button>
+        <Dialog open={libraryOpen} onOpenChange={setLibraryOpen}>
+          <DialogContent className="z-[71] w-[calc(100vw-1rem)] max-w-lg max-h-[85dvh] overflow-y-auto" overlayClassName="z-[70]">
+            <DialogTitle>Action files</DialogTitle><DialogDescription>Insert an existing file into this note.</DialogDescription>
+            <AttachmentList target={{taskId:attachments.taskId}} onInsert={id=>{
+              void prepareAttachmentTarget().then(target=>{
+                if(target&&!editor.isDestroyed){editor.chain().focus().insertContentAt(editor.state.selection.to,{type:'attachment',attrs:{attachmentId:id}}).run();setLibraryOpen(false);}
+              }).catch(error=>toast.error(error.message));
+            }}/>
+          </DialogContent>
+        </Dialog>
+      </div>}
+      {hideToolbar || !editable ? null : (
       <div className="flex items-center gap-1 px-1 py-1.5 opacity-40 hover:opacity-100 focus-within:opacity-100 transition-opacity">
         <Button
           type="button"
@@ -740,7 +819,7 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
         <BubbleMenu
           editor={editor}
           shouldShow={({ state }) =>
-            !state.selection.empty && state.selection.from !== state.selection.to
+            editor.isEditable && !state.selection.empty && state.selection.from !== state.selection.to
           }
           options={{
             placement: 'top',
@@ -847,7 +926,7 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
               }}
               onMouseDown={(event) => event.preventDefault()}
             >
-              {filteredSlashCommands(
+              {commandsFor(
                 slashMenu.query,
                 slashMenu.hasTrailingContent,
               ).map((command, index) => {
@@ -866,7 +945,7 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
                     )}
                     onMouseDown={(event) => {
                       event.preventDefault();
-                      applyChecklistSlashCommand(editor.view, slashMenu, command.id);
+                      runSlash(editor.view, slashMenu, command.id);
                       updateSlashMenu(null);
                     }}
                   >

@@ -1,0 +1,9 @@
+[
+  {
+    "AllowedOrigins": ["https://REPLACE_WITH_PRODUCTION_HOST"],
+    "AllowedMethods": ["GET", "HEAD", "PUT"],
+    "AllowedHeaders": ["Content-Type", "Content-Length"],
+    "ExposeHeaders": ["ETag", "Content-Length"],
+    "MaxAgeSeconds": 120
+  }
+]

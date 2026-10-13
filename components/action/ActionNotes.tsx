@@ -261,14 +261,14 @@ export function ActionNotes({
   );
 
   const createDraftIfNeeded = useCallback(
-    async (clientId: string) => {
+    async (clientId: string, forAttachment = false) => {
       const current = draftSessionsRef.current.get(clientId);
       if (
         !current ||
         current.creating ||
         current.persistedId ||
         !canEdit ||
-        !hasMeaningfulDraftContent(current)
+        (!forAttachment && !hasMeaningfulDraftContent(current))
       ) {
         return;
       }
@@ -632,12 +632,22 @@ export function ActionNotes({
         <div className="rounded-xl border border-border/60 bg-muted/[0.12] px-3 py-2 md:px-4">
           <BlockEditor
             key={editorKey}
+            taskId={taskId}
+            prepareAttachmentTarget={canEdit && !isDeleting ? async () => {
+              if (persistedId) return { taskId, noteId: persistedId };
+              if (!draft || draft.creating) throw new Error('Please wait for the note to finish saving.');
+              await createDraftIfNeeded(draft.clientId, true);
+              const id = draftSessionsRef.current.get(draft.clientId)?.persistedId;
+              if (!id) throw new Error('Save the note before adding files.');
+              return { taskId, noteId: id };
+            } : undefined}
             initialContent={editorNote.content}
+            editable={canEdit && !isDeleting}
             hideToolbar
             documentPlaceholder
             placeholder="Capture a thought, learning, idea, or decision…"
             members={members}
-            className={!canEdit || isDeleting ? "pointer-events-none opacity-60" : ""}
+            className={!canEdit || isDeleting ? "opacity-60" : ""}
             onChange={(content) => {
               if (draft) {
                 updateDraft({ content }, false);

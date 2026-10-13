@@ -96,6 +96,7 @@ import {
 } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
 import { ActionNotes } from "@/components/action/ActionNotes";
+import { AttachmentProvider, ActionAttachments } from "@/components/attachments/AttachmentProvider";
 import { noteApi } from "@/lib/api";
 import { notifyKnowledgeSourcesChanged } from "@/lib/knowledge-events";
 import type { Note } from "@/lib/types";
@@ -855,7 +856,7 @@ function ActionPanelContent({
       : (customers.find((c) => c.id === customerId)?.name ?? null);
 
   return (
-    <>
+    <AttachmentProvider key={taskId} taskId={taskId} canEdit={canEdit}>
       {/* ── Header: title, save state, window controls, meta strip, (details) ── */}
       <div
         className={cn(
@@ -1309,6 +1310,7 @@ function ActionPanelContent({
       </div>
 
       {/* ── Work area: one document at a time, full remaining height ── */}
+      <ActionAttachments />
       <Tabs
         value={tab}
         onValueChange={switchTab}
@@ -1446,6 +1448,7 @@ function ActionPanelContent({
               ref={checklistEditorRef}
               taskId={task.id}
               initialContent={checklistBlocksRef.current}
+              editable={canEdit}
               emptyContent={emptyChecklistRef.current}
               hideToolbar
               checklistMode
@@ -1460,7 +1463,7 @@ function ActionPanelContent({
                 !hideDone && "checklist-show-completed",
                 checklistCounts.total === 0 &&
                   "pointer-events-none h-0 overflow-hidden opacity-0",
-                !canEdit && "pointer-events-none opacity-60",
+                !canEdit && "opacity-60",
               )}
             />
             {hideDone && allDone ? (
@@ -1486,6 +1489,6 @@ function ActionPanelContent({
           </TabsContent>
         </div>
       </Tabs>
-    </>
+    </AttachmentProvider>
   );
 }
