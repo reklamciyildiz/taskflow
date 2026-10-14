@@ -655,7 +655,11 @@ function AttachmentPreview({
   file: Attachment | null;
   close: () => void;
 }) {
-  const { url, error, retry } = useAttachmentUrl(file?.id);
+  const mayPreview =
+    file?.mime_type !== "application/pdf" || file.preview_allowed !== false;
+  const { url, error, retry } = useAttachmentUrl(
+    mayPreview ? file?.id : undefined,
+  );
   return (
     <Dialog open={!!file} onOpenChange={(open) => !open && close()}>
       <DialogContent
@@ -671,7 +675,13 @@ function AttachmentPreview({
             {error} · Retry
           </button>
         )}
-        {!url && !error && (
+        {!mayPreview && (
+          <p className="rounded border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-muted-foreground">
+            This beta PDF has not been malware-scanned. In-app preview is
+            disabled; only download it if you trust its source.
+          </p>
+        )}
+        {mayPreview && !url && !error && (
           <p className="text-sm text-muted-foreground">Loading preview…</p>
         )}
         {/* eslint-disable-next-line @next/next/no-img-element */}

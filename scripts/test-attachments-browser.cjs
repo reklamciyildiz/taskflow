@@ -78,6 +78,7 @@ async function main() {
         filename: body.filename,
         mime_type: body.mimeType,
         size_bytes: body.size,
+        preview_allowed: body.mimeType !== "application/pdf",
         taskId: body.target.taskId,
         ready: false,
         links: [
@@ -97,7 +98,7 @@ async function main() {
       return;
     }
     if (url.pathname.startsWith("/put/")) {
-      if (slow) await new Promise((r) => setTimeout(r, 800));
+      if (slow) await new Promise((r) => setTimeout(r, 3000));
       if (failPut) {
         failPut = false;
         json(res, {}, 500);
@@ -116,6 +117,8 @@ async function main() {
         return;
       }
       if (req.method === "GET") {
+        if (url.searchParams.get("download") === "1")
+          row.downloadRequests = (row.downloadRequests ?? 0) + 1;
         row.urlRequests = (row.urlRequests ?? 0) + 1;
         json(res, {
           url: `${origin}/${row.filename === "expiry.png" && row.urlRequests === 1 ? "expired" : "image"}`,
@@ -330,19 +333,39 @@ async function main() {
         .urlRequests >= 2,
     );
     checks++;
-    await page
-      .getByLabel("Insert image or PDF")
-      .setInputFiles({
-        name: "document.pdf",
-        mimeType: "application/pdf",
-        buffer: Buffer.from("%PDF-1.7\nfixture"),
-      });
+    await page.getByLabel("Insert image or PDF").setInputFiles({
+      name: "document.pdf",
+      mimeType: "application/pdf",
+      buffer: Buffer.from("%PDF-1.7\nfixture"),
+    });
     await page.waitForFunction(
       () =>
         document.querySelectorAll('[data-test="note"] [data-attachment-id]')
           .length === 5,
     );
     checks++;
+    await page
+      .getByRole("button", { name: "Preview document.pdf", exact: true })
+      .first()
+      .click();
+    await page
+      .getByText("This beta PDF has not been malware-scanned.")
+      .waitFor();
+    assert.equal(await page.getByRole("dialog").locator("iframe").count(), 0);
+    const downloadPagePromise = page.context().waitForEvent("page");
+    await page
+      .getByRole("button", { name: "Download / open externally" })
+      .click();
+    const downloadPage = await downloadPagePromise;
+    await downloadPage.close();
+    await page.waitForTimeout(100);
+    assert.equal(
+      [...rows.values()].find((row) => row.filename === "document.pdf")
+        .downloadRequests,
+      1,
+    );
+    checks += 2;
+    await page.keyboard.press("Escape");
     const beforeReuse = rows.size;
     await page
       .getByRole("button", { name: "Existing file", exact: true })

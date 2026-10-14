@@ -37,6 +37,7 @@ const rows: any = {
 };
 let writes = 0;
 let finalizeBeforeCancel = false;
+let lastAttachmentInsert: any;
 const fakeDb = {
   from: (table: string) => {
     let data = [...(rows[table] ?? [])];
@@ -57,8 +58,9 @@ const fakeDb = {
         single = true;
         return q;
       },
-      insert: () => {
+      insert: (value: any) => {
         writes++;
+        if (table === "attachments") lastAttachmentInsert = value;
         return q;
       },
       update: (value: any) => {
@@ -117,6 +119,8 @@ const {
   attachmentTargetAccess,
   attachmentAccess,
   processAttachmentBytes,
+  validatePdfStructure,
+  beginAttachment,
   finalizeAttachment,
   requireAttachmentOrigin,
 } = require("../lib/attachment-server");
@@ -126,6 +130,15 @@ const {
 } = require("../lib/attachments");
 const { signedObjectUrl } = require("../lib/attachment-storage-server");
 let checks = 0;
+function validPdf() {
+  const header = "%PDF-1.7\n";
+  const object = "1 0 obj\n<< /Type /Catalog >>\nendobj\n";
+  const xrefOffset = Buffer.byteLength(header + object);
+  return Buffer.from(
+    `${header}${object}xref\n0 2\n0000000000 65535 f \n0000000009 00000 n \ntrailer\n<< /Size 2 /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`,
+    "latin1",
+  );
+}
 async function main() {
   const target = { taskId: id(4) };
   for (const [change, status] of [
@@ -257,10 +270,60 @@ async function main() {
     await sharp(fallback.bytes).rotate().raw().toBuffer(),
   );
   checks += 3;
-  const pdf = Buffer.from("%PDF-1.7\nfixture");
+  const pdf = validPdf();
+  validatePdfStructure(pdf);
+  assert.throws(() => validatePdfStructure(Buffer.from("%PDF-1.7\nbroken")));
+  assert.throws(() =>
+    validatePdfStructure(
+      Buffer.from(
+        pdf.toString("latin1").replace("/Root", "/Encrypt 2 0 R /Root"),
+        "latin1",
+      ),
+    ),
+  );
+  checks += 3;
   delete process.env.ATTACHMENT_SCANNER_URL;
+  delete process.env.ATTACHMENT_SCANNER_TOKEN;
+  delete process.env.ATTACHMENT_PDF_SECURITY_MODE;
+  delete process.env.ATTACHMENT_PDF_BETA_USER_IDS;
   await assert.rejects(processAttachmentBytes(pdf, "application/pdf"));
   checks++;
+  process.env.ATTACHMENT_PDF_SECURITY_MODE = "trusted_beta";
+  process.env.ATTACHMENT_PDF_BETA_USER_IDS = id(1);
+  assert.deepEqual(
+    (
+      await processAttachmentBytes(pdf, "application/pdf", {
+        trustedBeta: true,
+      })
+    ).bytes,
+    pdf,
+  );
+  checks++;
+  process.env.R2_ACCOUNT_ID = "fixture";
+  process.env.R2_ACCESS_KEY_ID = "fixture";
+  process.env.R2_SECRET_ACCESS_KEY = "fixture";
+  process.env.R2_BUCKET = "fixture";
+  await beginAttachment(
+    {
+      task: { id: id(4), organization_id: id(2), team_id: id(3) },
+      user: { id: id(1) },
+    },
+    { taskId: id(4) },
+    { filename: "beta.pdf", mimeType: "application/pdf", size: pdf.length },
+  );
+  assert.match(lastAttachmentInsert.object_key, /^files\/unscanned-pdf\//);
+  process.env.ATTACHMENT_PDF_BETA_USER_IDS = id(99);
+  await assert.rejects(
+    beginAttachment(
+      {
+        task: { id: id(4), organization_id: id(2), team_id: id(3) },
+        user: { id: id(1) },
+      },
+      { taskId: id(4) },
+      { filename: "denied.pdf", mimeType: "application/pdf", size: pdf.length },
+    ),
+  );
+  checks += 2;
   process.env.ATTACHMENT_SCANNER_URL = "https://scanner.example.test/scan";
   process.env.ATTACHMENT_SCANNER_TOKEN = "test";
   const originalFetch = global.fetch;
@@ -281,10 +344,6 @@ async function main() {
   );
   checks++;
   global.fetch = originalFetch;
-  process.env.R2_ACCOUNT_ID = "fixture";
-  process.env.R2_ACCESS_KEY_ID = "fixture";
-  process.env.R2_SECRET_ACCESS_KEY = "fixture";
-  process.env.R2_BUCKET = "fixture";
   const url = new URL(
     await signedObjectUrl("pending/opaque", "PUT", "image/png", undefined, 100),
   );
@@ -304,6 +363,30 @@ async function main() {
     401,
   );
   checks++;
+  signedIn = true;
+  Object.assign(file, {
+    status: "ready",
+    filename: "beta.pdf",
+    mime_type: "application/pdf",
+    size_bytes: pdf.length,
+    object_key: `files/unscanned-pdf/${id(2)}/${id(7)}/document`,
+    thumbnail_key: null,
+    width: null,
+    height: null,
+  });
+  const noPreview = await route.GET(
+    new NextRequest(`http://localhost/api/attachments/${file.id}`),
+    { params: { id: file.id } },
+  );
+  assert.equal(noPreview.status, 200);
+  assert.equal((await noPreview.json()).url, null);
+  const safeDownload = await route.GET(
+    new NextRequest(`http://localhost/api/attachments/${file.id}?download=1`),
+    { params: { id: file.id } },
+  );
+  assert.equal(safeDownload.status, 200);
+  assert.match((await safeDownload.json()).url, /response-content-disposition/);
+  checks += 4;
   assert.throws(() =>
     requireAttachmentOrigin(
       new NextRequest("http://localhost/api/attachments", {

@@ -6,6 +6,7 @@ import {
   AttachmentError,
   finalizeAttachment,
   requireAttachmentOrigin,
+  isUnscannedBetaPdf,
 } from "@/lib/attachment-server";
 import { signedObjectUrl } from "@/lib/attachment-storage-server";
 
@@ -29,6 +30,20 @@ export async function GET(
     if (error || !links?.length)
       throw new AttachmentError("File is no longer attached.", 404);
     const download = request.nextUrl.searchParams.get("download") === "1";
+    const publicFile = {
+      id: file.id,
+      filename: file.filename,
+      mime_type: file.mime_type,
+      size_bytes: file.size_bytes,
+      width: file.width,
+      height: file.height,
+      preview_allowed: !isUnscannedBetaPdf(file),
+    };
+    if (isUnscannedBetaPdf(file) && !download)
+      return NextResponse.json(
+        { url: null, expiresIn: 0, file: publicFile },
+        { headers: { "Cache-Control": "private, no-store" } },
+      );
     const key =
       request.nextUrl.searchParams.get("thumbnail") === "1" &&
       file.thumbnail_key
@@ -51,14 +66,7 @@ export async function GET(
           download ? filename : undefined,
         ),
         expiresIn: 120,
-        file: {
-          id: file.id,
-          filename: file.filename,
-          mime_type: file.mime_type,
-          size_bytes: file.size_bytes,
-          width: file.width,
-          height: file.height,
-        },
+        file: publicFile,
       },
       { headers: { "Cache-Control": "private, no-store" } },
     );

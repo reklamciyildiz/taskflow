@@ -23,6 +23,63 @@ export class AttachmentError extends Error {
     super(message);
   }
 }
+const UNSCANNED_PDF_SEGMENT = "/unscanned-pdf/";
+function scannerConfigured() {
+  return Boolean(
+    process.env.ATTACHMENT_SCANNER_URL?.startsWith("https://") &&
+    process.env.ATTACHMENT_SCANNER_TOKEN,
+  );
+}
+function trustedBetaUser(userId: string) {
+  if (process.env.ATTACHMENT_PDF_SECURITY_MODE !== "trusted_beta") return false;
+  return (process.env.ATTACHMENT_PDF_BETA_USER_IDS ?? "")
+    .split(",")
+    .map((id) => id.trim())
+    .filter(Boolean)
+    .includes(userId);
+}
+export function isUnscannedBetaPdf(file: {
+  mime_type: string;
+  object_key: string;
+}) {
+  return (
+    file.mime_type === "application/pdf" &&
+    file.object_key.includes(UNSCANNED_PDF_SEGMENT)
+  );
+}
+export function validatePdfStructure(bytes: Buffer): void {
+  if (!signatureMatches(bytes, "application/pdf"))
+    throw new AttachmentError(
+      "File contents do not match the declared PDF format.",
+    );
+  const text = bytes.toString("latin1");
+  const eof = text.lastIndexOf("%%EOF");
+  if (eof < Math.max(0, text.length - 2048))
+    throw new AttachmentError("The PDF is incomplete or malformed.");
+  if (/\/Encrypt\b/.test(text))
+    throw new AttachmentError(
+      "Encrypted or password-protected PDFs are not supported.",
+    );
+  if (!/\d+\s+\d+\s+obj\b/.test(text) || !/\bendobj\b/.test(text))
+    throw new AttachmentError(
+      "The PDF object structure could not be verified.",
+    );
+  const tail = text.slice(Math.max(0, eof - 256));
+  const start = /startxref\s+(\d+)\s+%%EOF[\s\0]*$/.exec(tail);
+  if (!start)
+    throw new AttachmentError("The PDF cross-reference table is missing.");
+  const offset = Number(start[1]);
+  if (!Number.isSafeInteger(offset) || offset < 0 || offset >= bytes.length)
+    throw new AttachmentError("The PDF cross-reference offset is invalid.");
+  const target = text.slice(offset, Math.min(text.length, offset + 512));
+  if (
+    !/^xref\b/.test(target) &&
+    !/^\d+\s+\d+\s+obj\b[\s\S]*\/Type\s*\/XRef\b/.test(target)
+  )
+    throw new AttachmentError(
+      "The PDF cross-reference structure could not be verified.",
+    );
+}
 export function requireAttachmentOrigin(request: NextRequest) {
   const origin = request.headers.get("origin");
   const expected = new URL(process.env.NEXTAUTH_URL || request.url).origin;
@@ -93,14 +150,14 @@ export async function beginAttachment(
     input.mimeType,
     input.size,
   );
-  if (
+  const betaPdf =
     input.mimeType === "application/pdf" &&
-    (!process.env.ATTACHMENT_SCANNER_URL?.startsWith("https://") ||
-      !process.env.ATTACHMENT_SCANNER_TOKEN)
-  )
+    !scannerConfigured() &&
+    trustedBetaUser(access.user.id);
+  if (input.mimeType === "application/pdf" && !scannerConfigured() && !betaPdf)
     throw new AttachmentError(
-      "PDF uploads are unavailable until document security scanning is configured.",
-      503,
+      "PDF uploads require security scanning or explicit trusted-beta access.",
+      403,
     );
   const id = randomUUID();
   const prefix = `${access.task.organization_id}/${id}`;
@@ -114,7 +171,9 @@ export async function beginAttachment(
     mime_type: input.mimeType,
     size_bytes: input.size,
     staging_key: `pending/${prefix}`,
-    object_key: `files/${prefix}/document`,
+    object_key: betaPdf
+      ? `files/unscanned-pdf/${prefix}/document`
+      : `files/${prefix}/document`,
     thumbnail_key: `files/${prefix}/thumbnail`,
   };
   // Database trigger serializes organization quota reservations, including in-flight uploads.
@@ -169,24 +228,28 @@ async function boundedObject(key: string, expectedSize: number) {
   if (total !== expectedSize) throw new AttachmentError("Incomplete upload.");
   return Buffer.concat(chunks);
 }
-export async function processAttachmentBytes(bytes: Buffer, mime: string) {
+export async function processAttachmentBytes(
+  bytes: Buffer,
+  mime: string,
+  options: { trustedBeta?: boolean } = {},
+) {
   if (!signatureMatches(bytes, mime))
     throw new AttachmentError(
       "File contents do not match the declared format.",
     );
   if (mime === "application/pdf") {
+    validatePdfStructure(bytes);
     const scanner = process.env.ATTACHMENT_SCANNER_URL;
-    if (
-      !scanner ||
-      !scanner.startsWith("https://") ||
-      !process.env.ATTACHMENT_SCANNER_TOKEN
-    )
+    if (!scannerConfigured()) {
+      if (options.trustedBeta)
+        return { bytes, mime, thumbnail: null, width: null, height: null };
       throw new AttachmentError(
         "Document security scanning is unavailable.",
         503,
       );
+    }
     const checksum = createHash("sha256").update(bytes).digest("hex");
-    const result = await fetch(scanner, {
+    const result = await fetch(scanner!, {
       method: "POST",
       redirect: "error",
       headers: {
@@ -262,7 +325,15 @@ export async function finalizeAttachment(file: any) {
       file.staging_key,
       Number(file.size_bytes),
     );
-    const processed = await processAttachmentBytes(bytes, file.mime_type);
+    const betaPdf = isUnscannedBetaPdf(file);
+    if (betaPdf && !scannerConfigured() && !trustedBetaUser(file.uploaded_by))
+      throw new AttachmentError(
+        "Trusted-beta PDF access is no longer enabled.",
+        403,
+      );
+    const processed = await processAttachmentBytes(bytes, file.mime_type, {
+      trustedBeta: betaPdf,
+    });
     // Keys exposed by PUT are never served. Validated content has a separate immutable key.
     await storageRequest(
       file.object_key,

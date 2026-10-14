@@ -5,6 +5,7 @@ import {
   attachmentTargetAccess,
   beginAttachment,
   requireAttachmentOrigin,
+  isUnscannedBetaPdf,
 } from "@/lib/attachment-server";
 import { attachmentStorageConfigured } from "@/lib/attachment-storage-server";
 
@@ -26,7 +27,7 @@ export async function GET(request: NextRequest) {
     const { data, error } = await db
       .from("attachments")
       .select(
-        "id,filename,mime_type,size_bytes,width,height,created_at,links:attachment_links!inner(id,note_id,checklist_item_id)",
+        "id,filename,mime_type,size_bytes,width,height,created_at,object_key,links:attachment_links!inner(id,note_id,checklist_item_id)",
       )
       .eq("task_id", target.taskId)
       .eq("status", "ready")
@@ -35,7 +36,17 @@ export async function GET(request: NextRequest) {
       .range(offset, offset + 49);
     if (error) throw error;
     return NextResponse.json(
-      { files: data, enabled: true, hasMore: data.length === 50 },
+      {
+        files: data.map(({ object_key, ...file }) => ({
+          ...file,
+          preview_allowed: !isUnscannedBetaPdf({
+            mime_type: file.mime_type,
+            object_key,
+          }),
+        })),
+        enabled: true,
+        hasMore: data.length === 50,
+      },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {

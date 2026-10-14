@@ -1,6 +1,6 @@
 [
   {
-    "AllowedOrigins": ["https://REPLACE_WITH_PRODUCTION_HOST"],
+    "AllowedOrigins": ["https://getaxiomm.vercel.app"],
     "AllowedMethods": ["GET", "HEAD", "PUT"],
     "AllowedHeaders": ["Content-Type", "Content-Length"],
     "ExposeHeaders": ["ETag", "Content-Length"],

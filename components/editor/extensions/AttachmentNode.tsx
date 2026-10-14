@@ -18,6 +18,9 @@ function AttachmentView({
   editor,
 }: NodeViewProps) {
   const ctx = useAttachments();
+  const knownFile = ctx?.files.find(
+    (file) => file.id === node.attrs.attachmentId,
+  );
   const root = React.useRef<HTMLElement>(null);
   const [visible, setVisible] = React.useState(false);
   const retried = React.useRef(false);
@@ -36,9 +39,15 @@ function AttachmentView({
     file: remote,
     error,
     retry,
-  } = useAttachmentUrl(visible ? node.attrs.attachmentId : undefined);
-  const file =
-    ctx?.files.find((file) => file.id === node.attrs.attachmentId) ?? remote;
+  } = useAttachmentUrl(
+    visible &&
+      (!knownFile ||
+        knownFile.mime_type.startsWith("image/") ||
+        knownFile.preview_allowed !== false)
+      ? node.attrs.attachmentId
+      : undefined,
+  );
+  const file = knownFile ?? remote;
   const align = ["left", "center", "right"].includes(node.attrs.align)
     ? node.attrs.align
     : "left";

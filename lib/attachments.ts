@@ -14,6 +14,7 @@ export type Attachment = {
   size_bytes: number;
   width: number | null;
   height: number | null;
+  preview_allowed?: boolean;
   created_at: string;
   links: {
     id: string;
@@ -51,6 +52,7 @@ export function validateAttachmentInput(
       .slice(0, 180) || "file"
   );
 }
+
 export function signatureMatches(bytes: Uint8Array, mime: string): boolean {
   const ascii = (start: number, end: number) =>
     String.fromCharCode(...bytes.slice(start, end));
