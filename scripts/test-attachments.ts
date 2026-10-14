@@ -131,6 +131,7 @@ const {
 const {
   signedObjectUrl,
   StorageRequestError,
+  storageRequest,
 } = require("../lib/attachment-storage-server");
 let checks = 0;
 async function captureFinalizeLogs(operation: () => Promise<void>) {
@@ -158,6 +159,40 @@ function validPdf() {
   );
 }
 async function main() {
+  const storageOriginalFetch = global.fetch;
+  const storageBodies = [
+    Buffer.from([1, 2, 3, 4, 5]),
+    new Uint8Array([6, 7, 8]).buffer,
+  ];
+  const storageRequests: Request[] = [];
+  process.env.R2_ACCOUNT_ID = "test-account";
+  process.env.R2_ACCESS_KEY_ID = "test-access-key";
+  process.env.R2_SECRET_ACCESS_KEY = "test-secret-key";
+  process.env.R2_BUCKET = "test-bucket";
+  global.fetch = async (request: RequestInfo | URL, init?: RequestInit) => {
+    const signed =
+      request instanceof Request ? request : new Request(request, init);
+    storageRequests.push(signed);
+    return new Response(null, { status: 200 });
+  };
+  try {
+    await storageRequest("files/document", "PUT", storageBodies[0], "image/webp");
+    await storageRequest(
+      "files/thumbnail",
+      "PUT",
+      storageBodies[1],
+      "image/webp",
+    );
+  } finally {
+    global.fetch = storageOriginalFetch;
+  }
+  assert.equal(storageRequests[0].headers.get("content-length"), "5");
+  assert.equal(storageRequests[1].headers.get("content-length"), "3");
+  assert.equal((await storageRequests[0].arrayBuffer()).byteLength, 5);
+  assert.equal((await storageRequests[1].arrayBuffer()).byteLength, 3);
+  assert.ok(storageRequests.every((request) => request.headers.has("authorization")));
+  checks += 5;
+
   const target = { taskId: id(4) };
   for (const [change, status] of [
     [
@@ -416,6 +451,7 @@ async function main() {
   const valid = await sharp({
     create: { width: 32, height: 32, channels: 3, background: "#445566" },
   })
+    .withMetadata({ orientation: 1 })
     .png()
     .toBuffer();
   Object.assign(file, {
@@ -491,13 +527,15 @@ async function main() {
   });
   assert.equal(file.status, "ready");
   assert.ok(stored.has("files/document"));
+  assert.notEqual(stored.get("files/document").byteLength, valid.byteLength);
+  assert.ok(stored.get("files/thumbnail").byteLength > 0);
   assert.ok(!stored.has("pending/file"));
   assert.equal(successLogs[0].outcome, "success");
   assert.equal(successLogs[0].event, "attachment_finalize");
   assert.ok(successLogs[0].stages.r2_put_document >= 0);
   assert.ok(successLogs[0].stages.r2_put_thumbnail >= 0);
   assert.ok(successLogs[0].stages.mark_ready >= 0);
-  checks += 8;
+  checks += 10;
   const writesBefore = writes;
   await finalizeAttachment({ ...file });
   assert.equal(writes, writesBefore);

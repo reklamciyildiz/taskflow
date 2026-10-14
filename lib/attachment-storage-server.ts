@@ -90,17 +90,27 @@ export async function signedObjectUrl(
 export async function storageRequest(
   key: string,
   method: string,
-  body?: Uint8Array,
+  body?: Uint8Array | ArrayBuffer,
   mime?: string,
 ) {
+  const byteBody =
+    body instanceof ArrayBuffer ? new Uint8Array(body) : body;
+  const headers = new Headers();
+  if (mime) {
+    headers.set("Content-Type", mime);
+    headers.set("Cache-Control", "private, no-store");
+  }
+  // Vercel's server fetch may otherwise send Uint8Array bodies using chunked
+  // transfer encoding. R2's S3 endpoint requires a concrete length for PUT.
+  // Use the final processed body's byte length, never the original upload size.
+  if (method === "PUT" && byteBody)
+    headers.set("Content-Length", String(byteBody.byteLength));
   let response: Response;
   try {
     response = await storage().fetch(objectUrl(key), {
       method,
-      body,
-      headers: mime
-        ? { "Content-Type": mime, "Cache-Control": "private, no-store" }
-        : undefined,
+      body: byteBody,
+      headers,
     });
   } catch (error) {
     throw new StorageRequestError({
