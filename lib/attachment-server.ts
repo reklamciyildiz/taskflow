@@ -11,6 +11,7 @@ import {
 } from "@/lib/attachments";
 import {
   signedObjectUrl,
+  StorageRequestError,
   storageRequest,
 } from "@/lib/attachment-storage-server";
 import { stripImageMetadata } from "@/lib/image-metadata";
@@ -24,6 +25,54 @@ export class AttachmentError extends Error {
   }
 }
 const UNSCANNED_PDF_SEGMENT = "/unscanned-pdf/";
+type FinalizeStage =
+  | "claim"
+  | "r2_head"
+  | "r2_download"
+  | "validate"
+  | "sharp_process"
+  | "r2_put_document"
+  | "r2_put_thumbnail"
+  | "mark_ready"
+  | "rollback";
+
+type StageMeasure = <T>(
+  stage: FinalizeStage,
+  operation: () => PromiseLike<T>,
+) => Promise<T>;
+
+function safeDiagnosticToken(value: unknown, fallback: string) {
+  if (typeof value !== "string") return fallback;
+  const token = value.slice(0, 64);
+  return /^[A-Za-z0-9._:-]+$/.test(token) ? token : fallback;
+}
+
+function diagnosticError(error: unknown) {
+  const storageError = error instanceof StorageRequestError ? error : null;
+  const errorStatus =
+    error &&
+    typeof error === "object" &&
+    "status" in error &&
+    typeof error.status === "number"
+      ? error.status
+      : null;
+  const code =
+    storageError?.upstreamCode ??
+    (error && typeof error === "object" && "code" in error
+      ? safeDiagnosticToken(String(error.code), "unknown")
+      : null);
+  return {
+    httpStatus: storageError?.status ?? errorStatus,
+    errorName: safeDiagnosticToken(
+      error instanceof Error ? error.name : typeof error,
+      "UnknownError",
+    ),
+    errorCode: code,
+    upstreamRequestId: storageError?.upstreamRequestId ?? null,
+    retryCount: storageError?.retryCount ?? null,
+    retryLimit: storageError?.retryLimit ?? null,
+  };
+}
 function scannerConfigured() {
   return Boolean(
     process.env.ATTACHMENT_SCANNER_URL?.startsWith("https://") &&
@@ -205,40 +254,50 @@ export async function beginAttachment(
   };
 }
 
-async function boundedObject(key: string, expectedSize: number) {
-  const head = await storageRequest(key, "HEAD");
+async function boundedObject(
+  key: string,
+  expectedSize: number,
+  measure: StageMeasure,
+) {
+  const head = await measure("r2_head", () => storageRequest(key, "HEAD"));
   if (Number(head.headers.get("content-length")) !== expectedSize)
     throw new AttachmentError("Uploaded file size does not match.");
-  const response = await storageRequest(key, "GET");
-  const reader = response.body!.getReader();
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  try {
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      total += value.length;
-      if (total > expectedSize)
-        throw new AttachmentError("Uploaded file is too large.");
-      chunks.push(value);
+  return measure("r2_download", async () => {
+    const response = await storageRequest(key, "GET");
+    const reader = response.body!.getReader();
+    const chunks: Uint8Array[] = [];
+    let total = 0;
+    try {
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        total += value.length;
+        if (total > expectedSize)
+          throw new AttachmentError("Uploaded file is too large.");
+        chunks.push(value);
+      }
+    } finally {
+      await reader.cancel();
     }
-  } finally {
-    await reader.cancel();
-  }
-  if (total !== expectedSize) throw new AttachmentError("Incomplete upload.");
-  return Buffer.concat(chunks);
+    if (total !== expectedSize) throw new AttachmentError("Incomplete upload.");
+    return Buffer.concat(chunks);
+  });
 }
 export async function processAttachmentBytes(
   bytes: Buffer,
   mime: string,
-  options: { trustedBeta?: boolean } = {},
+  options: { trustedBeta?: boolean; measure?: StageMeasure } = {},
 ) {
-  if (!signatureMatches(bytes, mime))
-    throw new AttachmentError(
-      "File contents do not match the declared format.",
-    );
+  const measure: StageMeasure =
+    options.measure ?? (async (_stage, operation) => operation());
+  await measure("validate", async () => {
+    if (!signatureMatches(bytes, mime))
+      throw new AttachmentError(
+        "File contents do not match the declared format.",
+      );
+    if (mime === "application/pdf") validatePdfStructure(bytes);
+  });
   if (mime === "application/pdf") {
-    validatePdfStructure(bytes);
     const scanner = process.env.ATTACHMENT_SCANNER_URL;
     if (!scannerConfigured()) {
       if (options.trustedBeta)
@@ -249,16 +308,18 @@ export async function processAttachmentBytes(
       );
     }
     const checksum = createHash("sha256").update(bytes).digest("hex");
-    const result = await fetch(scanner!, {
-      method: "POST",
-      redirect: "error",
-      headers: {
-        "Content-Type": mime,
-        Authorization: `Bearer ${process.env.ATTACHMENT_SCANNER_TOKEN}`,
-      },
-      body: bytes,
-      signal: AbortSignal.timeout(25000),
-    });
+    const result = await measure("validate", () =>
+      fetch(scanner!, {
+        method: "POST",
+        redirect: "error",
+        headers: {
+          "Content-Type": mime,
+          Authorization: `Bearer ${process.env.ATTACHMENT_SCANNER_TOKEN}`,
+        },
+        body: bytes,
+        signal: AbortSignal.timeout(25000),
+      }),
+    );
     const scan = result.ok ? await result.json() : null;
     if (scan?.verdict !== "clean" || scan?.sha256 !== checksum)
       throw new AttachmentError(
@@ -266,42 +327,44 @@ export async function processAttachmentBytes(
       );
     return { bytes, mime, thumbnail: null, width: null, height: null };
   }
-  const image = sharp(bytes, {
-    limitInputPixels: 24_000_000,
-    failOn: "error",
-    animated: true,
+  return measure("sharp_process", async () => {
+    const image = sharp(bytes, {
+      limitInputPixels: 24_000_000,
+      failOn: "error",
+      animated: true,
+    });
+    const meta = await image.metadata();
+    if ((meta.pages ?? 1) > 1)
+      throw new AttachmentError("Animated images are not supported.");
+    // Re-encode without EXIF/XMP. No downscaling of the document; lossless WebP
+    // preserves screenshot/diagram text and alpha. Use native sanitized encoding if smaller.
+    const rotated = image.rotate();
+    // Lossless fallback preserves original compressed pixels, dropping EXIF/XMP/IPTC.
+    const native = stripImageMetadata(bytes, mime, meta.orientation);
+    const webp = await rotated
+      .clone()
+      .webp({ lossless: true, effort: 3 })
+      .toBuffer();
+    const useWebp = webp.length < native.length;
+    const thumbnail = await rotated
+      .clone()
+      .resize({
+        width: 384,
+        height: 384,
+        fit: "inside",
+        withoutEnlargement: true,
+      })
+      .webp({ quality: 82 })
+      .toBuffer();
+    const rotatedDimensions = (meta.orientation ?? 1) >= 5;
+    return {
+      bytes: useWebp ? webp : native,
+      mime: useWebp ? "image/webp" : mime,
+      thumbnail,
+      width: rotatedDimensions ? meta.height! : meta.width!,
+      height: rotatedDimensions ? meta.width! : meta.height!,
+    };
   });
-  const meta = await image.metadata();
-  if ((meta.pages ?? 1) > 1)
-    throw new AttachmentError("Animated images are not supported.");
-  // Re-encode without EXIF/XMP. No downscaling of the document; lossless WebP
-  // preserves screenshot/diagram text and alpha. Use native sanitized encoding if smaller.
-  const rotated = image.rotate();
-  // Lossless fallback preserves original compressed pixels, dropping EXIF/XMP/IPTC.
-  const native = stripImageMetadata(bytes, mime, meta.orientation);
-  const webp = await rotated
-    .clone()
-    .webp({ lossless: true, effort: 3 })
-    .toBuffer();
-  const useWebp = webp.length < native.length;
-  const thumbnail = await rotated
-    .clone()
-    .resize({
-      width: 384,
-      height: 384,
-      fit: "inside",
-      withoutEnlargement: true,
-    })
-    .webp({ quality: 82 })
-    .toBuffer();
-  const rotatedDimensions = (meta.orientation ?? 1) >= 5;
-  return {
-    bytes: useWebp ? webp : native,
-    mime: useWebp ? "image/webp" : mime,
-    thumbnail,
-    width: rotatedDimensions ? meta.height! : meta.width!,
-    height: rotatedDimensions ? meta.width! : meta.height!,
-  };
 }
 export async function finalizeAttachment(file: any) {
   if (file.status === "ready") return { id: file.id };
@@ -310,20 +373,41 @@ export async function finalizeAttachment(file: any) {
       "Upload is processing or no longer available.",
       409,
     );
-  const claim = checked(
-    await db
-      .from("attachments")
-      .update({ status: "processing", updated_at: new Date().toISOString() })
-      .eq("id", file.id)
-      .eq("status", "pending")
-      .select("id")
-      .maybeSingle(),
-  ).data;
-  if (!claim) throw new AttachmentError("Upload is already processing.", 409);
+  const operationId = randomUUID();
+  const finalizeStarted = Date.now();
+  const stages: Partial<Record<FinalizeStage, number>> = {};
+  let currentStage: FinalizeStage = "claim";
+  let claimed = false;
+  const measure: StageMeasure = async (stage, operation) => {
+    currentStage = stage;
+    const started = Date.now();
+    try {
+      return await operation();
+    } finally {
+      stages[stage] = (stages[stage] ?? 0) + Date.now() - started;
+    }
+  };
   try {
+    const claim = checked(
+      await measure("claim", () =>
+        db
+          .from("attachments")
+          .update({
+            status: "processing",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", file.id)
+          .eq("status", "pending")
+          .select("id")
+          .maybeSingle(),
+      ),
+    ).data;
+    if (!claim) throw new AttachmentError("Upload is already processing.", 409);
+    claimed = true;
     const bytes = await boundedObject(
       file.staging_key,
       Number(file.size_bytes),
+      measure,
     );
     const betaPdf = isUnscannedBetaPdf(file);
     if (betaPdf && !scannerConfigured() && !trustedBetaUser(file.uploaded_by))
@@ -333,40 +417,44 @@ export async function finalizeAttachment(file: any) {
       );
     const processed = await processAttachmentBytes(bytes, file.mime_type, {
       trustedBeta: betaPdf,
+      measure,
     });
     // Keys exposed by PUT are never served. Validated content has a separate immutable key.
-    await storageRequest(
-      file.object_key,
-      "PUT",
-      processed.bytes,
-      processed.mime,
+    await measure("r2_put_document", () =>
+      storageRequest(file.object_key, "PUT", processed.bytes, processed.mime),
     );
     if (processed.thumbnail)
-      await storageRequest(
-        file.thumbnail_key,
-        "PUT",
-        processed.thumbnail,
-        "image/webp",
+      await measure("r2_put_thumbnail", () =>
+        storageRequest(
+          file.thumbnail_key,
+          "PUT",
+          processed.thumbnail,
+          "image/webp",
+        ),
       );
     const ready = checked(
-      await db
-        .from("attachments")
-        .update({
-          status: "ready",
-          mime_type: processed.mime,
-          stored_bytes:
-            processed.bytes.length + (processed.thumbnail?.length ?? 0),
-          width: processed.width,
-          height: processed.height,
-          thumbnail_key: processed.thumbnail ? file.thumbnail_key : null,
-          checksum: createHash("sha256").update(processed.bytes).digest("hex"),
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", file.id)
-        .eq("status", "processing")
-        .eq("task_id", file.task_id)
-        .select("id")
-        .maybeSingle(),
+      await measure("mark_ready", () =>
+        db
+          .from("attachments")
+          .update({
+            status: "ready",
+            mime_type: processed.mime,
+            stored_bytes:
+              processed.bytes.length + (processed.thumbnail?.length ?? 0),
+            width: processed.width,
+            height: processed.height,
+            thumbnail_key: processed.thumbnail ? file.thumbnail_key : null,
+            checksum: createHash("sha256")
+              .update(processed.bytes)
+              .digest("hex"),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", file.id)
+          .eq("status", "processing")
+          .eq("task_id", file.task_id)
+          .select("id")
+          .maybeSingle(),
+      ),
     ).data;
     if (!ready)
       throw new AttachmentError(
@@ -375,13 +463,62 @@ export async function finalizeAttachment(file: any) {
       );
     // Pending prefix also has a bucket lifecycle rule: a still-live PUT may recreate it.
     await storageRequest(file.staging_key, "DELETE").catch(() => undefined);
+    console.info(
+      JSON.stringify({
+        event: "attachment_finalize",
+        outcome: "success",
+        operationId,
+        mimeType: safeDiagnosticToken(file.mime_type, "unknown"),
+        declaredBytes: Number(file.size_bytes),
+        processedBytes:
+          processed.bytes.length + (processed.thumbnail?.length ?? 0),
+        stages,
+        totalDurationMs: Date.now() - finalizeStarted,
+        region: safeDiagnosticToken(process.env.VERCEL_REGION, "unknown"),
+      }),
+    );
     return { id: file.id };
   } catch (error) {
-    await db
-      .from("attachments")
-      .update({ status: "pending", updated_at: new Date().toISOString() })
-      .eq("id", file.id)
-      .eq("status", "processing");
+    const failedStage = currentStage;
+    let rollback: Record<string, unknown> = {
+      outcome: claimed ? "not_attempted" : "not_required",
+    };
+    if (claimed) {
+      try {
+        const result = await measure("rollback", () =>
+          db
+            .from("attachments")
+            .update({ status: "pending", updated_at: new Date().toISOString() })
+            .eq("id", file.id)
+            .eq("status", "processing"),
+        );
+        rollback = result.error
+          ? {
+              outcome: "failure",
+              errorName: "DatabaseError",
+              errorCode: safeDiagnosticToken(result.error.code, "unknown"),
+            }
+          : { outcome: "success" };
+      } catch (rollbackError) {
+        rollback = { outcome: "failure", ...diagnosticError(rollbackError) };
+      }
+    }
+    console.error(
+      JSON.stringify({
+        event: "attachment_finalize",
+        outcome: "failure",
+        operationId,
+        stage: failedStage,
+        durationMs: stages[failedStage] ?? null,
+        totalDurationMs: Date.now() - finalizeStarted,
+        mimeType: safeDiagnosticToken(file.mime_type, "unknown"),
+        declaredBytes: Number(file.size_bytes),
+        stages,
+        ...diagnosticError(error),
+        rollback,
+        region: safeDiagnosticToken(process.env.VERCEL_REGION, "unknown"),
+      }),
+    );
     throw error;
   }
 }

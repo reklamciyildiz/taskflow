@@ -128,8 +128,26 @@ const {
   validateAttachmentInput,
   signatureMatches,
 } = require("../lib/attachments");
-const { signedObjectUrl } = require("../lib/attachment-storage-server");
+const {
+  signedObjectUrl,
+  StorageRequestError,
+} = require("../lib/attachment-storage-server");
 let checks = 0;
+async function captureFinalizeLogs(operation: () => Promise<void>) {
+  const messages: any[] = [];
+  const originalInfo = console.info;
+  const originalError = console.error;
+  console.info = console.error = (message: string) => {
+    messages.push(JSON.parse(message));
+  };
+  try {
+    await operation();
+  } finally {
+    console.info = originalInfo;
+    console.error = originalError;
+  }
+  return messages;
+}
 function validPdf() {
   const header = "%PDF-1.7\n";
   const object = "1 0 obj\n<< /Type /Catalog >>\nendobj\n";
@@ -409,7 +427,8 @@ async function main() {
     thumbnail_key: "files/thumbnail",
   });
   let wrongSize = true,
-    cancelDuringPut = false;
+    cancelDuringPut = false,
+    failDocumentPut = false;
   const stored = new Map();
   storageOverride = async (key: string, method: string, body: any) => {
     if (method === "HEAD")
@@ -420,27 +439,65 @@ async function main() {
       });
     if (method === "GET") return new Response(valid);
     if (method === "PUT") {
+      if (failDocumentPut && key === "files/document")
+        throw new StorageRequestError({
+          status: 503,
+          upstreamRequestId: "safe-ray-id",
+          upstreamCode: "InternalError",
+          retryCount: 10,
+        });
       stored.set(key, body);
       if (cancelDuringPut) file.status = "deleting";
     }
     return new Response(null);
   };
-  await assert.rejects(finalizeAttachment({ ...file }));
+  const sizeLogs = await captureFinalizeLogs(async () => {
+    await assert.rejects(finalizeAttachment({ ...file }));
+  });
   assert.equal(file.status, "pending");
   assert.equal(stored.size, 0);
-  checks += 3;
+  assert.equal(sizeLogs[0].stage, "r2_head");
+  assert.equal(sizeLogs[0].rollback.outcome, "success");
+  checks += 5;
   wrongSize = false;
+  failDocumentPut = true;
+  const storageLogs = await captureFinalizeLogs(async () => {
+    await assert.rejects(finalizeAttachment({ ...file }));
+  });
+  const storageFailure = storageLogs[0];
+  assert.equal(storageFailure.stage, "r2_put_document");
+  assert.equal(storageFailure.httpStatus, 503);
+  assert.equal(storageFailure.errorName, "StorageRequestError");
+  assert.equal(storageFailure.errorCode, "InternalError");
+  assert.equal(storageFailure.upstreamRequestId, "safe-ray-id");
+  assert.equal(storageFailure.retryCount, 10);
+  assert.equal(storageFailure.retryLimit, 10);
+  assert.ok(storageFailure.totalDurationMs >= storageFailure.durationMs);
+  assert.equal(storageFailure.rollback.outcome, "success");
+  assert.ok(!JSON.stringify(storageFailure).includes("pending/file"));
+  assert.ok(!JSON.stringify(storageFailure).includes("beta.pdf"));
+  checks += 11;
+  failDocumentPut = false;
   cancelDuringPut = true;
-  await assert.rejects(finalizeAttachment({ ...file }));
+  await captureFinalizeLogs(async () => {
+    await assert.rejects(finalizeAttachment({ ...file }));
+  });
   assert.equal(file.status, "deleting");
   checks += 2;
   file.status = "pending";
   cancelDuringPut = false;
-  await finalizeAttachment({ ...file });
+  const successLogs = await captureFinalizeLogs(async () => {
+    await finalizeAttachment({ ...file });
+  });
   assert.equal(file.status, "ready");
   assert.ok(stored.has("files/document"));
   assert.ok(!stored.has("pending/file"));
-  checks += 3;
+  assert.equal(successLogs[0].outcome, "success");
+  assert.equal(successLogs[0].event, "attachment_finalize");
+  assert.ok(successLogs[0].stages.r2_put_document >= 0);
+  assert.ok(successLogs[0].stages.r2_put_thumbnail >= 0);
+  assert.ok(successLogs[0].stages.mark_ready >= 0);
+  checks += 8;
   const writesBefore = writes;
   await finalizeAttachment({ ...file });
   assert.equal(writes, writesBefore);

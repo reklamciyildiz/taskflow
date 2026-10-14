@@ -1,6 +1,43 @@
 import "server-only";
 import { AwsClient } from "aws4fetch";
 
+const AWS4FETCH_RETRY_LIMIT = 10;
+
+function safeToken(value: string | null | undefined, max = 128) {
+  if (!value) return null;
+  const token = value.trim().slice(0, max);
+  return /^[A-Za-z0-9._:/-]+$/.test(token) ? token : null;
+}
+
+export class StorageRequestError extends Error {
+  readonly status: number | null;
+  readonly upstreamRequestId: string | null;
+  readonly upstreamCode: string | null;
+  readonly retryCount: number | null;
+  readonly retryLimit = AWS4FETCH_RETRY_LIMIT;
+
+  constructor({
+    status = null,
+    upstreamRequestId = null,
+    upstreamCode = null,
+    retryCount = null,
+    cause,
+  }: {
+    status?: number | null;
+    upstreamRequestId?: string | null;
+    upstreamCode?: string | null;
+    retryCount?: number | null;
+    cause?: unknown;
+  }) {
+    super("Private object storage request failed.", { cause });
+    this.name = "StorageRequestError";
+    this.status = status;
+    this.upstreamRequestId = safeToken(upstreamRequestId);
+    this.upstreamCode = safeToken(upstreamCode, 64);
+    this.retryCount = retryCount;
+  }
+}
+
 export function attachmentStorageConfigured() {
   return [
     "R2_ACCOUNT_ID",
@@ -56,14 +93,49 @@ export async function storageRequest(
   body?: Uint8Array,
   mime?: string,
 ) {
-  const response = await storage().fetch(objectUrl(key), {
-    method,
-    body,
-    headers: mime
-      ? { "Content-Type": mime, "Cache-Control": "private, no-store" }
-      : undefined,
-  });
-  if (!response.ok && !(method === "DELETE" && response.status === 404))
-    throw new Error(`Storage operation failed (${response.status}).`);
+  let response: Response;
+  try {
+    response = await storage().fetch(objectUrl(key), {
+      method,
+      body,
+      headers: mime
+        ? { "Content-Type": mime, "Cache-Control": "private, no-store" }
+        : undefined,
+    });
+  } catch (error) {
+    throw new StorageRequestError({
+      upstreamCode:
+        error && typeof error === "object" && "code" in error
+          ? String(error.code)
+          : null,
+      cause: error,
+    });
+  }
+  if (!response.ok && !(method === "DELETE" && response.status === 404)) {
+    let upstreamCode = response.headers.get("x-amz-error-code");
+    if (!upstreamCode) {
+      const errorDocument = await response
+        .clone()
+        .text()
+        .catch(() => "");
+      upstreamCode =
+        /<Code>([A-Za-z0-9._:-]{1,64})<\/Code>/.exec(
+          errorDocument.slice(0, 4096),
+        )?.[1] ?? null;
+    }
+    throw new StorageRequestError({
+      status: response.status,
+      upstreamRequestId:
+        response.headers.get("cf-ray") ??
+        response.headers.get("x-amz-request-id"),
+      upstreamCode,
+      // aws4fetch does not expose attempts. A final retryable response means
+      // its configured/default retry budget was exhausted; otherwise unknown.
+      retryCount:
+        response.status === 429 || response.status >= 500
+          ? AWS4FETCH_RETRY_LIMIT
+          : null,
+    });
+  }
   return response;
 }
