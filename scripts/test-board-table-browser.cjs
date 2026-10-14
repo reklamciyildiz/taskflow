@@ -38,6 +38,7 @@ async function main() {
       let failNext = false;
       let failProperty = false;
       let readDelay = 0;
+      let taskWriteDelay = 120;
       let values = [];
       const property = { id: 'region', project_id: 'p1', name: 'Region', type: 'single_select', position: 0, archived_at: null };
       const option = { id: 'eu', project_id: 'p1', property_id: 'region', label: 'Europe', color: 'blue', position: 0, archived_at: null };
@@ -57,7 +58,7 @@ async function main() {
       });
       await page.route('**/fixture/tasks/*', async route => {
         const fail = failNext; failNext = false;
-        await new Promise(resolve => setTimeout(resolve, 120));
+        await new Promise(resolve => setTimeout(resolve, taskWriteDelay));
         await route.fulfill({ status: fail ? 500 : 200, json: { success: !fail } });
       });
       const noOverflow = async label => {
@@ -173,10 +174,10 @@ async function main() {
       await page.screenshot({ path: path.join(output, `table-${width}.png`), fullPage: true });
       if (width === 1440) {
         // Real Planner component: Process Done changes, while every task stays unchanged.
+        await page.evaluate(() => window.qa.setViewer(false));
         let done = false;
         let holdNextToday = false;
         let releaseOld;
-        const snapshot = await page.evaluate(() => JSON.stringify(window.qa.tasks));
         const makeItem = date => ({
           id: `s:${date}`, source: { sourceType: 'action', taskId: 'dense0' }, scheduleId: 's',
           scheduleDate: date, occurrenceDate: date, effectiveDate: date, state: done ? 'completed' : 'pending',
@@ -201,6 +202,37 @@ async function main() {
         });
         await page.evaluate(() => window.qa.setSurface('planner'));
         await page.getByRole('checkbox', { name: 'Complete Dense Action 0', exact: true }).waitFor();
+        const checklistItem = (itemDate, checklistItemId, text) => ({
+          ...makeItem(itemDate), id: `s:${itemDate}:${checklistItemId}`,
+          source: { sourceType: 'checklist_item', taskId: 'dense0', checklistItemId },
+          checklistItemId, checklistItemText: text,
+        });
+        taskWriteDelay = 900;
+        const checklistTodayRoute = route => {
+          const currentDate = new URL(route.request().url()).searchParams.get('date');
+          return route.fulfill({ json: { success: true, data: {
+            date: currentDate, overdue: [], completedToday: [], today: [
+              checklistItem(currentDate, 'check-a', 'Checklist A'), checklistItem(currentDate, 'check-b', 'Checklist B'),
+            ],
+          } } });
+        };
+        await page.route('**/api/planner/today?*', checklistTodayRoute);
+        await page.evaluate(() => window.dispatchEvent(new Event('axiom:schedule-changed')));
+        const firstChecklist = page.getByRole('checkbox', { name: 'Complete Checklist A', exact: true });
+        const secondChecklist = page.getByRole('checkbox', { name: 'Complete Checklist B', exact: true });
+        await firstChecklist.waitFor();
+        await firstChecklist.click();
+        assert.equal(await secondChecklist.isDisabled(), false);
+        await secondChecklist.click();
+        assert.equal(await page.getByRole('checkbox', { name: 'Mark Checklist A incomplete', exact: true }).isChecked(), true);
+        assert.equal(await page.getByRole('checkbox', { name: 'Mark Checklist B incomplete', exact: true }).isChecked(), true);
+        checks += 3;
+        await page.waitForTimeout(1900);
+        await page.unroute('**/api/planner/today?*', checklistTodayRoute);
+        taskWriteDelay = 120;
+        await page.evaluate(() => window.dispatchEvent(new Event('axiom:schedule-changed')));
+        await page.getByRole('checkbox', { name: 'Complete Dense Action 0', exact: true }).waitFor();
+        const snapshot = await page.evaluate(() => JSON.stringify(window.qa.tasks));
         done = true; await page.evaluate(() => window.qa.setDone(true));
         await page.getByRole('checkbox', { name: 'Mark Dense Action 0 incomplete', exact: true }).waitFor(); checks++;
         await page.getByRole('tab', { name: 'upcoming', exact: true }).click();

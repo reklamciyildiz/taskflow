@@ -348,13 +348,12 @@ async function main() {
       .getByRole("button", { name: "Preview document.pdf", exact: true })
       .first()
       .click();
-    await page
-      .getByText("This beta PDF has not been malware-scanned.")
-      .waitFor();
+    await page.getByText("Ready to download").waitFor();
+    await page.getByText("Not malware-scanned").waitFor();
     assert.equal(await page.getByRole("dialog").locator("iframe").count(), 0);
     const downloadPagePromise = page.context().waitForEvent("page");
     await page
-      .getByRole("button", { name: "Download / open externally" })
+      .getByRole("button", { name: "Download PDF" })
       .click();
     const downloadPage = await downloadPagePromise;
     await downloadPage.close();

@@ -318,8 +318,16 @@ export function PlannerToday() {
   const [upcomingError, setUpcomingError] = useState<string | null>(null);
   const visibleUpcoming = upcomingScopeKey === upcomingKey ? upcoming : null;
   const [completedOpen, setCompletedOpen] = useState(true);
-  const [pendingTaskIds, setPendingTaskIds] = useState<Set<string>>(() => new Set());
-  const pendingTaskIdsRef = useRef<Set<string>>(new Set());
+  const [pendingItemIds, setPendingItemIds] = useState<Set<string>>(() => new Set());
+  const pendingItemIdsRef = useRef<Set<string>>(new Set());
+  const checklistDocumentsRef = useRef<Map<string, unknown>>(new Map());
+  const checklistMutationTailsRef = useRef<Map<string, Promise<boolean>>>(new Map());
+  const tasksRef = useRef(tasks);
+  tasksRef.current = tasks;
+  for (const task of tasks) {
+    if (!checklistMutationTailsRef.current.has(task.id))
+      checklistDocumentsRef.current.set(task.id, task.checklistBlocks);
+  }
   const requestRef = useRef(0);
   const upcomingRequestRef = useRef(0);
   const mountedRef = useRef(true);
@@ -420,7 +428,7 @@ export function PlannerToday() {
       lifecycleReady.current = !loading;
       return;
     }
-    if (previous.revision === lifecycleRevision || loading || pendingTaskIds.size > 0) return;
+    if (previous.revision === lifecycleRevision || loading || pendingItemIds.size > 0) return;
     observedLifecycle.current = { teamId: currentTeam?.id, revision: lifecycleRevision };
     const refreshUpcoming = view === 'upcoming' || upcomingCache.has(upcomingKey);
     for (const key of plannerCache.keys()) if (key.startsWith(`${currentTeam?.id}:`)) plannerCache.delete(key);
@@ -428,7 +436,7 @@ export function PlannerToday() {
     // Do not coalesce with a GET that started before the configuration was saved.
     void load(true);
     if (refreshUpcoming) void loadUpcoming(true);
-  }, [lifecycleRevision, currentTeam?.id, cacheKey, upcomingKey, loading, pendingTaskIds.size, view, load, loadUpcoming]);
+  }, [lifecycleRevision, currentTeam?.id, cacheKey, upcomingKey, loading, pendingItemIds.size, view, load, loadUpcoming]);
 
   const taskRevision = useMemo(
     () => new Map(tasks
@@ -500,8 +508,8 @@ export function PlannerToday() {
   }, [replaceVisibleItem]);
 
   const toggle = useCallback(async (item: PlannerProjectionItem, completed: boolean) => {
-    if (pendingTaskIdsRef.current.has(item.taskId)) return;
-    const task = tasks.find((candidate) => candidate.id === item.taskId);
+    if (pendingItemIdsRef.current.has(item.id)) return;
+    const task = tasksRef.current.find((candidate) => candidate.id === item.taskId);
     if (!task) {
       toast.error('The source Action is no longer available.');
       void load();
@@ -516,9 +524,9 @@ export function PlannerToday() {
       return;
     }
 
-    pendingTaskIdsRef.current.add(item.taskId);
+    pendingItemIdsRef.current.add(item.id);
     mutationCountRef.current += 1;
-    setPendingTaskIds((current) => new Set(current).add(item.taskId));
+    setPendingItemIds((current) => new Set(current).add(item.id));
     setOptimisticState(item, completed);
     let ok = false;
     try {
@@ -537,23 +545,37 @@ export function PlannerToday() {
         if (!terminal || !open) throw new Error('This process needs active and completed columns');
         ok = await updateTask(task.id, { status: completed ? terminal.id : open.id });
       } else {
-        const checklistBlocks = setChecklistItemCheckedInDocument(
-          task.checklistBlocks,
-          item.source.checklistItemId,
-          completed,
-        );
-        if (!checklistBlocks) throw new Error('Checklist item not found');
-        ok = await updateTask(task.id, { checklistBlocks });
+        const checklistItemId = item.source.checklistItemId;
+        const previous = checklistMutationTailsRef.current.get(task.id)
+          ?? Promise.resolve(true);
+        let queued!: Promise<boolean>;
+        queued = previous.catch(() => false).then(async () => {
+          const currentDocument = checklistDocumentsRef.current.get(task.id);
+          const checklistBlocks = setChecklistItemCheckedInDocument(
+            currentDocument,
+            checklistItemId,
+            completed,
+          );
+          if (!checklistBlocks) throw new Error('Checklist item not found');
+          const saved = await updateTask(task.id, { checklistBlocks });
+          if (saved) checklistDocumentsRef.current.set(task.id, checklistBlocks);
+          return saved;
+        }).finally(() => {
+          if (checklistMutationTailsRef.current.get(task.id) === queued)
+            checklistMutationTailsRef.current.delete(task.id);
+        });
+        checklistMutationTailsRef.current.set(task.id, queued);
+        ok = await queued;
       }
     } catch (cause) {
       console.error('Planner completion failed:', cause);
       ok = false;
     } finally {
       mutationCountRef.current -= 1;
-      pendingTaskIdsRef.current.delete(item.taskId);
-      setPendingTaskIds((current) => {
+      pendingItemIdsRef.current.delete(item.id);
+      setPendingItemIds((current) => {
         const next = new Set(current);
-        next.delete(item.taskId);
+        next.delete(item.id);
         return next;
       });
     }
@@ -571,7 +593,6 @@ export function PlannerToday() {
     projects,
     replaceVisibleItem,
     setOptimisticState,
-    tasks,
     updateTask,
   ]);
 
@@ -666,7 +687,7 @@ export function PlannerToday() {
           key={item.id}
           item={item}
           completed={completed || item.state === 'completed'}
-          pending={loading || pendingTaskIds.has(item.taskId)}
+          pending={loading || pendingItemIds.has(item.id)}
           assigneeName={item.assigneeId ? members.get(item.assigneeId) ?? 'Assigned' : null}
           showDate={showDate}
           onToggle={(checked) => void toggle(item, checked)}

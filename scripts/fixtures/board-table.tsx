@@ -34,7 +34,12 @@ const seed = [
   { id: 'other', title: 'Other Process Action', status: 'other', projectId: 'p2' },
 ].map((task, i) => ({ description: '', priority: 'low', projectId: 'p1', teamId: 'team', createdBy: 'user',
   attachments: [], comments: [], createdAt: new Date('2026-10-01'), updatedAt: new Date('2026-10-01'),
-  boardPosition: i, ...task })) as Task[];
+  boardPosition: i,
+  checklistBlocks: task.id === 'dense0' ? { type: 'doc', content: [{ type: 'taskList', content: [
+    { type: 'taskItem', attrs: { id: 'check-a', checked: false }, content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Checklist A' }] }] },
+    { type: 'taskItem', attrs: { id: 'check-b', checked: false }, content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Checklist B' }] }] },
+  ] }] } : undefined,
+  ...task })) as Task[];
 
 function Fixture() {
   const [processes, setProcesses] = useState(projects);
