@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { CreateTaskModal } from '@/components/CreateTaskModal';
 import { VoiceToTaskButton } from '@/components/ai/VoiceToTaskButton';
+import type { VoiceActionDraft } from '@/components/ai/VoiceToTaskButton';
 import { cn } from '@/lib/utils';
 import {
   Select,
@@ -75,6 +76,7 @@ export function TaskBoard() {
     loading,
   } = useTaskContext();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [voiceDraft, setVoiceDraft] = useState<VoiceActionDraft | null>(null);
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const [editGeneralOpen, setEditGeneralOpen] = useState(false);
@@ -159,6 +161,7 @@ export function TaskBoard() {
   const hasProcesses = projectsForTeam.length > 0;
 
   const handleCreateTask = () => {
+    setVoiceDraft(null);
     setIsCreateModalOpen(true);
   };
 
@@ -324,11 +327,10 @@ export function TaskBoard() {
           )}
           {hasProcesses && permissions.canCreateTask && (
             <>
-              <VoiceToTaskButton 
-                onTaskCreated={(task) => {
-                  // Open create modal with pre-filled data from AI
+              <VoiceToTaskButton
+                onDraftReady={(task) => {
+                  setVoiceDraft(task);
                   setIsCreateModalOpen(true);
-                  // You can pass the AI-generated data to the modal if needed
                 }}
               />
               <Button className="h-11 md:h-10" onClick={handleCreateTask}>
@@ -492,7 +494,11 @@ export function TaskBoard() {
 
       <CreateTaskModal 
         open={isCreateModalOpen} 
-        onClose={() => setIsCreateModalOpen(false)} 
+        onClose={() => {
+          setIsCreateModalOpen(false);
+          setVoiceDraft(null);
+        }}
+        initialDraft={voiceDraft}
       />
       <CreateProjectModal open={isCreateProjectOpen} onClose={() => setIsCreateProjectOpen(false)} />
       <EditGeneralBoardModal open={editGeneralOpen} onClose={() => setEditGeneralOpen(false)} />

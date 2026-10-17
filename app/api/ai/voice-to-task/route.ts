@@ -4,8 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { requireAuthedUser } from '@/lib/server-authz';
 import { processVoiceToTask, validateAudioFile } from '@/lib/ai/services/voice-to-task';
 import { getAIConfig } from '@/lib/ai/config';
 import type { VoiceToTaskRequest } from '@/lib/ai/types';
@@ -16,11 +15,12 @@ export const maxDuration = 60; // 60 seconds max
 export async function POST(request: NextRequest) {
   try {
     // Check authentication
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
+    const authed = await requireAuthedUser();
+    if (authed instanceof NextResponse) return authed;
+    if (!authed.user.organization_id) {
       return NextResponse.json(
-        { success: false, error: { code: 'UNAUTHORIZED', message: 'Not authenticated' } },
-        { status: 401 }
+        { success: false, error: { code: 'FORBIDDEN', message: 'Organization required' } },
+        { status: 403 },
       );
     }
 
@@ -75,8 +75,8 @@ export async function POST(request: NextRequest) {
     // Prepare request
     const voiceToTaskRequest: VoiceToTaskRequest = {
       audioFile,
-      organizationId: (session.user as any).organizationId,
-      userId: (session.user as any).id,
+      organizationId: authed.user.organization_id,
+      userId: authed.user.id,
       language,
     };
 

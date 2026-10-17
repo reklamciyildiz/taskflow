@@ -99,6 +99,13 @@ export function KnowledgeHubView() {
     persistPins(pinnedIds.includes(id) ? pinnedIds.filter((x) => x !== id) : [id, ...pinnedIds]);
   };
 
+  const openAxiomAI = () => {
+    const params = new URLSearchParams({ origin: 'knowledge_hub' });
+    if (currentTeam?.id) params.set('teamId', currentTeam.id);
+    if (projectFilter !== 'all' && projectFilter !== '__none__') params.set('processId', projectFilter);
+    router.push(`/ai?${params.toString()}`);
+  };
+
   return (
     <div className="mx-auto max-w-6xl space-y-8">
       <div
@@ -128,6 +135,12 @@ export function KnowledgeHubView() {
                 <span className="font-medium text-foreground">notes</span>. Results stay grouped by action so you can return to the full context.
               </PopoverContent>
             </Popover>
+          </div>
+          <div className="mt-2">
+            <Button type="button" className="gap-2" onClick={openAxiomAI}>
+              <Sparkles className="h-4 w-4" />
+              Ask Axiom AI
+            </Button>
           </div>
         </div>
       </div>

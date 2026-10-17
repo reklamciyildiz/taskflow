@@ -6,6 +6,20 @@
 import crypto from 'crypto';
 import { db } from '@/lib/supabase-admin';
 
+export type AICacheScope = {
+  organizationId: string;
+  userId: string;
+};
+
+function scopedCacheInput(scope: AICacheScope, input: string | object) {
+  return {
+    version: 2,
+    organizationId: scope.organizationId,
+    userId: scope.userId,
+    input,
+  };
+}
+
 /**
  * Generate cache key from input
  */
@@ -31,10 +45,11 @@ export const generateInputHash = (input: string | object): string => {
  */
 export const getCachedResponse = async <T = unknown>(
   feature: string,
-  input: string | object
+  input: string | object,
+  scope: AICacheScope,
 ): Promise<T | null> => {
   try {
-    const cacheKey = generateCacheKey(feature, input);
+    const cacheKey = generateCacheKey(feature, scopedCacheInput(scope, input));
 
     const { data, error } = await db
       .from('ai_cache')
@@ -69,12 +84,14 @@ export const getCachedResponse = async <T = unknown>(
 export const setCachedResponse = async (
   feature: string,
   input: string | object,
+  scope: AICacheScope,
   response: unknown,
   ttlSeconds: number = 3600 // 1 hour default
 ): Promise<void> => {
   try {
-    const cacheKey = generateCacheKey(feature, input);
-    const inputHash = generateInputHash(input);
+    const scopedInput = scopedCacheInput(scope, input);
+    const cacheKey = generateCacheKey(feature, scopedInput);
+    const inputHash = generateInputHash(scopedInput);
     const expiresAt = new Date(Date.now() + ttlSeconds * 1000);
 
     await db.from('ai_cache').upsert(
@@ -113,12 +130,14 @@ const incrementCacheHit = async (cacheKey: string): Promise<void> => {
  */
 export const invalidateCache = async (
   feature: string,
-  input?: string | object
+  input?: string | object,
+  scope?: AICacheScope,
 ): Promise<void> => {
   try {
     if (input) {
+      if (!scope) throw new Error('Scoped AI cache invalidation requires an owner scope');
       // Invalidate specific cache entry
-      const cacheKey = generateCacheKey(feature, input);
+      const cacheKey = generateCacheKey(feature, scopedCacheInput(scope, input));
       await db.from('ai_cache').delete().eq('cache_key', cacheKey);
     } else {
       // Invalidate all cache entries for feature

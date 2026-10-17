@@ -3,8 +3,8 @@ import {
   DESCRIPTION_GENERATOR_SYSTEM_PROMPT,
   createDescriptionPrompt,
 } from '../prompts/description-generator';
-import { getCachedResponse, setCachedResponse, CACHE_TTL, generateInputHash } from '../utils/cache';
-import { checkRateLimit, recordAIRequest } from '../utils/rate-limiter';
+import { getCachedResponse, setCachedResponse, CACHE_TTL } from '../utils/cache';
+import { reserveAIQuota, recordAIRequest } from '../utils/rate-limiter';
 import { calculateDescriptionGeneratorCost } from '../utils/cost-calculator';
 import { estimateTokens } from '../utils/token-counter';
 import { getAIConfig, AI_ERROR_MESSAGES } from '../config';
@@ -31,30 +31,17 @@ export const generateTaskDescription = async (
       };
     }
 
-    const rateLimitCheck = await checkRateLimit(
-      request.userId,
-      request.organizationId,
-      'description-generator'
-    );
-
-    if (!rateLimitCheck.allowed) {
-      return {
-        success: false,
-        error: {
-          code: 'RATE_LIMIT_EXCEEDED',
-          message: rateLimitCheck.reason || AI_ERROR_MESSAGES.RATE_LIMIT,
-        },
-      };
-    }
-
-    const cacheKey = generateInputHash({
+    const cacheInput = {
       taskTitle: request.taskTitle,
       context: request.context,
-    });
+      model: config.models.text,
+    };
+    const cacheScope = { userId: request.userId, organizationId: request.organizationId };
 
     const cachedResponse = await getCachedResponse<DescriptionGeneratorResponse['data']>(
       'description-generator',
-      cacheKey
+      cacheInput,
+      cacheScope,
     );
 
     if (cachedResponse) {
@@ -66,6 +53,22 @@ export const generateTaskDescription = async (
             ...cachedResponse.metadata,
             cached: true,
           },
+        },
+      };
+    }
+
+    const rateLimitCheck = await reserveAIQuota(
+      request.userId,
+      request.organizationId,
+      'description-generator'
+    );
+
+    if (!rateLimitCheck.allowed) {
+      return {
+        success: false,
+        error: {
+          code: 'RATE_LIMIT_EXCEEDED',
+          message: rateLimitCheck.reason || AI_ERROR_MESSAGES.RATE_LIMIT,
         },
       };
     }
@@ -123,7 +126,8 @@ export const generateTaskDescription = async (
 
     await setCachedResponse(
       'description-generator',
-      cacheKey,
+      cacheInput,
+      cacheScope,
       responseData,
       CACHE_TTL.DESCRIPTION_GENERATOR
     );

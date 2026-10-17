@@ -12,6 +12,7 @@ import {
 import { Sparkles, Loader2, Copy, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { parseSafeDescription } from '@/lib/ai/utils/safe-description';
 
 interface DescriptionGeneratorButtonProps {
   taskTitle: string;
@@ -150,19 +151,16 @@ export function DescriptionGeneratorButton({
 
             {generatedDescription && (
               <div className="space-y-4">
-                <div className="p-4 bg-muted rounded-lg max-h-[400px] overflow-y-auto">
-                  <div
-                    className="prose prose-sm dark:prose-invert max-w-none"
-                    dangerouslySetInnerHTML={{
-                      __html: generatedDescription
-                        .replace(/## /g, '<h3 class="font-semibold mt-4 mb-2">')
-                        .replace(/\n/g, '<br/>')
-                        .replace(/<h3/g, '</p><h3')
-                        .replace(/<br\/><br\/>/g, '</p><p class="mb-2">')
-                        .replace(/^/, '<p class="mb-2">')
-                        .replace(/$/, '</p>'),
-                    }}
-                  />
+                <div className="max-h-[400px] space-y-2 overflow-y-auto rounded-lg bg-muted p-4">
+                  {parseSafeDescription(generatedDescription).map((block, index) => {
+                    if (block.type === 'heading') {
+                      return <h3 key={index} className="pt-2 font-semibold first:pt-0">{block.text}</h3>;
+                    }
+                    if (block.type === 'list-item') {
+                      return <div key={index} className="flex gap-2 text-sm"><span aria-hidden>•</span><span>{block.text}</span></div>;
+                    }
+                    return <p key={index} className="text-sm leading-relaxed">{block.text}</p>;
+                  })}
                 </div>
 
                 <div className="flex gap-2">

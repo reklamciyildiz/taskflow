@@ -24,6 +24,7 @@ import {
   Building2,
   Webhook,
   Brain,
+  Sparkles,
 } from 'lucide-react';
 import { useTaskContext, Team } from '@/components/TaskContext';
 import { useView, ViewType } from '@/components/ViewContext';
@@ -41,6 +42,7 @@ interface MenuItem {
 
 const VIEW_ROUTES: Partial<Record<ViewType, string>> = {
   'knowledge-hub': '/dashboard/knowledge-hub',
+  ai: '/ai',
   processes: '/dashboard/processes',
   settings: '/settings',
   profile: '/settings/profile',
@@ -194,6 +196,7 @@ export function Sidebar({ mobileOpen, onCloseMobile, desktopCollapsed }: Sidebar
     { id: 'board', label: 'Projects / Board', icon: Columns3, count: teamTasks.length },
     { id: 'list', label: 'List View', icon: List, count: teamTasks.length },
     { id: 'knowledge-hub', label: 'Knowledge Hub', icon: Brain },
+    { id: 'ai', label: 'Axiom AI', icon: Sparkles },
     { id: 'customers', label: customerDirectoryLabel, icon: Building2 },
     { id: 'integrations', label: 'Integrations', icon: Webhook },
     { id: 'analytics', label: 'Analytics', icon: BarChart3 },

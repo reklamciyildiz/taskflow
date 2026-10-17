@@ -15,7 +15,8 @@ export type ViewType =
   | 'profile'
   | 'team'
   | 'achievements'
-  | 'knowledge-hub';
+  | 'knowledge-hub'
+  | 'ai';
 
 interface ViewContextType {
   currentView: ViewType;

@@ -9,7 +9,8 @@ import {
   createTaskExtractionPrompt,
 } from '../prompts/task-extraction';
 import { getCachedResponse, setCachedResponse, CACHE_TTL } from '../utils/cache';
-import { checkRateLimit, recordAIRequest } from '../utils/rate-limiter';
+import { reserveAIQuota, recordAIRequest } from '../utils/rate-limiter';
+import { createVoiceCacheIdentity } from '../utils/voice-cache';
 import { calculateVoiceToTaskCost } from '../utils/cost-calculator';
 import { estimateTokens } from '../utils/token-counter';
 import { getAIConfig, AI_ERROR_MESSAGES } from '../config';
@@ -52,8 +53,38 @@ export const processVoiceToTask = async (
       } as AIError;
     }
 
-    // Check rate limit
-    const rateLimitCheck = await checkRateLimit(
+    // Hash exact bytes. Size + MIME is not an identity and caused false cache hits.
+    const audioBytes = new Uint8Array(await audioFile.arrayBuffer());
+    const cacheInput = createVoiceCacheIdentity({
+      bytes: audioBytes,
+      mimeType: audioFile.type,
+      language: request.language,
+      organizationId: request.organizationId,
+      userId: request.userId,
+      speechModel: config.models.speech,
+      textModel: config.models.text,
+    });
+    const cacheScope = { userId: request.userId, organizationId: request.organizationId };
+    const cachedResult = await getCachedResponse<VoiceToTaskResponse['data']>(
+      'voice-to-task',
+      cacheInput,
+      cacheScope,
+    );
+
+    if (cachedResult) {
+      return {
+        success: true,
+        data: {
+          ...cachedResult,
+          metadata: {
+            ...cachedResult.metadata,
+            processingTimeMs: Date.now() - startTime,
+          },
+        },
+      };
+    }
+
+    const rateLimitCheck = await reserveAIQuota(
       request.userId,
       request.organizationId,
       'voice-to-task'
@@ -69,26 +100,6 @@ export const processVoiceToTask = async (
         },
         retryable: true,
       } as AIError;
-    }
-
-    // Check cache
-    const cacheKey = `${request.userId}-${audioSize}-${audioFile.type}`;
-    const cachedResult = await getCachedResponse<VoiceToTaskResponse['data']>(
-      'voice-to-task',
-      cacheKey
-    );
-
-    if (cachedResult) {
-      return {
-        success: true,
-        data: {
-          ...cachedResult,
-          metadata: {
-            ...cachedResult.metadata,
-            processingTimeMs: Date.now() - startTime,
-          },
-        },
-      };
     }
 
     // Step 1: Transcribe audio
@@ -195,7 +206,8 @@ export const processVoiceToTask = async (
     // Cache result
     await setCachedResponse(
       'voice-to-task',
-      cacheKey,
+      cacheInput,
+      cacheScope,
       responseData,
       CACHE_TTL.VOICE_TO_TASK
     );

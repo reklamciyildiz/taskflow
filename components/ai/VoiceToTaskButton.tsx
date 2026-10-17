@@ -18,19 +18,21 @@ import { Mic, Square, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
-interface VoiceToTaskButtonProps {
-  onTaskCreated?: (task: {
+export interface VoiceActionDraft {
     title: string;
     description: string;
     priority?: 'low' | 'medium' | 'high';
     dueDate?: string;
     assignees?: string[];
     tags?: string[];
-  }) => void;
+}
+
+interface VoiceToTaskButtonProps {
+  onDraftReady?: (task: VoiceActionDraft) => void;
   className?: string;
 }
 
-export function VoiceToTaskButton({ onTaskCreated, className }: VoiceToTaskButtonProps) {
+export function VoiceToTaskButton({ onDraftReady, className }: VoiceToTaskButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -161,12 +163,7 @@ export function VoiceToTaskButton({ onTaskCreated, className }: VoiceToTaskButto
       setTranscription(result.data.transcription);
       setExtractedTask(result.data.extractedTask);
 
-      // Notify parent
-      if (onTaskCreated) {
-        onTaskCreated(result.data.extractedTask);
-      }
-
-      toast.success('Action created successfully');
+      toast.success('Action draft is ready');
     } catch (err) {
       console.error('Failed to process audio:', err);
       
@@ -205,6 +202,13 @@ export function VoiceToTaskButton({ onTaskCreated, className }: VoiceToTaskButto
     setTranscription('');
     setExtractedTask(null);
     setError(null);
+  };
+
+  const useDraft = () => {
+    if (!extractedTask || !onDraftReady) return;
+    const draft = extractedTask as VoiceActionDraft;
+    handleClose();
+    onDraftReady(draft);
   };
 
   return (
@@ -322,7 +326,7 @@ export function VoiceToTaskButton({ onTaskCreated, className }: VoiceToTaskButto
               <div className="space-y-4">
                 <div className="flex items-center gap-2 text-green-600">
                   <CheckCircle2 className="h-5 w-5" />
-                  <span className="font-medium">Action created</span>
+                  <span className="font-medium">Action draft ready</span>
                 </div>
 
                 <div className="space-y-3 p-4 bg-muted rounded-lg">
@@ -390,9 +394,14 @@ export function VoiceToTaskButton({ onTaskCreated, className }: VoiceToTaskButto
                   )}
                 </div>
 
-                <Button onClick={handleClose} className="w-full">
-                  Kapat
-                </Button>
+                <div className="flex gap-2">
+                  <Button onClick={handleClose} variant="outline" className="flex-1">
+                    Close
+                  </Button>
+                  <Button onClick={useDraft} className="flex-1" disabled={!onDraftReady}>
+                    Continue in Action form
+                  </Button>
+                </div>
               </div>
             )}
           </div>

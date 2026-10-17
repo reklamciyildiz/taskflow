@@ -5,6 +5,14 @@
 
 import { db } from '@/lib/supabase-admin';
 import { getAIConfig } from '../config';
+import { randomUUID } from 'crypto';
+import {
+  quotaBackendFailureDecision,
+  type AIQuotaDecision,
+} from './quota-decision';
+
+export { quotaBackendFailureDecision } from './quota-decision';
+export type { AIQuotaDecision } from './quota-decision';
 
 /**
  * Check if user has exceeded rate limit
@@ -13,12 +21,7 @@ export const checkRateLimit = async (
   userId: string,
   organizationId: string,
   feature: string
-): Promise<{
-  allowed: boolean;
-  remaining: number;
-  resetAt: Date;
-  reason?: string;
-}> => {
+): Promise<AIQuotaDecision> => {
   const config = getAIConfig();
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -26,11 +29,12 @@ export const checkRateLimit = async (
 
   try {
     // Check daily user limit
-    const { count: dailyCount } = await db
+    const { count: dailyCount, error: dailyError } = await db
       .from('ai_requests')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', userId)
       .gte('created_at', todayStart.toISOString());
+    if (dailyError) throw dailyError;
 
     if ((dailyCount || 0) >= config.limits.dailyRequestsPerUser) {
       const resetAt = new Date(todayStart);
@@ -45,11 +49,12 @@ export const checkRateLimit = async (
     }
 
     // Check monthly organization limit
-    const { count: monthlyCount } = await db
+    const { count: monthlyCount, error: monthlyError } = await db
       .from('ai_requests')
       .select('*', { count: 'exact', head: true })
       .eq('organization_id', organizationId)
       .gte('created_at', monthStart.toISOString());
+    if (monthlyError) throw monthlyError;
 
     if ((monthlyCount || 0) >= config.limits.monthlyRequestsPerOrg) {
       const resetAt = new Date(monthStart);
@@ -78,12 +83,51 @@ export const checkRateLimit = async (
     };
   } catch (error) {
     console.error('Rate limit check error:', error);
-    // On error, allow the request (fail open)
+    // Provider calls are billable and may later execute tools. Never fail open.
+    return quotaBackendFailureDecision();
+  }
+};
+
+/**
+ * Uses the transactional PostgreSQL reservation RPC when explicitly enabled.
+ * The flag defaults off so deploying application code before the migration does
+ * not break the existing legacy AI features. A missing/broken RPC fails closed.
+ */
+export const reserveAIQuota = async (
+  userId: string,
+  organizationId: string,
+  feature: string,
+  requestKey: string = randomUUID(),
+): Promise<AIQuotaDecision> => {
+  if (process.env.AI_ATOMIC_QUOTA_ENABLED !== 'true') {
+    return checkRateLimit(userId, organizationId, feature);
+  }
+
+  const config = getAIConfig();
+  try {
+    const { data, error } = await db.rpc('reserve_ai_quota', {
+      p_request_key: requestKey,
+      p_user_id: userId,
+      p_organization_id: organizationId,
+      p_feature: feature,
+      p_daily_user_limit: config.limits.dailyRequestsPerUser,
+      p_monthly_org_limit: config.limits.monthlyRequestsPerOrg,
+    });
+    if (error) throw error;
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row || typeof row.allowed !== 'boolean') {
+      throw new Error('Invalid quota reservation response');
+    }
     return {
-      allowed: true,
-      remaining: config.limits.dailyRequestsPerUser,
-      resetAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      allowed: row.allowed,
+      remaining: Number(row.remaining ?? 0),
+      resetAt: new Date(row.reset_at),
+      reason: row.reason ?? undefined,
+      reservationId: row.reservation_id ?? undefined,
     };
+  } catch (error) {
+    console.error('Atomic AI quota reservation failed:', error instanceof Error ? error.message : 'unknown');
+    return quotaBackendFailureDecision();
   }
 };
 

@@ -1,20 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { requireAuthedUser } from '@/lib/server-authz';
 import { generateTaskDescription } from '@/lib/ai/services/description-generator';
 import { getAIConfig } from '@/lib/ai/config';
-import type { DescriptionGeneratorRequest } from '@/lib/ai/types/description-generator';
+import {
+  DescriptionGeneratorRequestSchema,
+  type DescriptionGeneratorRequest,
+} from '@/lib/ai/types/description-generator';
 
 export const runtime = 'nodejs';
 export const maxDuration = 30;
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
+    const authed = await requireAuthedUser();
+    if (authed instanceof NextResponse) return authed;
+    if (!authed.user.organization_id) {
       return NextResponse.json(
-        { success: false, error: { code: 'UNAUTHORIZED', message: 'Not authenticated' } },
-        { status: 401 }
+        { success: false, error: { code: 'FORBIDDEN', message: 'Organization required' } },
+        { status: 403 },
       );
     }
 
@@ -33,14 +36,20 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-
-    const descriptionRequest: DescriptionGeneratorRequest = {
+    const parsed = DescriptionGeneratorRequestSchema.safeParse({
       taskTitle: body.taskTitle,
       taskId: body.taskId,
-      organizationId: (session.user as any).organizationId,
-      userId: (session.user as any).id,
+      organizationId: authed.user.organization_id,
+      userId: authed.user.id,
       context: body.context,
-    };
+    });
+    if (!parsed.success) {
+      return NextResponse.json(
+        { success: false, error: { code: 'INVALID_REQUEST', message: 'Invalid description request' } },
+        { status: 400 },
+      );
+    }
+    const descriptionRequest: DescriptionGeneratorRequest = parsed.data;
 
     const result = await generateTaskDescription(descriptionRequest);
 

@@ -4,6 +4,15 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:staging": "node scripts/run-staging-local.mjs",
+    "dev:staging:ai": "node scripts/run-staging-local.mjs --ai-test --port=3100",
+    "staging:db:plan": "node scripts/bootstrap-staging-db.mjs",
+    "staging:db:check": "node scripts/bootstrap-staging-db.mjs --check",
+    "staging:db:apply": "node scripts/bootstrap-staging-db.mjs --apply",
+    "staging:ai:seed": "node scripts/seed-ai-staging.mjs",
+    "staging:ai:index": "node scripts/invoke-staging-ai-index.mjs --port=3100",
+    "staging:ai:verify": "node scripts/verify-ai-staging.mjs",
+    "staging:ai:chat": "node scripts/test-ai-staging-chat.mjs --port=3100",
     "dev:turbo": "next dev --turbo",
     "clean": "node scripts/clean-next.js",
     "dev:clean": "npm run clean && next dev",
@@ -101,6 +110,7 @@
     "@types/react-dom": "18.2.7",
     "@types/uuid": "^10.0.0",
     "@types/web-push": "^3.6.4",
+    "pg": "^8.16.3",
     "tsx": "^4.21.0"
   },
   "overrides": {
