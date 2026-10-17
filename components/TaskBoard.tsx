@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
 import { TaskCard } from '@/components/TaskCard';
 import { useTaskContext, type TaskStatus } from '@/components/TaskContext';
@@ -26,6 +26,9 @@ import { EditGeneralBoardModal } from '@/components/EditGeneralBoardModal';
 import { useProcessProperties } from '@/hooks/useProcessProperties';
 import { PropertyBoard } from '@/components/PropertyBoard';
 import { PROPERTY_COLOR_CLASSES, selectedPropertyOptionsForTask, groupActionsByProperty } from '@/lib/process-properties';
+import { ProcessSwitcher } from '@/components/ProcessSwitcher';
+import { useUserPreferences } from '@/components/UserPreferencesContext';
+import { reconcileProcessOrder } from '@/lib/user-preferences';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -35,6 +38,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 export function TaskBoard() {
+  const preferences = useUserPreferences();
+  const processOrderSyncAttemptRef = useRef('');
   const [isMobileBoard, setIsMobileBoard] = useState(false);
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 767px)');
@@ -133,6 +138,24 @@ export function TaskBoard() {
     if (!currentTeam) return projects;
     return projects.filter((p) => !p.teamId || p.teamId === currentTeam.id);
   }, [projects, currentTeam]);
+  const orderedProjectsForTeam = useMemo(
+    () => reconcileProcessOrder(
+      projectsForTeam,
+      currentTeam ? preferences.processOrderByTeam[currentTeam.id] : undefined,
+    ),
+    [currentTeam, preferences.processOrderByTeam, projectsForTeam],
+  );
+  useEffect(() => {
+    if (!currentTeam || loading || preferences.loading) return;
+    const stored = preferences.processOrderByTeam[currentTeam.id] ?? [];
+    const canonical = orderedProjectsForTeam.map((project) => project.id);
+    if (stored.length === canonical.length && stored.every((id, index) => id === canonical[index])) return;
+    const signature = `${currentTeam.id}:${canonical.join(',')}`;
+    if (processOrderSyncAttemptRef.current === signature) return;
+    processOrderSyncAttemptRef.current = signature;
+    // Persist newly visible processes at the end and remove inaccessible/deleted IDs.
+    void preferences.setProcessOrder(currentTeam.id, canonical);
+  }, [currentTeam, loading, orderedProjectsForTeam, preferences]);
   const hasProcesses = projectsForTeam.length > 0;
 
   const handleCreateTask = () => {
@@ -219,26 +242,14 @@ export function TaskBoard() {
           <h2 className="sr-only md:not-sr-only md:text-2xl md:font-bold">Panel</h2>
           {hasProcesses && (
             <div className="flex min-w-0 items-center gap-2 w-full sm:w-auto">
-              <Select
+              <ProcessSwitcher
+                projects={orderedProjectsForTeam}
                 value={boardScope.type === 'project' ? boardScope.projectId : ''}
-                onValueChange={(v) => {
-                  setBoardScope({ type: 'project', projectId: v });
+                onValueChange={(projectId) => setBoardScope({ type: 'project', projectId })}
+                onReorder={(projectIds) => {
+                  if (currentTeam) void preferences.setProcessOrder(currentTeam.id, projectIds);
                 }}
-              >
-                <SelectTrigger
-                  className="h-11 min-w-0 flex-1 md:h-10 sm:w-auto sm:min-w-[160px]"
-                  aria-label="Active process / project"
-                >
-                  <SelectValue placeholder="Choose process" />
-                </SelectTrigger>
-                <SelectContent>
-                  {projectsForTeam.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              />
               {currentUserRole === 'admin' && (
                 <>
                   <Button

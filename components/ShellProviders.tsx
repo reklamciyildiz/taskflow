@@ -4,6 +4,7 @@ import { Suspense } from 'react';
 import { TaskProvider } from '@/components/TaskContext';
 import { ViewProvider } from '@/components/ViewContext';
 import { SidebarShellProvider } from '@/components/shell';
+import { UserPreferencesProvider } from '@/components/UserPreferencesContext';
 
 /**
  * Providers required only inside the authenticated app shell.
@@ -12,13 +13,15 @@ import { SidebarShellProvider } from '@/components/shell';
 export function ShellProviders({ children }: { children: React.ReactNode }) {
   return (
     <Suspense fallback={null}>
-      <TaskProvider>
-        <ViewProvider>
-          <SidebarShellProvider>
-            {children}
-          </SidebarShellProvider>
-        </ViewProvider>
-      </TaskProvider>
+      <UserPreferencesProvider>
+        <TaskProvider>
+          <ViewProvider>
+            <SidebarShellProvider>
+              {children}
+            </SidebarShellProvider>
+          </ViewProvider>
+        </TaskProvider>
+      </UserPreferencesProvider>
     </Suspense>
   );
 }

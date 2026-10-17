@@ -39,9 +39,22 @@ async function main() {
       let failProperty = false;
       let readDelay = 0;
       let taskWriteDelay = 120;
+      let preferencePatchDelay = 0;
+      let savedProcessOrder = [];
       let values = [];
       const property = { id: 'region', project_id: 'p1', name: 'Region', type: 'single_select', position: 0, archived_at: null };
       const option = { id: 'eu', project_id: 'p1', property_id: 'region', label: 'Europe', color: 'blue', position: 0, archived_at: null };
+      await page.route('**/api/users/preferences', async route => {
+        if (route.request().method() === 'PATCH') {
+          if (preferencePatchDelay) await new Promise(resolve => setTimeout(resolve, preferencePatchDelay));
+          const body = route.request().postDataJSON();
+          if (body.processOrder) savedProcessOrder = body.processOrder;
+        }
+        await route.fulfill({ json: { success: true, data: {
+          actionPanelTabOrder: 'checklist_first',
+          processOrderByTeam: savedProcessOrder.length ? { team: savedProcessOrder } : {},
+        } } });
+      });
       await page.route('**/api/projects/*/properties?*', async route => {
         const data = { properties: [property], options: [option], values: [...values] };
         if (readDelay) await new Promise(resolve => setTimeout(resolve, readDelay));
@@ -116,6 +129,33 @@ async function main() {
       await page.getByRole('button', { name: 'Board fixture' }).click();
       await page.getByRole('button', { name: 'Move or edit Open Action', exact: true }).waitFor();
       await noOverflow('Board');
+      if (width === 375) {
+        await page.getByRole('button', { name: 'Active process / project' }).click();
+        const taskFlowDown = page.getByRole('button', { name: 'Move SmartSafe AI down', exact: true });
+        await taskFlowDown.click();
+        assert.deepEqual(savedProcessOrder, ['p2', 'p1']);
+        await page.getByRole('button', { name: 'Other Process', exact: true }).click();
+        await page.getByRole('button', { name: 'Other Process Action', exact: true }).waitFor();
+        await page.getByRole('button', { name: 'Active process / project' }).click();
+        assert.equal(await page.getByRole('button', { name: 'Move Other Process up', exact: true }).isDisabled(), true);
+        await page.keyboard.press('Escape');
+        await page.getByRole('button', { name: 'Active process / project' }).click();
+        await page.getByRole('button', { name: 'SmartSafe AI', exact: true }).click();
+        checks += 3;
+      }
+      if (width === 430) {
+        await page.getByRole('button', { name: 'Active process / project' }).click();
+        const handle = page.getByRole('button', { name: 'Reorder SmartSafe AI', exact: true });
+        await handle.focus();
+        await page.keyboard.press('Space');
+        await page.keyboard.press('ArrowDown');
+        await page.keyboard.press('Space');
+        for (let attempt = 0; attempt < 50 && savedProcessOrder[0] !== 'p2'; attempt++)
+          await new Promise(resolve => setTimeout(resolve, 10));
+        assert.deepEqual(savedProcessOrder, ['p2', 'p1']);
+        await page.keyboard.press('Escape');
+        checks++;
+      }
       if (width < 768) {
         await page.getByRole('combobox', { name: 'Active board group' }).click();
         await page.getByRole('option', { name: 'Empty group (0)', exact: true }).click();
@@ -145,15 +185,15 @@ async function main() {
         await page.getByRole('combobox', { name: 'Filter by stage', exact: true }).click();
         await page.getByRole('option', { name: 'İşimiz Bitti', exact: true }).click();
       } else await page.getByRole('button', { name: 'İşimiz Bitti', exact: true }).click();
-      await page.getByRole('combobox', { name: 'Active process / project' }).click();
-      await page.getByRole('option', { name: 'Other Process', exact: true }).click();
+      await page.getByRole('button', { name: 'Active process / project' }).click();
+      await page.getByRole('button', { name: 'Other Process', exact: true }).click();
       await page.getByRole('button', { name: 'Other Process Action', exact: true }).waitFor(); checks++;
       await page.screenshot({ path: path.join(output, `board-${width}.png`), fullPage: true });
       await page.getByRole('button', { name: 'Table fixture' }).click();
       assert.equal(await page.getByRole('checkbox', { name: 'No terminal stage configured for Other Process Action', exact: true }).isDisabled(), true); checks++;
       await page.getByRole('button', { name: 'Board fixture' }).click();
-      await page.getByRole('combobox', { name: 'Active process / project' }).click();
-      await page.getByRole('option', { name: 'SmartSafe AI', exact: true }).click();
+      await page.getByRole('button', { name: 'Active process / project' }).click();
+      await page.getByRole('button', { name: 'SmartSafe AI', exact: true }).click();
       await page.getByRole('button', { name: 'Table fixture' }).click();
       assert.equal(await page.getByRole('checkbox', { name: 'Mark Open Action open', exact: true }).isChecked(), true); checks++;
       if (width === 375) {

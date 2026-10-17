@@ -8,6 +8,7 @@ import { TaskList } from '../../components/TaskList';
 import { PlannerToday } from '../../components/PlannerToday';
 import { OptimisticTaskWrites } from '../../lib/optimistic-task-writes';
 import type { Task } from '../../lib/types';
+import { UserPreferencesProvider } from '../../components/UserPreferencesContext';
 
 const Context = createContext<any>(null);
 export const useTaskContext = () => useContext(Context);
@@ -93,4 +94,6 @@ function Fixture() {
     <Toaster />
   </Context.Provider>;
 }
-createRoot(document.getElementById('root')!).render(<React.StrictMode><Fixture /></React.StrictMode>);
+createRoot(document.getElementById('root')!).render(
+  <React.StrictMode><UserPreferencesProvider><Fixture /></UserPreferencesProvider></React.StrictMode>,
+);

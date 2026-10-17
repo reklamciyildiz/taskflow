@@ -26,6 +26,7 @@ import {
   EyeOff,
   ListChecks,
   Loader2,
+  ArrowLeftRight,
   Maximize2,
   Minimize2,
   Plus,
@@ -103,6 +104,13 @@ import type { Note } from "@/lib/types";
 import type { WorkSchedule } from "@/lib/scheduling-domain";
 import { scheduleChipLabel } from "@/lib/schedule-presentation";
 import { SCHEDULE_CHANGED_EVENT, type ScheduleChangedDetail } from "@/lib/schedule-events";
+import { useUserPreferences } from '@/components/UserPreferencesContext';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 export interface ActionPanelProps {
   task: Task | null;
@@ -580,6 +588,7 @@ function ActionPanelContent({
 
   /** Which Action workspace is open. */
   const [tab, setTab] = useState<WorkTab>("checklist");
+  const preferences = useUserPreferences();
   /** Status / priority / assignee / due / description live behind the meta strip. */
   const [detailsOpen, setDetailsOpen] = useState(false);
 
@@ -854,6 +863,53 @@ function ActionPanelContent({
     customerId === "none"
       ? null
       : (customers.find((c) => c.id === customerId)?.name ?? null);
+
+  const checklistTabTrigger = (
+    <TabsTrigger
+      value="checklist"
+      className={cn(
+        "relative h-11 gap-1.5 rounded-none px-2 text-sm font-medium text-muted-foreground shadow-none md:gap-2 md:px-3",
+        "data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none",
+        "after:absolute after:inset-x-2 after:-bottom-px after:h-0.5 after:rounded-full after:bg-transparent",
+        "data-[state=active]:after:bg-primary",
+      )}
+    >
+      <ListChecks className="h-4 w-4" aria-hidden />
+      Checklist
+      {checklistCounts.total > 0 ? (
+        <span
+          className={cn(
+            "rounded-md px-1.5 py-px text-[11px] tabular-nums",
+            allDone
+              ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+              : "bg-muted/70 text-muted-foreground",
+          )}
+          aria-label={`${checklistCounts.done} of ${checklistCounts.total} done`}
+        >
+          {checklistCounts.done}/{checklistCounts.total}
+        </span>
+      ) : null}
+    </TabsTrigger>
+  );
+  const notesTabTrigger = (
+    <TabsTrigger
+      value="notes"
+      className={cn(
+        "relative h-11 gap-1.5 rounded-none px-2 text-sm font-medium text-muted-foreground shadow-none md:gap-2 md:px-3",
+        "data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none",
+        "after:absolute after:inset-x-2 after:-bottom-px after:h-0.5 after:rounded-full after:bg-transparent",
+        "data-[state=active]:after:bg-primary",
+      )}
+    >
+      <StickyNote className="h-4 w-4" aria-hidden />
+      Notes
+      {notesCount > 0 ? (
+        <span className="hidden rounded-md bg-muted/70 px-1.5 py-px text-[11px] tabular-nums text-muted-foreground sm:inline">
+          {notesCount}
+        </span>
+      ) : null}
+    </TabsTrigger>
+  );
 
   return (
     <AttachmentProvider key={taskId} taskId={taskId} canEdit={canEdit}>
@@ -1318,72 +1374,47 @@ function ActionPanelContent({
       >
         <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/50 px-2 md:px-4">
           <TabsList className="h-auto justify-start gap-0 rounded-none bg-transparent p-0">
-            <TabsTrigger
-              value="checklist"
-              className={cn(
-                "relative h-11 gap-1.5 rounded-none px-2 text-sm font-medium text-muted-foreground shadow-none md:gap-2 md:px-3",
-                "data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none",
-                "after:absolute after:inset-x-2 after:-bottom-px after:h-0.5 after:rounded-full after:bg-transparent",
-                "data-[state=active]:after:bg-primary",
-              )}
-            >
-              <ListChecks className="h-4 w-4" aria-hidden />
-              Checklist
-              {checklistCounts.total > 0 ? (
-                <span
-                  className={cn(
-                    "rounded-md px-1.5 py-px text-[11px] tabular-nums",
-                    allDone
-                      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                      : "bg-muted/70 text-muted-foreground",
-                  )}
-                  aria-label={`${checklistCounts.done} of ${checklistCounts.total} done`}
-                >
-                  {checklistCounts.done}/{checklistCounts.total}
-                </span>
-              ) : null}
-            </TabsTrigger>
-            <TabsTrigger
-              value="notes"
-              className={cn(
-                "relative h-11 gap-1.5 rounded-none px-2 text-sm font-medium text-muted-foreground shadow-none md:gap-2 md:px-3",
-                "data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none",
-                "after:absolute after:inset-x-2 after:-bottom-px after:h-0.5 after:rounded-full after:bg-transparent",
-                "data-[state=active]:after:bg-primary",
-              )}
-            >
-              <StickyNote className="h-4 w-4" aria-hidden />
-              Notes
-              {notesCount > 0 ? (
-                <span className="hidden rounded-md bg-muted/70 px-1.5 py-px text-[11px] tabular-nums text-muted-foreground sm:inline">
-                  {notesCount}
-                </span>
-              ) : null}
-            </TabsTrigger>
+            {preferences.actionPanelTabOrder === 'notes_first' ? (
+              <>{notesTabTrigger}{checklistTabTrigger}</>
+            ) : (
+              <>{checklistTabTrigger}{notesTabTrigger}</>
+            )}
           </TabsList>
 
-          {tab === "checklist" && checklistCounts.done > 0 ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-7 gap-1.5 px-2 text-[11px] text-muted-foreground"
-              aria-label={hideDone ? `Show done (${checklistCounts.done})` : `Hide done (${checklistCounts.done})`}
-              aria-pressed={hideDone}
-              onClick={() => setHideDone((v) => !v)}
-            >
-              {hideDone ? (
-                <Eye className="h-3.5 w-3.5" aria-hidden />
-              ) : (
-                <EyeOff className="h-3.5 w-3.5" aria-hidden />
-              )}
-              <span className="hidden sm:inline">
-                {hideDone
-                  ? `Show done (${checklistCounts.done})`
-                  : `Hide done (${checklistCounts.done})`}
-              </span>
-            </Button>
-          ) : null}
+          <div className="flex shrink-0 items-center gap-1">
+            {tab === "checklist" && checklistCounts.done > 0 ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 gap-1.5 px-2 text-[11px] text-muted-foreground"
+                aria-label={hideDone ? `Show done (${checklistCounts.done})` : `Hide done (${checklistCounts.done})`}
+                aria-pressed={hideDone}
+                onClick={() => setHideDone((v) => !v)}
+              >
+                {hideDone ? <Eye className="h-3.5 w-3.5" aria-hidden /> : <EyeOff className="h-3.5 w-3.5" aria-hidden />}
+                <span className="hidden sm:inline">
+                  {hideDone ? `Show done (${checklistCounts.done})` : `Hide done (${checklistCounts.done})`}
+                </span>
+              </Button>
+            ) : null}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" aria-label="Arrange Action tabs">
+                  <ArrowLeftRight className="h-3.5 w-3.5" aria-hidden />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem
+                  onSelect={() => void preferences.setActionPanelTabOrder(
+                    preferences.actionPanelTabOrder === 'notes_first' ? 'checklist_first' : 'notes_first',
+                  )}
+                >
+                  {preferences.actionPanelTabOrder === 'notes_first' ? 'Show Checklist first' : 'Show Notes first'}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
 
         {/* Progress rail: sits on the tab divider so it reads as part of the chrome, not content. */}
