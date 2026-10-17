@@ -1,12 +1,10 @@
 export type ActionPanelTabOrder = 'checklist_first' | 'notes_first';
 
 export type UserWorkspacePreferences = {
-  actionPanelTabOrder: ActionPanelTabOrder;
   processOrderByTeam: Record<string, string[]>;
 };
 
 export const DEFAULT_USER_WORKSPACE_PREFERENCES: UserWorkspacePreferences = {
-  actionPanelTabOrder: 'checklist_first',
   processOrderByTeam: {},
 };
 

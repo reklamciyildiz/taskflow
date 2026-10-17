@@ -51,7 +51,6 @@ async function main() {
           if (body.processOrder) savedProcessOrder = body.processOrder;
         }
         await route.fulfill({ json: { success: true, data: {
-          actionPanelTabOrder: 'checklist_first',
           processOrderByTeam: savedProcessOrder.length ? { team: savedProcessOrder } : {},
         } } });
       });
@@ -146,6 +145,20 @@ async function main() {
       if (width === 430) {
         await page.getByRole('button', { name: 'Active process / project' }).click();
         const handle = page.getByRole('button', { name: 'Reorder SmartSafe AI', exact: true });
+        const processListBounds = await page.getByLabel('Processes', { exact: true }).boundingBox();
+        const handleBounds = await handle.boundingBox();
+        assert.ok(processListBounds && handleBounds);
+        await page.mouse.move(handleBounds.x + handleBounds.width / 2, handleBounds.y + handleBounds.height / 2);
+        await page.mouse.down();
+        await page.mouse.move(handleBounds.x + handleBounds.width / 2, handleBounds.y + handleBounds.height / 2 + 8, { steps: 4 });
+        const dragClone = page.locator('body > [data-rfd-draggable-id="p1"]');
+        await dragClone.waitFor();
+        const cloneBounds = await dragClone.boundingBox();
+        assert.ok(cloneBounds && cloneBounds.x >= processListBounds.x - 4 && cloneBounds.x + cloneBounds.width <= processListBounds.x + processListBounds.width + 4,
+          'drag preview stays aligned with the Process dropdown');
+        await page.keyboard.press('Escape');
+        await page.mouse.up();
+        checks++;
         await handle.focus();
         await page.keyboard.press('Space');
         await page.keyboard.press('ArrowDown');

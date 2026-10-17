@@ -10,36 +10,46 @@ import {
 
 type PreferencesContextValue = UserWorkspacePreferences & {
   loading: boolean;
-  setActionPanelTabOrder: (order: ActionPanelTabOrder) => Promise<boolean>;
+  actionPanelTabOrderByTask: Record<string, ActionPanelTabOrder>;
+  loadActionPanelTabOrder: (taskId: string) => Promise<void>;
+  setActionPanelTabOrder: (taskId: string, order: ActionPanelTabOrder) => Promise<boolean>;
   setProcessOrder: (teamId: string, projectIds: string[]) => Promise<boolean>;
 };
 
 const fallback: PreferencesContextValue = {
   ...DEFAULT_USER_WORKSPACE_PREFERENCES,
   loading: false,
+  actionPanelTabOrderByTask: {},
+  loadActionPanelTabOrder: async () => undefined,
   setActionPanelTabOrder: async () => false,
   setProcessOrder: async () => false,
 };
 const UserPreferencesContext = createContext<PreferencesContextValue>(fallback);
 
-async function requestPreferences(init?: RequestInit) {
-  const response = await fetch('/api/users/preferences', {
+async function requestPreferences<T = UserWorkspacePreferences>(init?: RequestInit, taskId?: string) {
+  const url = taskId
+    ? `/api/users/preferences?taskId=${encodeURIComponent(taskId)}`
+    : '/api/users/preferences';
+  const response = await fetch(url, {
     ...init,
     cache: 'no-store',
     headers: { 'Content-Type': 'application/json', ...init?.headers },
   });
   const body = await response.json().catch(() => null);
   if (!response.ok || !body?.success) throw new Error(body?.error || 'Could not save preferences');
-  return body.data as UserWorkspacePreferences;
+  return body.data as T;
 }
 
 export function UserPreferencesProvider({ children }: { children: React.ReactNode }) {
   const [preferences, setPreferences] = useState(DEFAULT_USER_WORKSPACE_PREFERENCES);
+  const [actionPanelTabOrderByTask, setActionPanelTabOrderByTask] = useState<Record<string, ActionPanelTabOrder>>({});
   const [loading, setLoading] = useState(true);
   const mounted = useRef(true);
-  const tabRevision = useRef(0);
+  const loadedTaskPreferences = useRef(new Set<string>());
+  const taskPreferenceLoads = useRef(new Map<string, Promise<void>>());
+  const tabRevisions = useRef(new Map<string, number>());
   const processRevisions = useRef(new Map<string, number>());
-  const tabWriteTail = useRef<Promise<unknown>>(Promise.resolve());
+  const tabWriteTails = useRef(new Map<string, Promise<unknown>>());
   const processWriteTail = useRef<Promise<unknown>>(Promise.resolve());
 
   useEffect(() => {
@@ -51,23 +61,52 @@ export function UserPreferencesProvider({ children }: { children: React.ReactNod
     return () => { mounted.current = false; };
   }, []);
 
-  const setActionPanelTabOrder = useCallback(async (order: ActionPanelTabOrder) => {
-    const revision = ++tabRevision.current;
+  const loadActionPanelTabOrder = useCallback(async (taskId: string) => {
+    if (loadedTaskPreferences.current.has(taskId)) return;
+    const active = taskPreferenceLoads.current.get(taskId);
+    if (active) return active;
+    const revisionAtStart = tabRevisions.current.get(taskId) ?? 0;
+    const request = requestPreferences<{ actionPanelTabOrder: ActionPanelTabOrder }>(undefined, taskId)
+      .then((data) => {
+        if (!mounted.current) return;
+        if ((tabRevisions.current.get(taskId) ?? 0) === revisionAtStart) {
+          setActionPanelTabOrderByTask((current) => ({
+            ...current,
+            [taskId]: data.actionPanelTabOrder,
+          }));
+        }
+        loadedTaskPreferences.current.add(taskId);
+      })
+      .catch(() => undefined)
+      .finally(() => taskPreferenceLoads.current.delete(taskId));
+    taskPreferenceLoads.current.set(taskId, request);
+    return request;
+  }, []);
+
+  const setActionPanelTabOrder = useCallback(async (taskId: string, order: ActionPanelTabOrder) => {
+    const revision = (tabRevisions.current.get(taskId) ?? 0) + 1;
+    tabRevisions.current.set(taskId, revision);
     let previous: ActionPanelTabOrder = 'checklist_first';
-    setPreferences((current) => {
-      previous = current.actionPanelTabOrder;
-      return { ...current, actionPanelTabOrder: order };
+    setActionPanelTabOrderByTask((current) => {
+      previous = current[taskId] ?? 'checklist_first';
+      return { ...current, [taskId]: order };
     });
+    loadedTaskPreferences.current.add(taskId);
     try {
-      const write = tabWriteTail.current.catch(() => undefined).then(() =>
-        requestPreferences({ method: 'PATCH', body: JSON.stringify({ actionPanelTabOrder: order }) }),
+      const tail = tabWriteTails.current.get(taskId) ?? Promise.resolve();
+      const write = tail.catch(() => undefined).then(() =>
+        requestPreferences({
+          method: 'PATCH',
+          body: JSON.stringify({ taskId, actionPanelTabOrder: order }),
+        }),
       );
-      tabWriteTail.current = write;
+      tabWriteTails.current.set(taskId, write);
       await write;
       return true;
     } catch (error) {
-      if (tabRevision.current === revision)
-        setPreferences((current) => ({ ...current, actionPanelTabOrder: previous }));
+      if (tabRevisions.current.get(taskId) === revision) {
+        setActionPanelTabOrderByTask((current) => ({ ...current, [taskId]: previous }));
+      }
       toast.error(error instanceof Error ? error.message : 'Could not save tab order');
       return false;
     }
@@ -104,7 +143,14 @@ export function UserPreferencesProvider({ children }: { children: React.ReactNod
   }, []);
 
   return (
-    <UserPreferencesContext.Provider value={{ ...preferences, loading, setActionPanelTabOrder, setProcessOrder }}>
+    <UserPreferencesContext.Provider value={{
+      ...preferences,
+      loading,
+      actionPanelTabOrderByTask,
+      loadActionPanelTabOrder,
+      setActionPanelTabOrder,
+      setProcessOrder,
+    }}>
       {children}
     </UserPreferencesContext.Provider>
   );

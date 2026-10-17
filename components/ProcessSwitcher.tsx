@@ -62,7 +62,29 @@ export function ProcessSwitcher({
         onOpenAutoFocus={(event) => event.preventDefault()}
       >
         <DragDropContext onDragEnd={onDragEnd}>
-          <Droppable droppableId="process-order">
+          <Droppable
+            droppableId="process-order"
+            getContainerForClone={() => document.body}
+            renderClone={(drag, state, rubric) => {
+              const project = projects[rubric.source.index];
+              return (
+                <div
+                  ref={drag.innerRef}
+                  {...drag.draggableProps}
+                  className={cn(
+                    'z-[500] flex min-h-10 items-center rounded-md border border-primary/35 bg-popover px-2 py-2 text-sm text-popover-foreground shadow-xl',
+                    state.isDropAnimating && 'opacity-90',
+                  )}
+                >
+                  <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+                    {project?.id === value ? <Check className="h-4 w-4" aria-hidden /> : null}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate px-2">{project?.name}</span>
+                  <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                </div>
+              );
+            }}
+          >
             {(drop, snapshot) => (
               <div
                 ref={drop.innerRef}

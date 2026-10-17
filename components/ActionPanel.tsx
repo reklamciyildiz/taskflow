@@ -492,8 +492,18 @@ function ActionPanelContent({
     consumeChecklistFocusForTask,
     organizationId,
   } = useTaskContext();
+  const {
+    actionPanelTabOrderByTask,
+    loadActionPanelTabOrder,
+    setActionPanelTabOrder,
+  } = useUserPreferences();
   const canEdit = canEditTask(task.createdBy, task.assigneeId);
   const taskId = task.id;
+  const actionPanelTabOrder = actionPanelTabOrderByTask[taskId] ?? 'checklist_first';
+
+  useEffect(() => {
+    void loadActionPanelTabOrder(taskId);
+  }, [loadActionPanelTabOrder, taskId]);
 
   const [canUseAdvancedReminderPresets, setCanUseAdvancedReminderPresets] =
     useState(false);
@@ -588,7 +598,6 @@ function ActionPanelContent({
 
   /** Which Action workspace is open. */
   const [tab, setTab] = useState<WorkTab>("checklist");
-  const preferences = useUserPreferences();
   /** Status / priority / assignee / due / description live behind the meta strip. */
   const [detailsOpen, setDetailsOpen] = useState(false);
 
@@ -1374,7 +1383,7 @@ function ActionPanelContent({
       >
         <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/50 px-2 md:px-4">
           <TabsList className="h-auto justify-start gap-0 rounded-none bg-transparent p-0">
-            {preferences.actionPanelTabOrder === 'notes_first' ? (
+            {actionPanelTabOrder === 'notes_first' ? (
               <>{notesTabTrigger}{checklistTabTrigger}</>
             ) : (
               <>{checklistTabTrigger}{notesTabTrigger}</>
@@ -1406,11 +1415,12 @@ function ActionPanelContent({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
                 <DropdownMenuItem
-                  onSelect={() => void preferences.setActionPanelTabOrder(
-                    preferences.actionPanelTabOrder === 'notes_first' ? 'checklist_first' : 'notes_first',
+                  onSelect={() => void setActionPanelTabOrder(
+                    taskId,
+                    actionPanelTabOrder === 'notes_first' ? 'checklist_first' : 'notes_first',
                   )}
                 >
-                  {preferences.actionPanelTabOrder === 'notes_first' ? 'Show Checklist first' : 'Show Notes first'}
+                  {actionPanelTabOrder === 'notes_first' ? 'Show Checklist first' : 'Show Notes first'}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
