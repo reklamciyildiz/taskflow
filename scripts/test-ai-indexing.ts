@@ -163,6 +163,14 @@ assert.match(worker, /assertNoSensitiveAIContent/);
 assert.match(worker, /sensitive_content_detected/);
 checks++;
 
+const cronRoute = fs.readFileSync('app/api/cron/ai-index/route.ts','utf8');
+assert.match(cronRoute,/export const maxDuration = 30/);
+assert.match(cronRoute,/CRON_BATCH_SIZE = 2/);
+assert.match(cronRoute,/CRON_TIME_BUDGET_MS = 20_000/);
+assert.match(cronRoute,/timingSafeEqual/);
+assert.match(cronRoute,/processAIIndexJobs\(\{[\s\S]*batchSize: CRON_BATCH_SIZE,[\s\S]*timeBudgetMs: CRON_TIME_BUDGET_MS/);
+checks++;
+
 const scopedClaim = fs.readFileSync('supabase/migrations/20261018120000_ai_scoped_index_claim.sql','utf8');
 assert.match(scopedClaim,/j\.organization_id=ANY\(p_organization_ids\)/);
 assert.match(scopedClaim,/j\.source_type=ANY\(p_source_types\)/);
