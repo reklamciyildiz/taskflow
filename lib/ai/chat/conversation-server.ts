@@ -227,10 +227,7 @@ export async function getConversationMessages(scope:{userId:string;organizationI
 export function historyForProvider(messages:AIChatMessage[]) {
   const completed=messages.filter((message)=>message.status==='completed' && !message.sourceAccessRevoked)
     .slice(-aiChatLimits.maxHistoryMessages);
-  let used=0; const selected:AIChatMessage[]=[];
-  for (const message of [...completed].reverse()) {
-    if (used+message.content.length>aiChatLimits.maxHistoryChars) break;
-    selected.unshift(message);used+=message.content.length;
-  }
-  return selected.map((message)=>({ role:message.role,content:message.content } as const));
+  // Token-aware selection happens after intent and retrieved sources are known.
+  // This function only applies a hard message-count safety cap.
+  return completed.map((message)=>({ role:message.role,content:message.content } as const));
 }

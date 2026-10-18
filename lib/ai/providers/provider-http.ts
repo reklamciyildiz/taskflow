@@ -12,6 +12,7 @@ export class AIProviderHttpError extends Error {
     readonly status: number,
     readonly retryAfterMs?: number,
     readonly upstreamRequestId?: string,
+    readonly rateLimit?: NormalizedAIProviderError['rateLimit'],
   ) {
     super(`AI provider request failed with HTTP ${status}`);
     this.name = 'AIProviderHttpError';
@@ -66,6 +67,7 @@ export function normalizeProviderError(error: unknown): NormalizedAIProviderErro
       providerStatus: error.status,
       retryAfterMs: error.retryAfterMs,
       upstreamRequestId: error.upstreamRequestId,
+      rateLimit: error.rateLimit,
     };
   }
   if (error instanceof AIProviderInputError) {

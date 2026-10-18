@@ -98,7 +98,9 @@ export function AxiomAIChat({ enabled }:{ enabled:boolean }) {
           else if(event.type==='delta') setMessages((current)=>current.map((item)=>item.id===realAssistantId||item.id===optimisticAssistant?{...item,content:item.content+event.text}:item));
           else if(event.type==='sources') setMessages((current)=>current.map((item)=>item.id===realAssistantId?{...item,sources:event.sources}:item));
           else if(event.type==='done') setMessages((current)=>current.map((item)=>item.id===realAssistantId?{...item,status:event.finishReason==='cancelled'?'cancelled':'completed'}:item));
-          else if(event.type==='error') { setMessages((current)=>current.map((item)=>item.id===realAssistantId||item.id===optimisticAssistant?{...item,status:event.code==='CANCELLED'?'cancelled':'failed'}:item));toast.error(event.message); }
+          else if(event.type==='error') { setMessages((current)=>current.map((item)=>item.id===realAssistantId||item.id===optimisticAssistant?{
+            ...item,content:item.content||event.message,status:event.code==='CANCELLED'?'cancelled':'failed',
+          }:item));toast.error(event.message); }
         }
       }
       await refreshConversations();

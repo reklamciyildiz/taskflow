@@ -34,4 +34,4 @@ export type AIChatStreamEvent =
   | { type: 'sources'; sources: SourceCitation[] }
   | { type: 'usage'; inputTokens?: number; outputTokens?: number }
   | { type: 'done'; finishReason: 'completed' | 'cancelled' }
-  | { type: 'error'; code: string; message: string; retryable: boolean };
+  | { type: 'error'; code: string; message: string; retryable: boolean; retryAfterSeconds?: number };

@@ -6,11 +6,12 @@ import { createRequestSignal } from '@/lib/ai/providers/provider-http';
 import { retrieveKnowledge } from '@/lib/ai/retrieval/retrieval-server';
 import { retrieveStructuredActions } from '@/lib/ai/retrieval/structured-retrieval-server';
 import { createCitationRegistry } from '@/lib/ai/retrieval/citation';
-import { reserveAIQuota,recordAIRequest } from '@/lib/ai/utils/rate-limiter';
+import { releaseAIQuotaReservation,reserveAIQuota,recordAIRequest } from '@/lib/ai/utils/rate-limiter';
 import { aiChatLimits,isAIChatRuntimeReady } from '@/lib/ai/chat/config';
 import { citationIdsFromAnswer,sanitizeAnswerCitations } from '@/lib/ai/chat/citations';
 import { classifyChatIntent,fixedProductHelp,shouldAttemptKnowledgeRetrieval } from '@/lib/ai/chat/intent';
-import { buildChatMessages } from '@/lib/ai/chat/prompt';
+import { chatRetrievalLimit,planChatContext } from '@/lib/ai/chat/context-budget';
+import { finalizeGroqTokens,reserveGroqTokens } from '@/lib/ai/chat/provider-token-admission';
 import {
   createTurnMessages,finalizeAssistantMessage,finishChatRun,getConversation,
   getConversationMessages,historyForProvider,reserveChatRun,
@@ -39,7 +40,12 @@ function safeError(error:unknown,provider?:GroqChatProvider) {
   };
   if (provider) {
     const normalized=provider.normalizeError(error);
-    if (normalized.code==='rate_limited') return { code:'PROVIDER_RATE_LIMITED',message:'Axiom AI is busy. Please retry shortly.',retryable:true };
+    if (normalized.code==='rate_limited') {
+      const retryAfterSeconds=normalized.retryAfterMs?Math.max(1,Math.ceil(normalized.retryAfterMs/1_000)):undefined;
+      return { code:'PROVIDER_RATE_LIMITED',message:retryAfterSeconds
+        ? `The Groq request limit was reached. Try again in about ${retryAfterSeconds} seconds.`
+        : 'The Groq request limit was reached. Please retry shortly.',retryable:true,retryAfterSeconds };
+    }
     if (normalized.code==='timeout') return { code:'PROVIDER_TIMEOUT',message:'The response took too long. Please retry.',retryable:true };
     if (normalized.code==='configuration') return { code:'PROVIDER_CONFIGURATION',message:'Axiom AI provider is not configured.',retryable:false };
   }
@@ -58,7 +64,7 @@ export async function POST(request:NextRequest) {
     const conversation=await getConversation(scope,input.conversationId);
     // Context supplied by the browser can only narrow retrieval and never grants access.
     const effectiveContext={ ...conversation.context,...input.context };
-    const history=historyForProvider(await getConversationMessages(scope,input.conversationId));
+    const availableHistory=historyForProvider(await getConversationMessages(scope,input.conversationId));
     const run=await reserveChatRun(scope,input.conversationId,input.clientRequestId);
     const turn=await createTurnMessages(scope,input.conversationId,input.clientRequestId,input.message);
     if (turn.duplicate) {
@@ -72,6 +78,8 @@ export async function POST(request:NextRequest) {
         const startedAt=Date.now(); let answer=''; let assistantStatus:'completed'|'failed'|'cancelled'='failed';
         let inputTokens:number|undefined,outputTokens:number|undefined,model:string|undefined;
         let provider:GroqChatProvider|undefined,billableAttempt=false;
+        let tokenReservationId:string|undefined;
+        let quotaReserved=false;
         let retrievalLatencyMs:number|undefined,firstTokenMs:number|undefined;
         let citations:Awaited<ReturnType<typeof retrieveKnowledge>>['citations']=[];
         let grounding:{ kind:'none'|'knowledge'|'structured';teamId?:string;processId?:string }={ kind:'none' };
@@ -96,7 +104,7 @@ export async function POST(request:NextRequest) {
           const shouldRetrieve=shouldAttemptKnowledgeRetrieval(input.message,intent);
           if (shouldRetrieve) {
             try {
-              const result=await retrieveKnowledge({ query:input.message,mode:'hybrid',limit:8,
+              const result=await retrieveKnowledge({ query:input.message,mode:'hybrid',limit:chatRetrievalLimit(input.message),
                 similarityThreshold:intent==='knowledge' ? 0.2 : 0.5,
                 teamId:effectiveContext.teamId,processId:effectiveContext.processId,
                 timeoutMs:Math.min(15_000,aiChatLimits.timeoutMs),signal:overallSignal.signal });
@@ -128,17 +136,39 @@ export async function POST(request:NextRequest) {
             grounding={ kind:'structured',teamId:effectiveContext.teamId,processId:effectiveContext.processId };
           }
 
+          const contextPlan=planChatContext({ intent,question:input.message,history:availableHistory,
+            citations,structured,configuredMaxOutputTokens:aiChatLimits.maxOutputTokens });
+          citations=contextPlan.citations;
           const quota=await reserveAIQuota(scope.userId,scope.organizationId,'axiom-chat',input.clientRequestId);
           if (!quota.allowed) {
             const errorEvent={ type:'error',code:'QUOTA_EXHAUSTED',message:quota.reason ?? 'AI quota exhausted',retryable:false } as const;
             send(errorEvent);await finalizeAssistantMessage({ messageId:turn.assistantMessageId,scope,content:'',status:'failed',errorCode:errorEvent.code });
             assistantStatus='failed';return;
           }
+          quotaReserved=Boolean(quota.reservationId);
 
-          billableAttempt=true;provider=new GroqChatProvider(); model=provider.modelId;
+          provider=new GroqChatProvider(); model=provider.modelId;
+
+          const tokenAdmission=await reserveGroqTokens({ requestKey:input.clientRequestId,userId:scope.userId,
+            organizationId:scope.organizationId,model,estimatedInputTokens:contextPlan.estimatedInputTokens,
+            maxOutputTokens:contextPlan.maxOutputTokens });
+          tokenReservationId=tokenAdmission.reservationId;
+          if (!tokenAdmission.allowed) {
+            const retryAfterSeconds=tokenAdmission.retryAfterSeconds??60;
+            const errorEvent={ type:'error',code:'PROVIDER_TOKEN_BUDGET',
+              message:`Axiom AI is protecting the Groq minute limit. Try again in about ${retryAfterSeconds} seconds.`,
+              retryable:true,retryAfterSeconds } as const;
+            if (quotaReserved) await releaseAIQuotaReservation(input.clientRequestId,scope.userId,scope.organizationId);
+            quotaReserved=false;
+            send(errorEvent);await finalizeAssistantMessage({ messageId:turn.assistantMessageId,scope,content:'',
+              status:'failed',errorCode:errorEvent.code });assistantStatus='failed';return;
+          }
+
+          billableAttempt=true;
           const registry=createCitationRegistry(citations);
-          const events=provider.stream({ messages:buildChatMessages({ history,question:input.message,citations,structured }),
-            temperature:0.25,maxOutputTokens:aiChatLimits.maxOutputTokens,reasoning:{ effort:'low',format:'hidden' } },
+          const events=provider.stream({ messages:contextPlan.messages,
+            temperature:0.25,maxOutputTokens:contextPlan.maxOutputTokens,
+            reasoning:{ effort:contextPlan.profile==='general'&&model.startsWith('qwen/')?'none':'low',format:'hidden' } },
             { requestId:randomUUID(),timeoutMs:aiChatLimits.timeoutMs,signal:overallSignal.signal });
           for await (const event of events) {
             if (event.type==='text_delta') {
@@ -165,14 +195,24 @@ export async function POST(request:NextRequest) {
           send({ type:'done',finishReason:'completed' });assistantStatus='completed';
           await recordAIRequest(scope.userId,scope.organizationId,'axiom-chat',model,inputTokens ?? 0,outputTokens ?? 0,
             0,Date.now()-startedAt,true,undefined,{ intent,citationCount:verified.length,
-              retrievalSourceCount:citations.length,retrievalLatencyMs,firstTokenMs });
+              retrievalSourceCount:citations.length,retrievalLatencyMs,firstTokenMs,
+              contextProfile:contextPlan.profile,estimatedInputTokens:contextPlan.estimatedInputTokens,
+              maxOutputTokens:contextPlan.maxOutputTokens,droppedHistoryMessages:contextPlan.droppedHistoryMessages,
+              droppedCitations:contextPlan.droppedCitations,droppedStructuredActions:contextPlan.droppedStructuredActions });
         } catch(error) {
           const cancelled=request.signal.aborted || (error instanceof Error && error.name==='AbortError');
           assistantStatus=cancelled?'cancelled':'failed';
           const normalized=safeError(error,provider);
+          const providerFailure=provider?.normalizeError(error);
+          if (quotaReserved&&providerFailure?.code==='rate_limited') {
+            await releaseAIQuotaReservation(input.clientRequestId,scope.userId,scope.organizationId);
+            quotaReserved=false;
+          }
           console.error(JSON.stringify({ event:'ai_chat_failed',requestId:input.clientRequestId,code:normalized.code,
-            durationMs:Date.now()-startedAt,retryable:normalized.retryable }));
-          try { await finalizeAssistantMessage({ messageId:turn.assistantMessageId,scope,content:answer,
+            durationMs:Date.now()-startedAt,retryable:normalized.retryable,
+            providerStatus:providerFailure?.providerStatus,retryAfterMs:providerFailure?.retryAfterMs,
+            upstreamRequestId:providerFailure?.upstreamRequestId,rateLimit:providerFailure?.rateLimit }));
+          try { await finalizeAssistantMessage({ messageId:turn.assistantMessageId,scope,content:answer||normalized.message,
             status:assistantStatus,model,inputTokens,outputTokens,errorCode:normalized.code,
             sources:[],grounding }); } catch { /* lease recovery remains */ }
           if (billableAttempt) await recordAIRequest(scope.userId,scope.organizationId,'axiom-chat',model ?? 'groq',
@@ -180,6 +220,8 @@ export async function POST(request:NextRequest) {
           try { send({ type:'error',...normalized }); } catch { /* disconnected client */ }
         } finally {
           overallSignal.cleanup();
+          await finalizeGroqTokens({ reservationId:tokenReservationId,userId:scope.userId,status:assistantStatus,
+            actualTokens:inputTokens!==undefined||outputTokens!==undefined?(inputTokens??0)+(outputTokens??0):undefined }).catch(()=>undefined);
           await finishChatRun(run.runId,scope.userId,assistantStatus).catch(()=>undefined);
           try { controller.close(); } catch { /* already closed */ }
         }

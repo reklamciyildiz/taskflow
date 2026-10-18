@@ -13,6 +13,8 @@ const structured = /\b(kac|count|list|listele|hangi action|which action|priority
 const knowledge = /\b(notlarim|gecmiste|ogrendim|karar verdik|hatirliyor|my notes|previously|what did (i|we)|what do we know|knowledge|checklist|belgelerim|bilgilerim|axiom bilgiler|workspace|calisma alani|cite|citation|source|kaynak|atif|referans|dogrulama kodu|verification phrase)\b/i;
 const workspaceIdentifier = /\b[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*-\d+\b/;
 const smallTalk = /^(hi|hello|hey|merhaba|selam|nasilsin|how are you|thanks|thank you|tesekkurler)[!.? ]*$/i;
+const workspaceSignal = /\b(action|checklist|note|not|process|surec|süreç|task|gorev|görev|kart|workspace|knowledge hub|planner|project|proje|dogrulama kodu|verification phrase)\b/i;
+const ownershipSignal = /\b(benim|bizim|bende|bizde|my|our|we|gecmis|geçmiş|kayit|kayıt)\b/i;
 
 export function classifyChatIntent(query: string): ChatIntent {
   const normalized = normalizeIntentText(query);
@@ -31,7 +33,8 @@ export function shouldAttemptKnowledgeRetrieval(query: string, intent: ChatInten
   if (intent === 'knowledge') return true;
   if (intent !== 'general') return false;
   const normalized = normalizeIntentText(query).trim();
-  return normalized.length >= 12 && !smallTalk.test(normalized);
+  return normalized.length >= 12 && !smallTalk.test(normalized)
+    && (workspaceSignal.test(normalized)||ownershipSignal.test(normalized)||workspaceIdentifier.test(query));
 }
 
 export function fixedProductHelp(query: string): string | null {

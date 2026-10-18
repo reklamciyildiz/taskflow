@@ -131,6 +131,22 @@ export const reserveAIQuota = async (
   }
 };
 
+export const releaseAIQuotaReservation = async (
+  requestKey: string,userId: string,organizationId: string,
+): Promise<boolean> => {
+  if (process.env.AI_ATOMIC_QUOTA_ENABLED!=='true') return false;
+  try {
+    const { data,error }=await db.rpc('release_ai_quota_reservation',{
+      p_request_key:requestKey,p_user_id:userId,p_organization_id:organizationId,
+    });
+    if (error) throw error;
+    return data===true;
+  } catch {
+    console.error(JSON.stringify({ event:'ai_quota_release_failed',code:'database_unavailable' }));
+    return false;
+  }
+};
+
 /**
  * Get usage statistics for user
  */

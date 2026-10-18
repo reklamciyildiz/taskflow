@@ -123,6 +123,24 @@ async function main() {
   }
   checks++;
 
+  const limited = new GroqChatProvider({
+    apiKey:'test-key',fetch:(async()=>jsonResponse({},429,{
+      'Retry-After':'7','x-request-id':'upstream-safe-id','x-ratelimit-limit-tokens':'8000',
+      'x-ratelimit-remaining-tokens':'0','x-ratelimit-reset-tokens':'7s',
+      'x-ratelimit-limit-requests':'1000','x-ratelimit-remaining-requests':'999',
+    })) as typeof fetch,
+  });
+  let limitedError:unknown;
+  try { await limited.complete({ messages:[{ role:'user',content:'Hi' }] },context); } catch(error) { limitedError=error; }
+  const normalizedLimit=limited.normalizeError(limitedError);
+  assert.equal(normalizedLimit.retryAfterMs,7_000);
+  assert.equal(normalizedLimit.upstreamRequestId,'upstream-safe-id');
+  assert.equal(normalizedLimit.rateLimit?.limitTokens,8_000);
+  assert.equal(normalizedLimit.rateLimit?.remainingTokens,0);
+  assert.equal(normalizedLimit.rateLimit?.remainingRequests,999);
+  assert.equal(normalizedLimit.rateLimit?.resetTokens,'7s');
+  checks++;
+
   assert.throws(() => new GroqChatProvider({ apiKey: '' }), AIProviderConfigurationError);
   assert.throws(() => new CloudflareEmbeddingProvider({ accountId: '', apiToken: '' }), AIProviderConfigurationError);
   checks++;

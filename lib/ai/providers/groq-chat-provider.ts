@@ -67,6 +67,16 @@ const streamChunkSchema = z.object({
 
 type FetchLike = typeof fetch;
 
+function finiteHeader(headers: Headers, name: string): number | undefined {
+  const value = Number(headers.get(name));
+  return Number.isFinite(value) && value >= 0 ? value : undefined;
+}
+
+function durationHeader(headers: Headers, name: string): string | undefined {
+  const value = headers.get(name)?.trim();
+  return value && /^[0-9a-zA-Z.]+$/.test(value) ? value.slice(0, 40) : undefined;
+}
+
 export type GroqChatProviderOptions = {
   apiKey?: string;
   model?: string;
@@ -201,6 +211,14 @@ export class GroqChatProvider implements ChatProvider {
         response.status,
         parseRetryAfter(response.headers.get('retry-after')),
         response.headers.get('x-request-id') ?? undefined,
+        {
+          limitRequests: finiteHeader(response.headers,'x-ratelimit-limit-requests'),
+          remainingRequests: finiteHeader(response.headers,'x-ratelimit-remaining-requests'),
+          resetRequests: durationHeader(response.headers,'x-ratelimit-reset-requests'),
+          limitTokens: finiteHeader(response.headers,'x-ratelimit-limit-tokens'),
+          remainingTokens: finiteHeader(response.headers,'x-ratelimit-remaining-tokens'),
+          resetTokens: durationHeader(response.headers,'x-ratelimit-reset-tokens'),
+        },
       );
     }
     return response;

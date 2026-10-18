@@ -18,6 +18,14 @@ export type NormalizedAIProviderError = {
   providerStatus?: number;
   retryAfterMs?: number;
   upstreamRequestId?: string;
+  rateLimit?: {
+    limitRequests?: number;
+    remainingRequests?: number;
+    resetRequests?: string;
+    limitTokens?: number;
+    remainingTokens?: number;
+    resetTokens?: string;
+  };
 };
 
 export type ChatMessage = {
