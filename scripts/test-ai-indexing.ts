@@ -8,6 +8,11 @@ import {
   planAIIndexDocuments,
   serializeChunk,
 } from '../lib/ai/indexing/content';
+import {
+  assertNoSensitiveAIContent,
+  sensitiveContentCategories,
+  SensitiveAIContentError,
+} from '../lib/ai/indexing/sensitive-content';
 
 let checks = 0;
 const scope = {
@@ -40,6 +45,14 @@ assert.deepEqual(
 );
 assert.equal(firstDocuments.find((doc) => doc.sourceKey === checklistA)?.contentHash,
   reorderedDocuments.find((doc) => doc.sourceKey === checklistA)?.contentHash);
+checks++;
+
+assert.deepEqual(sensitiveContentCategories('ordinary project documentation'),[]);
+assert.deepEqual(sensitiveContentCategories('api_key=example-value'),[]);
+assert.ok(sensitiveContentCategories('Authorization: Bearer abcdefghijklmnopqrstuvwxyz123456').includes('bearer_token'));
+assert.ok(sensitiveContentCategories('password=RealCredentialValue123').includes('credential_assignment'));
+assert.ok(sensitiveContentCategories('postgresql://admin:SuperSecret123@db.example.test/app').includes('credential_url'));
+assert.throws(() => assertNoSensitiveAIContent(['safe', 'gsk_abcdefghijklmnopqrstuvwxyz123456']),SensitiveAIContentError);
 checks++;
 
 const note = {
@@ -138,7 +151,30 @@ assert.match(betaScope, /j\.organization_id=any\(p_organization_ids\)/);
 assert.match(betaScope, /FOR UPDATE SKIP LOCKED/i);
 assert.match(betaScope, /REVOKE ALL ON FUNCTION public\.claim_ai_index_jobs_for_organizations/i);
 const worker = fs.readFileSync('lib/ai/indexing/indexing-server.ts', 'utf8');
-assert.match(worker, /claim_ai_index_jobs_for_organizations/);
+assert.match(worker, /claim_ai_index_jobs_for_scope/);
+assert.match(worker, /AI_INDEX_PROJECT_IDS/);
+assert.match(worker, /AI_INDEX_SOURCE_TYPES/);
+assert.match(worker, /assertNoSensitiveAIContent/);
+assert.match(worker, /sensitive_content_detected/);
+checks++;
+
+const scopedClaim = fs.readFileSync('supabase/migrations/20261018120000_ai_scoped_index_claim.sql','utf8');
+assert.match(scopedClaim,/j\.organization_id=ANY\(p_organization_ids\)/);
+assert.match(scopedClaim,/j\.source_type=ANY\(p_source_types\)/);
+assert.match(scopedClaim,/j\.project_id=ANY\(p_project_ids\)/);
+assert.match(scopedClaim,/p_source_types <@ ARRAY\['task','note','process'\]/);
+assert.doesNotMatch(scopedClaim,/attachment/);
+assert.match(scopedClaim,/FOR UPDATE SKIP LOCKED/i);
+assert.match(scopedClaim,/ai_index_queue_health_for_scope/);
+assert.match(scopedClaim,/REVOKE ALL ON FUNCTION public\.claim_ai_index_jobs_for_scope[\s\S]*PUBLIC,anon,authenticated/);
+checks++;
+
+const backfill = fs.readFileSync('scripts/backfill-ai-index.ts','utf8');
+assert.match(backfill,/AI_INDEX_PROJECT_IDS/);
+assert.match(backfill,/--organization-id/);
+assert.match(backfill,/enqueue-production-ai-backfill/);
+assert.doesNotMatch(backfill,/source === 'attachment'/);
+assert.match(backfill,/projectIds\.includes/);
 checks++;
 
 const targetedClaim = fs.readFileSync('supabase/migrations/20261017220000_ai_targeted_note_index_claim.sql', 'utf8');

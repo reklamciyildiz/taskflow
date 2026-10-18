@@ -19,9 +19,10 @@ import type {
   ExistingAIIndexDocument,
   PlannedAIIndexDocument,
 } from './types';
+import { assertNoSensitiveAIContent, SensitiveAIContentError } from './sensitive-content';
 
 const DEFAULT_INDEX_VERSION = 'bge-m3-v1';
-type IndexingStage = 'load_canonical' | 'plan' | 'embed' | 'persist';
+type IndexingStage = 'load_canonical' | 'plan' | 'security_scan' | 'embed' | 'persist';
 
 class AIIndexStageError extends Error {
   constructor(readonly stage: IndexingStage, readonly original: unknown) {
@@ -126,6 +127,10 @@ async function indexClaimedJob(
   let planned: PlannedAIIndexDocument[];
   try { planned = planAIIndexDocuments(drafts, existing, indexVersion, provider.modelId); }
   catch (error) { throw new AIIndexStageError('plan', error); }
+  await atStage('security_scan', async () => {
+    assertNoSensitiveAIContent(planned.filter((document) => !document.reuseExisting)
+      .flatMap((document) => document.chunkTexts));
+  });
   const work: Array<{ document: PlannedAIIndexDocument; ordinal: number; content: string }> = [];
   for (const document of planned) {
     if (!document.reuseExisting) {
@@ -168,6 +173,9 @@ async function indexClaimedJob(
 
 function safeFailure(error: unknown, provider: EmbeddingProvider): { code: string; message: string } {
   const original = error instanceof AIIndexStageError ? error.original : error;
+  if (original instanceof SensitiveAIContentError) {
+    return { code: 'sensitive_content_detected', message: 'Potential credential or secret detected; indexing blocked' };
+  }
   let normalized: NormalizedAIProviderError | null = null;
   try { normalized = provider.normalizeError(original); } catch { normalized = null; }
   if (normalized && normalized.code !== 'unknown') {
@@ -279,6 +287,17 @@ export async function processAIIndexJobs(options: {
   if (betaMode && betaOrganizationIds.length === 0) {
     return { enabled: true, betaRestricted: true, claimed: 0, completed: 0, failed: 0, superseded: 0, health: null };
   }
+  const sourceTypes = [...new Set((process.env.AI_INDEX_SOURCE_TYPES ?? '')
+    .split(',').map((value) => value.trim()).filter(Boolean))];
+  const projectIds = [...new Set((process.env.AI_INDEX_PROJECT_IDS ?? '')
+    .split(',').map((value) => value.trim()).filter(Boolean))];
+  const allowedSourceTypes = new Set(['task','note','process']);
+  if (betaMode && (sourceTypes.length === 0 || projectIds.length === 0
+      || sourceTypes.some((value) => !allowedSourceTypes.has(value))
+      || projectIds.some((value) => !UUID_PATTERN.test(value)))) {
+    return { enabled: true, betaRestricted: true, claimed: 0, completed: 0, failed: 0, superseded: 0,
+      health: null, reason: 'index_scope_not_configured' };
+  }
   const config = indexingConfig();
   const provider = options.provider ?? new CloudflareEmbeddingProvider();
   const jobLimit = Math.max(1, Math.min(20, options.batchSize ?? config.batchSize));
@@ -290,14 +309,20 @@ export async function processAIIndexJobs(options: {
   while (claimed < jobLimit && Date.now() < deadline - 5_000) {
     // Claim one at a time so a serverless deadline never strands an entire
     // pre-claimed batch behind leases that were not actually processed.
-    const rpcName = betaMode ? 'claim_ai_index_jobs_for_organizations' : 'claim_ai_index_jobs';
+    const rpcName = betaMode ? 'claim_ai_index_jobs_for_scope' : 'claim_ai_index_jobs';
     const parameters = betaMode
-      ? { p_organization_ids: betaOrganizationIds,p_limit:1,p_lease_seconds:180,p_max_attempts:8 }
+      ? { p_organization_ids: betaOrganizationIds,p_project_ids:projectIds,p_source_types:sourceTypes,
+        p_limit:1,p_lease_seconds:180,p_max_attempts:8 }
       : { p_limit:1,p_lease_seconds:180,p_max_attempts:8 };
     const { data, error } = await supabaseAdmin.rpc(rpcName, parameters);
     if (error) throw error;
     const job = (data?.[0] ?? null) as AIIndexJob | null;
     if (!job) break;
+    if (betaMode && (!sourceTypes.includes(job.source_type)
+        || !(job.project_id ? projectIds.includes(job.project_id)
+          : job.source_type === 'process' && projectIds.includes(job.source_key)))) {
+      throw new Error('Scoped AI index claim returned an unexpected job');
+    }
     claimed += 1;
     try {
       const result = await indexClaimedJob(job, provider, config.indexVersion, deadline);
@@ -306,12 +331,13 @@ export async function processAIIndexJobs(options: {
     } catch (jobError) {
       failed += 1;
       const safe = safeFailure(jobError, provider);
+      const original = jobError instanceof AIIndexStageError ? jobError.original : jobError;
+      const sensitive = original instanceof SensitiveAIContentError;
       const { error: failureError } = await supabaseAdmin.rpc('fail_ai_index_job', {
         p_job_id: job.id, p_lease_token: job.lease_token,
-        p_error_code: safe.code, p_error_message: safe.message, p_max_attempts: 8,
+        p_error_code: safe.code, p_error_message: safe.message, p_max_attempts: sensitive ? 1 : 8,
       });
       const stage = jobError instanceof AIIndexStageError ? jobError.stage : 'unknown';
-      const original = jobError instanceof AIIndexStageError ? jobError.original : jobError;
       const upstreamCode = typeof original === 'object' && original && 'code' in original
         ? String((original as { code?: unknown }).code ?? '').slice(0, 80) || undefined
         : undefined;
@@ -327,7 +353,11 @@ export async function processAIIndexJobs(options: {
       }
     }
   }
-  const { data: health, error: healthError } = await supabaseAdmin.rpc('ai_index_queue_health');
+  const healthRpc = betaMode ? 'ai_index_queue_health_for_scope' : 'ai_index_queue_health';
+  const healthParameters = betaMode
+    ? { p_organization_ids: betaOrganizationIds,p_project_ids:projectIds,p_source_types:sourceTypes }
+    : undefined;
+  const { data: health, error: healthError } = await supabaseAdmin.rpc(healthRpc, healthParameters);
   if (healthError) {
     console.warn('AI index queue health unavailable', { code: 'queue_health_unavailable' });
   }
