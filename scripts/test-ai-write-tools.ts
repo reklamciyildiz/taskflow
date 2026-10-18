@@ -53,6 +53,7 @@ async function run(){
   const ui=readFileSync('components/ai/AxiomAIChat.tsx','utf8');
   assert.match(ui,/Onayla ve uygula/);
   assert.match(ui,/action:'approve'\|'reject'/);
-  console.log(JSON.stringify({writeToolContractChecks:22,liveProviderCalls:false,liveDatabaseCalls:false}));
+  assert.match(ui,/await refreshData\(\)/);
+  console.log(JSON.stringify({writeToolContractChecks:23,liveProviderCalls:false,liveDatabaseCalls:false}));
 }
 void run();

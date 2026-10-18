@@ -34,7 +34,7 @@ function HistoryPanel(props:{ conversations:AIConversationSummary[];activeId:str
 }
 
 export function AxiomAIChat({ enabled }:{ enabled:boolean }) {
-  const { openTaskEditor } = useTaskContext();
+  const { openTaskEditor,refreshData } = useTaskContext();
   const params=useSearchParams(),context=useMemo(()=>contextFromParams(params),[params]);
   const [conversations,setConversations]=useState<AIConversationSummary[]>([]);
   const [conversationId,setConversationId]=useState<string|null>(null);
@@ -78,6 +78,7 @@ export function AxiomAIChat({ enabled }:{ enabled:boolean }) {
         body:JSON.stringify({conversationId,action})});
       const payload=await response.json().catch(()=>null);
       if(!response.ok) throw new Error(payload?.error?.message??'Proposal could not be processed');
+      if(action==='approve'&&payload.proposal.status==='completed') await refreshData();
       setMessages((current)=>current.map((message)=>message.id===messageId?{...message,proposal:payload.proposal}:message));
       if(action==='approve'&&payload.proposal.status==='completed') toast.success('Axiom işlemi başarıyla tamamlandı');
       else if(action==='reject') toast.success('Taslak reddedildi; hiçbir değişiklik yapılmadı');
