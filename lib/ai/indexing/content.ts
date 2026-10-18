@@ -107,6 +107,15 @@ export function extractStableChecklistItems(document: unknown): Array<{ id: stri
   return items;
 }
 
+export function checklistDocumentSourceKey(taskId: string, checklistItemId: string): string {
+  return `${taskId}:${checklistItemId}`;
+}
+
+export function checklistItemIdFromDocumentSourceKey(sourceKey: string, taskId: string | null): string {
+  const prefix = taskId ? `${taskId}:` : '';
+  return prefix && sourceKey.startsWith(prefix) ? sourceKey.slice(prefix.length) : sourceKey;
+}
+
 function draft(input: Omit<AIIndexDocumentDraft, 'contentHash' | 'chunkTexts'> & { chunkTexts?: string[] }): AIIndexDocumentDraft {
   const content = normalizeAIText(input.content);
   return {
@@ -142,7 +151,7 @@ export function buildTaskIndexDocuments(task: any, process: any | null): AIIndex
       processName ? `Process: ${processName}` : '',
     ].filter(Boolean).join('\n'));
     documents.push(draft({
-      ...common, sourceType: 'checklist', sourceKey: item.id,
+      ...common, sourceType: 'checklist', sourceKey: checklistDocumentSourceKey(String(task.id), item.id),
       title: item.text, content,
     }));
   }

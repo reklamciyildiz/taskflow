@@ -7,6 +7,7 @@ import { createRequestSignal } from '@/lib/ai/providers/provider-http';
 import type { EmbeddingProvider } from '@/lib/ai/providers/contracts';
 import { requireAuthedUser } from '@/lib/server-authz';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { checklistItemIdFromDocumentSourceKey } from '@/lib/ai/indexing/content';
 import { deduplicateBySource } from './ranking';
 import type {
   RetrievalInput,
@@ -73,13 +74,16 @@ function indexVersion() {
 
 function toCitation(row: z.infer<typeof retrievalRowSchema>, mode: RetrievalMode): SourceCitation {
   const actionId = row.task_id;
+  const checklistItemId = row.source_type === 'checklist'
+    ? checklistItemIdFromDocumentSourceKey(row.source_key, actionId)
+    : null;
   return {
     citationId: row.chunk_id,
     sourceDocumentId: row.source_document_id,
     sourceType: row.source_type,
     sourceId: row.source_key,
     actionId,
-    checklistItemId: row.source_type === 'checklist' ? row.source_key : null,
+    checklistItemId,
     noteId: row.note_id,
     processId: row.project_id,
     attachmentId: row.attachment_id,
@@ -100,7 +104,7 @@ function toCitation(row: z.infer<typeof retrievalRowSchema>, mode: RetrievalMode
     navigation: {
       target: row.source_type,
       actionId,
-      sourceId: row.source_key,
+      sourceId: checklistItemId ?? row.source_key,
     },
   };
 }

@@ -4,6 +4,8 @@ import {
   buildAttachmentIndexDocument,
   buildNoteIndexDocument,
   buildTaskIndexDocuments,
+  checklistDocumentSourceKey,
+  checklistItemIdFromDocumentSourceKey,
   deterministicChunkId,
   planAIIndexDocuments,
   serializeChunk,
@@ -43,8 +45,11 @@ assert.deepEqual(
   firstDocuments.filter((doc) => doc.sourceType === 'checklist').map((doc) => doc.sourceKey).sort(),
   reorderedDocuments.filter((doc) => doc.sourceType === 'checklist').map((doc) => doc.sourceKey).sort(),
 );
-assert.equal(firstDocuments.find((doc) => doc.sourceKey === checklistA)?.contentHash,
-  reorderedDocuments.find((doc) => doc.sourceKey === checklistA)?.contentHash);
+const checklistSourceA = checklistDocumentSourceKey(scope.id, checklistA);
+assert.equal(firstDocuments.find((doc) => doc.sourceKey === checklistSourceA)?.contentHash,
+  reorderedDocuments.find((doc) => doc.sourceKey === checklistSourceA)?.contentHash);
+assert.equal(checklistItemIdFromDocumentSourceKey(checklistSourceA, scope.id), checklistA);
+assert.notEqual(checklistDocumentSourceKey('20000000-0000-4000-8000-000000000099', checklistA), checklistSourceA);
 checks++;
 
 assert.deepEqual(sensitiveContentCategories('ordinary project documentation'),[]);
