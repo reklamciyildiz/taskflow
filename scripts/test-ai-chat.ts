@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { citationIdsFromAnswer,sanitizeAnswerCitations,usedCitations } from '../lib/ai/chat/citations';
 import { classifyChatIntent,fixedProductHelp,shouldAttemptKnowledgeRetrieval } from '../lib/ai/chat/intent';
 import { encodeChatSSE,parseChatSSEBuffer } from '../lib/ai/chat/sse';
+import { formatAIQuotaMessage,shouldRefundAIUserQuota } from '../lib/ai/chat/quota-policy';
 import { buildChatMessages } from '../lib/ai/chat/prompt';
 import { chatRetrievalLimit,planChatContext } from '../lib/ai/chat/context-budget';
 import { estimateMessagesTokens } from '../lib/ai/utils/token-counter';
@@ -70,6 +71,14 @@ assert.equal(generalPlan.profile,'general');
 assert.equal(generalPlan.citations.length,0);
 assert.ok(generalPlan.estimatedInputTokens<=1_900);
 assert.equal(generalPlan.maxOutputTokens,600);
+
+const quotaMessage=formatAIQuotaMessage('Daily AI request limit exceeded',new Date('2026-10-19T00:00:00.000Z'));
+assert.match(quotaMessage,/19 Eki 2026 03:00/);
+assert.match(quotaMessage,/Türkiye saati/);
+assert.equal(shouldRefundAIUserQuota({ billableAttempt:false,errorCode:'AI_UNAVAILABLE' }),true);
+assert.equal(shouldRefundAIUserQuota({ billableAttempt:true,errorCode:'CITATION_REQUIRED' }),true);
+assert.equal(shouldRefundAIUserQuota({ billableAttempt:true,errorCode:'PROVIDER_RATE_LIMITED' }),true);
+assert.equal(shouldRefundAIUserQuota({ billableAttempt:true,errorCode:'UNKNOWN_PROVIDER_FAILURE' }),false);
 
 const wire=encodeChatSSE({ type:'delta',text:'Merhaba' })+encodeChatSSE({ type:'done',finishReason:'completed' });
 const first=parseChatSSEBuffer(wire.slice(0,17));

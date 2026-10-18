@@ -12,6 +12,7 @@ import { citationIdsFromAnswer,sanitizeAnswerCitations } from '@/lib/ai/chat/cit
 import { classifyChatIntent,fixedProductHelp,shouldAttemptKnowledgeRetrieval } from '@/lib/ai/chat/intent';
 import { chatRetrievalLimit,planChatContext } from '@/lib/ai/chat/context-budget';
 import { finalizeGroqTokens,reserveGroqTokens } from '@/lib/ai/chat/provider-token-admission';
+import { formatAIQuotaMessage,shouldRefundAIUserQuota } from '@/lib/ai/chat/quota-policy';
 import {
   createTurnMessages,finalizeAssistantMessage,finishChatRun,getConversation,
   getConversationMessages,historyForProvider,reserveChatRun,
@@ -141,7 +142,8 @@ export async function POST(request:NextRequest) {
           citations=contextPlan.citations;
           const quota=await reserveAIQuota(scope.userId,scope.organizationId,'axiom-chat',input.clientRequestId);
           if (!quota.allowed) {
-            const errorEvent={ type:'error',code:'QUOTA_EXHAUSTED',message:quota.reason ?? 'AI quota exhausted',retryable:false } as const;
+            const errorEvent={ type:'error',code:'QUOTA_EXHAUSTED',
+              message:formatAIQuotaMessage(quota.reason,quota.resetAt),retryable:false } as const;
             send(errorEvent);await finalizeAssistantMessage({ messageId:turn.assistantMessageId,scope,content:'',status:'failed',errorCode:errorEvent.code });
             assistantStatus='failed';return;
           }
@@ -204,9 +206,11 @@ export async function POST(request:NextRequest) {
           assistantStatus=cancelled?'cancelled':'failed';
           const normalized=safeError(error,provider);
           const providerFailure=provider?.normalizeError(error);
-          if (quotaReserved&&providerFailure?.code==='rate_limited') {
+          let userQuotaRefunded=false;
+          if (quotaReserved&&shouldRefundAIUserQuota({ billableAttempt,errorCode:normalized.code })) {
             await releaseAIQuotaReservation(input.clientRequestId,scope.userId,scope.organizationId);
             quotaReserved=false;
+            userQuotaRefunded=true;
           }
           console.error(JSON.stringify({ event:'ai_chat_failed',requestId:input.clientRequestId,code:normalized.code,
             durationMs:Date.now()-startedAt,retryable:normalized.retryable,
@@ -216,7 +220,8 @@ export async function POST(request:NextRequest) {
             status:assistantStatus,model,inputTokens,outputTokens,errorCode:normalized.code,
             sources:[],grounding }); } catch { /* lease recovery remains */ }
           if (billableAttempt) await recordAIRequest(scope.userId,scope.organizationId,'axiom-chat',model ?? 'groq',
-            inputTokens ?? 0,outputTokens ?? 0,0,Date.now()-startedAt,false,normalized.code,{ failed:true });
+            inputTokens ?? 0,outputTokens ?? 0,0,Date.now()-startedAt,false,normalized.code,
+            { failed:true,userQuotaRefunded });
           try { send({ type:'error',...normalized }); } catch { /* disconnected client */ }
         } finally {
           overallSignal.cleanup();
