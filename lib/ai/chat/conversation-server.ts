@@ -2,8 +2,9 @@ import 'server-only';
 import { z } from 'zod';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import type { SourceCitation } from '@/lib/ai/retrieval/types';
+import type { AIReadReference } from '@/lib/ai/agent/types';
 import type { AIChatContext, AIChatMessage, AIConversationSummary } from './types';
-import { aiChatLimits } from './config';
+import { aiChatLimits,areAIReadToolsEnabled } from './config';
 
 const contextSchema = z.object({
   origin: z.enum(['global','knowledge_hub']).default('global'),
@@ -34,6 +35,12 @@ const citationSnapshotSchema = z.object({
     target: z.enum(['action','note','checklist','process','attachment']),
     actionId: z.string().uuid().nullable(),sourceId: z.string(),
   }),
+});
+
+const readReferenceSnapshotSchema = z.object({
+  type:z.enum(['process','action','checklist']),id:z.string().min(1).max(200),title:z.string().min(1).max(500),
+  processId:z.string().uuid().nullable().optional(),actionId:z.string().uuid().nullable().optional(),
+  checklistItemId:z.string().min(1).max(200).nullable().optional(),
 });
 
 export class ConversationError extends Error {
@@ -156,17 +163,19 @@ export async function finalizeAssistantMessage(input:{
   status:'completed'|'failed'|'cancelled';model?:string;inputTokens?:number;outputTokens?:number;
   errorCode?:string;sources?:SourceCitation[];grounding?:{
     kind:'none'|'knowledge'|'structured';teamId?:string;processId?:string;
-  };
+  };references?:AIReadReference[];
 }) {
   const grounding=input.grounding ?? { kind:'none' as const };
-  const { data,error }=await supabaseAdmin.rpc('finalize_ai_chat_message',{
+  const rpcArguments:Record<string,unknown>={
     p_message_id:input.messageId,p_user_id:input.scope.userId,p_organization_id:input.scope.organizationId,
     p_content:input.content,p_status:input.status,p_model:input.model ?? null,
     p_input_tokens:input.inputTokens ?? null,p_output_tokens:input.outputTokens ?? null,
     p_error_code:input.errorCode ?? null,p_sources:input.sources ?? [],
     p_grounding_kind:grounding.kind,p_grounding_team_id:grounding.teamId ?? null,
     p_grounding_project_id:grounding.processId ?? null,
-  });
+  };
+  if(input.references!==undefined)rpcArguments.p_references=input.references;
+  const { data,error }=await supabaseAdmin.rpc('finalize_ai_chat_message',rpcArguments);
   if (error || data!==true) throw new ConversationError('database_unavailable','Assistant response could not be saved');
 }
 
@@ -190,6 +199,10 @@ export async function getConversationMessages(scope:{userId:string;organizationI
     ? await supabaseAdmin.from('ai_message_sources').select('*').in('message_id',ids)
     : { data:[],error:null };
   if (sourceError) throw new ConversationError('database_unavailable','Message sources could not be loaded');
+  const { data:referenceRows,error:referenceError }=areAIReadToolsEnabled()&&ids.length
+    ? await supabaseAdmin.from('ai_message_references').select('*').in('message_id',ids).order('ordinal',{ ascending:true })
+    : { data:[],error:null };
+  if (referenceError) throw new ConversationError('database_unavailable','Message references could not be loaded');
   const chunkIds=[...new Set((sourceRows ?? []).map((row:any)=>String(row.chunk_id)))];
   let validIds=new Set<string>();
   if (chunkIds.length) {
@@ -201,6 +214,7 @@ export async function getConversationMessages(scope:{userId:string;organizationI
     validIds=new Set((data ?? []).map((row:any)=>String(row.chunk_id)));
   }
   const sourcesByMessage=new Map<string,SourceCitation[]>();
+  const referencesByMessage=new Map<string,AIReadReference[]>();
   const invalidSourceMessages=new Set<string>();
   for (const row of sourceRows ?? []) {
     const messageId=String(row.message_id),chunkId=String(row.chunk_id);
@@ -209,6 +223,11 @@ export async function getConversationMessages(scope:{userId:string;organizationI
     if (!parsed.success) continue;
     const values=sourcesByMessage.get(messageId) ?? [];
     values.push(parsed.data as SourceCitation);sourcesByMessage.set(messageId,values);
+  }
+  for (const row of referenceRows ?? []) {
+    const parsed=readReferenceSnapshotSchema.safeParse(row.snapshot);if(!parsed.success)continue;
+    const messageId=String(row.message_id),values=referencesByMessage.get(messageId)??[];
+    values.push(parsed.data as AIReadReference);referencesByMessage.set(messageId,values);
   }
   return (messages ?? []).map((message:any)=>{
     const revoked=message.role==='assistant' && (
@@ -219,6 +238,7 @@ export async function getConversationMessages(scope:{userId:string;organizationI
         ? 'This source-backed response is no longer available because your source access changed.'
         : String(message.content),status:message.status,model:message.model ? String(message.model) : null,
       createdAt:String(message.created_at),sources:revoked ? [] : (sourcesByMessage.get(String(message.id)) ?? []),
+      references:revoked ? [] : (referencesByMessage.get(String(message.id)) ?? []),
       ...(revoked ? { sourceAccessRevoked:true } : {}),
     };
   });

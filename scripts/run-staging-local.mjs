@@ -84,11 +84,14 @@ if (aiTestMode) {
   process.env.AXIOM_AI_BETA_MODE_ENABLED = 'true';
   process.env.AXIOM_AI_BETA_USER_IDS = '20000000-0000-4000-8000-000000000001';
   process.env.AXIOM_AI_BETA_ORGANIZATION_IDS = '10000000-0000-4000-8000-000000000001';
+  process.env.AXIOM_AI_READ_TOOLS_ENABLED = 'true';
+  process.env.AI_DAILY_REQUESTS_PER_USER = '50';
+  process.env.AI_MONTHLY_REQUESTS_PER_ORG = '1000';
 }
 
 console.log(`Starting Axiom locally against the isolated staging project${aiTestMode ? ' (controlled AI test mode)' : ''}.`);
 const child = process.platform === 'win32'
-  ? spawn('cmd.exe', ['/d', '/s', '/c', `next dev -p ${appUrl.port || '3000'}`], { stdio: 'inherit', env: process.env })
+  ? spawn(process.execPath, ['node_modules/next/dist/bin/next', 'dev', '-p', appUrl.port || '3000'], { stdio: 'inherit', env: process.env })
   : spawn('node_modules/.bin/next', ['dev', '-p', appUrl.port || '3000'], { stdio: 'inherit', env: process.env });
 
 child.on('exit', (code, signal) => {

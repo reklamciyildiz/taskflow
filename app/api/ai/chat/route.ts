@@ -8,6 +8,7 @@ import { retrieveStructuredActions } from '@/lib/ai/retrieval/structured-retriev
 import { createCitationRegistry } from '@/lib/ai/retrieval/citation';
 import { releaseAIQuotaReservation,reserveAIQuota,recordAIRequest } from '@/lib/ai/utils/rate-limiter';
 import { aiChatLimits,isAIChatRuntimeReady } from '@/lib/ai/chat/config';
+import { areAIReadToolsEnabled } from '@/lib/ai/chat/config';
 import { citationIdsFromAnswer,sanitizeAnswerCitations } from '@/lib/ai/chat/citations';
 import { classifyChatIntent,fixedProductHelp,shouldAttemptKnowledgeRetrieval } from '@/lib/ai/chat/intent';
 import { chatRetrievalLimit,planChatContext } from '@/lib/ai/chat/context-budget';
@@ -20,6 +21,11 @@ import {
 import { chatErrorResponse,requireAIChatUser } from '@/lib/ai/chat/http-server';
 import type { AIChatStreamEvent } from '@/lib/ai/chat/types';
 import { encodeChatSSE } from '@/lib/ai/chat/sse';
+import { buildAIReadToolContext } from '@/lib/ai/agent/context';
+import { executeAIReadTool,AIReadToolError } from '@/lib/ai/agent/read-tools';
+import { planDirectAIReadTools,shouldUseModelToolSelection } from '@/lib/ai/agent/router';
+import { selectAIReadTools } from '@/lib/ai/agent/selector';
+import type { AIReadReference,AIReadToolCall,AIReadToolExecution } from '@/lib/ai/agent/types';
 
 export const runtime='nodejs';
 export const maxDuration=60;
@@ -33,6 +39,19 @@ const requestSchema=z.object({
 
 const encoder=new TextEncoder();
 const encode=(event:AIChatStreamEvent)=>encoder.encode(encodeChatSSE(event));
+const READ_TOOL_TIMEOUT_MS=10_000;
+
+async function executeReadToolWithTimeout(call:AIReadToolCall,actor:{userId:string;organizationId:string;role?:string|null}) {
+  let timer:ReturnType<typeof setTimeout>|undefined;
+  try {
+    return await Promise.race([
+      executeAIReadTool(call.name,call.arguments,actor),
+      new Promise<never>((_resolve,reject)=>{timer=setTimeout(()=>reject(
+        new AIReadToolError('unavailable','Axiom data lookup timed out'),
+      ),READ_TOOL_TIMEOUT_MS);}),
+    ]);
+  } finally { if(timer)clearTimeout(timer); }
+}
 
 function safeError(error:unknown,provider?:GroqChatProvider) {
   if (error instanceof Error && error.name==='AbortError') return { code:'CANCELLED',message:'Generation stopped',retryable:true };
@@ -83,6 +102,8 @@ export async function POST(request:NextRequest) {
         let quotaReserved=false;
         let retrievalLatencyMs:number|undefined,firstTokenMs:number|undefined;
         let citations:Awaited<ReturnType<typeof retrieveKnowledge>>['citations']=[];
+        let readToolExecutions:AIReadToolExecution[]=[];let readToolReferences:AIReadReference[]=[];
+        let agentContext:string|undefined;let usedModelToolSelection=false;
         let grounding:{ kind:'none'|'knowledge'|'structured';teamId?:string;processId?:string }={ kind:'none' };
         const overallSignal=createRequestSignal(aiChatLimits.timeoutMs,request.signal);
         const send=(event:AIChatStreamEvent)=>controller.enqueue(encode(event));
@@ -101,8 +122,37 @@ export async function POST(request:NextRequest) {
             send({ type:'done',finishReason:'completed' });return;
           }
 
+          const readToolsEnabled=areAIReadToolsEnabled();
+          const directReadToolCalls=readToolsEnabled?planDirectAIReadTools(input.message,effectiveContext):[];
+          const needsModelToolSelection=readToolsEnabled&&shouldUseModelToolSelection(input.message,directReadToolCalls);
+          const runReadToolCalls=async(calls:AIReadToolCall[])=>{
+            const executions:AIReadToolExecution[]=[];
+            for(const call of calls.slice(0,2)) {
+              send({type:'tool_status',label:'Axiom verileri kontrol ediliyor…'});
+              try { executions.push(await executeReadToolWithTimeout(call,{
+                userId:scope.userId,organizationId:scope.organizationId,role:scope.role,
+              })); }
+              catch(error) {
+                if(!(error instanceof AIReadToolError)) throw error;
+                executions.push({name:call.name,statusLabel:'Axiom verileri kontrol ediliyor…',citations:[],references:[],
+                  data:{error:error.code,message:error.message}});
+              }
+            }
+            return executions;
+          };
+          if(directReadToolCalls.length) {
+            readToolExecutions=await runReadToolCalls(directReadToolCalls);
+            citations=readToolExecutions.flatMap((execution)=>execution.citations);
+            readToolReferences=readToolExecutions.flatMap((execution)=>execution.references)
+              .filter((reference,index,all)=>all.findIndex((candidate)=>candidate.type===reference.type&&candidate.id===reference.id)===index).slice(0,20);
+            agentContext=buildAIReadToolContext(readToolExecutions.filter((execution)=>execution.name!=='search_knowledge'))||undefined;
+            if(readToolReferences.length)send({type:'references',references:readToolReferences});
+            grounding=citations.length?{kind:'knowledge',teamId:effectiveContext.teamId,processId:effectiveContext.processId}
+              :readToolReferences.length?{kind:'structured',teamId:effectiveContext.teamId,processId:effectiveContext.processId}:{kind:'none'};
+          }
+
           let structured:Awaited<ReturnType<typeof retrieveStructuredActions>>|undefined;
-          const shouldRetrieve=shouldAttemptKnowledgeRetrieval(input.message,intent);
+          const shouldRetrieve=!directReadToolCalls.length&&!needsModelToolSelection&&shouldAttemptKnowledgeRetrieval(input.message,intent);
           if (shouldRetrieve) {
             try {
               const result=await retrieveKnowledge({ query:input.message,mode:'hybrid',limit:chatRetrievalLimit(input.message),
@@ -125,7 +175,7 @@ export async function POST(request:NextRequest) {
               send({ type:'done',finishReason:'completed' });return;
             }
             if (citations.length>0) grounding={ kind:'knowledge',teamId:effectiveContext.teamId,processId:effectiveContext.processId };
-          } else if (intent==='structured') {
+          } else if (!readToolExecutions.length&&!needsModelToolSelection&&intent==='structured') {
             if (!effectiveContext.teamId) {
               answer='Choose a team or open Axiom AI from Knowledge Hub so I can answer this structured question from canonical Action data.';
               send({ type:'delta',text:answer });assistantStatus='completed';
@@ -138,8 +188,7 @@ export async function POST(request:NextRequest) {
           }
 
           const contextPlan=planChatContext({ intent,question:input.message,history:availableHistory,
-            citations,structured,configuredMaxOutputTokens:aiChatLimits.maxOutputTokens });
-          citations=contextPlan.citations;
+            citations,structured,agentContext,configuredMaxOutputTokens:aiChatLimits.maxOutputTokens });
           const quota=await reserveAIQuota(scope.userId,scope.organizationId,'axiom-chat',input.clientRequestId);
           if (!quota.allowed) {
             const errorEvent={ type:'error',code:'QUOTA_EXHAUSTED',
@@ -153,7 +202,7 @@ export async function POST(request:NextRequest) {
 
           const tokenAdmission=await reserveGroqTokens({ requestKey:input.clientRequestId,userId:scope.userId,
             organizationId:scope.organizationId,model,estimatedInputTokens:contextPlan.estimatedInputTokens,
-            maxOutputTokens:contextPlan.maxOutputTokens });
+            maxOutputTokens:contextPlan.maxOutputTokens+(needsModelToolSelection?3_500:0) });
           tokenReservationId=tokenAdmission.reservationId;
           if (!tokenAdmission.allowed) {
             const retryAfterSeconds=tokenAdmission.retryAfterSeconds??60;
@@ -166,11 +215,32 @@ export async function POST(request:NextRequest) {
               status:'failed',errorCode:errorEvent.code });assistantStatus='failed';return;
           }
 
+          let finalContextPlan=contextPlan;
+          if(needsModelToolSelection) {
+            billableAttempt=true;usedModelToolSelection=true;
+            const selection=await selectAIReadTools({provider,question:input.message,history:availableHistory,
+              signal:overallSignal.signal,timeoutMs:aiChatLimits.timeoutMs});
+            inputTokens=(inputTokens??0)+selection.inputTokens;outputTokens=(outputTokens??0)+selection.outputTokens;
+            if(selection.calls.length) {
+              readToolExecutions=await runReadToolCalls(selection.calls);
+              citations=readToolExecutions.flatMap((execution)=>execution.citations);
+              readToolReferences=readToolExecutions.flatMap((execution)=>execution.references)
+                .filter((reference,index,all)=>all.findIndex((candidate)=>candidate.type===reference.type&&candidate.id===reference.id)===index).slice(0,20);
+              agentContext=buildAIReadToolContext(readToolExecutions.filter((execution)=>execution.name!=='search_knowledge'))||undefined;
+              if(readToolReferences.length)send({type:'references',references:readToolReferences});
+              grounding=citations.length?{kind:'knowledge',teamId:effectiveContext.teamId,processId:effectiveContext.processId}
+                :readToolReferences.length?{kind:'structured',teamId:effectiveContext.teamId,processId:effectiveContext.processId}:{kind:'none'};
+              finalContextPlan=planChatContext({intent,question:input.message,history:availableHistory,citations,
+                agentContext,configuredMaxOutputTokens:aiChatLimits.maxOutputTokens});
+            }
+          }
+          citations=finalContextPlan.citations;
+
           billableAttempt=true;
           const registry=createCitationRegistry(citations);
-          const events=provider.stream({ messages:contextPlan.messages,
-            temperature:0.25,maxOutputTokens:contextPlan.maxOutputTokens,
-            reasoning:{ effort:contextPlan.profile==='general'&&model.startsWith('qwen/')?'none':'low',format:'hidden' } },
+          const events=provider.stream({ messages:finalContextPlan.messages,
+            temperature:0.25,maxOutputTokens:finalContextPlan.maxOutputTokens,
+            reasoning:{ effort:finalContextPlan.profile==='general'&&model.startsWith('qwen/')?'none':'low',format:'hidden' } },
             { requestId:randomUUID(),timeoutMs:aiChatLimits.timeoutMs,signal:overallSignal.signal });
           for await (const event of events) {
             if (event.type==='text_delta') {
@@ -178,7 +248,7 @@ export async function POST(request:NextRequest) {
               answer+=event.text;send({ type:'delta',text:event.text });
             }
             else if (event.type==='usage') {
-              inputTokens=event.usage.inputTokens;outputTokens=event.usage.outputTokens;
+              inputTokens=(inputTokens??0)+(event.usage.inputTokens??0);outputTokens=(outputTokens??0)+(event.usage.outputTokens??0);
               send({ type:'usage',inputTokens,outputTokens });
             }
           }
@@ -192,15 +262,18 @@ export async function POST(request:NextRequest) {
             throw error;
           }
           await finalizeAssistantMessage({ messageId:turn.assistantMessageId,scope,content:answer,status:'completed',model,
-            inputTokens,outputTokens,sources:verified,grounding });
+            inputTokens,outputTokens,sources:verified,
+            ...(readToolReferences.length?{references:readToolReferences}:{}),grounding });
           if (verified.length) send({ type:'sources',sources:verified });
           send({ type:'done',finishReason:'completed' });assistantStatus='completed';
           await recordAIRequest(scope.userId,scope.organizationId,'axiom-chat',model,inputTokens ?? 0,outputTokens ?? 0,
             0,Date.now()-startedAt,true,undefined,{ intent,citationCount:verified.length,
               retrievalSourceCount:citations.length,retrievalLatencyMs,firstTokenMs,
-              contextProfile:contextPlan.profile,estimatedInputTokens:contextPlan.estimatedInputTokens,
-              maxOutputTokens:contextPlan.maxOutputTokens,droppedHistoryMessages:contextPlan.droppedHistoryMessages,
-              droppedCitations:contextPlan.droppedCitations,droppedStructuredActions:contextPlan.droppedStructuredActions });
+              contextProfile:finalContextPlan.profile,estimatedInputTokens:finalContextPlan.estimatedInputTokens,
+              maxOutputTokens:finalContextPlan.maxOutputTokens,droppedHistoryMessages:finalContextPlan.droppedHistoryMessages,
+              droppedCitations:finalContextPlan.droppedCitations,droppedStructuredActions:finalContextPlan.droppedStructuredActions,
+              readTools:readToolExecutions.map((execution)=>execution.name),toolCallCount:readToolExecutions.length,
+              modelToolSelection:usedModelToolSelection });
         } catch(error) {
           const cancelled=request.signal.aborted || (error instanceof Error && error.name==='AbortError');
           assistantStatus=cancelled?'cancelled':'failed';
@@ -218,7 +291,7 @@ export async function POST(request:NextRequest) {
             upstreamRequestId:providerFailure?.upstreamRequestId,rateLimit:providerFailure?.rateLimit }));
           try { await finalizeAssistantMessage({ messageId:turn.assistantMessageId,scope,content:answer||normalized.message,
             status:assistantStatus,model,inputTokens,outputTokens,errorCode:normalized.code,
-            sources:[],grounding }); } catch { /* lease recovery remains */ }
+            sources:[],...(readToolReferences.length?{references:readToolReferences}:{}),grounding }); } catch { /* lease recovery remains */ }
           if (billableAttempt) await recordAIRequest(scope.userId,scope.organizationId,'axiom-chat',model ?? 'groq',
             inputTokens ?? 0,outputTokens ?? 0,0,Date.now()-startedAt,false,normalized.code,
             { failed:true,userQuotaRefunded });

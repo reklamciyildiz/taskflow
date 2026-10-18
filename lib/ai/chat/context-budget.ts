@@ -24,9 +24,9 @@ export function chatRetrievalLimit(question:string) {
   return BROAD_QUERY.test(question) ? 8 : 4;
 }
 
-function profileFor(intent: ChatIntent,question: string,citationCount: number): ContextProfile {
-  if (intent==='structured') return 'structured';
+function profileFor(intent: ChatIntent,question: string,citationCount: number,hasAgentContext:boolean): ContextProfile {
   if (citationCount>0) return BROAD_QUERY.test(question) ? 'rag_broad' : 'rag_narrow';
+  if (hasAgentContext||intent==='structured') return 'structured';
   return 'general';
 }
 
@@ -87,16 +87,17 @@ function fitCitationText(citations:SourceCitation[],budget:number) {
 
 export function planChatContext(input:{
   intent:ChatIntent; question:string; history:ChatMessage[]; citations:SourceCitation[];
-  structured?: Parameters<typeof buildChatMessages>[0]['structured']; configuredMaxOutputTokens:number;
+  structured?: Parameters<typeof buildChatMessages>[0]['structured']; agentContext?:string;configuredMaxOutputTokens:number;
 }):PlannedChatContext {
-  const profile=profileFor(input.intent,input.question,input.citations.length);
+  const profile=profileFor(input.intent,input.question,input.citations.length,Boolean(input.agentContext));
   const budget=limits(profile,input.configuredMaxOutputTokens);
   let history=recentHistory(input.history,budget.history);
   let citations=fitCitationText(
     diverseCitations(input.citations,budget.maxSources,profile==='rag_broad'),budget.sources,
   );
   let structured=input.structured;
-  let messages=buildChatMessages({ history,question:input.question,citations,structured });
+  const agentContext=input.agentContext?truncateToTokenLimit(input.agentContext,2_300):undefined;
+  let messages=buildChatMessages({ history,question:input.question,citations,structured,agentContext });
   let estimatedInputTokens=estimateMessagesTokens(messages);
 
   // Preserve verified evidence before conversational history. If the complete
@@ -104,17 +105,17 @@ export function planChatContext(input:{
   // lowest-ranked source. Explicit knowledge always keeps at least one source.
   while (estimatedInputTokens>budget.input && history.length) {
     history=history.slice(1);
-    messages=buildChatMessages({ history,question:input.question,citations,structured });
+    messages=buildChatMessages({ history,question:input.question,citations,structured,agentContext });
     estimatedInputTokens=estimateMessagesTokens(messages);
   }
   while (estimatedInputTokens>budget.input && citations.length>1) {
     citations=citations.slice(0,-1);
-    messages=buildChatMessages({ history,question:input.question,citations,structured });
+    messages=buildChatMessages({ history,question:input.question,citations,structured,agentContext });
     estimatedInputTokens=estimateMessagesTokens(messages);
   }
   while (estimatedInputTokens>budget.input && structured && structured.actions.length>1) {
     structured={ actions:structured.actions.slice(0,-1),hasMore:true };
-    messages=buildChatMessages({ history,question:input.question,citations,structured });
+    messages=buildChatMessages({ history,question:input.question,citations,structured,agentContext });
     estimatedInputTokens=estimateMessagesTokens(messages);
   }
   return {

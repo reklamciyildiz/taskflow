@@ -95,11 +95,13 @@ export function AxiomAIChat({ enabled }:{ enabled:boolean }) {
         const parsedFrames=parseChatSSEBuffer(buffer);buffer=parsedFrames.remainder;
         for(const event of parsedFrames.events) {
           if(event.type==='meta') { realAssistantId=event.assistantMessageId;setMessages((current)=>current.map((item)=>item.id===optimisticUser?{...item,id:event.userMessageId}:item.id===optimisticAssistant?{...item,id:event.assistantMessageId}:item)); }
-          else if(event.type==='delta') setMessages((current)=>current.map((item)=>item.id===realAssistantId||item.id===optimisticAssistant?{...item,content:item.content+event.text}:item));
+          else if(event.type==='delta') setMessages((current)=>current.map((item)=>item.id===realAssistantId||item.id===optimisticAssistant?{...item,content:item.content+event.text,activity:undefined}:item));
           else if(event.type==='sources') setMessages((current)=>current.map((item)=>item.id===realAssistantId?{...item,sources:event.sources}:item));
-          else if(event.type==='done') setMessages((current)=>current.map((item)=>item.id===realAssistantId?{...item,status:event.finishReason==='cancelled'?'cancelled':'completed'}:item));
+          else if(event.type==='references') setMessages((current)=>current.map((item)=>item.id===realAssistantId||item.id===optimisticAssistant?{...item,references:event.references}:item));
+          else if(event.type==='tool_status') setMessages((current)=>current.map((item)=>item.id===realAssistantId||item.id===optimisticAssistant?{...item,activity:event.label}:item));
+          else if(event.type==='done') setMessages((current)=>current.map((item)=>item.id===realAssistantId?{...item,status:event.finishReason==='cancelled'?'cancelled':'completed',activity:undefined}:item));
           else if(event.type==='error') { setMessages((current)=>current.map((item)=>item.id===realAssistantId||item.id===optimisticAssistant?{
-            ...item,content:item.content||event.message,status:event.code==='CANCELLED'?'cancelled':'failed',
+            ...item,content:item.content||event.message,status:event.code==='CANCELLED'?'cancelled':'failed',activity:undefined,
           }:item));toast.error(event.message); }
         }
       }
@@ -126,8 +128,9 @@ export function AxiomAIChat({ enabled }:{ enabled:boolean }) {
         :<div className="mx-auto max-w-3xl space-y-6">{messages.map((message)=><article key={message.id} className={cn('group flex gap-3',message.role==='user'&&'justify-end')}>
           {message.role==='assistant'&&<div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><Bot className="h-4 w-4"/></div>}
           <div className={cn('min-w-0 max-w-[88%] rounded-2xl px-4 py-3',message.role==='user'?'bg-primary text-primary-foreground':'border bg-background')}>
-            {message.content?<SafeAIMessage content={message.content} sources={message.sources}/>:message.status==='streaming'?<Loader2 className="h-4 w-4 animate-spin text-muted-foreground"/>:null}
+            {message.content?<SafeAIMessage content={message.content} sources={message.sources}/>:message.status==='streaming'?<div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin"/><span>{message.activity??'Axiom AI düşünüyor…'}</span></div>:null}
             {message.sources.length>0&&<div className="mt-4 grid gap-2 border-t pt-3">{message.sources.map((source,index)=><button key={source.citationId} disabled={!source.navigation.actionId} className="rounded-lg border bg-muted/30 p-2.5 text-left text-xs enabled:hover:bg-muted disabled:cursor-default" onClick={()=>source.navigation.actionId&&openTaskEditor(source.navigation.actionId)}><span className="font-medium">[{index+1}] {source.title}</span><span className="mt-1 line-clamp-2 block text-muted-foreground">{source.snippet}</span></button>)}</div>}
+            {message.references&&message.references.length>0&&<div className="mt-4 grid gap-2 border-t pt-3">{message.references.slice(0,12).map((reference)=><button key={`${reference.type}:${reference.id}`} disabled={!reference.actionId} className="rounded-lg border bg-muted/30 p-2.5 text-left text-xs enabled:hover:bg-muted disabled:cursor-default" onClick={()=>reference.actionId&&openTaskEditor(reference.actionId,reference.checklistItemId)}><span className="font-medium">{reference.title}</span><span className="mt-1 block capitalize text-muted-foreground">{reference.type}</span></button>)}</div>}
             {message.role==='assistant'&&message.content&&<div className="mt-2 flex items-center gap-1 opacity-60 transition-opacity group-hover:opacity-100"><Button variant="ghost" size="icon" className="h-7 w-7" aria-label="Copy response" onClick={()=>void navigator.clipboard.writeText(message.content).then(()=>toast.success('Copied'))}><Copy className="h-3.5 w-3.5"/></Button>{message.status==='failed'&&lastUser&&<Button variant="ghost" size="sm" className="h-7 gap-1" onClick={()=>void send(lastUser.content)}><RotateCcw className="h-3.5 w-3.5"/>Retry</Button>}</div>}
           </div></article>)}<div ref={bottomRef}/></div>}
       </div>

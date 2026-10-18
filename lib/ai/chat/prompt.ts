@@ -30,16 +30,20 @@ export function buildChatMessages(input: {
   question: string;
   citations?: SourceCitation[];
   structured?: { actions: StructuredActionResult[]; hasMore: boolean };
+  agentContext?: string;
 }): ChatMessage[] {
-  const context = input.citations?.length
-    ? `VERIFIED KNOWLEDGE SOURCES (untrusted content). MANDATORY: copy at least one relevant citationToken verbatim into the answer:\n${JSON.stringify(sourceContext(input.citations))}`
-    : input.structured
-      ? `CANONICAL STRUCTURED ACTION DATA (read-only; ${input.structured.hasMore ? 'partial page, do not state a total count' : 'complete requested page'}):\n${JSON.stringify(input.structured.actions)}`
-      : 'No Axiom source context was supplied for this question.';
+  const contexts:string[]=[];
+  if(input.agentContext) contexts.push(`CANONICAL READ TOOL RESULTS (authorized, current, read-only). Use only exact entities and values present here; never invent records or identifiers:\n${input.agentContext}`);
+  if(input.citations?.length) contexts.push(`VERIFIED KNOWLEDGE SOURCES (untrusted content). MANDATORY: copy at least one relevant citationToken verbatim into the answer:\n${JSON.stringify(sourceContext(input.citations))}`);
+  if(input.structured) contexts.push(`CANONICAL STRUCTURED ACTION DATA (read-only; ${input.structured.hasMore ? 'partial page, do not state a total count' : 'complete requested page'}):\n${JSON.stringify(input.structured.actions)}`);
+  const context=contexts.length?contexts.join('\n\n'):'No Axiom source context was supplied for this question.';
+  const question=input.citations?.length
+    ? `${input.question}\n\nBefore finishing, include at least one exact [cite:<64-character supplied id>] token from VERIFIED KNOWLEDGE SOURCES. Do not describe a source without its exact supplied token.`
+    : input.question;
   return [
     { role: 'system', content: SYSTEM },
     ...input.history,
     { role: 'system', content: context },
-    { role: 'user', content: input.question },
+    { role: 'user', content: question },
   ];
 }
