@@ -19,6 +19,7 @@ import {
 } from '@/lib/scheduling-runtime-server';
 import { legacyDueValueToSchedule, scheduleDueInstantIso } from '@/lib/scheduling-runtime';
 import { SchedulingValidationError } from '@/lib/scheduling-domain';
+import { extractChecklistItemsFromTipTap } from '@/lib/tiptap-parser';
 
 // GET /api/tasks - Get all tasks (optionally filtered by teamId or organizationId)
 export async function GET(request: NextRequest) {
@@ -190,6 +191,18 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: false, error: 'Process not accessible' }, { status: 403 });
       }
     }
+    const checklistBlocks = body.checklistBlocks ?? null;
+    if (checklistBlocks) {
+      const checklistItems = extractChecklistItemsFromTipTap(checklistBlocks);
+      const stableIds = checklistItems.map((item) => item.id);
+      if (stableIds.some((id) => !id) || new Set(stableIds).size !== stableIds.length) {
+        return NextResponse.json<ApiResponse<null>>(
+          { success: false, error: 'Checklist items require unique stable IDs' },
+          { status: 400 },
+        );
+      }
+    }
+
     const task = await taskDb.create({
       title: body.title,
       description: body.description || null,
@@ -198,6 +211,7 @@ export async function POST(request: NextRequest) {
       assignee_id: body.assigneeId || null,
       customer_id: body.customerId || null,
       project_id: body.projectId ?? null,
+      checklist_blocks: checklistBlocks,
       team_id: body.teamId,
       organization_id: organizationId,
       created_by: userId,

@@ -17,6 +17,7 @@ const client = createClient(production.NEXT_PUBLIC_SUPABASE_URL,production.SUPAB
 const tables=[
   'ai_quota_counters','ai_quota_reservations','ai_source_documents','ai_chunks','ai_index_jobs',
   'ai_conversations','ai_messages','ai_message_sources','ai_chat_runs',
+  'ai_write_proposals','ai_write_audit_events',
 ];
 const result={};
 const anon=createClient(production.NEXT_PUBLIC_SUPABASE_URL,production.NEXT_PUBLIC_SUPABASE_ANON_KEY,{

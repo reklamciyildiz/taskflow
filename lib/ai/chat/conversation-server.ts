@@ -3,8 +3,9 @@ import { z } from 'zod';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import type { SourceCitation } from '@/lib/ai/retrieval/types';
 import type { AIReadReference } from '@/lib/ai/agent/types';
+import { listMessageWriteProposals } from '@/lib/ai/agent/write-proposals-server';
 import type { AIChatContext, AIChatMessage, AIConversationSummary } from './types';
-import { aiChatLimits,areAIReadToolsEnabled } from './config';
+import { aiChatLimits,areAIReadToolsEnabled,areAIWriteToolsEnabled } from './config';
 
 const contextSchema = z.object({
   origin: z.enum(['global','knowledge_hub']).default('global'),
@@ -203,6 +204,9 @@ export async function getConversationMessages(scope:{userId:string;organizationI
     ? await supabaseAdmin.from('ai_message_references').select('*').in('message_id',ids).order('ordinal',{ ascending:true })
     : { data:[],error:null };
   if (referenceError) throw new ConversationError('database_unavailable','Message references could not be loaded');
+  const proposalsByMessage=areAIWriteToolsEnabled()
+    ? await listMessageWriteProposals(scope,assistantIds)
+    : new Map();
   const chunkIds=[...new Set((sourceRows ?? []).map((row:any)=>String(row.chunk_id)))];
   let validIds=new Set<string>();
   if (chunkIds.length) {
@@ -239,6 +243,7 @@ export async function getConversationMessages(scope:{userId:string;organizationI
         : String(message.content),status:message.status,model:message.model ? String(message.model) : null,
       createdAt:String(message.created_at),sources:revoked ? [] : (sourcesByMessage.get(String(message.id)) ?? []),
       references:revoked ? [] : (referencesByMessage.get(String(message.id)) ?? []),
+      proposal:message.role==='assistant' ? proposalsByMessage.get(String(message.id)) : undefined,
       ...(revoked ? { sourceAccessRevoked:true } : {}),
     };
   });

@@ -2,7 +2,7 @@
 
 import { useCallback,useEffect,useMemo,useRef,useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Bot,Copy,Loader2,Menu,MessageSquarePlus,Pencil,Send,Square,Trash2,RotateCcw } from 'lucide-react';
+import { Bot,Check,Copy,Loader2,Menu,MessageSquarePlus,Pencil,Send,Square,Trash2,RotateCcw,X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -40,6 +40,7 @@ export function AxiomAIChat({ enabled }:{ enabled:boolean }) {
   const [conversationId,setConversationId]=useState<string|null>(null);
   const [messages,setMessages]=useState<AIChatMessage[]>([]);
   const [input,setInput]=useState('');const [loading,setLoading]=useState(false);const [historyOpen,setHistoryOpen]=useState(false);
+  const [proposalBusy,setProposalBusy]=useState<string|null>(null);
   const abortRef=useRef<AbortController|null>(null),bottomRef=useRef<HTMLDivElement|null>(null);
 
   const refreshConversations=useCallback(async()=>{
@@ -67,6 +68,21 @@ export function AxiomAIChat({ enabled }:{ enabled:boolean }) {
     const response=await fetch(`/api/ai/conversations/${id}`,{ method:'DELETE' });
     if (!response.ok) { toast.error('Conversation could not be deleted');return; }
     if (conversationId===id) newConversation();void refreshConversations();
+  };
+
+  const handleProposal=async(messageId:string,proposalId:string,action:'approve'|'reject')=>{
+    if(!conversationId||proposalBusy) return;
+    setProposalBusy(proposalId);
+    try {
+      const response=await fetch(`/api/ai/write-proposals/${proposalId}`,{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({conversationId,action})});
+      const payload=await response.json().catch(()=>null);
+      if(!response.ok) throw new Error(payload?.error?.message??'Proposal could not be processed');
+      setMessages((current)=>current.map((message)=>message.id===messageId?{...message,proposal:payload.proposal}:message));
+      if(action==='approve'&&payload.proposal.status==='completed') toast.success('Axiom işlemi başarıyla tamamlandı');
+      else if(action==='reject') toast.success('Taslak reddedildi; hiçbir değişiklik yapılmadı');
+    } catch(error) { toast.error(error instanceof Error?error.message:'Proposal could not be processed'); }
+    finally { setProposalBusy(null); }
   };
 
   const send=async(raw:string)=>{
@@ -99,6 +115,7 @@ export function AxiomAIChat({ enabled }:{ enabled:boolean }) {
           else if(event.type==='sources') setMessages((current)=>current.map((item)=>item.id===realAssistantId?{...item,sources:event.sources}:item));
           else if(event.type==='references') setMessages((current)=>current.map((item)=>item.id===realAssistantId||item.id===optimisticAssistant?{...item,references:event.references}:item));
           else if(event.type==='tool_status') setMessages((current)=>current.map((item)=>item.id===realAssistantId||item.id===optimisticAssistant?{...item,activity:event.label}:item));
+          else if(event.type==='proposal') setMessages((current)=>current.map((item)=>item.id===realAssistantId||item.id===optimisticAssistant?{...item,proposal:event.proposal}:item));
           else if(event.type==='done') setMessages((current)=>current.map((item)=>item.id===realAssistantId?{...item,status:event.finishReason==='cancelled'?'cancelled':'completed',activity:undefined}:item));
           else if(event.type==='error') { setMessages((current)=>current.map((item)=>item.id===realAssistantId||item.id===optimisticAssistant?{
             ...item,content:item.content||event.message,status:event.code==='CANCELLED'?'cancelled':'failed',activity:undefined,
@@ -131,6 +148,16 @@ export function AxiomAIChat({ enabled }:{ enabled:boolean }) {
             {message.content?<SafeAIMessage content={message.content} sources={message.sources}/>:message.status==='streaming'?<div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin"/><span>{message.activity??'Axiom AI düşünüyor…'}</span></div>:null}
             {message.sources.length>0&&<div className="mt-4 grid gap-2 border-t pt-3">{message.sources.map((source,index)=><button key={source.citationId} disabled={!source.navigation.actionId} className="rounded-lg border bg-muted/30 p-2.5 text-left text-xs enabled:hover:bg-muted disabled:cursor-default" onClick={()=>source.navigation.actionId&&openTaskEditor(source.navigation.actionId)}><span className="font-medium">[{index+1}] {source.title}</span><span className="mt-1 line-clamp-2 block text-muted-foreground">{source.snippet}</span></button>)}</div>}
             {message.references&&message.references.length>0&&<div className="mt-4 grid gap-2 border-t pt-3">{message.references.slice(0,12).map((reference)=><button key={`${reference.type}:${reference.id}`} disabled={!reference.actionId} className="rounded-lg border bg-muted/30 p-2.5 text-left text-xs enabled:hover:bg-muted disabled:cursor-default" onClick={()=>reference.actionId&&openTaskEditor(reference.actionId,reference.checklistItemId)}><span className="font-medium">{reference.title}</span><span className="mt-1 block capitalize text-muted-foreground">{reference.type}</span></button>)}</div>}
+            {message.proposal&&<div className="mt-4 rounded-xl border border-primary/25 bg-primary/[0.04] p-3 text-foreground">
+              <div className="flex items-start justify-between gap-3"><div><p className="text-sm font-semibold">{message.proposal.title}</p><p className="mt-1 text-xs text-muted-foreground">{message.proposal.summary}</p></div><span className="rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide">{message.proposal.status}</span></div>
+              <p className="mt-3 text-xs font-medium">Hedef: {message.proposal.targetLabel}</p>
+              {message.proposal.fields.length>0&&<dl className="mt-2 grid gap-1.5 text-xs">{message.proposal.fields.map((field,index)=><div key={`${field.label}-${index}`} className="grid grid-cols-[5rem_1fr] gap-2"><dt className="text-muted-foreground">{field.label}</dt><dd className="break-words">{field.value}</dd></div>)}</dl>}
+              {message.proposal.status==='pending'&&<div className="mt-3 flex flex-wrap gap-2"><Button size="sm" className="gap-1.5" disabled={proposalBusy===message.proposal.id} onClick={()=>void handleProposal(message.id,message.proposal!.id,'approve')}>{proposalBusy===message.proposal.id?<Loader2 className="h-3.5 w-3.5 animate-spin"/>:<Check className="h-3.5 w-3.5"/>}Onayla ve uygula</Button><Button size="sm" variant="outline" className="gap-1.5" disabled={proposalBusy===message.proposal.id} onClick={()=>void handleProposal(message.id,message.proposal!.id,'reject')}><X className="h-3.5 w-3.5"/>Reddet</Button></div>}
+              {message.proposal.status==='completed'&&message.proposal.result&&<Button size="sm" variant="outline" className="mt-3" disabled={!message.proposal.result.actionId} onClick={()=>message.proposal?.result?.actionId&&openTaskEditor(message.proposal.result.actionId,message.proposal.result.checklistItemId)}>Kaydı aç</Button>}
+              {message.proposal.status==='failed'&&<p className="mt-3 text-xs text-destructive">{message.proposal.error??'İşlem tamamlanamadı; başarı kaydı oluşturulmadı.'}</p>}
+              {message.proposal.status==='rejected'&&<p className="mt-3 text-xs text-muted-foreground">Reddedildi; Axiom verilerinde değişiklik yapılmadı.</p>}
+              {message.proposal.status==='expired'&&<p className="mt-3 text-xs text-muted-foreground">Bu taslağın süresi doldu. Yeni bir taslak isteyin.</p>}
+            </div>}
             {message.role==='assistant'&&message.content&&<div className="mt-2 flex items-center gap-1 opacity-60 transition-opacity group-hover:opacity-100"><Button variant="ghost" size="icon" className="h-7 w-7" aria-label="Copy response" onClick={()=>void navigator.clipboard.writeText(message.content).then(()=>toast.success('Copied'))}><Copy className="h-3.5 w-3.5"/></Button>{message.status==='failed'&&lastUser&&<Button variant="ghost" size="sm" className="h-7 gap-1" onClick={()=>void send(lastUser.content)}><RotateCcw className="h-3.5 w-3.5"/>Retry</Button>}</div>}
           </div></article>)}<div ref={bottomRef}/></div>}
       </div>

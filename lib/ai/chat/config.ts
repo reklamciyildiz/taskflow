@@ -6,6 +6,10 @@ export function areAIReadToolsEnabled(): boolean {
   return process.env.AXIOM_AI_READ_TOOLS_ENABLED === 'true';
 }
 
+export function areAIWriteToolsEnabled(): boolean {
+  return process.env.AXIOM_AI_WRITE_TOOLS_ENABLED === 'true';
+}
+
 export function isAIChatRuntimeReady(): boolean {
   return isAIChatEnabled()
     && process.env.AI_ATOMIC_QUOTA_ENABLED === 'true'

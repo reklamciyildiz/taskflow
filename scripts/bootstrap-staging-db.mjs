@@ -92,6 +92,8 @@ const migrationSources = [
   ['20261017220000', 'ai_targeted_note_index_claim', ['supabase/migrations/20261017220000_ai_targeted_note_index_claim.sql']],
   ['20261018190000', 'ai_read_tool_references', ['supabase/migrations/20261018190000_ai_read_tool_references.sql']],
   ['20261018191000', 'ai_read_tool_combined_acl', ['supabase/migrations/20261018191000_ai_read_tool_combined_acl.sql']],
+  ['20261018200000', 'ai_write_tool_proposals', ['supabase/migrations/20261018200000_ai_write_tool_proposals.sql']],
+  ['20261018201000', 'ai_write_tool_audit_atomicity', ['supabase/migrations/20261018201000_ai_write_tool_audit_atomicity.sql']],
 ];
 
 // The historical baseline helper already creates this trigger, while the later

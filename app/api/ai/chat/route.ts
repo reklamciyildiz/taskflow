@@ -7,8 +7,7 @@ import { retrieveKnowledge } from '@/lib/ai/retrieval/retrieval-server';
 import { retrieveStructuredActions } from '@/lib/ai/retrieval/structured-retrieval-server';
 import { createCitationRegistry } from '@/lib/ai/retrieval/citation';
 import { releaseAIQuotaReservation,reserveAIQuota,recordAIRequest } from '@/lib/ai/utils/rate-limiter';
-import { aiChatLimits,isAIChatRuntimeReady } from '@/lib/ai/chat/config';
-import { areAIReadToolsEnabled } from '@/lib/ai/chat/config';
+import { aiChatLimits,isAIChatRuntimeReady,areAIReadToolsEnabled,areAIWriteToolsEnabled } from '@/lib/ai/chat/config';
 import { citationIdsFromAnswer,sanitizeAnswerCitations } from '@/lib/ai/chat/citations';
 import { classifyChatIntent,fixedProductHelp,shouldAttemptKnowledgeRetrieval } from '@/lib/ai/chat/intent';
 import { chatRetrievalLimit,planChatContext } from '@/lib/ai/chat/context-budget';
@@ -26,6 +25,8 @@ import { executeAIReadTool,AIReadToolError } from '@/lib/ai/agent/read-tools';
 import { planDirectAIReadTools,shouldUseModelToolSelection } from '@/lib/ai/agent/router';
 import { selectAIReadTools } from '@/lib/ai/agent/selector';
 import type { AIReadReference,AIReadToolCall,AIReadToolExecution } from '@/lib/ai/agent/types';
+import { shouldPlanAIWrite,selectAIWriteProposal } from '@/lib/ai/agent/write-selector';
+import { createAIWriteProposal,AIWriteProposalError } from '@/lib/ai/agent/write-proposals-server';
 
 export const runtime='nodejs';
 export const maxDuration=60;
@@ -57,6 +58,10 @@ function safeError(error:unknown,provider?:GroqChatProvider) {
   if (error instanceof Error && error.name==='AbortError') return { code:'CANCELLED',message:'Generation stopped',retryable:true };
   if (error instanceof Error && error.name==='CitationRequiredError') return {
     code:'CITATION_REQUIRED',message:'Axiom AI could not verify a source citation. Please retry.',retryable:true,
+  };
+  if (error instanceof AIWriteProposalError) return {
+    code:`WRITE_PROPOSAL_${error.code.toUpperCase()}`,
+    message:error.message,retryable:error.code==='unavailable',
   };
   if (provider) {
     const normalized=provider.normalizeError(error);
@@ -115,6 +120,7 @@ export async function POST(request:NextRequest) {
           }
 
           const intent=classifyChatIntent(input.message);
+          const writeRequested=areAIWriteToolsEnabled()&&shouldPlanAIWrite(input.message);
           const fixed=intent==='product_help' ? fixedProductHelp(input.message) : null;
           if (fixed) {
             answer=fixed;send({ type:'delta',text:answer });assistantStatus='completed';
@@ -123,8 +129,8 @@ export async function POST(request:NextRequest) {
           }
 
           const readToolsEnabled=areAIReadToolsEnabled();
-          const directReadToolCalls=readToolsEnabled?planDirectAIReadTools(input.message,effectiveContext):[];
-          const needsModelToolSelection=readToolsEnabled&&shouldUseModelToolSelection(input.message,directReadToolCalls);
+          const directReadToolCalls=readToolsEnabled&&!writeRequested?planDirectAIReadTools(input.message,effectiveContext):[];
+          const needsModelToolSelection=readToolsEnabled&&!writeRequested&&shouldUseModelToolSelection(input.message,directReadToolCalls);
           const runReadToolCalls=async(calls:AIReadToolCall[])=>{
             const executions:AIReadToolExecution[]=[];
             for(const call of calls.slice(0,2)) {
@@ -152,7 +158,7 @@ export async function POST(request:NextRequest) {
           }
 
           let structured:Awaited<ReturnType<typeof retrieveStructuredActions>>|undefined;
-          const shouldRetrieve=!directReadToolCalls.length&&!needsModelToolSelection&&shouldAttemptKnowledgeRetrieval(input.message,intent);
+          const shouldRetrieve=!writeRequested&&!directReadToolCalls.length&&!needsModelToolSelection&&shouldAttemptKnowledgeRetrieval(input.message,intent);
           if (shouldRetrieve) {
             try {
               const result=await retrieveKnowledge({ query:input.message,mode:'hybrid',limit:chatRetrievalLimit(input.message),
@@ -175,7 +181,7 @@ export async function POST(request:NextRequest) {
               send({ type:'done',finishReason:'completed' });return;
             }
             if (citations.length>0) grounding={ kind:'knowledge',teamId:effectiveContext.teamId,processId:effectiveContext.processId };
-          } else if (!readToolExecutions.length&&!needsModelToolSelection&&intent==='structured') {
+          } else if (!writeRequested&&!readToolExecutions.length&&!needsModelToolSelection&&intent==='structured') {
             if (!effectiveContext.teamId) {
               answer='Choose a team or open Axiom AI from Knowledge Hub so I can answer this structured question from canonical Action data.';
               send({ type:'delta',text:answer });assistantStatus='completed';
@@ -201,8 +207,9 @@ export async function POST(request:NextRequest) {
           provider=new GroqChatProvider(); model=provider.modelId;
 
           const tokenAdmission=await reserveGroqTokens({ requestKey:input.clientRequestId,userId:scope.userId,
-            organizationId:scope.organizationId,model,estimatedInputTokens:contextPlan.estimatedInputTokens,
-            maxOutputTokens:contextPlan.maxOutputTokens+(needsModelToolSelection?3_500:0) });
+            organizationId:scope.organizationId,model,
+            estimatedInputTokens:contextPlan.estimatedInputTokens+(writeRequested?1_200:0),
+            maxOutputTokens:contextPlan.maxOutputTokens+(needsModelToolSelection?3_500:0)+(writeRequested?500:0) });
           tokenReservationId=tokenAdmission.reservationId;
           if (!tokenAdmission.allowed) {
             const retryAfterSeconds=tokenAdmission.retryAfterSeconds??60;
@@ -216,6 +223,30 @@ export async function POST(request:NextRequest) {
           }
 
           let finalContextPlan=contextPlan;
+          if(writeRequested) {
+            billableAttempt=true;
+            send({type:'tool_status',label:'İşlem taslağı hazırlanıyor…'});
+            const selection=await selectAIWriteProposal({provider,question:input.message,history:availableHistory,
+              signal:overallSignal.signal,timeoutMs:aiChatLimits.timeoutMs});
+            inputTokens=(inputTokens??0)+selection.inputTokens;outputTokens=(outputTokens??0)+selection.outputTokens;
+            if(selection.call) {
+              const proposalArguments=selection.call.name==='create_action'&&effectiveContext.processId
+                ? {...(selection.call.arguments as object),processId:(selection.call.arguments as any)?.processId??effectiveContext.processId}
+                : selection.call.arguments;
+              const proposal=await createAIWriteProposal(selection.call.name,proposalArguments,{
+                userId:scope.userId,organizationId:scope.organizationId,role:scope.role,
+                conversationId:input.conversationId,assistantMessageId:turn.assistantMessageId,userRequest:input.message,
+              });
+              answer='İşlem taslağını hazırladım. Axiom verilerinde hiçbir değişiklik yapılmadı; yalnızca aşağıdaki Onayla düğmesi işlemi gerçekleştirebilir.';
+              await finalizeAssistantMessage({messageId:turn.assistantMessageId,scope,content:answer,status:'completed',model,
+                inputTokens,outputTokens,grounding:{kind:'none'}});
+              send({type:'proposal',proposal});send({type:'delta',text:answer});send({type:'done',finishReason:'completed'});
+              assistantStatus='completed';
+              await recordAIRequest(scope.userId,scope.organizationId,'axiom-chat',model,inputTokens??0,outputTokens??0,
+                0,Date.now()-startedAt,true,undefined,{intent,writeProposalTool:selection.call.name,writeExecuted:false});
+              return;
+            }
+          }
           if(needsModelToolSelection) {
             billableAttempt=true;usedModelToolSelection=true;
             const selection=await selectAIReadTools({provider,question:input.message,history:availableHistory,
