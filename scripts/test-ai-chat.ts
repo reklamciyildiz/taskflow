@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { citationIdsFromAnswer,sanitizeAnswerCitations,usedCitations } from '../lib/ai/chat/citations';
-import { classifyChatIntent,fixedProductHelp } from '../lib/ai/chat/intent';
+import { classifyChatIntent,fixedProductHelp,shouldAttemptKnowledgeRetrieval } from '../lib/ai/chat/intent';
 import { encodeChatSSE,parseChatSSEBuffer } from '../lib/ai/chat/sse';
 import { buildChatMessages } from '../lib/ai/chat/prompt';
 import type { SourceCitation } from '../lib/ai/retrieval/types';
@@ -28,6 +28,11 @@ assert.equal(classifyChatIntent('What do we know about Nebula-42?'),'knowledge')
 assert.equal(classifyChatIntent('Bugün kaç action planlanmış?'),'structured');
 assert.equal(classifyChatIntent('Knowledge Hub nasıl çalışır?'),'product_help');
 assert.ok(fixedProductHelp('Knowledge Hub nasıl çalışır?'));
+assert.equal(classifyChatIntent('Axiom bilgilerime göre production RAG doğrulama kodu nedir? Kaynağıyla cevapla.'),'knowledge');
+assert.equal(classifyChatIntent('ORBIT-LANTERN-5842 nedir?'),'knowledge');
+assert.equal(shouldAttemptKnowledgeRetrieval('merhaba','general'),false);
+assert.equal(shouldAttemptKnowledgeRetrieval('Production doğrulama kodu nedir?','general'),true);
+assert.equal(shouldAttemptKnowledgeRetrieval('What is our release protocol?','general'),true);
 
 const wire=encodeChatSSE({ type:'delta',text:'Merhaba' })+encodeChatSSE({ type:'done',finishReason:'completed' });
 const first=parseChatSSEBuffer(wire.slice(0,17));
@@ -54,6 +59,9 @@ assert.match(conversationService,/sourceAccessRevoked:true/);
 const route=readFileSync('app/api/ai/chat/route.ts','utf8');
 assert.match(route,/isAIChatRuntimeReady\(\)/);
 assert.match(route,/reserveAIQuota\([\s\S]*input\.clientRequestId/);
+assert.match(route,/shouldAttemptKnowledgeRetrieval/);
+assert.match(route,/similarityThreshold:intent==='knowledge' \? 0\.2 : 0\.5/);
+assert.match(route,/ai_chat_optional_retrieval_failed/);
 assert.doesNotMatch(route,/tools\s*:/);
 const chatAuth=readFileSync('lib/ai/chat/http-server.ts','utf8');
 assert.match(chatAuth,/isAIBetaScopeAllowed/);

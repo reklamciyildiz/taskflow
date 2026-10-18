@@ -9,7 +9,7 @@ import { createCitationRegistry } from '@/lib/ai/retrieval/citation';
 import { reserveAIQuota,recordAIRequest } from '@/lib/ai/utils/rate-limiter';
 import { aiChatLimits,isAIChatRuntimeReady } from '@/lib/ai/chat/config';
 import { citationIdsFromAnswer,sanitizeAnswerCitations } from '@/lib/ai/chat/citations';
-import { classifyChatIntent,fixedProductHelp } from '@/lib/ai/chat/intent';
+import { classifyChatIntent,fixedProductHelp,shouldAttemptKnowledgeRetrieval } from '@/lib/ai/chat/intent';
 import { buildChatMessages } from '@/lib/ai/chat/prompt';
 import {
   createTurnMessages,finalizeAssistantMessage,finishChatRun,getConversation,
@@ -93,19 +93,29 @@ export async function POST(request:NextRequest) {
           }
 
           let structured:Awaited<ReturnType<typeof retrieveStructuredActions>>|undefined;
-          if (intent==='knowledge') {
-            const result=await retrieveKnowledge({ query:input.message,mode:'hybrid',limit:8,
-              teamId:effectiveContext.teamId,processId:effectiveContext.processId,
-              timeoutMs:Math.min(15_000,aiChatLimits.timeoutMs),signal:overallSignal.signal });
-            retrievalLatencyMs=result.latencyMs;
-            citations=result.citations;
-            if (result.semanticStatus==='index_empty' || citations.length===0) {
+          const shouldRetrieve=shouldAttemptKnowledgeRetrieval(input.message,intent);
+          if (shouldRetrieve) {
+            try {
+              const result=await retrieveKnowledge({ query:input.message,mode:'hybrid',limit:8,
+                similarityThreshold:intent==='knowledge' ? 0.2 : 0.5,
+                teamId:effectiveContext.teamId,processId:effectiveContext.processId,
+                timeoutMs:Math.min(15_000,aiChatLimits.timeoutMs),signal:overallSignal.signal });
+              retrievalLatencyMs=result.latencyMs;
+              citations=result.citations;
+            } catch (error) {
+              // Opportunistic retrieval must not break ordinary conversation.
+              // Explicit workspace questions remain fail-closed.
+              if (intent==='knowledge') throw error;
+              console.warn(JSON.stringify({ event:'ai_chat_optional_retrieval_failed',
+                requestId:input.clientRequestId }));
+            }
+            if (intent==='knowledge' && citations.length===0) {
               answer='Your Axiom knowledge index does not contain an accessible match yet. Once indexing is enabled and current, I can answer this with verified sources.';
               send({ type:'delta',text:answer });assistantStatus='completed';
               await finalizeAssistantMessage({ messageId:turn.assistantMessageId,scope,content:answer,status:'completed',model:'axiom-index-status' });
               send({ type:'done',finishReason:'completed' });return;
             }
-            grounding={ kind:'knowledge',teamId:effectiveContext.teamId,processId:effectiveContext.processId };
+            if (citations.length>0) grounding={ kind:'knowledge',teamId:effectiveContext.teamId,processId:effectiveContext.processId };
           } else if (intent==='structured') {
             if (!effectiveContext.teamId) {
               answer='Choose a team or open Axiom AI from Knowledge Hub so I can answer this structured question from canonical Action data.';

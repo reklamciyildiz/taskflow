@@ -47,6 +47,16 @@ assert.match(migration,/ai_retrieval_index_available/);
 assert.match(migration,/REVOKE ALL ON FUNCTION public\.ai_retrieve_chunks.*FROM PUBLIC,anon,authenticated/);
 checks++;
 
+const runtimeRepair = fs.readFileSync('supabase/migrations/20261018110000_ai_retrieval_runtime_repair.sql','utf8');
+assert.match(runtimeRepair,/ALTER FUNCTION public\.ai_retrieve_chunks/);
+assert.match(runtimeRepair,/SET search_path = public, extensions, pg_temp/);
+assert.match(runtimeRepair,/CREATE OR REPLACE FUNCTION public\.ai_retrieval_index_available/);
+assert.match(runtimeRepair,/SECURITY DEFINER SET search_path=public,pg_temp/);
+assert.match(runtimeRepair,/REVOKE ALL ON FUNCTION public\.ai_retrieval_index_available\(uuid,text\)[\s\S]*FROM PUBLIC,anon,authenticated/);
+assert.match(runtimeRepair,/GRANT EXECUTE ON FUNCTION public\.ai_retrieval_index_available\(uuid,text\)[\s\S]*TO service_role/);
+assert.doesNotMatch(runtimeRepair,/INSERT|UPDATE public|DELETE FROM|TRUNCATE/i);
+checks++;
+
 assert.match(migration,/WHEN 'note' THEN EXISTS\(/);
 assert.match(migration,/WHEN 'attachment' THEN EXISTS\(/);
 assert.match(migration,/a\.status='ready'/);
