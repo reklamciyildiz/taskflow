@@ -21,9 +21,13 @@ export function aiBetaOrganizationIds(): string[] {
   return uuidList('AXIOM_AI_BETA_ORGANIZATION_IDS');
 }
 
+export function aiBetaUserIds(): string[] {
+  return uuidList('AXIOM_AI_BETA_USER_IDS');
+}
+
 export function isAIBetaScopeAllowed(userId: string, organizationId: string): boolean {
   if (!isAIBetaModeEnabled()) return true;
-  const users = uuidList('AXIOM_AI_BETA_USER_IDS');
+  const users = aiBetaUserIds();
   const organizations = aiBetaOrganizationIds();
   return users.includes(userId.toLowerCase()) && organizations.includes(organizationId.toLowerCase());
 }

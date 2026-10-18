@@ -141,4 +141,21 @@ const worker = fs.readFileSync('lib/ai/indexing/indexing-server.ts', 'utf8');
 assert.match(worker, /claim_ai_index_jobs_for_organizations/);
 checks++;
 
+const targetedClaim = fs.readFileSync('supabase/migrations/20261017220000_ai_targeted_note_index_claim.sql', 'utf8');
+assert.match(targetedClaim, /j\.id=p_job_id/);
+assert.match(targetedClaim, /j\.organization_id=p_organization_id/);
+assert.match(targetedClaim, /j\.source_type='note'/);
+assert.match(targetedClaim, /j\.source_key=p_note_id::text/);
+assert.match(targetedClaim, /j\.operation='upsert'/);
+assert.match(targetedClaim, /FOR UPDATE SKIP LOCKED/i);
+assert.match(targetedClaim, /REVOKE ALL ON FUNCTION public\.claim_ai_note_index_job_by_id_for_organization/i);
+assert.match(worker, /AI_TARGETED_NOTE_INDEXING_ENABLED/);
+assert.match(worker, /Targeted Note indexing requires global indexing and backfill to remain disabled/);
+assert.match(worker, /claim_ai_note_index_job_by_id_for_organization/);
+const targetedRoute = fs.readFileSync('app/api/cron/ai-index/targeted-note/route.ts', 'utf8');
+assert.match(targetedRoute, /timingSafeEqual/);
+assert.match(targetedRoute, /users\.length !== 1 \|\| organizations\.length !== 1/);
+assert.match(targetedRoute, /processTargetedAINoteIndexJob/);
+checks++;
+
 console.log(JSON.stringify({ aiIndexingChecks: checks, productionAccess: false, liveEmbeddingCalls: false }));

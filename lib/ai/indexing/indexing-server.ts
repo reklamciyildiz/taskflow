@@ -3,7 +3,8 @@ import { randomUUID } from 'node:crypto';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { CloudflareEmbeddingProvider } from '@/lib/ai/providers/cloudflare-embedding-provider';
 import type { EmbeddingProvider, NormalizedAIProviderError } from '@/lib/ai/providers/contracts';
-import { aiBetaOrganizationIds,isAIBetaModeEnabled } from '@/lib/ai/beta-access';
+import { aiBetaOrganizationIds,isAIBetaModeEnabled,isAIBetaScopeAllowed } from '@/lib/ai/beta-access';
+import { requireTaskNoteAccess } from '@/lib/note-server';
 import {
   buildAttachmentIndexDocument,
   buildNoteIndexDocument,
@@ -173,6 +174,96 @@ function safeFailure(error: unknown, provider: EmbeddingProvider): { code: strin
     return { code: `provider_${normalized.code}`, message: normalized.message };
   }
   return { code: 'indexing_internal', message: 'AI indexing failed' };
+}
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+/**
+ * Explicit one-shot path for the controlled production RAG validation. It can
+ * only claim the exact Note job named by the operator; it never scans or falls
+ * through to another pending outbox entry.
+ */
+export async function processTargetedAINoteIndexJob(options: {
+  jobId: number;
+  noteId: string;
+  userId: string;
+  organizationId: string;
+  provider?: EmbeddingProvider;
+  timeBudgetMs?: number;
+}) {
+  if (process.env.AI_TARGETED_NOTE_INDEXING_ENABLED !== 'true') {
+    return { enabled: false, claimed: 0, completed: 0, failed: 0, superseded: 0 };
+  }
+  if (process.env.AI_INDEXING_ENABLED === 'true' || process.env.AI_INDEX_BACKFILL_ENABLED === 'true') {
+    throw new Error('Targeted Note indexing requires global indexing and backfill to remain disabled');
+  }
+  if (!isAIBetaModeEnabled() || !isAIBetaScopeAllowed(options.userId, options.organizationId)) {
+    throw new Error('Targeted Note indexing is outside the configured beta scope');
+  }
+  if (!Number.isSafeInteger(options.jobId) || options.jobId < 1
+      || !UUID_PATTERN.test(options.noteId) || !UUID_PATTERN.test(options.userId)
+      || !UUID_PATTERN.test(options.organizationId)) {
+    throw new Error('Invalid targeted Note indexing identifiers');
+  }
+
+  const [{ data: user, error: userError }, { data: note, error: noteError }] = await Promise.all([
+    supabaseAdmin.from('users').select('id,organization_id,role').eq('id', options.userId).maybeSingle(),
+    supabaseAdmin.from('notes').select('id,task_id,author_id,organization_id,team_id')
+      .eq('id', options.noteId).maybeSingle(),
+  ]);
+  if (userError) throw userError;
+  if (noteError) throw noteError;
+  if (!user || user.organization_id !== options.organizationId
+      || !note || note.organization_id !== options.organizationId
+      || note.author_id !== options.userId) {
+    throw new Error('Targeted Note indexing scope validation failed');
+  }
+  const access = await requireTaskNoteAccess(String(note.task_id), { mutate: false }, { user });
+  if (!('task' in access)
+      || String((access.task as { organization_id?: unknown }).organization_id ?? '') !== options.organizationId
+      || String((access.task as { team_id?: unknown }).team_id ?? '') !== String(note.team_id ?? '')) {
+    throw new Error('Targeted Note indexing authorization failed');
+  }
+
+  const { data, error } = await supabaseAdmin.rpc('claim_ai_note_index_job_by_id_for_organization', {
+    p_job_id: options.jobId,
+    p_organization_id: options.organizationId,
+    p_note_id: options.noteId,
+    p_lease_seconds: 180,
+    p_max_attempts: 8,
+  });
+  if (error) throw error;
+  const job = (data?.[0] ?? null) as AIIndexJob | null;
+  if (!job) return { enabled: true, claimed: 0, completed: 0, failed: 0, superseded: 0 };
+  if (job.id !== options.jobId || job.source_type !== 'note'
+      || job.source_key !== options.noteId || job.organization_id !== options.organizationId) {
+    throw new Error('Targeted Note claim returned an unexpected job');
+  }
+
+  const provider = options.provider ?? new CloudflareEmbeddingProvider();
+  const { indexVersion } = indexingConfig();
+  const deadline = Date.now() + Math.max(10_000, Math.min(50_000, options.timeBudgetMs ?? 50_000));
+  try {
+    const result = await indexClaimedJob(job, provider, indexVersion, deadline);
+    return {
+      enabled: true,
+      claimed: 1,
+      completed: result === 'superseded' ? 0 : 1,
+      failed: 0,
+      superseded: result === 'superseded' ? 1 : 0,
+    };
+  } catch (jobError) {
+    const safe = safeFailure(jobError, provider);
+    const { error: failureError } = await supabaseAdmin.rpc('fail_ai_index_job', {
+      p_job_id: job.id,
+      p_lease_token: job.lease_token,
+      p_error_code: safe.code,
+      p_error_message: safe.message,
+      p_max_attempts: 8,
+    });
+    if (failureError) throw failureError;
+    return { enabled: true, claimed: 1, completed: 0, failed: 1, superseded: 0 };
+  }
 }
 
 export async function processAIIndexJobs(options: {
