@@ -43,6 +43,7 @@ import {
   OCCURRENCE_CHANGED_EVENT,
   SCHEDULE_CHANGED_EVENT,
 } from '@/lib/schedule-events';
+import { PlannerMutationGuard } from '@/lib/planner-mutation-guard';
 
 const plannerCache = new Map<string, PlannerTodayProjection>();
 const upcomingCache = new Map<string, PlannerUpcomingProjection>();
@@ -331,7 +332,7 @@ export function PlannerToday() {
   const requestRef = useRef(0);
   const upcomingRequestRef = useRef(0);
   const mountedRef = useRef(true);
-  const mutationCountRef = useRef(0);
+  const mutationGuardRef = useRef(new PlannerMutationGuard());
   const activeCacheKeyRef = useRef(cacheKey);
   activeCacheKeyRef.current = cacheKey;
   const activeUpcomingKeyRef = useRef(upcomingKey);
@@ -349,10 +350,12 @@ export function PlannerToday() {
   const load = useCallback(async (fresh = false) => {
     if (!currentTeam || !localDay) return;
     const requestId = ++requestRef.current;
+    const mutationRevision = mutationGuardRef.current.snapshot();
     setError(null);
     const response = await plannerApi.getToday({ date, teamId: currentTeam.id, timeZone }, fresh);
     if (!mountedRef.current || requestId !== requestRef.current) return;
     if (activeCacheKeyRef.current !== cacheKey) return;
+    if (!mutationGuardRef.current.canApply(mutationRevision)) return;
     if (!response.success || !response.data) {
       setError(response.error || 'Could not load today');
       return;
@@ -365,6 +368,7 @@ export function PlannerToday() {
   const loadUpcoming = useCallback(async (fresh = false) => {
     if (!currentTeam || !localDay) return;
     const requestId = ++upcomingRequestRef.current;
+    const mutationRevision = mutationGuardRef.current.snapshot();
     setUpcomingError(null);
     const response = await plannerApi.getUpcoming({
       startDate: addCalendarDays(date, 1),
@@ -375,6 +379,7 @@ export function PlannerToday() {
       !mountedRef.current
       || requestId !== upcomingRequestRef.current
       || activeUpcomingKeyRef.current !== upcomingKey
+      || !mutationGuardRef.current.canApply(mutationRevision)
     ) return;
     if (!response.success || !response.data) {
       setUpcomingError(response.error || 'Could not load upcoming work');
@@ -402,6 +407,7 @@ export function PlannerToday() {
 
   useEffect(() => {
     const refresh = () => {
+      if (!mutationGuardRef.current.isIdle()) return;
       void load();
       if (view === 'upcoming' || upcomingCache.has(upcomingKey)) void loadUpcoming();
     };
@@ -462,7 +468,7 @@ export function PlannerToday() {
       .map(([taskId]) => taskId);
     if (!changedTaskIds.length) return;
     const timer = window.setTimeout(() => {
-      if (mutationCountRef.current === 0) void load();
+      if (mutationGuardRef.current.isIdle()) void load(true);
     }, 350);
     return () => window.clearTimeout(timer);
   }, [load, taskRevision, visibleProjection, loading, currentTeam?.id]);
@@ -525,7 +531,7 @@ export function PlannerToday() {
     }
 
     pendingItemIdsRef.current.add(item.id);
-    mutationCountRef.current += 1;
+    mutationGuardRef.current.begin();
     setPendingItemIds((current) => new Set(current).add(item.id));
     setOptimisticState(item, completed);
     let ok = false;
@@ -571,13 +577,17 @@ export function PlannerToday() {
       console.error('Planner completion failed:', cause);
       ok = false;
     } finally {
-      mutationCountRef.current -= 1;
+      const allMutationsSettled = mutationGuardRef.current.finish();
       pendingItemIdsRef.current.delete(item.id);
       setPendingItemIds((current) => {
         const next = new Set(current);
         next.delete(item.id);
         return next;
       });
+      if (allMutationsSettled && mountedRef.current) {
+        void load(true);
+        if (view === 'upcoming' || upcomingCache.has(upcomingKey)) void loadUpcoming(true);
+      }
     }
 
     if (!ok) {
@@ -590,10 +600,13 @@ export function PlannerToday() {
     canCompleteTask,
     canEditTask,
     load,
+    loadUpcoming,
     projects,
     replaceVisibleItem,
     setOptimisticState,
     updateTask,
+    upcomingKey,
+    view,
   ]);
 
   const reschedule = useCallback(async (item: PlannerProjectionItem, nextDate: string) => {

@@ -10,6 +10,7 @@ import {
   addCalendarDays,
   type WorkSchedule,
 } from '../lib/scheduling-domain';
+import { PlannerMutationGuard } from '../lib/planner-mutation-guard';
 import {
   calendarDateInTimeZone,
   dueBucketDeliveryInstantIso,
@@ -299,5 +300,18 @@ assert.equal(
   canonicalNotificationLink('/board?task=task-1&r=taskOverdue&w=2#details'),
   '/board?task=task-1#details',
 );
+
+const mutationGuard = new PlannerMutationGuard();
+const beforeMutations = mutationGuard.snapshot();
+assert.equal(mutationGuard.canApply(beforeMutations), true);
+mutationGuard.begin();
+const duringFirstMutation = mutationGuard.snapshot();
+assert.equal(mutationGuard.canApply(beforeMutations), false);
+mutationGuard.begin();
+assert.equal(mutationGuard.finish(), false);
+assert.equal(mutationGuard.canApply(duringFirstMutation), false);
+assert.equal(mutationGuard.finish(), true);
+assert.equal(mutationGuard.canApply(duringFirstMutation), false);
+assert.equal(mutationGuard.canApply(mutationGuard.snapshot()), true);
 
 console.log('Scheduling and Planner projection tests passed.');
