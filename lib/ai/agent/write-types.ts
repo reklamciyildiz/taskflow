@@ -1,4 +1,9 @@
-export type AIWriteToolName = 'create_action' | 'create_note' | 'update_checklist';
+export type AIWriteToolName =
+  | 'create_action'
+  | 'create_note'
+  | 'update_checklist'
+  | 'update_action'
+  | 'schedule_action';
 
 export type AIWriteProposalStatus =
   | 'pending'
@@ -15,10 +20,10 @@ export type AIWriteProposal = {
   title: string;
   summary: string;
   targetLabel: string;
-  fields: Array<{ label: string; value: string }>;
+  fields: Array<{ label: string; value?: string; oldValue?: string; newValue?: string }>;
   expiresAt: string;
   result?: {
-    resourceType: 'action' | 'note' | 'checklist';
+    resourceType: 'action' | 'note' | 'checklist' | 'schedule';
     resourceId: string;
     actionId?: string;
     checklistItemId?: string;

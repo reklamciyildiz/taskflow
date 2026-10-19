@@ -10,6 +10,11 @@ export function areAIWriteToolsEnabled(): boolean {
   return process.env.AXIOM_AI_WRITE_TOOLS_ENABLED === 'true';
 }
 
+export function areAIActionMutationToolsEnabled(): boolean {
+  return areAIWriteToolsEnabled()
+    && process.env.AXIOM_AI_ACTION_MUTATION_TOOLS_ENABLED === 'true';
+}
+
 export function isAIChatRuntimeReady(): boolean {
   return isAIChatEnabled()
     && process.env.AI_ATOMIC_QUOTA_ENABLED === 'true'

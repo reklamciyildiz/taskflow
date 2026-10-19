@@ -7,7 +7,7 @@ import { retrieveKnowledge } from '@/lib/ai/retrieval/retrieval-server';
 import { retrieveStructuredActions } from '@/lib/ai/retrieval/structured-retrieval-server';
 import { createCitationRegistry } from '@/lib/ai/retrieval/citation';
 import { releaseAIQuotaReservation,reserveAIQuota,recordAIRequest } from '@/lib/ai/utils/rate-limiter';
-import { aiChatLimits,isAIChatRuntimeReady,areAIReadToolsEnabled,areAIWriteToolsEnabled } from '@/lib/ai/chat/config';
+import { aiChatLimits,isAIChatRuntimeReady,areAIActionMutationToolsEnabled,areAIReadToolsEnabled,areAIWriteToolsEnabled } from '@/lib/ai/chat/config';
 import { citationIdsFromAnswer,sanitizeAnswerCitations } from '@/lib/ai/chat/citations';
 import { classifyChatIntent,fixedProductHelp,shouldAttemptKnowledgeRetrieval } from '@/lib/ai/chat/intent';
 import { chatRetrievalLimit,planChatContext } from '@/lib/ai/chat/context-budget';
@@ -27,6 +27,7 @@ import { selectAIReadTools } from '@/lib/ai/agent/selector';
 import type { AIReadReference,AIReadToolCall,AIReadToolExecution } from '@/lib/ai/agent/types';
 import { shouldPlanAIWrite,selectAIWriteProposal } from '@/lib/ai/agent/write-selector';
 import { createAIWriteProposal,AIWriteProposalError } from '@/lib/ai/agent/write-proposals-server';
+import { getUserSchedulingTimeZone } from '@/lib/scheduling-runtime-server';
 
 export const runtime='nodejs';
 export const maxDuration=60;
@@ -41,6 +42,13 @@ const requestSchema=z.object({
 const encoder=new TextEncoder();
 const encode=(event:AIChatStreamEvent)=>encoder.encode(encodeChatSSE(event));
 const READ_TOOL_TIMEOUT_MS=10_000;
+
+function dateInTimeZone(timeZone:string):string {
+  const parts=new Intl.DateTimeFormat('en-US',{timeZone,year:'numeric',month:'2-digit',day:'2-digit'})
+    .formatToParts(new Date());
+  const value=(type:Intl.DateTimeFormatPartTypes)=>parts.find((part)=>part.type===type)?.value??'';
+  return `${value('year')}-${value('month')}-${value('day')}`;
+}
 
 async function executeReadToolWithTimeout(call:AIReadToolCall,actor:{userId:string;organizationId:string;role?:string|null}) {
   let timer:ReturnType<typeof setTimeout>|undefined;
@@ -120,7 +128,8 @@ export async function POST(request:NextRequest) {
           }
 
           const intent=classifyChatIntent(input.message);
-          const writeRequested=areAIWriteToolsEnabled()&&shouldPlanAIWrite(input.message);
+          const actionMutationToolsEnabled=areAIActionMutationToolsEnabled();
+          const writeRequested=areAIWriteToolsEnabled()&&shouldPlanAIWrite(input.message,actionMutationToolsEnabled);
           const fixed=intent==='product_help' ? fixedProductHelp(input.message) : null;
           if (fixed) {
             answer=fixed;send({ type:'delta',text:answer });assistantStatus='completed';
@@ -226,10 +235,15 @@ export async function POST(request:NextRequest) {
           if(writeRequested) {
             billableAttempt=true;
             send({type:'tool_status',label:'İşlem taslağı hazırlanıyor…'});
+            const writeTimeZone=actionMutationToolsEnabled?await getUserSchedulingTimeZone(scope.userId):undefined;
             const selection=await selectAIWriteProposal({provider,question:input.message,history:availableHistory,
-              signal:overallSignal.signal,timeoutMs:aiChatLimits.timeoutMs});
+              signal:overallSignal.signal,timeoutMs:aiChatLimits.timeoutMs,
+              includeActionMutations:actionMutationToolsEnabled,timeZone:writeTimeZone,
+              localDate:writeTimeZone?dateInTimeZone(writeTimeZone):undefined});
             inputTokens=(inputTokens??0)+selection.inputTokens;outputTokens=(outputTokens??0)+selection.outputTokens;
             if(selection.call) {
+              console.info(JSON.stringify({event:'ai_write_proposal_selected',requestId:input.clientRequestId,
+                toolName:selection.call.name}));
               const proposalArguments=selection.call.name==='create_action'&&effectiveContext.processId
                 ? {...(selection.call.arguments as object),processId:(selection.call.arguments as any)?.processId??effectiveContext.processId}
                 : selection.call.arguments;

@@ -8,10 +8,13 @@ import { setChecklistItemCheckedInDocument } from '@/components/editor/reorderCh
 import { POST as createTaskRoute } from '@/app/api/tasks/route';
 import { PATCH as updateTaskRoute } from '@/app/api/tasks/[id]/route';
 import { POST as createNoteRoute } from '@/app/api/tasks/[id]/notes/route';
+import { PUT as saveScheduleRoute } from '@/app/api/schedules/route';
+import { resolveScheduleForSource, rescheduleOccurrence } from '@/lib/work-schedule-server';
+import { areAIActionMutationToolsEnabled } from '@/lib/ai/chat/config';
 import type { AIWriteProposal } from './write-types';
 import { writeProposalPayloadHash, writeProposalRowToDto } from './write-proposals-server';
 
-type Scope = { userId: string; organizationId: string; conversationId: string };
+type Scope = { userId: string; organizationId: string; role?: string | null; conversationId: string };
 
 export class AIWriteExecutionError extends Error {
   constructor(readonly code: string, message: string, readonly status = 400) { super(message); this.name = 'AIWriteExecutionError'; }
@@ -57,7 +60,7 @@ async function finish(row: any, status: 'completed' | 'failed', values: { result
   return writeProposalRowToDto(data[0]);
 }
 
-async function executeCanonical(row: any) {
+async function executeCanonical(row: any, scope: Scope) {
   const payload = row.payload as any;
   if (row.tool_name === 'create_action') {
     const data = await routeResult(await createTaskRoute(jsonRequest('/api/tasks', 'POST', {
@@ -73,6 +76,56 @@ async function executeCanonical(row: any) {
     }), { params: { id: payload.actionId } }));
     return { resourceType: 'note', resourceId: String(data.id), actionId: payload.actionId,
       label: String(data.title || 'Note') };
+  }
+  if (row.tool_name === 'update_action') {
+    const task: any = await taskDb.getById(payload.actionId);
+    if (!task || task.organization_id !== row.organization_id) {
+      throw new AIWriteExecutionError('AUTHORIZATION_DENIED', 'Action is no longer accessible', 403);
+    }
+    if (String(task.updated_at) !== payload.expectedTaskUpdatedAt) {
+      throw new AIWriteExecutionError('STALE_VERSION', 'The Action changed after this proposal was created. Ask Axiom AI for a new proposal.', 409);
+    }
+    const data = await routeResult(await updateTaskRoute(
+      jsonRequest(`/api/tasks/${payload.actionId}`, 'PATCH', payload.patch),
+      { params: { id: payload.actionId } },
+    ));
+    return { resourceType: 'action', resourceId: String(data.id), actionId: String(data.id), label: String(data.title) };
+  }
+  if (row.tool_name === 'schedule_action') {
+    const task: any = await taskDb.getById(payload.actionId);
+    if (!task || task.organization_id !== row.organization_id) {
+      throw new AIWriteExecutionError('AUTHORIZATION_DENIED', 'Action is no longer accessible', 403);
+    }
+    if (String(task.updated_at) !== payload.expectedTaskUpdatedAt) {
+      throw new AIWriteExecutionError('STALE_VERSION', 'The Action changed after this proposal was created. Ask Axiom AI for a new proposal.', 409);
+    }
+    const actor = { userId: String(row.user_id), organizationId: String(row.organization_id), role: scope.role };
+    const source = { sourceType: 'action' as const, taskId: payload.actionId };
+    const current = await resolveScheduleForSource(actor, source);
+    const expected = payload.expectedSchedule;
+    if ((!expected && current)
+      || (expected && (!current || current.id !== expected.id || current.updatedAt !== expected.updatedAt))) {
+      throw new AIWriteExecutionError('STALE_VERSION', 'The Planner schedule changed after this proposal was created. Ask Axiom AI for a new proposal.', 409);
+    }
+    if (current?.scheduleType === 'recurring' && payload.recurrenceScope === 'occurrence') {
+      await rescheduleOccurrence(actor, current.id, payload.occurrenceDate, payload.scheduleDate);
+      return { resourceType: 'schedule', resourceId: current.id, actionId: payload.actionId, label: String(task.title) };
+    }
+    const scheduleType = current?.scheduleType === 'recurring' ? 'recurring' : 'one_off';
+    const data = await routeResult(await saveScheduleRoute(jsonRequest('/api/schedules', 'PUT', {
+      taskId: payload.actionId,
+      scheduleType,
+      scheduleDate: payload.scheduleDate,
+      scheduleTime: payload.scheduleTime,
+      timeZone: payload.scheduleTime ? payload.timeZone : null,
+      recurrenceFrequency: scheduleType === 'recurring' ? current?.recurrenceFrequency : null,
+      recurrenceInterval: scheduleType === 'recurring' ? current?.recurrenceInterval : 1,
+      recurrenceWeekdays: scheduleType === 'recurring' ? current?.recurrenceWeekdays : [],
+      endsOn: scheduleType === 'recurring' ? current?.endsOn : null,
+      reminderRules: current?.reminderRules ?? [],
+      clientTimeZone: payload.timeZone,
+    })));
+    return { resourceType: 'schedule', resourceId: String(data.id), actionId: payload.actionId, label: String(task.title) };
   }
   const task: any = await taskDb.getById(payload.actionId);
   if (!task || task.organization_id !== row.organization_id) throw new AIWriteExecutionError('AUTHORIZATION_DENIED', 'Action is no longer accessible', 403);
@@ -96,6 +149,10 @@ export async function approveAIWriteProposal(proposalId: string, scope: Scope): 
   if (error) throw new AIWriteExecutionError('UNAVAILABLE', 'Proposal could not be loaded', 503);
   if (!existing) throw new AIWriteExecutionError('NOT_FOUND', 'Proposal not found', 404);
   if (existing.status === 'completed') return writeProposalRowToDto(existing);
+  if ((existing.tool_name === 'update_action' || existing.tool_name === 'schedule_action')
+    && !areAIActionMutationToolsEnabled()) {
+    throw new AIWriteExecutionError('FEATURE_DISABLED', 'Action update tools are not enabled', 404);
+  }
   const expectedHash = writeProposalPayloadHash(existing.tool_name, existing.payload);
   if (expectedHash !== existing.payload_hash) throw new AIWriteExecutionError('INTEGRITY_ERROR', 'Proposal integrity validation failed', 409);
   const { data: claimed, error: claimError } = await supabaseAdmin.rpc('claim_ai_write_proposal', {
@@ -109,7 +166,7 @@ export async function approveAIWriteProposal(proposalId: string, scope: Scope): 
   if (row.status === 'expired') return writeProposalRowToDto(row);
   if (row.status !== 'executing') throw new AIWriteExecutionError('ALREADY_HANDLED', 'Proposal is no longer pending', 409);
   try {
-    const result = await executeCanonical(row);
+    const result = await executeCanonical(row, scope);
     return await finish(row, 'completed', { result });
   } catch (cause) {
     const failure = cause instanceof AIWriteExecutionError ? cause : new AIWriteExecutionError('CANONICAL_COMMAND_FAILED', 'The Axiom change could not be completed', 500);

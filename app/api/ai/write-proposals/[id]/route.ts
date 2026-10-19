@@ -15,7 +15,8 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     return NextResponse.json({ error: { code: 'INVALID_REQUEST', message: 'Invalid proposal request' } }, { status: 400 });
   }
   try {
-    const commandScope = { userId: scope.userId, organizationId: scope.organizationId, conversationId: parsed.data.conversationId };
+    const commandScope = { userId: scope.userId, organizationId: scope.organizationId,
+      role: scope.role, conversationId: parsed.data.conversationId };
     const proposal = parsed.data.action === 'approve'
       ? await approveAIWriteProposal(params.id, commandScope)
       : await rejectAIWriteProposal(params.id, commandScope);
