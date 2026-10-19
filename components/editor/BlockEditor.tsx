@@ -85,17 +85,25 @@ interface BlockEditorProps {
 
 const EMPTY_DOC = { type: 'doc', content: [{ type: 'paragraph' }] };
 
-type ChecklistSlashCommand =
+export type ChecklistSlashCommand =
   | 'taskItem'
   | 'section'
   | 'subheading'
   | 'text'
   | 'bulletList'
   | 'orderedList'
+  | 'bold'
+  | 'italic'
+  | 'underline'
+  | 'strike'
+  | 'code'
+  | 'highlight'
   | 'image'
   | 'divider';
 
-interface ChecklistSlashMenuState {
+export type SlashCommandContext = 'document' | 'checklistItem';
+
+export interface ChecklistSlashMenuState {
   blockFrom: number;
   blockTo: number;
   from: number;
@@ -105,6 +113,7 @@ interface ChecklistSlashMenuState {
   selectedIndex: number;
   left: number;
   top: number;
+  context: SlashCommandContext;
 }
 
 const CHECKLIST_SLASH_COMMANDS: Array<{
@@ -122,23 +131,65 @@ const CHECKLIST_SLASH_COMMANDS: Array<{
   { id: 'divider', label: 'Divider', keywords: 'divider separator rule', icon: Minus },
 ];
 
-function filteredSlashCommands(query: string, hasTrailingContent = false) {
+const CHECKLIST_ITEM_SLASH_COMMANDS: typeof CHECKLIST_SLASH_COMMANDS = [
+  { id: 'bold', label: 'Bold', keywords: 'bold strong', icon: Bold },
+  { id: 'italic', label: 'Italic', keywords: 'italic emphasis', icon: Italic },
+  { id: 'underline', label: 'Underline', keywords: 'underline', icon: Underline },
+  { id: 'strike', label: 'Strikethrough', keywords: 'strike strikethrough', icon: Strikethrough },
+  { id: 'code', label: 'Inline code', keywords: 'code inline', icon: Code2 },
+  { id: 'highlight', label: 'Highlight', keywords: 'highlight marker', icon: Highlighter },
+];
+
+export function filteredSlashCommands(
+  query: string,
+  hasTrailingContent = false,
+  context: SlashCommandContext = 'document',
+) {
   const normalized = query.trim().toLowerCase();
-  const available = hasTrailingContent
-    ? CHECKLIST_SLASH_COMMANDS.filter((command) => command.id !== 'divider')
+  const commands = context === 'checklistItem'
+    ? CHECKLIST_ITEM_SLASH_COMMANDS
     : CHECKLIST_SLASH_COMMANDS;
-  if (!normalized) return available;
+  const available = hasTrailingContent
+    ? commands.filter((command) => command.id !== 'divider')
+    : commands;
+  if (!normalized) return [...available];
   return available.filter(({ label, keywords }) =>
     `${label} ${keywords}`.toLowerCase().includes(normalized),
   );
 }
 
-function applyChecklistSlashCommand(
+export function applyChecklistSlashCommand(
   view: EditorView,
   menu: ChecklistSlashMenuState,
   command: ChecklistSlashCommand,
 ): boolean {
   const { schema } = view.state;
+
+  if (menu.context === 'checklistItem') {
+    const mark = command === 'bold'
+      ? schema.marks.bold
+      : command === 'italic'
+        ? schema.marks.italic
+        : command === 'underline'
+          ? schema.marks.underline
+          : command === 'strike'
+            ? schema.marks.strike
+            : command === 'code'
+              ? schema.marks.code
+              : command === 'highlight'
+                ? schema.marks.highlight
+                : null;
+    if (!mark) return false;
+    const transaction = view.state.tr.delete(menu.from, menu.to);
+    transaction.setSelection(TextSelection.near(transaction.doc.resolve(menu.from)));
+    transaction.addStoredMark(
+      mark.create(command === 'highlight' ? { color: '#fbbf24' } : undefined),
+    );
+    view.dispatch(transaction.scrollIntoView());
+    view.focus();
+    return true;
+  }
+
   const source = view.state.doc.nodeAt(menu.blockFrom);
   if (!source || !['paragraph', 'heading'].includes(source.type.name)) return false;
 
@@ -271,9 +322,13 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
   const fileInput = React.useRef<HTMLInputElement>(null);
   const [libraryOpen,setLibraryOpen] = React.useState(false);
   const uploadAtSelectionRef = React.useRef<(files:File[])=>void>(()=>{});
-  const commandsFor = (query:string, trailing=false) => {
-    const commands = filteredSlashCommands(query,trailing);
-    if (!checklistMode && prepareAttachmentTarget && attachments?.enabled && 'image file attachment'.includes(query.toLowerCase()))
+  const commandsFor = (
+    query: string,
+    trailing = false,
+    context: SlashCommandContext = 'document',
+  ) => {
+    const commands = filteredSlashCommands(query, trailing, context);
+    if (context === 'document' && !checklistMode && prepareAttachmentTarget && attachments?.enabled && 'image file attachment'.includes(query.toLowerCase()))
       commands.unshift({id:'image',label:'Image / file',keywords:'image file attachment',icon:ImageIcon});
     return commands;
   };
@@ -340,10 +395,22 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
       }
 
       const { $from } = editor.state.selection;
-      if (
-        $from.depth !== 1 ||
-        !['paragraph', 'heading'].includes($from.parent.type.name)
-      ) {
+      if (!['paragraph', 'heading'].includes($from.parent.type.name)) {
+        if (slashMenuRef.current) updateSlashMenu(null);
+        return;
+      }
+
+      let insideTaskItem = false;
+      for (let depth = $from.depth - 1; depth > 0; depth -= 1) {
+        if ($from.node(depth).type.name === 'taskItem') {
+          insideTaskItem = true;
+          break;
+        }
+      }
+      const context: SlashCommandContext = checklistMode && insideTaskItem
+        ? 'checklistItem'
+        : 'document';
+      if (context === 'document' && $from.depth !== 1) {
         if (slashMenuRef.current) updateSlashMenu(null);
         return;
       }
@@ -358,6 +425,7 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
       const commands = commandsFor(
         match[1],
         $from.parentOffset < $from.parent.content.size,
+        context,
       );
       if (commands.length === 0) {
         if (slashMenuRef.current) updateSlashMenu(null);
@@ -367,15 +435,16 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
       const coords = editor.view.coordsAtPos($from.pos);
       const previous = slashMenuRef.current;
       updateSlashMenu({
-        blockFrom: $from.before(1),
-        blockTo: $from.after(1),
-        from: $from.start(1),
+        blockFrom: $from.before($from.depth),
+        blockTo: $from.after($from.depth),
+        from: $from.start($from.depth),
         to: $from.pos,
         query: match[1],
         hasTrailingContent: $from.parentOffset < $from.parent.content.size,
         selectedIndex: Math.min(previous?.selectedIndex ?? 0, commands.length - 1),
         left: coords.left,
         top: coords.bottom + 6,
+        context,
       });
     },
     editorProps: {
@@ -392,8 +461,7 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
         uploadAtSelectionRef.current(files);return true;
       },
       attributes: {
-        // Kill default list indentations and margin via prose-ul:pl-0 prose-li:my-0
-        class: 'focus:outline-none min-h-[120px] prose dark:prose-invert max-w-none text-sm prose-ul:pl-0 prose-ul:my-0 prose-li:my-0 prose-li:pl-0 marker:text-transparent',
+        class: 'focus:outline-none min-h-[120px] max-w-none text-sm',
       },
       handleKeyDown: (view, event) => {
         const currentMenu = slashMenuRef.current;
@@ -401,6 +469,7 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
           const commands = commandsFor(
             currentMenu.query,
             currentMenu.hasTrailingContent,
+            currentMenu.context,
           );
           if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
             event.preventDefault();
@@ -918,17 +987,18 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
         ? createPortal(
             <div
               role="listbox"
-              aria-label="Checklist block type"
-              className="fixed z-[100] w-52 overflow-hidden rounded-lg border border-border/70 bg-popover p-1 text-popover-foreground shadow-xl"
+              aria-label={slashMenu.context === 'checklistItem' ? 'Checklist item commands' : 'Editor commands'}
+              className="fixed z-[100] max-h-[min(20rem,calc(100dvh-1rem))] w-52 overflow-y-auto overscroll-contain rounded-lg border border-border/70 bg-popover p-1 text-popover-foreground shadow-xl"
               style={{
-                left: Math.min(slashMenu.left, window.innerWidth - 220),
-                top: Math.min(slashMenu.top, window.innerHeight - 190),
+                left: Math.max(8, Math.min(slashMenu.left, window.innerWidth - 216)),
+                top: Math.max(8, Math.min(slashMenu.top, window.innerHeight - 328)),
               }}
               onMouseDown={(event) => event.preventDefault()}
             >
               {commandsFor(
                 slashMenu.query,
                 slashMenu.hasTrailingContent,
+                slashMenu.context,
               ).map((command, index) => {
                 const Icon = command.icon;
                 return (
@@ -947,6 +1017,11 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
                       event.preventDefault();
                       runSlash(editor.view, slashMenu, command.id);
                       updateSlashMenu(null);
+                    }}
+                    onMouseEnter={() => {
+                      if (index !== slashMenu.selectedIndex) {
+                        updateSlashMenu({ ...slashMenu, selectedIndex: index });
+                      }
                     }}
                   >
                     <Icon className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />

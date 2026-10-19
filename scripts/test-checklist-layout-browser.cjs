@@ -216,6 +216,82 @@ async function main() {
     // StarterKit may also append its existing trailing empty paragraph.
     assert.deepEqual(await page.evaluate(() => window.qa.editor.getJSON().content.slice(0, 2).map(n => n.type)), ['heading', 'taskList']); checks++;
     assert.equal(await page.evaluate(() => window.qa.editor.isActive('taskItem')), true); checks++;
+
+    // Slash-created semantic lists must display real markers and retain normal
+    // StarterKit Enter/exit + undo/redo behavior after JSON persistence.
+    await page.evaluate(() => {
+      window.qa.editor.commands.setContent({ type: 'doc', content: [{ type: 'paragraph' }] });
+      window.qa.editor.commands.focus('end');
+    });
+    await page.keyboard.type('/bullet');
+    await page.getByRole('option', { name: 'Bulleted list' }).waitFor();
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('First bullet');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('Second bullet');
+    let listState = await page.evaluate(() => {
+      const list = document.querySelector('.tiptap ul:not([data-type="taskList"])');
+      const marker = list?.querySelector('li');
+      return {
+        json: window.qa.editor.getJSON(),
+        style: list ? getComputedStyle(list).listStyleType : null,
+        markerColor: marker ? getComputedStyle(marker, '::marker').color : null,
+      };
+    });
+    assert.equal(listState.json.content[0].type, 'bulletList'); checks++;
+    assert.equal(listState.style, 'disc'); checks++;
+    assert.notEqual(listState.markerColor, 'rgba(0, 0, 0, 0)'); checks++;
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('Enter');
+    assert.equal((await page.evaluate(() => window.qa.editor.getJSON())).content.at(-1).type, 'paragraph'); checks++;
+    await page.keyboard.press('Control+z');
+    await page.keyboard.press('Control+Shift+z');
+    const bulletPersisted = await page.evaluate(() => window.qa.editor.getJSON());
+    await page.evaluate(doc => window.qa.editor.commands.setContent(doc), bulletPersisted);
+    assert.deepEqual(await page.evaluate(() => window.qa.editor.getJSON()), bulletPersisted); checks++;
+
+    await page.evaluate(() => {
+      window.qa.editor.commands.setContent({ type: 'doc', content: [{ type: 'paragraph' }] });
+      window.qa.editor.commands.focus('end');
+    });
+    await page.keyboard.type('/number');
+    await page.getByRole('option', { name: 'Numbered list' }).click();
+    await page.keyboard.type('First number');
+    listState = await page.evaluate(() => {
+      const list = document.querySelector('.tiptap ol');
+      return { json: window.qa.editor.getJSON(), style: list ? getComputedStyle(list).listStyleType : null };
+    });
+    assert.equal(listState.json.content[0].type, 'orderedList'); checks++;
+    assert.equal(listState.style, 'decimal'); checks++;
+
+    // A slash command inside a canonical taskItem formats its content without
+    // replacing the taskItem or losing its stable ID/completion semantics.
+    await page.evaluate(() => {
+      window.qa.editor.commands.setContent({ type: 'doc', content: [{
+        type: 'taskList', content: [{
+          type: 'taskItem', attrs: { id: 'slash-item', checked: false },
+          content: [{ type: 'paragraph' }],
+        }],
+      }] });
+      window.qa.ref.current.focusTaskItem('slash-item');
+    });
+    await page.keyboard.type('/');
+    await page.getByRole('listbox', { name: 'Checklist item commands' }).waitFor();
+    await page.keyboard.press('Escape');
+    assert.equal(await page.getByRole('listbox', { name: 'Checklist item commands' }).count(), 0); checks++;
+    await page.keyboard.press('Backspace');
+    await page.keyboard.type('/bold');
+    await page.getByRole('option', { name: 'Bold' }).click();
+    await page.keyboard.type('Persistent checklist text');
+    const slashChecklistPersisted = await page.evaluate(() => window.qa.editor.getJSON());
+    assert.equal(slashChecklistPersisted.content[0].content[0].attrs.id, 'slash-item'); checks++;
+    assert.equal(slashChecklistPersisted.content[0].content[0].attrs.checked, false); checks++;
+    assert.equal(slashChecklistPersisted.content[0].content[0].content[0].content[0].marks[0].type, 'bold'); checks++;
+    await page.evaluate(doc => window.qa.editor.commands.setContent(doc), slashChecklistPersisted);
+    assert.deepEqual(await page.evaluate(() => window.qa.editor.getJSON()), slashChecklistPersisted); checks++;
+    await page.locator('[data-task-id="slash-item"]').getByRole('checkbox').click();
+    await page.waitForTimeout(900);
+    assert.equal(await page.locator('[data-task-id="slash-item"]').getAttribute('data-checked'), 'true'); checks++;
     await page.evaluate(doc => window.qa.editor.commands.setContent(doc), fullDoc);
 
     // Actual touch reorder handler, with the real nested DOM hit testing.

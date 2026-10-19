@@ -127,17 +127,30 @@
   line-height: 1.4;
 }
 
-/* The editor suppresses list markers for taskList rows because their custom
-   NodeView draws a checkbox. Regular slash-command lists stay recognisable. */
-.checklist-editor .tiptap > ul:not([data-type="taskList"]),
-.checklist-editor .tiptap > ol {
+/* Tailwind preflight removes list markers. Restore semantic TipTap lists in
+   every editor while leaving taskList rows to their checkbox NodeView. */
+.tiptap ul:not([data-type="taskList"]),
+.tiptap ol {
   margin: 0.35rem 0;
-  padding-left: 1.35rem;
+  padding-inline-start: 1.5rem;
 }
 
-.checklist-editor .tiptap > ul:not([data-type="taskList"]) > li::marker,
-.checklist-editor .tiptap > ol > li::marker {
+.tiptap ul:not([data-type="taskList"]) {
+  list-style-type: disc;
+}
+
+.tiptap ol {
+  list-style-type: decimal;
+}
+
+.tiptap ul:not([data-type="taskList"]) > li::marker,
+.tiptap ol > li::marker {
   color: hsl(var(--muted-foreground));
+}
+
+.tiptap ul[data-type="taskList"] {
+  list-style: none;
+  padding-inline-start: 0;
 }
 
 .checklist-editor .tiptap > hr {
