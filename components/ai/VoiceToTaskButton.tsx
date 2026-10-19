@@ -33,6 +33,7 @@ interface VoiceToTaskButtonProps {
 }
 
 export function VoiceToTaskButton({ onDraftReady, className }: VoiceToTaskButtonProps) {
+  const [isAvailable, setIsAvailable] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -44,6 +45,16 @@ export function VoiceToTaskButton({ onDraftReady, className }: VoiceToTaskButton
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const discardRecordingRef = useRef(false);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetch('/api/ai/voice-to-task', { signal: controller.signal, cache: 'no-store' })
+      .then(async (response) => response.ok ? response.json() : null)
+      .then((payload) => setIsAvailable(payload?.enabled === true))
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, []);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -52,6 +63,7 @@ export function VoiceToTaskButton({ onDraftReady, className }: VoiceToTaskButton
         clearInterval(timerRef.current);
       }
       if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+        discardRecordingRef.current = true;
         mediaRecorderRef.current.stop();
       }
     };
@@ -79,6 +91,7 @@ export function VoiceToTaskButton({ onDraftReady, className }: VoiceToTaskButton
         mimeType,
       });
 
+      discardRecordingRef.current = false;
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
 
@@ -91,6 +104,7 @@ export function VoiceToTaskButton({ onDraftReady, className }: VoiceToTaskButton
       mediaRecorder.onstop = async () => {
         // Stop all tracks
         stream.getTracks().forEach((track) => track.stop());
+        if (discardRecordingRef.current) return;
 
         // Create audio blob
         const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
@@ -210,6 +224,8 @@ export function VoiceToTaskButton({ onDraftReady, className }: VoiceToTaskButton
     handleClose();
     onDraftReady(draft);
   };
+
+  if (!isAvailable) return null;
 
   return (
     <>
