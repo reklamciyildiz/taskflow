@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import type { ReactNode } from 'react';
 import Link from 'next/link';
 import {
+  Activity,
   ArrowUpRight,
   BookOpen,
   CheckCircle2,
@@ -12,7 +12,6 @@ import {
   FolderKanban,
   Layers3,
   Library,
-  ListTodo,
   Star,
   UserRound,
 } from 'lucide-react';
@@ -85,19 +84,19 @@ export function DashboardFocusProcesses() {
   return (
     <section className="dashboard-v2-panel min-w-0" aria-labelledby="dashboard-focus-title">
       <header className="dashboard-v2-panel-header">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="dashboard-v2-icon bg-amber-500/10 text-amber-600 dark:text-amber-400"><Star className="h-4 w-4" /></span>
+        <div className="flex min-w-0 items-start gap-2.5">
+          <span className="dashboard-v2-icon"><Star className="h-4 w-4" /></span>
+          <div className="min-w-0 pt-0.5">
             <h2 id="dashboard-focus-title" className="dashboard-v2-section-title">Focus Processes</h2>
+            <p className="mt-0.5 text-[0.7rem] text-muted-foreground">Pinned first, then recently active</p>
           </div>
-          <p className="mt-1 text-xs text-muted-foreground">Pinned first, then recently active</p>
         </div>
-        <Button asChild variant="ghost" size="sm" className="h-9 px-2 text-xs">
+        <Button asChild variant="ghost" size="sm" className="dashboard-v2-link">
           <Link href="/dashboard/processes">Manage <ArrowUpRight className="ml-1 h-3.5 w-3.5" /></Link>
         </Button>
       </header>
 
-      <div className="px-2 pb-3 sm:px-3">
+      <div className="dashboard-v2-list mx-2 mb-3 sm:mx-3">
         {loading ? [0, 1, 2].map((row) => (
           <div key={row} className="flex min-h-[68px] items-center gap-3 px-2.5"><Skeleton className="h-9 w-9 rounded-lg" /><div className="flex-1 space-y-2"><Skeleton className="h-4 w-1/2" /><Skeleton className="h-3 w-3/4" /></div></div>
         )) : visible.length === 0 ? (
@@ -109,21 +108,21 @@ export function DashboardFocusProcesses() {
           const summary = summaries.get(project.id);
           const pinned = pinnedIds.includes(project.id);
           return (
-            <div key={project.id} className="group flex min-h-[68px] items-center gap-2 rounded-lg px-2.5 py-2 transition-colors hover:bg-muted/45">
-              <button type="button" onClick={() => openBoardForProject(project.id)} className="flex min-w-0 flex-1 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/45 rounded-md">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-background text-muted-foreground"><FolderKanban className="h-4 w-4" /></span>
+            <div key={project.id} className="dashboard-v2-row group min-h-[72px] gap-1 px-3 py-2.5">
+              <button type="button" onClick={() => openBoardForProject(project.id)} className="flex min-w-0 flex-1 items-center gap-3 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40">
+                <span className="dashboard-v2-row-icon"><FolderKanban className="h-4 w-4" /></span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium">{project.name}</span>
-                  <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-                    {summary?.active ?? 0} active · {summary?.total ?? 0} Actions
-                    {summary?.latest ? ` · Updated ${new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(summary.latest.updatedAt)}` : ''}
+                  <span className="block truncate text-[0.84rem] font-semibold tracking-[-0.008em] sm:text-sm">{project.name}</span>
+                  <span className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-[0.68rem] text-muted-foreground">
+                    <span className="font-medium text-foreground/75">{summary?.active ?? 0} active</span>
+                    <span>{summary?.total ?? 0} Actions</span>
+                    {summary?.latest ? <span className="truncate">Updated {new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(summary.latest.updatedAt)}</span> : null}
                   </span>
                 </span>
               </button>
-              <Button type="button" variant="ghost" size="icon" className="h-11 w-11 shrink-0" onClick={() => togglePin(project.id)} aria-label={pinned ? `Unpin ${project.name}` : `Pin ${project.name}`}>
+              <Button type="button" variant="ghost" size="icon" className="h-11 w-11 shrink-0 rounded-lg hover:bg-amber-500/10" onClick={() => togglePin(project.id)} aria-label={pinned ? `Unpin ${project.name}` : `Pin ${project.name}`}>
                 <Star className={cn('h-4 w-4 text-muted-foreground', pinned && 'fill-amber-400 text-amber-500')} />
               </Button>
-              <ChevronRight className="hidden h-4 w-4 shrink-0 text-muted-foreground/50 sm:block" />
             </div>
           );
         })}
@@ -155,19 +154,19 @@ export function DashboardRecentKnowledge() {
   return (
     <section className="dashboard-v2-panel min-w-0" aria-labelledby="dashboard-knowledge-title">
       <header className="dashboard-v2-panel-header">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="dashboard-v2-icon bg-violet-500/10 text-violet-600 dark:text-violet-400"><Library className="h-4 w-4" /></span>
+        <div className="flex min-w-0 items-start gap-2.5">
+          <span className="dashboard-v2-icon"><Library className="h-4 w-4" /></span>
+          <div className="min-w-0 pt-0.5">
             <h2 id="dashboard-knowledge-title" className="dashboard-v2-section-title">Recent Knowledge</h2>
+            <p className="mt-0.5 text-[0.7rem] text-muted-foreground">Recent Notes and Checklist context</p>
           </div>
-          <p className="mt-1 text-xs text-muted-foreground">Recent Notes and Checklist context</p>
         </div>
-        <Button asChild variant="ghost" size="sm" className="h-9 px-2 text-xs">
+        <Button asChild variant="ghost" size="sm" className="dashboard-v2-link">
           <Link href="/dashboard/knowledge-hub">Knowledge Hub <ArrowUpRight className="ml-1 h-3.5 w-3.5" /></Link>
         </Button>
       </header>
 
-      <div className="px-2 pb-3 sm:px-3">
+      <div className="dashboard-v2-list mx-2 mb-3 sm:mx-3">
         {loading || notesLoading ? [0, 1, 2].map((row) => (
           <div key={row} className="flex min-h-[70px] items-center gap-3 px-2.5"><Skeleton className="h-9 w-9 rounded-lg" /><div className="flex-1 space-y-2"><Skeleton className="h-4 w-3/4" /><Skeleton className="h-3 w-1/2" /></div></div>
         )) : notesError && entries.length === 0 ? (
@@ -175,27 +174,17 @@ export function DashboardRecentKnowledge() {
         ) : entries.length === 0 ? (
           <div className="dashboard-v2-empty mx-2 mb-2"><BookOpen className="h-5 w-5 text-muted-foreground" /><div><p className="text-sm font-medium">No knowledge yet</p><p className="text-xs text-muted-foreground">Notes and meaningful Checklist context will appear here.</p></div></div>
         ) : entries.map((entry) => (
-          <button key={entry.id} type="button" onClick={() => openTaskEditor(entry.taskId)} className="group flex min-h-[70px] w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-muted/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/45">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-background text-muted-foreground"><BookOpen className="h-4 w-4" /></span>
+          <button key={entry.id} type="button" onClick={() => openTaskEditor(entry.taskId)} className="dashboard-v2-row group min-h-[72px] gap-3 px-3 py-2.5">
+            <span className="dashboard-v2-row-icon"><BookOpen className="h-4 w-4" /></span>
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-medium">{knowledgePreview(entry)}</span>
-              <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground"><span className="truncate">{entry.projectName || 'General'} · {entry.taskTitle}</span><span className="shrink-0">· {formatKnowledgeEntryDate(entry.sortDate)}</span></span>
+              <span className="block line-clamp-2 text-[0.84rem] font-medium leading-5 tracking-[-0.006em] sm:line-clamp-1 sm:text-sm">{knowledgePreview(entry)}</span>
+              <span className="mt-1 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[0.68rem] text-muted-foreground"><span className="max-w-full truncate">{entry.projectName || 'General'} · {entry.taskTitle}</span><span className="shrink-0">{formatKnowledgeEntryDate(entry.sortDate)}</span></span>
             </span>
-            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/45 transition-transform group-hover:translate-x-0.5" />
+            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/35 transition-all group-hover:translate-x-0.5 group-hover:text-muted-foreground" />
           </button>
         ))}
       </div>
     </section>
-  );
-}
-
-function SummaryMetric({ icon, label, value, tone }: { icon: ReactNode; label: string; value: number; tone: string }) {
-  return (
-    <div className="flex min-h-14 items-center gap-3 rounded-lg px-2.5 py-2">
-      <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-lg', tone)}>{icon}</span>
-      <span className="min-w-0 flex-1 text-sm text-muted-foreground">{label}</span>
-      <strong className="text-lg font-semibold tabular-nums tracking-tight">{value}</strong>
-    </div>
   );
 }
 
@@ -221,26 +210,44 @@ export function DashboardWorkspaceSummary() {
   return (
     <section className="dashboard-v2-panel min-w-0" aria-labelledby="dashboard-summary-title">
       <header className="dashboard-v2-panel-header">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="dashboard-v2-icon bg-cyan-500/10 text-cyan-600 dark:text-cyan-400"><Layers3 className="h-4 w-4" /></span>
+        <div className="flex min-w-0 items-start gap-2.5">
+          <span className="dashboard-v2-icon"><Layers3 className="h-4 w-4" /></span>
+          <div className="min-w-0 pt-0.5">
             <h2 id="dashboard-summary-title" className="dashboard-v2-section-title">Workspace Summary</h2>
+            <p className="mt-0.5 text-[0.7rem] text-muted-foreground">Canonical workspace totals</p>
           </div>
-          <p className="mt-1 text-xs text-muted-foreground">Canonical workspace totals</p>
         </div>
       </header>
-      <div className="grid grid-cols-1 px-2 pb-3 sm:grid-cols-2 sm:px-3 lg:grid-cols-1">
-        {loading ? [0, 1, 2, 3].map((row) => <div key={row} className="flex min-h-14 items-center gap-3 px-2.5"><Skeleton className="h-9 w-9 rounded-lg" /><Skeleton className="h-4 flex-1" /><Skeleton className="h-6 w-8" /></div>) : (
-          <>
-            <SummaryMetric icon={<FolderKanban className="h-4 w-4" />} label="Visible Processes" value={projectsForTeam.length} tone="bg-primary/10 text-primary" />
-            <SummaryMetric icon={<ListTodo className="h-4 w-4" />} label="Active Actions" value={active.length} tone="bg-amber-500/10 text-amber-600 dark:text-amber-400" />
-            <SummaryMetric icon={<UserRound className="h-4 w-4" />} label="Assigned to you" value={assigned} tone="bg-violet-500/10 text-violet-600 dark:text-violet-400" />
-            <SummaryMetric icon={<CheckCircle2 className="h-4 w-4" />} label="Terminal Actions" value={completed} tone="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" />
-          </>
+      <div className="px-4 pb-4 sm:px-5 sm:pb-5">
+        {loading ? (
+          <div className="space-y-4"><Skeleton className="h-28 w-full rounded-xl" /><div className="grid grid-cols-2 gap-4"><Skeleton className="h-16 rounded-lg" /><Skeleton className="h-16 rounded-lg" /></div></div>
+        ) : (
+          <div>
+            <div className="rounded-xl bg-primary/[0.055] px-4 py-4 ring-1 ring-inset ring-primary/10">
+              <div className="flex items-center justify-between gap-3">
+                <span className="flex items-center gap-2 text-xs font-medium text-muted-foreground"><Activity className="h-3.5 w-3.5 text-primary" />Active work</span>
+                <span className="text-[0.65rem] font-medium uppercase tracking-[0.1em] text-muted-foreground">Live</span>
+              </div>
+              <div className="mt-3 flex items-end justify-between gap-3">
+                <strong className="text-[2rem] font-semibold leading-none tabular-nums tracking-[-0.045em]">{active.length}</strong>
+                <p className="pb-0.5 text-right text-[0.7rem] leading-4 text-muted-foreground">Across {projectsForTeam.length}<br />visible Processes</p>
+              </div>
+            </div>
+            <div className="mt-3 grid grid-cols-2 divide-x divide-border/40 rounded-lg bg-muted/15 py-2">
+              <div className="px-3 py-1.5">
+                <span className="flex items-center gap-1.5 text-[0.68rem] text-muted-foreground"><UserRound className="h-3.5 w-3.5" />Assigned to you</span>
+                <strong className="mt-1 block text-lg font-semibold tabular-nums tracking-tight">{assigned}</strong>
+              </div>
+              <div className="px-3 py-1.5">
+                <span className="flex items-center gap-1.5 text-[0.68rem] text-muted-foreground"><CheckCircle2 className="h-3.5 w-3.5" />Terminal Actions</span>
+                <strong className="mt-1 block text-lg font-semibold tabular-nums tracking-tight">{completed}</strong>
+              </div>
+            </div>
+          </div>
         )}
       </div>
-      <div className="border-t border-border/55 px-4 py-3 sm:px-5">
-        <p className="flex items-center gap-2 text-xs text-muted-foreground"><CircleDot className="h-3.5 w-3.5" /><span>Completion uses each Process&apos;s canonical terminal Stage.</span></p>
+      <div className="border-t border-border/35 px-4 py-3 sm:px-5">
+        <p className="flex items-start gap-2 text-[0.68rem] leading-4 text-muted-foreground"><CircleDot className="mt-0.5 h-3 w-3 shrink-0" /><span>Completion follows each Process&apos;s canonical terminal Stage.</span></p>
       </div>
     </section>
   );
