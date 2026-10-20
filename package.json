@@ -21,6 +21,7 @@
     "lint": "next lint",
     "test:scheduling": "tsx scripts/test-scheduling-domain.ts",
     "test:planner:staging": "node scripts/test-planner-v2-staging.mjs",
+    "test:planner:visual": "node scripts/test-planner-v2-visual.cjs",
     "test:editor": "tsx scripts/test-editor-slash-commands.ts",
     "migrate:auth": "tsx scripts/migrate-users-to-supabase-auth.ts"
   },

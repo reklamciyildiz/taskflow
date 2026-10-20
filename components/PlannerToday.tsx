@@ -160,7 +160,7 @@ function PlannerRow({
         }
       }}
       className={cn(
-        'group flex min-w-0 cursor-pointer items-start gap-3 rounded-lg border border-border/55 bg-card/35 px-3 py-3 transition-colors hover:border-border hover:bg-muted/25 sm:px-4',
+        'planner-v2-today-row group flex min-w-0 cursor-pointer items-start gap-3 rounded-lg border border-border/40 bg-card/25 px-3 py-3 transition-colors hover:border-border/70 hover:bg-muted/25 sm:px-4',
         pending && 'pointer-events-none opacity-65',
       )}
     >
@@ -174,7 +174,10 @@ function PlannerRow({
       />
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 items-start justify-between gap-3">
-          <p className={cn('min-w-0 text-sm font-medium leading-5', completed && 'text-muted-foreground line-through')}>
+          <p
+            className={cn('line-clamp-2 min-w-0 text-sm font-semibold leading-5', completed && 'text-muted-foreground line-through')}
+            title={title}
+          >
             {title}
           </p>
           {time ? (
@@ -216,11 +219,10 @@ function PlannerRow({
             </span>
           ) : null}
           {showDate ? <span aria-hidden>·</span> : null}
-          {item.source.sourceType === 'checklist_item' ? (
-            <span className="max-w-[22rem] truncate">{item.taskTitle}</span>
-          ) : (
-            <span>Action</span>
-          )}
+          <span className="rounded-md bg-muted/45 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            {item.source.sourceType === 'checklist_item' ? 'Checklist' : 'Action'}
+          </span>
+          {item.source.sourceType === 'checklist_item' ? <span className="max-w-[22rem] truncate">{item.taskTitle}</span> : null}
           {item.projectName ? (
             <>
               <span aria-hidden>·</span>
@@ -738,7 +740,7 @@ export function PlannerToday({ embedded = false }: { embedded?: boolean }) {
         ) : null}
       </header> : null}
 
-      <div className="mb-7 inline-flex rounded-lg border border-border/60 bg-muted/20 p-1" role="tablist" aria-label="Planner view">
+      {!embedded ? <div className="mb-7 inline-flex rounded-lg border border-border/60 bg-muted/20 p-1" role="tablist" aria-label="Planner view">
         {(['today', 'upcoming'] as const).map((candidate) => (
           <button
             key={candidate}
@@ -754,7 +756,7 @@ export function PlannerToday({ embedded = false }: { embedded?: boolean }) {
             {candidate}
           </button>
         ))}
-      </div>
+      </div> : null}
 
       {view === 'today' && error && visibleProjection ? (
         <div className="mb-5 flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">

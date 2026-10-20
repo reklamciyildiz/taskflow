@@ -5,8 +5,9 @@ import {
   ArrowRight,
   CalendarClock,
   CheckCircle2,
-  CheckSquare2,
   Clock3,
+  ListChecks,
+  MoreHorizontal,
   RefreshCw,
   Repeat2,
   RotateCcw,
@@ -21,6 +22,14 @@ import { formatScheduleDate } from "@/lib/schedule-presentation";
 import { useTaskContext } from "@/components/TaskContext";
 import { PlannerScheduleDialog } from "./PlannerScheduleDialog";
 import { dispatchOccurrenceChanged } from "@/lib/schedule-events";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -98,13 +107,29 @@ export function PlannerRoutines() {
           action === "reschedule" ? addCalendarDays(item.effectiveDate, 1) : undefined,
       });
       if (!response.success) throw new Error(response.error || "The occurrence could not be updated.");
-      toast.success(
-        action === "complete"
-          ? "Next occurrence completed."
-          : action === "skip"
-            ? "Next occurrence skipped."
-            : "Next occurrence moved one day."
-      );
+      if (action === "complete") {
+        toast("Occurrence completed.", {
+          description: `${formatScheduleDate(item.effectiveDate)} · ${sourceTitle(item)}`,
+          action: {
+            label: "Undo",
+            onClick: () => {
+              void plannerApi.mutateOccurrence({
+                scheduleId: item.scheduleId,
+                occurrenceDate: item.occurrenceDate,
+                action: "uncomplete",
+              }).then((undoResponse) => {
+                if (!undoResponse.success) return toast.error(undoResponse.error || "Undo failed.");
+                dispatchOccurrenceChanged(item.scheduleId, item.occurrenceDate);
+                void load(true);
+              });
+            },
+          },
+        });
+      } else {
+        toast.success(action === "skip" ? "Occurrence skipped." : "Occurrence moved one day.", {
+          description: `${formatScheduleDate(item.effectiveDate)} · ${sourceTitle(item)}`,
+        });
+      }
       dispatchOccurrenceChanged(item.scheduleId, item.occurrenceDate);
       await load(true);
     } catch (mutationError) {
@@ -163,7 +188,7 @@ export function PlannerRoutines() {
             return (
               <article key={item.scheduleId} className="planner-v2-routine-row">
                 <div className="planner-v2-source-icon" aria-hidden="true">
-                  {item.source.sourceType === "action" ? <CalendarClock /> : <CheckSquare2 />}
+                  {item.source.sourceType === "action" ? <CalendarClock /> : <ListChecks />}
                 </div>
                 <div className="planner-v2-routine-content">
                   <div className="planner-v2-row-title-line">
@@ -181,40 +206,48 @@ export function PlannerRoutines() {
                   </div>
                 </div>
                 <div className="planner-v2-row-actions">
-                  <button
-                    type="button"
-                    onClick={() => void mutateOccurrence(item, "complete")}
-                    disabled={busyKey !== null}
-                    aria-busy={busyKey === completeKey}
-                    title="Complete the next occurrence only"
-                  >
-                    <CheckCircle2 aria-hidden="true" />
-                    <span>Complete next</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void mutateOccurrence(item, "skip")}
-                    disabled={busyKey !== null}
-                    aria-busy={busyKey === skipKey}
-                    title="Skip the next occurrence only"
-                  >
-                    <SkipForward aria-hidden="true" />
-                    <span>Skip next</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void mutateOccurrence(item, "reschedule")}
-                    disabled={busyKey !== null}
-                    aria-busy={busyKey === moveKey}
-                    title="Move the next occurrence one day"
-                  >
-                    <RotateCcw aria-hidden="true" />
-                    <span>Move +1 day</span>
-                  </button>
-                  <button type="button" onClick={() => setEditing(item)}>
-                    <Repeat2 aria-hidden="true" />
-                    <span>Edit series</span>
-                  </button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button type="button" className="planner-v2-routine-menu-trigger" disabled={busyKey !== null}>
+                        <MoreHorizontal aria-hidden="true" />
+                        <span>{busyKey ? "Updating…" : "Actions"}</span>
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-64">
+                      <DropdownMenuLabel className="font-normal">
+                        <span className="block text-xs font-semibold text-foreground">Next occurrence</span>
+                        <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                          {formatScheduleDate(item.effectiveDate)} · {item.scheduleTime?.slice(0, 5) ?? "All day"}
+                        </span>
+                      </DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        disabled={busyKey !== null}
+                        onSelect={() => void mutateOccurrence(item, "complete")}
+                        aria-busy={busyKey === completeKey}
+                      >
+                        <CheckCircle2 className="mr-2 h-4 w-4" /> Complete this occurrence
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        disabled={busyKey !== null}
+                        onSelect={() => void mutateOccurrence(item, "skip")}
+                        aria-busy={busyKey === skipKey}
+                      >
+                        <SkipForward className="mr-2 h-4 w-4" /> Skip this occurrence
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        disabled={busyKey !== null}
+                        onSelect={() => void mutateOccurrence(item, "reschedule")}
+                        aria-busy={busyKey === moveKey}
+                      >
+                        <RotateCcw className="mr-2 h-4 w-4" /> Move this occurrence +1 day
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onSelect={() => setEditing(item)}>
+                        <Repeat2 className="mr-2 h-4 w-4" /> Edit entire series
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                   <button
                     type="button"
                     onClick={() => openTaskEditor(item.taskId, item.checklistItemId)}
