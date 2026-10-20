@@ -28,7 +28,21 @@ async function main() {
   });
   const css = fs.readdirSync(path.join(root, '.next', 'static', 'css'))
     .map(name => path.join(root, '.next', 'static', 'css', name));
+  let resolveProbe;
+  const probeResult = new Promise((resolve, reject) => {
+    resolveProbe = resolve;
+    setTimeout(() => reject(new Error('Calendar browser interaction probe timed out.')), 10000);
+  });
   const server = http.createServer((request, response) => {
+    if (request.url === '/__visual-result' && request.method === 'POST') {
+      let body = '';
+      request.on('data', chunk => { body += chunk; });
+      request.on('end', () => {
+        resolveProbe(JSON.parse(body));
+        response.end('ok');
+      });
+      return;
+    }
     if (request.url === '/fixture.js') {
       response.setHeader('Content-Type', 'text/javascript');
       return response.end(fs.readFileSync(path.join(output, 'fixture.js')));
@@ -45,13 +59,24 @@ async function main() {
   const chrome = path.join(process.env.LOCALAPPDATA, 'ms-playwright', 'chromium_headless_shell-1208', 'chrome-headless-shell-win64', 'chrome-headless-shell.exe');
   const cases = [
     ['mobile-360-dark-today', 360, 800, 'dark', 'today'],
+    ['mobile-360-dark-calendar', 360, 800, 'dark', 'calendar'],
     ['mobile-390-light-calendar', 390, 844, 'light', 'calendar'],
     ['mobile-430-dark-routines', 430, 900, 'dark', 'routines'],
+    ['mobile-430-dark-calendar', 430, 900, 'dark', 'calendar'],
     ['tablet-768-light-calendar', 768, 1024, 'light', 'calendar'],
+    ['desktop-1440-dark-calendar', 1440, 1000, 'dark', 'calendar'],
     ['desktop-1440-dark-routines', 1440, 1000, 'dark', 'routines'],
     ['desktop-1440-light-today', 1440, 1000, 'light', 'today'],
   ];
   try {
+    await runChrome(chrome, [
+      '--headless', '--disable-gpu', '--no-sandbox', '--virtual-time-budget=3500', '--dump-dom',
+      `http://127.0.0.1:${port}/?theme=dark&view=calendar&probe=1`,
+    ]);
+    const interactions = await probeResult;
+    if (Object.values(interactions).some(value => value !== true)) {
+      throw new Error(`Calendar interaction probe failed: ${JSON.stringify(interactions)}`);
+    }
     for (const [name, width, height, theme, view] of cases) {
       const screenshot = path.join(output, `${name}.png`);
       await runChrome(chrome, [
@@ -60,7 +85,7 @@ async function main() {
         `http://127.0.0.1:${port}/?theme=${theme}&view=${view}`,
       ]);
     }
-    console.log(JSON.stringify({ screenshots: cases.map(([name]) => path.join(output, `${name}.png`)) }, null, 2));
+    console.log(JSON.stringify({ interactions, screenshots: cases.map(([name]) => path.join(output, `${name}.png`)) }, null, 2));
   } finally {
     server.close();
   }

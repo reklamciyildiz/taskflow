@@ -36,15 +36,23 @@ const routines = Array.from({ length: 4 }, (_, index) => base(`routine-${index}`
   checklistItemText: index < 3 ? ['İlaçlarını iç', 'Diş fırçala', 'Perfect Posture egzersizi'][index] : null,
 }));
 
+let upcomingRequests = 0;
 const apiResponse = (url: string) => {
   if (url.includes('/api/planner/today')) return { success: true, data: { date, overdue: [], today: todayItems, completedToday: [] } };
   if (url.includes('/api/planner/routines')) return { success: true, data: routines };
-  if (url.includes('/api/planner/upcoming')) return { success: true, data: { startDate: date, endDate: '2026-10-26', groups: [{ date, items: [...allDay, ...timed] }] } };
+  if (url.includes('/api/planner/upcoming')) {
+    upcomingRequests += 1;
+    return { success: true, data: { startDate: date, endDate: '2026-10-26', groups: [{ date, items: [...allDay, ...timed] }] } };
+  }
   return { success: true, data: null };
 };
-window.fetch = (async (input: RequestInfo | URL) => new Response(JSON.stringify(apiResponse(String(input))), {
-  status: 200, headers: { 'Content-Type': 'application/json' },
-})) as typeof fetch;
+const browserFetch = window.fetch.bind(window);
+window.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+  if (String(input).includes('/__visual-result')) return browserFetch(input, init);
+  return new Response(JSON.stringify(apiResponse(String(input))), {
+    status: 200, headers: { 'Content-Type': 'application/json' },
+  });
+}) as typeof fetch;
 
 const columns = [{ id: 'todo', title: 'To Do', isTerminal: false }, { id: 'done', title: 'Done', isTerminal: true }];
 const tasks = [
@@ -65,10 +73,73 @@ createRoot(document.getElementById('root')!).render(
     <Toaster />
   </Context.Provider>,
 );
-window.setTimeout(() => {
+window.setTimeout(async () => {
   const view = params.get('view') ?? 'today';
   const button = [...document.querySelectorAll<HTMLButtonElement>('[role="tab"]')]
     .find((candidate) => candidate.textContent?.toLowerCase().includes(view));
   button?.click();
   document.documentElement.dataset.ready = 'true';
+  if (params.get('probe') !== '1') return;
+  await new Promise((resolve) => window.setTimeout(resolve, 500));
+  const timeline = document.querySelector<HTMLElement>('[data-planner-timeline="day"]');
+  const fullDayScrollable = Boolean(timeline && timeline.scrollHeight > timeline.clientHeight);
+  const initialScrollTop = timeline?.scrollTop ?? -1;
+  const slot0200 = document.querySelector<HTMLButtonElement>('[data-slot-time="02:00"]');
+  const slot0800 = document.querySelector<HTMLButtonElement>('[data-slot-time="08:00"]');
+  const slot1400 = document.querySelector<HTMLButtonElement>('[data-slot-time="14:00"]');
+  const slot2200 = document.querySelector<HTMLButtonElement>('[data-slot-time="22:00"]');
+  const slot2330 = document.querySelector<HTMLButtonElement>('[data-slot-time="23:30"]');
+  if (timeline) timeline.scrollTop = 0;
+  const reachedStart = timeline?.scrollTop === 0;
+  if (timeline) timeline.scrollTop = timeline.scrollHeight;
+  const reachedEnd = Boolean(timeline && timeline.scrollTop > 0 && timeline.scrollTop + timeline.clientHeight >= timeline.scrollHeight - 2);
+  const jumpSelect = document.querySelector<HTMLSelectElement>('select[aria-label="Jump to hour"]');
+  if (jumpSelect) {
+    jumpSelect.value = '2';
+    jumpSelect.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  await new Promise((resolve) => window.setTimeout(resolve, 500));
+  const jumpedToEarlyHour = Boolean(timeline && timeline.scrollTop < 180);
+  const day21 = [...document.querySelectorAll<HTMLButtonElement>('[aria-pressed]')]
+    .find((candidate) => candidate.querySelector('strong')?.textContent === '21');
+  day21?.click();
+  await new Promise((resolve) => window.setTimeout(resolve, 150));
+  const dayNavigationWorked = day21?.getAttribute('aria-pressed') === 'true';
+  const day20 = [...document.querySelectorAll<HTMLButtonElement>('[aria-pressed]')]
+    .find((candidate) => candidate.querySelector('strong')?.textContent === '20');
+  day20?.click();
+  const weekButton = [...document.querySelectorAll<HTMLButtonElement>('button')]
+    .find((candidate) => candidate.textContent?.trim() === 'Week');
+  weekButton?.click();
+  await new Promise((resolve) => window.setTimeout(resolve, 150));
+  const weekModeWorked = Boolean(document.querySelector('[data-planner-timeline="week"]'));
+  const dayButton = [...document.querySelectorAll<HTMLButtonElement>('button')]
+    .find((candidate) => candidate.textContent?.trim() === 'Day');
+  dayButton?.click();
+  await new Promise((resolve) => window.setTimeout(resolve, 150));
+  slot0800?.click();
+  await new Promise((resolve) => window.setTimeout(resolve, 350));
+  const captureDate = document.querySelector<HTMLInputElement>('.planner-v2-capture input[type="date"]')?.value;
+  const captureTime = document.querySelector<HTMLInputElement>('.planner-v2-capture input[type="time"]')?.value;
+  const block = document.querySelector<HTMLButtonElement>('[aria-label^="Edit Design review"]');
+  block?.click();
+  await new Promise((resolve) => window.setTimeout(resolve, 250));
+  const dialogOpened = Boolean(document.querySelector('[role="dialog"]'));
+  const requestsBeforeScheduleEvent = upcomingRequests;
+  window.dispatchEvent(new Event('axiom:schedule-changed'));
+  await new Promise((resolve) => window.setTimeout(resolve, 250));
+  const result = {
+    fullDayScrollable,
+    slotsAvailable: [slot0200, slot0800, slot1400, slot2200, slot2330].every(Boolean),
+    initialFocusApplied: initialScrollTop > 0,
+    reachedStart,
+    reachedEnd,
+    jumpedToEarlyHour,
+    dayNavigationWorked,
+    weekModeWorked,
+    emptySlotPrefilledQuickAdd: captureDate === date && captureTime === '08:00',
+    blockOpenedScheduleDialog: dialogOpened,
+    scheduleEventReloaded: upcomingRequests > requestsBeforeScheduleEvent,
+  };
+  await browserFetch('/__visual-result', { method: 'POST', body: JSON.stringify(result) });
 }, 900);

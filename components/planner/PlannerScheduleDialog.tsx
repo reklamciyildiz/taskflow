@@ -11,10 +11,11 @@ import type { WorkSchedule, WorkSource } from '@/lib/scheduling-domain';
 import type { PlannerProjectionItem } from '@/lib/planner-projection';
 import { dispatchOccurrenceChanged } from '@/lib/schedule-events';
 import { toast } from 'sonner';
+import { ExternalLink } from 'lucide-react';
 
-export function PlannerScheduleDialog({ open, onOpenChange, source, title, occurrence = null, onSaved }: {
+export function PlannerScheduleDialog({ open, onOpenChange, source, title, occurrence = null, onSaved, onOpenSource }: {
   open: boolean; onOpenChange: (open: boolean) => void; source: WorkSource | null;
-  title: string; occurrence?: PlannerProjectionItem | null; onSaved?: () => void;
+  title: string; occurrence?: PlannerProjectionItem | null; onSaved?: () => void; onOpenSource?: () => void;
 }) {
   const [schedule, setSchedule] = useState<WorkSchedule | null>(null);
   const [loading, setLoading] = useState(false);
@@ -56,7 +57,17 @@ export function PlannerScheduleDialog({ open, onOpenChange, source, title, occur
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent hideClose className="flex max-h-[92dvh] min-h-0 w-[min(92vw,390px)] max-w-[min(92vw,390px)] flex-col gap-0 overflow-hidden p-0">
-        <DialogHeader className="sr-only"><DialogTitle>Schedule {title}</DialogTitle><DialogDescription>Edit this work schedule. Recurring edits apply to the whole series.</DialogDescription></DialogHeader>
+        <DialogHeader className="flex-row items-center justify-between gap-3 border-b border-border/40 px-4 py-3 text-left">
+          <div className="min-w-0">
+            <DialogTitle className="truncate text-sm">{title}</DialogTitle>
+            <DialogDescription className="mt-0.5 text-[11px]">Edit this schedule{occurrence ? ' or its occurrence' : ''}.</DialogDescription>
+          </div>
+          {onOpenSource ? (
+            <Button type="button" variant="ghost" size="sm" className="h-9 shrink-0" onClick={onOpenSource}>
+              Open Action <ExternalLink className="ml-1.5 h-3.5 w-3.5" />
+            </Button>
+          ) : null}
+        </DialogHeader>
         {loading || !source ? <div className="space-y-3 p-5"><Skeleton className="h-10" /><Skeleton className="h-48" /></div> : (
           <>
             {schedule?.scheduleType === 'recurring' ? (

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, CalendarPlus, Clock3, Loader2, Plus, RotateCw, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,11 @@ import { useTaskContext } from '@/components/TaskContext';
 import { formatDueDateYmdLocal, parseYmdDateInput } from '@/lib/due-date';
 import { isTerminalBoardColumn } from '@/lib/types';
 import { scheduleApi } from '@/lib/api';
-import { dispatchScheduleChanged } from '@/lib/schedule-events';
+import {
+  dispatchScheduleChanged,
+  PLANNER_CAPTURE_TIME_EVENT,
+  type PlannerCaptureTimeDetail,
+} from '@/lib/schedule-events';
 import { parsePlannerCapture } from '@/lib/planner-v2-utils';
 
 export function PlannerQuickAdd() {
@@ -20,6 +24,8 @@ export function PlannerQuickAdd() {
   const [time, setTime] = useState('');
   const [duration, setDuration] = useState(30);
   const [busy, setBusy] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  const titleRef = useRef<HTMLInputElement>(null);
   const [pendingSchedule, setPendingSchedule] = useState<{
     taskId: string;
     title: string;
@@ -30,6 +36,20 @@ export function PlannerQuickAdd() {
   const parsed = useMemo(() => parsePlannerCapture(value, today), [today, value]);
   const effectiveDate = date ?? parsed.date;
   const effectiveTime = time || parsed.time || '';
+
+  useEffect(() => {
+    const selectCalendarTime = (event: Event) => {
+      const detail = (event as CustomEvent<PlannerCaptureTimeDetail>).detail;
+      if (!detail?.date || !detail.time || pendingSchedule) return;
+      setDate(detail.date);
+      setTime(detail.time);
+      formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      window.setTimeout(() => titleRef.current?.focus(), 250);
+      toast.info(`Time selected: ${detail.time}`);
+    };
+    window.addEventListener(PLANNER_CAPTURE_TIME_EVENT, selectCalendarTime);
+    return () => window.removeEventListener(PLANNER_CAPTURE_TIME_EVENT, selectCalendarTime);
+  }, [pendingSchedule]);
 
   const saveTimeBlock = async (input: NonNullable<typeof pendingSchedule>) => {
     const response = await scheduleApi.save({
@@ -103,11 +123,11 @@ export function PlannerQuickAdd() {
   };
 
   return (
-    <form onSubmit={(event) => { event.preventDefault(); void submit(); }}
+    <form ref={formRef} onSubmit={(event) => { event.preventDefault(); void submit(); }}
       className="planner-v2-capture rounded-2xl border border-border/45 bg-card/45 p-2 shadow-[0_18px_42px_-34px_hsl(var(--foreground)/0.4)]">
       <div className="flex min-w-0 items-center gap-2">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><Sparkles className="h-4 w-4" /></span>
-        <Input value={value} onChange={(event) => setValue(event.target.value)} disabled={busy || pendingSchedule !== null}
+        <Input ref={titleRef} value={value} onChange={(event) => setValue(event.target.value)} disabled={busy || pendingSchedule !== null}
           placeholder="Add an Action…"
           aria-label="Quick add Action"
           className="h-11 min-w-0 flex-1 border-0 bg-transparent px-1 text-base shadow-none focus-visible:ring-0" />
