@@ -6,11 +6,14 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:android-staging": "tsc -b && vite build --mode android-staging",
     "preview": "vite preview",
-    "cap:sync": "npm run build && cap sync",
-    "android:sync": "npm run build && cap sync android",
+    "cap:sync": "node scripts/require-android-build-target.mjs",
+    "android:sync": "node scripts/require-android-build-target.mjs",
+    "android:sync:staging": "npm run build:android-staging && cap sync android",
     "android:open": "cap open android",
-    "android:debug": "npm run android:sync && cd android && .\\gradlew.bat assembleDebug"
+    "android:debug": "node scripts/require-android-build-target.mjs",
+    "android:debug:staging": "npm run android:sync:staging && cd android && .\\gradlew.bat assembleDebug"
   },
   "dependencies": {
     "@capacitor/app": "^8.0.0",

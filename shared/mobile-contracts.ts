@@ -36,3 +36,37 @@ export type MobileWorkspace = {
   processes: MobileProcessSummary[];
   recentActions: MobileActionSummary[];
 };
+
+export type MobileProcessDetail = {
+  process: MobileProcessSummary;
+  totalActions: number;
+  hasMore: boolean;
+  actions: Array<MobileActionSummary & {
+    description: string;
+    stageLabel: string;
+    completed: boolean;
+    checklist: { total: number; completed: number };
+    updatedAt: string;
+  }>;
+};
+
+export type MobileActionDetail = {
+  id: string;
+  title: string;
+  description: string;
+  priority: string | null;
+  stageId: string;
+  stageLabel: string;
+  completed: boolean;
+  assigneeId: string | null;
+  process: { id: string; name: string } | null;
+  checklist: Array<{
+    id: string;
+    text: string;
+    checked: boolean;
+    assigneeId?: string | null;
+    dueDate?: string | null;
+    completedAt?: string | null;
+  }>;
+  updatedAt: string;
+};

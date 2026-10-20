@@ -1,4 +1,4 @@
-import type { MobileSessionTokens, MobileWorkspace } from '../../shared/mobile-contracts';
+import type { MobileActionDetail, MobileProcessDetail, MobileSessionTokens, MobileWorkspace } from '../../shared/mobile-contracts';
 import { Browser } from '@capacitor/browser';
 import { secureSession } from './secure-session';
 
@@ -96,6 +96,8 @@ export async function authenticatedGet<T>(path: string): Promise<T> {
 }
 
 export async function loadWorkspace() { return authenticatedGet<MobileWorkspace>('/api/mobile/workspace'); }
+export async function loadProcess(processId: string) { return authenticatedGet<MobileProcessDetail>(`/api/mobile/processes/${encodeURIComponent(processId)}`); }
+export async function loadAction(actionId: string) { return authenticatedGet<MobileActionDetail>(`/api/mobile/actions/${encodeURIComponent(actionId)}`); }
 
 export async function logout() {
   if (accessToken) await fetch(endpoint('/api/mobile/auth/logout'), { method: 'POST', headers: { Authorization: `Bearer ${accessToken}` } }).catch(() => undefined);

@@ -1,2 +1,5 @@
 /build/*
 !/build/.npmkeep
+/src/debug/AndroidManifest.xml
+/src/debug/res/xml/axiom_debug_network_security.xml
+/src/debug/res/raw/axiom_local_ca.crt
