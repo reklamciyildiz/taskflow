@@ -55,9 +55,19 @@ window.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
 }) as typeof fetch;
 
 const columns = [{ id: 'todo', title: 'To Do', isTerminal: false }, { id: 'done', title: 'Done', isTerminal: true }];
-const tasks = [
-  { id: 'anytime', title: 'Unscheduled personal Action', status: 'todo', teamId: 'team', projectId: null, schedule: null, createdBy: 'user', updatedAt: new Date(), checklistBlocks: [] },
-];
+const tasks = Array.from({ length: 18 }, (_, index) => ({
+  id: `anytime-${index}`,
+  title: index === 8
+    ? 'Tech Istanbul - Uygulamalı Yapay Zeka Geliştirme Programı için oldukça uzun plansız Action başlığı'
+    : `Unscheduled personal Action ${index + 1}`,
+  status: 'todo',
+  teamId: 'team',
+  projectId: index % 3 === 0 ? null : 'p1',
+  schedule: null,
+  createdBy: 'user',
+  updatedAt: new Date(),
+  checklistBlocks: [],
+}));
 const context = {
   tasks, projects: [{ id: 'p1', name: 'SmartSafe AI', columnConfig: columns }], currentTeam: { id: 'team' },
   currentUser: { id: 'user' }, generalBoardColumns: columns, loading: false,
@@ -73,15 +83,73 @@ createRoot(document.getElementById('root')!).render(
     <Toaster />
   </Context.Provider>,
 );
+const pause = (milliseconds: number) => new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+const findButton = (label: string) => [...document.querySelectorAll<HTMLButtonElement>('button')]
+  .find((candidate) => candidate.textContent?.trim() === label);
+const openRoutineMenu = () => {
+  const trigger = document.querySelector<HTMLButtonElement>('.planner-v2-routine-menu-trigger');
+  trigger?.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, pointerType: 'mouse' }));
+};
+const isolateCalendarVisual = (targets: Element[]) => {
+  document.querySelectorAll<HTMLElement>('.planner-v2-hero, .planner-v2-capture, .planner-v2-tabs')
+    .forEach((element) => { element.style.display = 'none'; });
+  document.querySelectorAll<HTMLElement>('.planner-v2-calendar > *').forEach((element) => {
+    if (!targets.some((target) => element === target || element.contains(target))) element.style.display = 'none';
+  });
+  window.scrollTo({ top: 0, behavior: 'instant' });
+};
+
 window.setTimeout(async () => {
   const view = params.get('view') ?? 'today';
   const button = [...document.querySelectorAll<HTMLButtonElement>('[role="tab"]')]
     .find((candidate) => candidate.textContent?.toLowerCase().includes(view));
   button?.click();
+  await pause(500);
+
+  const visualState = params.get('state');
+  if (visualState && params.get('probe') !== '1') {
+    const timeline = document.querySelector<HTMLElement>('[data-planner-timeline="day"]');
+    if (visualState === 'jump-2' || visualState === 'jump-22') {
+      const jumpSelect = document.querySelector<HTMLSelectElement>('select[aria-label="Jump to hour"]');
+      if (jumpSelect) {
+        jumpSelect.value = visualState === 'jump-2' ? '2' : '22';
+        jumpSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      if (timeline?.parentElement) isolateCalendarVisual([timeline.parentElement]);
+    } else if (visualState === 'timeline-end' && timeline) {
+      timeline.scrollTop = timeline.scrollHeight;
+      if (timeline.parentElement) isolateCalendarVisual([timeline.parentElement]);
+    } else if (visualState === 'anytime-summary') {
+      const anytimeSection = document.querySelector('.planner-v2-anytime');
+      if (anytimeSection) isolateCalendarVisual([anytimeSection]);
+    } else if (visualState === 'anytime-all') {
+      findButton('View all')?.click();
+    } else if (visualState === 'schedule-dialog') {
+      document.querySelector<HTMLButtonElement>('[aria-label^="Edit Design review"]')?.click();
+    } else if (visualState === 'quick-add') {
+      document.querySelector<HTMLButtonElement>('[data-slot-time="08:00"]')?.click();
+    } else if (visualState === 'routine-menu') {
+      openRoutineMenu();
+    }
+    await pause(400);
+  }
   document.documentElement.dataset.ready = 'true';
   if (params.get('probe') !== '1') return;
-  await new Promise((resolve) => window.setTimeout(resolve, 500));
   const timeline = document.querySelector<HTMLElement>('[data-planner-timeline="day"]');
+  const timelineClientWidth = timeline?.clientWidth ?? -1;
+  const timelineScrollWidth = timeline?.scrollWidth ?? -1;
+  const viewportWidth = document.documentElement.clientWidth;
+  const overflowingElements = [...document.querySelectorAll<HTMLElement>('body *')]
+    .filter((element) => element.scrollWidth > element.clientWidth + 1)
+    .filter((element) => element.getBoundingClientRect().right > viewportWidth || element.className?.toString().includes('planner-v2') || Boolean(element.closest('.planner-v2-anytime')))
+    .map((element) => ({
+      tag: element.tagName.toLowerCase(),
+      className: element.className?.toString().slice(0, 120) ?? '',
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+      right: Math.round(element.getBoundingClientRect().right),
+    }))
+    .slice(0, 20);
   const fullDayScrollable = Boolean(timeline && timeline.scrollHeight > timeline.clientHeight);
   const initialScrollTop = timeline?.scrollTop ?? -1;
   const slot0200 = document.querySelector<HTMLButtonElement>('[data-slot-time="02:00"]');
@@ -98,12 +166,12 @@ window.setTimeout(async () => {
     jumpSelect.value = '2';
     jumpSelect.dispatchEvent(new Event('change', { bubbles: true }));
   }
-  await new Promise((resolve) => window.setTimeout(resolve, 500));
+  await pause(500);
   const jumpedToEarlyHour = Boolean(timeline && timeline.scrollTop < 180);
   const day21 = [...document.querySelectorAll<HTMLButtonElement>('[aria-pressed]')]
     .find((candidate) => candidate.querySelector('strong')?.textContent === '21');
   day21?.click();
-  await new Promise((resolve) => window.setTimeout(resolve, 150));
+  await pause(150);
   const dayNavigationWorked = day21?.getAttribute('aria-pressed') === 'true';
   const day20 = [...document.querySelectorAll<HTMLButtonElement>('[aria-pressed]')]
     .find((candidate) => candidate.querySelector('strong')?.textContent === '20');
@@ -111,23 +179,40 @@ window.setTimeout(async () => {
   const weekButton = [...document.querySelectorAll<HTMLButtonElement>('button')]
     .find((candidate) => candidate.textContent?.trim() === 'Week');
   weekButton?.click();
-  await new Promise((resolve) => window.setTimeout(resolve, 150));
+  await pause(150);
   const weekModeWorked = Boolean(document.querySelector('[data-planner-timeline="week"]'));
   const dayButton = [...document.querySelectorAll<HTMLButtonElement>('button')]
     .find((candidate) => candidate.textContent?.trim() === 'Day');
   dayButton?.click();
-  await new Promise((resolve) => window.setTimeout(resolve, 150));
+  await pause(150);
   slot0800?.click();
-  await new Promise((resolve) => window.setTimeout(resolve, 350));
+  await pause(350);
   const captureDate = document.querySelector<HTMLInputElement>('.planner-v2-capture input[type="date"]')?.value;
   const captureTime = document.querySelector<HTMLInputElement>('.planner-v2-capture input[type="time"]')?.value;
   const block = document.querySelector<HTMLButtonElement>('[aria-label^="Edit Design review"]');
   block?.click();
-  await new Promise((resolve) => window.setTimeout(resolve, 250));
+  await pause(250);
   const dialogOpened = Boolean(document.querySelector('[role="dialog"]'));
   const requestsBeforeScheduleEvent = upcomingRequests;
   window.dispatchEvent(new Event('axiom:schedule-changed'));
-  await new Promise((resolve) => window.setTimeout(resolve, 250));
+  await pause(250);
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  await pause(150);
+  const mainAnytimeRows = document.querySelectorAll('.planner-v2-anytime .planner-v2-anytime-row').length;
+  findButton('View all')?.click();
+  await pause(250);
+  const anytimeSheet = document.querySelector<HTMLElement>('.planner-v2-anytime-sheet');
+  const anytimeSheetRows = anytimeSheet?.querySelectorAll('.planner-v2-anytime-row').length ?? 0;
+  const anytimeSheetFitsViewport = Boolean(anytimeSheet && anytimeSheet.getBoundingClientRect().left >= -1 && anytimeSheet.getBoundingClientRect().right <= window.innerWidth + 1);
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  await pause(150);
+  const routinesTab = [...document.querySelectorAll<HTMLButtonElement>('[role="tab"]')]
+    .find((candidate) => candidate.textContent?.toLowerCase().includes('routines'));
+  routinesTab?.click();
+  await pause(250);
+  openRoutineMenu();
+  await pause(150);
+  const routineMenuOpened = Boolean(document.querySelector('[role="menu"]'));
   const result = {
     fullDayScrollable,
     slotsAvailable: [slot0200, slot0800, slot1400, slot2200, slot2330].every(Boolean),
@@ -140,6 +225,23 @@ window.setTimeout(async () => {
     emptySlotPrefilledQuickAdd: captureDate === date && captureTime === '08:00',
     blockOpenedScheduleDialog: dialogOpened,
     scheduleEventReloaded: upcomingRequests > requestsBeforeScheduleEvent,
+    rootHasNoHorizontalOverflow: document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1,
+    bodyHasNoHorizontalOverflow: document.body.scrollWidth <= document.body.clientWidth + 1,
+    timelineHasNoHorizontalOverflow: timelineScrollWidth <= timelineClientWidth + 1,
+    anytimeSummaryIsBounded: mainAnytimeRows === 4,
+    anytimeViewAllShowsEveryTask: anytimeSheetRows === tasks.length,
+    anytimeSheetFitsViewport,
+    routineMenuOpened,
+    layout: {
+      viewportWidth,
+      rootClientWidth: document.documentElement.clientWidth,
+      rootScrollWidth: document.documentElement.scrollWidth,
+      bodyClientWidth: document.body.clientWidth,
+      bodyScrollWidth: document.body.scrollWidth,
+      timelineClientWidth,
+      timelineScrollWidth,
+      overflowingElements,
+    },
   };
   await browserFetch('/__visual-result', { method: 'POST', body: JSON.stringify(result) });
 }, 900);

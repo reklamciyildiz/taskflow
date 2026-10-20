@@ -4,6 +4,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CalendarClock, ChevronLeft, ChevronRight, Clock3, FolderKanban, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
 import { useTaskContext } from '@/components/TaskContext';
 import { plannerApi } from '@/lib/api';
 import { addCalendarDays, isoWeekday, type WorkSource } from '@/lib/scheduling-domain';
@@ -46,6 +53,8 @@ export function PlannerCalendar() {
   const [editing, setEditing] = useState<{ source: WorkSource; title: string; occurrence?: PlannerProjectionItem } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [allDayExpanded, setAllDayExpanded] = useState(false);
+  const [anytimeOpen, setAnytimeOpen] = useState(false);
+  const [anytimeLimit, setAnytimeLimit] = useState(20);
   const [focusRequest, setFocusRequest] = useState<TimelineFocusRequest>({ hour: 0, token: 0, date: null });
   const weekStart = startOfWeek(selectedDate);
   const weekDates = useMemo(
@@ -53,12 +62,12 @@ export function PlannerCalendar() {
     [weekStart],
   );
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (silent = false) => {
     if (!currentTeam) {
       setLoading(false);
       return;
     }
-    setLoading(true);
+    if (!silent) setLoading(true);
     setError(null);
     try {
       const response = await plannerApi.getUpcoming({
@@ -71,14 +80,14 @@ export function PlannerCalendar() {
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Calendar could not be loaded.');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [currentTeam, weekStart]);
 
   useEffect(() => { void load(); }, [load]);
   useEffect(() => { setAllDayExpanded(false); }, [selectedDate]);
   useEffect(() => {
-    const refresh = () => void load();
+    const refresh = () => void load(true);
     window.addEventListener(SCHEDULE_CHANGED_EVENT, refresh);
     window.addEventListener(OCCURRENCE_CHANGED_EVENT, refresh);
     return () => {
@@ -96,7 +105,9 @@ export function PlannerCalendar() {
       ? projects.find((project) => project.id === task.projectId)?.columnConfig ?? []
       : generalBoardColumns.length ? generalBoardColumns : FALLBACK_BOARD_COLUMNS;
     return !isTerminalBoardColumn(task.status, columns);
-  }).slice(0, 12);
+  });
+  const visibleAnytime = anytime.slice(0, 4);
+  const visibleAnytimeSheet = anytime.slice(0, anytimeLimit);
 
   const editItem = (item: PlannerProjectionItem) => setEditing({
     source: item.source,
@@ -109,6 +120,27 @@ export function PlannerCalendar() {
     focusHour(new Date().getHours(), today);
   };
   const selectEmptyTime = (date: string, time: string) => dispatchPlannerCaptureTime(date, time);
+  const openAnytimeTask = (taskId: string) => {
+    setAnytimeOpen(false);
+    openTaskEditor(taskId);
+  };
+  const scheduleAnytimeTask = (task: (typeof anytime)[number]) => {
+    setAnytimeOpen(false);
+    setEditing({ source: { sourceType: 'action', taskId: task.id }, title: task.title });
+  };
+
+  const renderAnytimeTask = (task: (typeof anytime)[number]) => (
+    <div key={task.id} className="planner-v2-anytime-row flex min-w-0 items-center gap-2 rounded-lg">
+      <button className="min-w-0 flex-1 overflow-hidden text-left" onClick={() => openAnytimeTask(task.id)}>
+        <span className="line-clamp-2 break-words text-sm font-semibold leading-5 [overflow-wrap:anywhere]">{task.title}</span>
+        <span className="mt-0.5 flex min-w-0 items-center gap-1 text-[10px] text-muted-foreground">
+          <FolderKanban className="h-3 w-3 shrink-0" />
+          <span className="truncate">{projects.find((project) => project.id === task.projectId)?.name ?? 'No Process'}</span>
+        </span>
+      </button>
+      <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0" onClick={() => scheduleAnytimeTask(task)} aria-label={`Schedule ${task.title}`}><Plus className="h-4 w-4" /></Button>
+    </div>
+  );
 
   return (
     <section className="planner-v2-section planner-v2-calendar" aria-labelledby="planner-calendar-title">
@@ -225,24 +257,36 @@ export function PlannerCalendar() {
         </>
       )}
 
-      <section className="planner-v2-anytime">
+      <section className="planner-v2-anytime min-w-0">
         <div className="mb-2 flex items-center justify-between">
           <div><h2 className="text-sm font-semibold">Anytime</h2><p className="text-xs text-muted-foreground">Unscheduled active Actions</p></div>
-          <span className="text-xs tabular-nums text-muted-foreground">{anytime.length}</span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs tabular-nums text-muted-foreground">{anytime.length}</span>
+            {anytime.length > visibleAnytime.length ? <button type="button" className="min-h-10 rounded-lg px-2 text-xs font-semibold text-primary hover:bg-primary/10" onClick={() => setAnytimeOpen(true)}>View all</button> : null}
+          </div>
         </div>
-        <div className="grid gap-1 sm:grid-cols-2">
-          {anytime.map((task) => (
-            <div key={task.id} className="flex min-h-12 items-center gap-2 rounded-lg px-2 hover:bg-muted/35">
-              <button className="min-w-0 flex-1 text-left" onClick={() => openTaskEditor(task.id)}>
-                <span className="block truncate text-sm font-medium">{task.title}</span>
-                <span className="flex items-center gap-1 text-[10px] text-muted-foreground"><FolderKanban className="h-3 w-3" />{projects.find((project) => project.id === task.projectId)?.name ?? 'No Process'}</span>
-              </button>
-              <Button variant="ghost" size="icon" className="h-10 w-10" onClick={() => setEditing({ source: { sourceType: 'action', taskId: task.id }, title: task.title })} aria-label={`Schedule ${task.title}`}><Plus className="h-4 w-4" /></Button>
-            </div>
-          ))}
+        <div className="grid min-w-0 gap-1 sm:grid-cols-2">
+          {visibleAnytime.map(renderAnytimeTask)}
         </div>
         {!anytime.length ? <p className="py-5 text-center text-sm text-muted-foreground">No unscheduled work.</p> : null}
       </section>
+
+      <Sheet open={anytimeOpen} onOpenChange={(open) => { setAnytimeOpen(open); if (!open) setAnytimeLimit(20); }}>
+        <SheetContent side="bottom" className="planner-v2-anytime-sheet flex max-h-[min(82dvh,46rem)] flex-col rounded-t-2xl p-0">
+          <SheetHeader className="border-b border-border/45 px-5 pb-4 pt-5 text-left">
+            <SheetTitle>Anytime Actions</SheetTitle>
+            <SheetDescription>{anytime.length} unscheduled active Actions. Select one to open it or use the plus button to schedule it.</SheetDescription>
+          </SheetHeader>
+          <div className="grid min-h-0 min-w-0 gap-1 overflow-y-auto overscroll-contain px-3 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2 sm:grid-cols-2">
+            {visibleAnytimeSheet.map(renderAnytimeTask)}
+            {visibleAnytimeSheet.length < anytime.length ? (
+              <Button variant="ghost" className="mx-auto my-2 min-h-11 w-full max-w-xs" onClick={() => setAnytimeLimit((current) => current + 20)}>
+                Show more ({anytime.length - visibleAnytimeSheet.length} remaining)
+              </Button>
+            ) : null}
+          </div>
+        </SheetContent>
+      </Sheet>
 
       <PlannerScheduleDialog
         open={Boolean(editing)}
@@ -255,7 +299,6 @@ export function PlannerCalendar() {
           setEditing(null);
           openTaskEditor(source.taskId, source.sourceType === 'checklist_item' ? source.checklistItemId : undefined);
         } : undefined}
-        onSaved={() => void load()}
       />
     </section>
   );

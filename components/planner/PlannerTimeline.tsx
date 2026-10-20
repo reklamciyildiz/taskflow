@@ -80,7 +80,7 @@ export function DayTimeline({
   return (
     <div
       ref={scrollRef}
-      className="planner-v2-timeline-scroll relative overflow-y-auto rounded-2xl border border-border/40 bg-card/30"
+      className="planner-v2-timeline-scroll relative overflow-x-hidden overflow-y-auto rounded-2xl border border-border/40 bg-card/30"
       tabIndex={0}
       aria-label={`24-hour timeline for ${date}. Scroll vertically to reach every hour.`}
       data-planner-timeline="day"
@@ -175,7 +175,7 @@ export function WeekTimeline({
             </div>
           ))}
         </div>
-        <div ref={scrollRef} className="planner-v2-timeline-scroll overflow-y-auto" tabIndex={0} aria-label="24-hour week timeline" data-planner-timeline="week">
+        <div ref={scrollRef} className="planner-v2-timeline-scroll overflow-x-hidden overflow-y-auto" tabIndex={0} aria-label="24-hour week timeline" data-planner-timeline="week">
           <div className="grid grid-cols-[3.5rem_repeat(7,minmax(0,1fr))]">
             <div className="relative" style={{ height: DAY_END_HOUR * WEEK_PX_PER_HOUR }}>
               {Array.from({ length: DAY_END_HOUR + 1 }, (_, hour) => (

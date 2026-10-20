@@ -555,9 +555,11 @@
 .planner-v2-timeline-scroll {
   height: min(64dvh, 42rem);
   min-height: 28rem;
-  overscroll-behavior: contain;
+  overscroll-behavior-x: none;
+  overscroll-behavior-y: auto;
   scrollbar-gutter: stable;
   touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
 }
 .planner-v2-empty-slot { color: transparent; transition: background 120ms ease, color 120ms ease; }
 .planner-v2-empty-slot:not(:disabled):hover,
@@ -601,10 +603,19 @@
   text-transform: uppercase;
 }
 .planner-v2-anytime {
+  min-width: 0;
   margin-top: 1rem;
   border-top: 1px solid var(--planner-line);
   padding: 1.15rem 0 0;
 }
+.planner-v2-anytime-row {
+  width: 100%;
+  min-height: 3.5rem;
+  padding: 0.45rem 0.5rem;
+  transition: background 150ms ease;
+}
+.planner-v2-anytime-row:hover { background: hsl(var(--muted) / 0.3); }
+.planner-v2-anytime-sheet { padding-bottom: env(safe-area-inset-bottom); }
 .planner-v2-stack { display: grid; gap: 0.4rem; }
 .planner-v2-routines { max-width: 70rem; }
 .planner-v2-routine-row {
@@ -670,7 +681,7 @@
   .planner-v2-hero { margin-bottom: 1rem; }
   .planner-v2-hero p { max-width: 23rem; }
   .planner-v2-capture { border-radius: 0.9rem; }
-  .planner-v2-tabs { position: sticky; z-index: 20; top: 0.45rem; width: 100%; max-width: none; margin: 1.15rem 0 0.8rem; backdrop-filter: blur(16px); }
+  .planner-v2-tabs { position: static; width: 100%; max-width: none; margin: 1.15rem 0 0.8rem; }
   .planner-v2-tabs button { justify-content: center; min-height: 2.85rem; padding-inline: 0.45rem; }
   .planner-v2-tabs button small { display: none; }
   .planner-v2-section { border-radius: 0.9rem; padding: 0.85rem; }
@@ -702,9 +713,9 @@
   .planner-v2-chip { max-width: 100%; }
   .planner-v2-tabs button { gap: 0.4rem; }
   .planner-v2-tabs button strong { font-size: 0.72rem; }
-  .planner-v2-section { margin-inline: -0.15rem; }
+  .planner-v2-section { margin-inline: 0; }
   .planner-v2-row-actions { padding-left: 0; }
   .planner-v2-row-title-line { align-items: flex-start; }
   .planner-v2-row-title-line h3 { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
-  .planner-v2-all-day { margin-inline: -0.15rem; }
+  .planner-v2-all-day { margin-inline: 0; }
 }
