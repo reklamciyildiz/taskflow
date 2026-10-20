@@ -12,6 +12,10 @@ export async function middleware(request: NextRequest) {
     '/auth/error',
     '/manifest.webmanifest',
     '/api/auth',
+    // Mobile endpoints authenticate with their own short-lived bearer/session guard.
+    // Keeping them out of NextAuth cookie middleware does not make them anonymous:
+    // every data route calls authenticateMobileRequest server-side.
+    '/api/mobile',
     // Cron route handlers enforce CRON_SECRET (or Vercel Cron UA) themselves.
     '/api/cron',
     // Webhook routes authenticate via HMAC signature — not session tokens.

@@ -35,6 +35,11 @@ yarn-error.log*
 # Supabase CLI runtime metadata
 /supabase/.temp/
 
+# Local Android emulator/test artifacts
+/.local-android-avd/
+/.local-android-user/
+/mobile/artifacts/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

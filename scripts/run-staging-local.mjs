@@ -1,9 +1,11 @@
 import { existsSync, readFileSync } from 'node:fs';
+import { randomBytes } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { config, parse } from 'dotenv';
 
 const stagingPath = '.env.staging.local';
 const aiTestMode = process.argv.includes('--ai-test');
+const mobileAuthTestMode = process.argv.includes('--mobile-auth-test');
 const requestedPort = process.argv.find((value) => value.startsWith('--port='))?.slice('--port='.length);
 
 function fail(message) {
@@ -91,7 +93,15 @@ if (aiTestMode) {
   process.env.AI_MONTHLY_REQUESTS_PER_ORG = '1000';
 }
 
-console.log(`Starting Axiom locally against the isolated staging project${aiTestMode ? ' (controlled AI test mode)' : ''}.`);
+if (mobileAuthTestMode) {
+  // Process-local staging activation. Secrets are ephemeral and never written to disk.
+  process.env.AXIOM_MOBILE_AUTH_ENABLED = 'true';
+  process.env.MOBILE_AUTH_TOKEN_PEPPER = randomBytes(48).toString('base64url');
+  process.env.MOBILE_AUTH_ENCRYPTION_KEY = randomBytes(48).toString('base64url');
+  process.env.MOBILE_AUTH_ALLOWED_ORIGINS = 'https://localhost';
+}
+
+console.log(`Starting Axiom locally against the isolated staging project${aiTestMode ? ' (controlled AI test mode)' : ''}${mobileAuthTestMode ? ' (controlled mobile auth test mode)' : ''}.`);
 const child = process.platform === 'win32'
   ? spawn(process.execPath, ['node_modules/next/dist/bin/next', 'dev', '-p', appUrl.port || '3000'], { stdio: 'inherit', env: process.env })
   : spawn('node_modules/.bin/next', ['dev', '-p', appUrl.port || '3000'], { stdio: 'inherit', env: process.env });

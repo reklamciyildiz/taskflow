@@ -6,6 +6,7 @@
     "dev": "next dev",
     "dev:staging": "node scripts/run-staging-local.mjs",
     "dev:staging:ai": "node scripts/run-staging-local.mjs --ai-test --port=3100",
+    "dev:staging:mobile": "node scripts/run-staging-local.mjs --mobile-auth-test --port=3200",
     "staging:db:plan": "node scripts/bootstrap-staging-db.mjs",
     "staging:db:check": "node scripts/bootstrap-staging-db.mjs --check",
     "staging:db:apply": "node scripts/bootstrap-staging-db.mjs --apply",
@@ -23,7 +24,10 @@
     "test:planner:staging": "node scripts/test-planner-v2-staging.mjs",
     "test:planner:visual": "node scripts/test-planner-v2-visual.cjs",
     "test:editor": "tsx scripts/test-editor-slash-commands.ts",
-    "migrate:auth": "tsx scripts/migrate-users-to-supabase-auth.ts"
+    "migrate:auth": "tsx scripts/migrate-users-to-supabase-auth.ts",
+    "mobile:build": "npm --prefix mobile run build",
+    "mobile:android:sync": "npm --prefix mobile run android:sync",
+    "mobile:android:debug": "npm --prefix mobile run android:debug"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^18.0.1",

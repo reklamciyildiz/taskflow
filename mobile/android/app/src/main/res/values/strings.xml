@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Axiom Dev</string>
+    <string name="title_activity_main">Axiom Dev</string>
+    <string name="package_name">com.axiomproductivity.mobile.dev</string>
+    <string name="custom_url_scheme">com.axiomproductivity.mobile.dev</string>
+</resources>
