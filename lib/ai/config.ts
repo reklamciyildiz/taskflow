@@ -28,17 +28,13 @@ export const getAIConfig = (): AIConfig => {
     provider: 'openai',
     models: {
       text: process.env.OPENAI_TEXT_MODEL || 'gpt-4o',
-      speech: process.env.OPENAI_SPEECH_MODEL || 'whisper-1',
     },
     features: {
-      voiceToTask: process.env.AI_VOICE_TO_TASK_ENABLED !== 'false',
       descriptionGenerator: process.env.AI_DESCRIPTION_GENERATOR_ENABLED !== 'false',
       dailyStandup: process.env.AI_DAILY_STANDUP_ENABLED !== 'false',
       blockerDetector: process.env.AI_BLOCKER_DETECTOR_ENABLED !== 'false',
     },
     limits: {
-      maxAudioDuration: parseInt(process.env.AI_MAX_AUDIO_DURATION || '300', 10), // 5 minutes
-      maxAudioSize: parseInt(process.env.AI_MAX_AUDIO_SIZE || '26214400', 10), // 25MB
       dailyRequestsPerUser: parseInt(process.env.AI_DAILY_REQUESTS_PER_USER || '10', 10),
       monthlyRequestsPerOrg: parseInt(
         process.env.AI_MONTHLY_REQUESTS_PER_ORG || '100',
@@ -52,7 +48,6 @@ export const getAIConfig = (): AIConfig => {
  * AI Feature flags
  */
 export const AI_FEATURES = {
-  VOICE_TO_TASK: 'voice-to-task',
   DESCRIPTION_GENERATOR: 'description-generator',
   DAILY_STANDUP: 'daily-standup',
   BLOCKER_DETECTOR: 'blocker-detector',
@@ -74,9 +69,6 @@ export const OPENAI_PRICING = {
     input: 0.5,
     output: 1.5,
   },
-  'whisper-1': {
-    perMinute: 0.006,
-  },
 } as const;
 
 /**
@@ -97,14 +89,6 @@ export const calculateTextCost = (
 };
 
 /**
- * Calculate cost for audio transcription
- */
-export const calculateAudioCost = (durationSeconds: number): number => {
-  const durationMinutes = durationSeconds / 60;
-  return durationMinutes * OPENAI_PRICING['whisper-1'].perMinute;
-};
-
-/**
  * Error messages
  */
 export const AI_ERROR_MESSAGES = {
@@ -112,11 +96,6 @@ export const AI_ERROR_MESSAGES = {
   NO_API_KEY: 'OpenAI API key is not configured',
   RATE_LIMIT: 'Rate limit exceeded. Please try again later',
   QUOTA_EXCEEDED: 'Monthly quota exceeded',
-  AUDIO_TOO_LARGE: 'Audio file is too large',
-  AUDIO_TOO_LONG: 'Audio duration exceeds maximum allowed',
-  INVALID_FORMAT: 'Unsupported audio format',
-  TRANSCRIPTION_FAILED: 'Failed to transcribe audio',
-  EXTRACTION_FAILED: 'Failed to extract task information',
   NETWORK_ERROR: 'Network error occurred',
   UNKNOWN_ERROR: 'An unknown error occurred',
 } as const;

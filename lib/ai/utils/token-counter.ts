@@ -41,19 +41,6 @@ export const estimateMessagesTokens = (
 };
 
 /**
- * Estimate audio duration from file size
- * Assumes typical audio compression rates
- */
-export const estimateAudioDuration = (fileSizeBytes: number): number => {
-  // Typical bitrate for voice recording: 32-64 kbps
-  // Using 48 kbps as average
-  const bitrateKbps = 48;
-  const bytesPerSecond = (bitrateKbps * 1024) / 8;
-  
-  return Math.ceil(fileSizeBytes / bytesPerSecond);
-};
-
-/**
  * Check if text exceeds token limit
  */
 export const exceedsTokenLimit = (text: string, limit: number): boolean => {

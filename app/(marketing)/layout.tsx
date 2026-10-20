@@ -17,7 +17,7 @@ function getMetadataBase(): URL {
 const base = getMetadataBase();
 const title = 'Axiom — From chaos to clarity';
 const description =
-  'Turn mental noise into actionable workflows. Process boards, Knowledge Hub, voice capture, and a personal productivity OS for teams.';
+  'Turn mental noise into actionable workflows. Process boards, Knowledge Hub, and a personal productivity OS for teams.';
 
 export const metadata: Metadata = {
   metadataBase: base,
@@ -74,7 +74,6 @@ const jsonLd = {
     'Kanban board + list view',
     'Dynamic process pipelines with terminal stages',
     'Knowledge Hub (notes + checklists)',
-    'Voice to task capture',
     'Multi-team collaboration, roles, assignments',
     'Customers and webhooks (task/customer/team events)',
     'Analytics, notifications, achievements',

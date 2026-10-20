@@ -23,16 +23,14 @@ import { useTaskContext, TaskStatus, TaskPriority } from '@/components/TaskConte
 import { FALLBACK_BOARD_COLUMNS, type ProjectColumnConfig } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DescriptionGeneratorButton } from '@/components/ai/DescriptionGeneratorButton';
-import type { VoiceActionDraft } from '@/components/ai/VoiceToTaskButton';
 
 interface CreateTaskModalProps {
   open: boolean;
   onClose: () => void;
   defaultStatus?: TaskStatus;
-  initialDraft?: VoiceActionDraft | null;
 }
 
-export function CreateTaskModal({ open, onClose, defaultStatus, initialDraft }: CreateTaskModalProps) {
+export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModalProps) {
   const {
     addTask,
     currentTeam,
@@ -91,13 +89,6 @@ export function CreateTaskModal({ open, onClose, defaultStatus, initialDraft }: 
       return first;
     });
   }, [open, statusColumns, defaultStatus]);
-
-  useEffect(() => {
-    if (!open || !initialDraft) return;
-    setTitle(initialDraft.title);
-    setDescription(initialDraft.description);
-    if (initialDraft.priority) setPriority(initialDraft.priority);
-  }, [open, initialDraft]);
 
   const autoContextLabel = useMemo(() => {
     if (boardScope.type === 'project') {

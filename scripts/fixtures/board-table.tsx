@@ -15,7 +15,6 @@ export const useTaskContext = () => useContext(Context);
 export const CreateTaskModal = () => null;
 export const CreateProjectModal = () => null;
 export const EditGeneralBoardModal = () => null;
-export const VoiceToTaskButton = () => null;
 
 const columns = [
   { id: 'open', title: 'Yapılacaklar', isTerminal: false },

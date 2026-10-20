@@ -9,8 +9,6 @@ import { Plus, X, Layers, Settings2, Columns3 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { CreateTaskModal } from '@/components/CreateTaskModal';
-import { VoiceToTaskButton } from '@/components/ai/VoiceToTaskButton';
-import type { VoiceActionDraft } from '@/components/ai/VoiceToTaskButton';
 import { cn } from '@/lib/utils';
 import {
   Select,
@@ -76,7 +74,6 @@ export function TaskBoard() {
     loading,
   } = useTaskContext();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [voiceDraft, setVoiceDraft] = useState<VoiceActionDraft | null>(null);
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const [editGeneralOpen, setEditGeneralOpen] = useState(false);
@@ -161,7 +158,6 @@ export function TaskBoard() {
   const hasProcesses = projectsForTeam.length > 0;
 
   const handleCreateTask = () => {
-    setVoiceDraft(null);
     setIsCreateModalOpen(true);
   };
 
@@ -326,18 +322,10 @@ export function TaskBoard() {
             </Select>
           )}
           {hasProcesses && permissions.canCreateTask && (
-            <>
-              <VoiceToTaskButton
-                onDraftReady={(task) => {
-                  setVoiceDraft(task);
-                  setIsCreateModalOpen(true);
-                }}
-              />
-              <Button className="h-11 md:h-10" onClick={handleCreateTask}>
-                <Plus className="mr-2 h-4 w-4" />
-                Yeni aksiyon
-              </Button>
-            </>
+            <Button className="h-11 md:h-10" onClick={handleCreateTask}>
+              <Plus className="mr-2 h-4 w-4" />
+              Yeni aksiyon
+            </Button>
           )}
         </div>
       </div>
@@ -494,11 +482,7 @@ export function TaskBoard() {
 
       <CreateTaskModal 
         open={isCreateModalOpen} 
-        onClose={() => {
-          setIsCreateModalOpen(false);
-          setVoiceDraft(null);
-        }}
-        initialDraft={voiceDraft}
+        onClose={() => setIsCreateModalOpen(false)}
       />
       <CreateProjectModal open={isCreateProjectOpen} onClose={() => setIsCreateProjectOpen(false)} />
       <EditGeneralBoardModal open={editGeneralOpen} onClose={() => setEditGeneralOpen(false)} />

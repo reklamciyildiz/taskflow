@@ -31,56 +31,6 @@ export const getOpenAIClient = (): OpenAI => {
 };
 
 /**
- * Transcribe audio using Whisper API
- */
-export const transcribeAudio = async (
-  audioFile: File | Blob,
-  language?: string
-): Promise<{
-  text: string;
-  duration: number;
-  language: string;
-}> => {
-  try {
-    const client = getOpenAIClient();
-    const config = getAIConfig();
-
-    // Convert Blob to File if needed - ensure proper filename extension
-    // Extract base MIME type (ignore codec parameters like ;codecs=opus)
-    const baseType = audioFile.type.split(';')[0].trim();
-    
-    const fileExtension = baseType.includes('webm') ? 'webm' : 
-                         baseType.includes('mp4') ? 'mp4' : 
-                         baseType.includes('mpeg') ? 'mp3' : 
-                         baseType.includes('wav') ? 'wav' : 'webm';
-    
-    const file =
-      audioFile instanceof File
-        ? audioFile
-        : new File([audioFile], `audio.${fileExtension}`, { type: baseType });
-
-    const startTime = Date.now();
-
-    const transcription = await client.audio.transcriptions.create({
-      file,
-      model: config.models.speech,
-      language: language || 'tr',
-      response_format: 'verbose_json',
-    });
-
-    const duration = Date.now() - startTime;
-
-    return {
-      text: transcription.text,
-      duration,
-      language: transcription.language || language || 'tr',
-    };
-  } catch (error) {
-    throw mapOpenAIError(error);
-  }
-};
-
-/**
  * Generate completion using GPT
  */
 export const generateCompletion = async (

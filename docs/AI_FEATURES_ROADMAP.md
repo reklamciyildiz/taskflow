@@ -21,11 +21,10 @@ Bu dokuman, Axiom uygulamasına eklenecek AI özelliklerinin detaylı yol harita
 
 ### **Temel Features (INTEGRATIONS.md'den)**
 
-1. **Voice-to-Task** 🎤 - Ses kaydından otomatik task oluşturma
-2. **Suggest Subtasks** 📝 - AI ile subtask önerisi
-3. **Smart Assignment** 👥 - AI ile team member ataması
-4. **Meeting Notes → Tasks** 📄 - Toplantı notlarından task extraction
-5. **Email → Task** 📧 - Email'den task oluşturma
+1. **Suggest Subtasks** 📝 - AI ile subtask önerisi
+2. **Smart Assignment** 👥 - AI ile team member ataması
+3. **Meeting Notes → Tasks** 📄 - Toplantı notlarından task extraction
+4. **Email → Task** 📧 - Email'den task oluşturma
 
 ### **Ek Öneriler (Yeni)**
 
@@ -51,7 +50,6 @@ Bu dokuman, Axiom uygulamasına eklenecek AI özelliklerinin detaylı yol harita
 **Neden OpenAI?**
 - ✅ En iyi model quality (GPT-4 Turbo)
 - ✅ Güçlü reasoning capabilities
-- ✅ Whisper API (best-in-class speech-to-text)
 - ✅ Mature API, excellent documentation
 - ✅ High reliability (99.9% uptime)
 - ✅ Function calling support
@@ -71,10 +69,6 @@ Bu dokuman, Axiom uygulamasına eklenecek AI özelliklerinin detaylı yol harita
   → Simple categorization, quick responses
   → Cost: $0.50/1M input tokens, $1.50/1M output tokens
 
-// Speech-to-Text
-- Whisper API (whisper-1)
-  → Voice-to-task feature
-  → Cost: $0.006/minute
 ```
 
 #### **Backup: Anthropic Claude**
@@ -140,8 +134,6 @@ Axiom/
 ├── app/
 │   └── api/
 │       └── ai/
-│           ├── voice-to-task/
-│           │   └── route.ts
 │           ├── suggest-subtasks/
 │           │   └── route.ts
 │           ├── smart-assign/
@@ -169,7 +161,6 @@ Axiom/
 │       │   └── factory.ts         // AI provider factory
 │       │
 │       ├── prompts/
-│       │   ├── task-extraction.ts
 │       │   ├── subtask-generation.ts
 │       │   ├── smart-assignment.ts
 │       │   ├── prioritization.ts
@@ -178,7 +169,6 @@ Axiom/
 │       │   └── dependency-analysis.ts
 │       │
 │       ├── services/
-│       │   ├── voice-to-task.ts
 │       │   ├── subtask-suggester.ts
 │       │   ├── smart-assigner.ts
 │       │   ├── meeting-parser.ts
@@ -200,7 +190,6 @@ Axiom/
 │
 ├── components/
 │   └── ai/
-│       ├── VoiceToTaskButton.tsx
 │       ├── SuggestSubtasksButton.tsx
 │       ├── SmartAssignButton.tsx
 │       ├── AIPrioritizeButton.tsx
@@ -227,7 +216,7 @@ CREATE TABLE ai_requests (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   organization_id UUID REFERENCES organizations(id),
   user_id UUID REFERENCES users(id),
-  feature VARCHAR(50) NOT NULL, -- 'voice-to-task', 'suggest-subtasks', etc.
+  feature VARCHAR(50) NOT NULL, -- 'description-generator', 'suggest-subtasks', etc.
   model VARCHAR(50) NOT NULL, -- 'gpt-4-turbo', 'claude-3.5-sonnet', etc.
   input_tokens INTEGER NOT NULL,
   output_tokens INTEGER NOT NULL,
@@ -270,7 +259,7 @@ CREATE TABLE ai_costs (
   month DATE NOT NULL, -- first day of month
   total_requests INTEGER DEFAULT 0,
   total_cost_usd DECIMAL(10, 2) DEFAULT 0,
-  feature_breakdown JSONB, -- { "voice-to-task": 15.50, "suggest-subtasks": 25.30 }
+  feature_breakdown JSONB, -- { "description-generator": 15.50, "suggest-subtasks": 25.30 }
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW(),
   UNIQUE(organization_id, month)
@@ -357,17 +346,12 @@ const cacheKey = `ai:${feature}:${hash(input)}`;
 **Use Cases:**
 ```typescript
 // Async AI Operations
-1. Voice-to-Task (>30 seconds audio)
-   → Queue job, return job_id
-   → User sees "Processing..." status
-   → Webhook notification when done
-
-2. Meeting Notes → Tasks (long documents)
+1. Meeting Notes → Tasks (long documents)
    → Queue job
    → Process in background
    → Email notification when done
 
-3. Bulk Operations
+2. Bulk Operations
    → "AI categorize all tasks"
    → Queue 100 tasks
    → Process 10 at a time
@@ -549,13 +533,7 @@ Enterprise Tier:
   - Auto-apply on task creation
 
 **Week 2:**
-- ✅ Day 1-3: Feature #3 - Voice-to-Task
-  - Whisper API integration
-  - Audio upload handling
-  - Task extraction
-  - UI component
-
-- ✅ Day 4: Cost tracking & monitoring
+- ✅ Day 1-3: Cost tracking & monitoring
   - Usage dashboard
   - Cost alerts
   - Analytics
@@ -566,7 +544,7 @@ Enterprise Tier:
   - Documentation
 
 **Deliverables:**
-- ✅ 3 AI features live
+- ✅ 2 AI features live
 - ✅ Cost tracking dashboard
 - ✅ User documentation
 - ✅ API documentation
@@ -697,8 +675,6 @@ Enterprise Tier:
 High Impact, Low Effort (DO FIRST):
 1. ⭐⭐⭐⭐⭐ Suggest Subtasks (1-2 days)
 2. ⭐⭐⭐⭐⭐ Auto-Categorization (1 day)
-3. ⭐⭐⭐⭐⭐ Voice-to-Task (2-3 days)
-
 High Impact, Medium Effort (DO NEXT):
 4. ⭐⭐⭐⭐ Smart Assignment (3-4 days)
 5. ⭐⭐⭐⭐ AI Prioritization (2-3 days)
@@ -919,7 +895,6 @@ Enterprise: Custom limits
    - Tips & tricks
 
 2. Video Tutorials
-   - Voice-to-Task demo
    - Smart Assignment demo
    - Meeting Notes demo
 
@@ -1109,37 +1084,7 @@ Bu roadmap, Axiom'a enterprise-grade AI capabilities kazandıracak profesyonel b
 
 ### **Seçilmiş Top 4 - Öncelikli Implementasyon** ⭐
 
-#### **1. Voice-to-Task** 🎤
-**Ne Yapar:**
-- Kullanıcı ses kaydı yapar (mobil/desktop)
-- AI metne çevirir (Whisper API)
-- Task detaylarını extract eder (GPT-4)
-- Otomatik task oluşturur
-
-**Örnek:**
-```
-Ses: "Yarın saat 3'te müşteri toplantısı var, Ahmet ve Mehmet katılacak, sunum hazırlanmalı"
-
-AI Output:
-- Title: "Müşteri Toplantısı Sunumu Hazırla"
-- Description: "Yarın 15:00'te müşteri toplantısı için sunum hazırlanacak"
-- Assignees: ["Ahmet", "Mehmet"]
-- Due Date: Tomorrow 15:00
-- Priority: High
-```
-
-**Teknik:**
-- OpenAI Whisper API (speech-to-text)
-- GPT-4 (task extraction)
-- Audio recording (Web Audio API)
-
-**Zorluk:** ⭐⭐⭐  
-**Süre:** 2-3 gün  
-**Wow Factor:** ⭐⭐⭐⭐⭐
-
----
-
-#### **2. AI Description Generator** ✍️
+#### **1. AI Description Generator** ✍️
 **Ne Yapar:**
 - Sadece task başlığı yaz
 - AI detaylı açıklama oluşturur
@@ -1350,8 +1295,7 @@ AI Risk Analysis:
 ### **Implementasyon Stratejisi**
 
 #### **Phase 1: Core Generative Features (Week 1-2)**
-1. ✅ Voice-to-Task (killer feature)
-2. ✅ AI Description Generator (immediate value)
+1. ✅ AI Description Generator (immediate value)
 
 #### **Phase 2: Automation Features (Week 3)**
 3. ✅ AI Daily Standup Report (daily value)
@@ -1372,7 +1316,6 @@ AI Risk Analysis:
 // AI Models
 - GPT-4 Turbo (complex reasoning)
 - GPT-4o (balanced performance)
-- Whisper (voice-to-text)
 
 // Infrastructure
 - OpenAI API
@@ -1381,7 +1324,6 @@ AI Risk Analysis:
 - Inngest (async processing)
 
 // Cost per Feature
-- Voice-to-Task: $0.01-0.05/task
 - Description Generator: $0.02-0.05/task
 - Daily Standup: $0.05-0.10/report
 - Blocker Detector: $0.03-0.08/analysis
@@ -1392,7 +1334,6 @@ AI Risk Analysis:
 ### **Success Metrics**
 
 **Adoption:**
-- Voice-to-Task: Target 40%+ usage
 - Description Generator: Target 60%+ usage
 - Daily Standup: Target 80%+ usage
 - Blocker Detector: Target 30%+ usage
@@ -1411,13 +1352,12 @@ AI Risk Analysis:
 
 ## 🎯 Final Recommendation
 
-**Başlangıç için Top 4:**
-1. **Voice-to-Task** - Killer feature, portfolio piece
-2. **AI Description Generator** - Immediate value, easy to use
-3. **AI Daily Standup Report** - Automation, daily value
-4. **AI Blocker Detector** - Unique, risk management
+**Başlangıç için Top 3:**
+1. **AI Description Generator** - Immediate value, easy to use
+2. **AI Daily Standup Report** - Automation, daily value
+3. **AI Blocker Detector** - Unique, risk management
 
-**Bu 4 feature ile:**
+**Bu 3 feature ile:**
 - ✅ Generative AI öğrenirsin
 - ✅ Portfolio'da harika görünür
 - ✅ Gerçek değer katar

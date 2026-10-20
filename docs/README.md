@@ -11,7 +11,6 @@ Kök dizini sade tutmak için operasyonel ve ürün dokümantasyonu burada topla
 | [NEXTAUTH_SUPABASE_AUTH_INTEGRATION.md](./NEXTAUTH_SUPABASE_AUTH_INTEGRATION.md) | NextAuth + Supabase Auth |
 | [WEBHOOK_API_DOCUMENTATION.md](./WEBHOOK_API_DOCUMENTATION.md) | Webhook API |
 | [INTEGRATIONS.md](./INTEGRATIONS.md) | Entegrasyonlar |
-| [VOICE_TO_TASK_IMPLEMENTATION.md](./VOICE_TO_TASK_IMPLEMENTATION.md) | Ses → görev (voice-to-task) |
 | [DEVELOPMENT_ROADMAP.md](./DEVELOPMENT_ROADMAP.md) | Geliştirme yol haritası |
 | [AI_FEATURES_ROADMAP.md](./AI_FEATURES_ROADMAP.md) | AI özellikleri yol haritası |
 | [RLS_MIGRATION_ROADMAP.md](./RLS_MIGRATION_ROADMAP.md) | RLS migrasyon planı |

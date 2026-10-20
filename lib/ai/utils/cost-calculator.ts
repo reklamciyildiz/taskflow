@@ -3,22 +3,7 @@
  * Calculates costs for AI API usage
  */
 
-import { calculateTextCost, calculateAudioCost, OPENAI_PRICING } from '../config';
-
-/**
- * Calculate total cost for voice-to-task operation
- */
-export const calculateVoiceToTaskCost = (
-  audioDurationSeconds: number,
-  inputTokens: number,
-  outputTokens: number,
-  model: string = 'gpt-4o'
-): number => {
-  const whisperCost = calculateAudioCost(audioDurationSeconds);
-  const gptCost = calculateTextCost(model, inputTokens, outputTokens);
-  
-  return whisperCost + gptCost;
-};
+import { calculateTextCost, OPENAI_PRICING } from '../config';
 
 /**
  * Calculate cost for text generation

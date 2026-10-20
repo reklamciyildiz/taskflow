@@ -15,7 +15,7 @@ async function main() {
   await esbuild.build({ entryPoints: [fixture], outfile: path.join(output, 'app.js'), bundle: true, platform: 'browser', jsx: 'automatic',
     define: { 'process.env.NODE_ENV': '"development"' },
     plugins: [{ name: 'workspace-fixture', setup(build) {
-      build.onResolve({ filter: /components\/(TaskContext|CreateProjectModal|CreateTaskModal|EditGeneralBoardModal|ai\/VoiceToTaskButton)$/ }, () => ({ path: fixture }));
+      build.onResolve({ filter: /components\/(TaskContext|CreateProjectModal|CreateTaskModal|EditGeneralBoardModal)$/ }, () => ({ path: fixture }));
     } }],
   });
   const css = await postcss([tailwind('./tailwind.config.ts')]).process(fs.readFileSync('app/globals.css', 'utf8'), { from: 'app/globals.css' });

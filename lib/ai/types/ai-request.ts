@@ -6,53 +6,6 @@
 import { z } from 'zod';
 
 /**
- * Voice-to-Task Request
- */
-export const VoiceToTaskRequestSchema = z.object({
-  audioFile: z.instanceof(File).or(z.instanceof(Blob)),
-  organizationId: z.string().uuid(),
-  userId: z.string().uuid(),
-  language: z.string().optional().default('tr'),
-});
-
-export type VoiceToTaskRequest = z.infer<typeof VoiceToTaskRequestSchema>;
-
-/**
- * Voice-to-Task Response
- */
-export interface VoiceToTaskResponse {
-  success: boolean;
-  data?: {
-    transcription: string;
-    extractedTask: {
-      title: string;
-      description: string;
-      priority?: 'low' | 'medium' | 'high';
-      dueDate?: string;
-      assignees?: string[];
-      tags?: string[];
-    };
-    metadata: {
-      audioLengthSeconds: number;
-      processingTimeMs: number;
-      tokensUsed: {
-        whisper: number;
-        gpt4: {
-          input: number;
-          output: number;
-        };
-      };
-      costUsd: number;
-    };
-  };
-  error?: {
-    code: string;
-    message: string;
-    details?: unknown;
-  };
-}
-
-/**
  * Description Generator Request
  */
 export const DescriptionGeneratorRequestSchema = z.object({
@@ -119,11 +72,6 @@ export type AIErrorCode =
   | 'RATE_LIMIT_EXCEEDED'
   | 'QUOTA_EXCEEDED'
   | 'INVALID_REQUEST'
-  | 'AUDIO_TOO_LARGE'
-  | 'AUDIO_TOO_LONG'
-  | 'UNSUPPORTED_FORMAT'
-  | 'TRANSCRIPTION_FAILED'
-  | 'EXTRACTION_FAILED'
   | 'API_ERROR'
   | 'NETWORK_ERROR'
   | 'UNKNOWN_ERROR';

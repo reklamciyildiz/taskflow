@@ -8,17 +8,13 @@ export interface AIConfig {
   provider: 'openai' | 'claude';
   models: {
     text: string;
-    speech: string;
   };
   features: {
-    voiceToTask: boolean;
     descriptionGenerator: boolean;
     dailyStandup: boolean;
     blockerDetector: boolean;
   };
   limits: {
-    maxAudioDuration: number; // seconds
-    maxAudioSize: number; // bytes
     dailyRequestsPerUser: number;
     monthlyRequestsPerOrg: number;
   };
@@ -38,7 +34,6 @@ export interface AIRequestMetadata {
 }
 
 export type AIFeatureType =
-  | 'voice-to-task'
   | 'description-generator'
   | 'daily-standup'
   | 'blocker-detector'

@@ -96,23 +96,3 @@ export interface EmbeddingProvider {
   embed(request: EmbeddingRequest, context: AIProviderContext): Promise<EmbeddingResponse>;
   normalizeError(error: unknown): NormalizedAIProviderError;
 }
-
-export type SpeechRequest = {
-  audio: Blob;
-  language?: string;
-};
-
-export type SpeechResponse = {
-  text: string;
-  language?: string;
-  durationSeconds?: number;
-  usage: AIProviderUsage;
-  model: string;
-};
-
-export interface SpeechProvider {
-  readonly providerId: string;
-  readonly modelId: string;
-  transcribe(request: SpeechRequest, context: AIProviderContext): Promise<SpeechResponse>;
-  normalizeError(error: unknown): NormalizedAIProviderError;
-}

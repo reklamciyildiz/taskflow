@@ -176,7 +176,6 @@
 
 ### Killer Features:
 ```typescript
-✅ "Create task from voice note" (Speech-to-text + AI)
 ✅ "Suggest subtasks" (AI breakdown)
 ✅ "Smart assignment" (AI team member seçimi)
 ✅ "Meeting notes → Tasks" (AI extraction)

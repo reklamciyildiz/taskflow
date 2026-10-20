@@ -42,7 +42,8 @@ const route=readFileSync('app/api/ai/chat/route.ts','utf8');
 assert.ok(route.indexOf('reserveChatRun(')<route.indexOf('reserveAIQuota('));
 assert.ok(route.indexOf('reserveAIQuota(')<route.indexOf('new GroqChatProvider()'));
 assert.match(route,/createRequestSignal\(aiChatLimits\.timeoutMs,request\.signal\)/);
-assert.match(route,/sources:verified,grounding/);
+assert.match(route,/sources:verified,/);
+assert.match(route,/grounding \}\);/);
 assert.match(route,/type:'sources',sources:verified/);
 const history=readFileSync('lib/ai/chat/conversation-server.ts','utf8');
 assert.match(history,/ai_validate_chat_message_access/);
@@ -51,7 +52,7 @@ const ui=readFileSync('components/ai/AxiomAIChat.tsx','utf8');
 assert.match(ui,/parseChatSSEBuffer/);assert.match(ui,/abortRef\.current\?\.abort\(\)/);
 assert.doesNotMatch(ui,/dangerouslySetInnerHTML/);
 
-console.log(JSON.stringify({ syntheticStreamingRagContractChecks:12,liveProviderCalls:false,liveDatabase:false,browser:false }));
+console.log(JSON.stringify({ syntheticStreamingRagContractChecks:13,liveProviderCalls:false,liveDatabase:false,browser:false }));
 }
 
 main().catch((error)=>{ console.error(error);process.exitCode=1; });

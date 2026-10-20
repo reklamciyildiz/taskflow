@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Columns3, Brain, Mic, ListChecks, Search, Tag, CalendarDays, User } from 'lucide-react';
+import { Columns3, Brain, ListChecks, Search, Tag, CalendarDays, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 function SecondBrainVisual() {
@@ -152,30 +152,6 @@ function ProcessCenterVisual() {
   );
 }
 
-function VoiceVisual() {
-  return (
-    <div className="relative mt-4 flex h-36 items-center justify-center rounded-xl border border-white/[0.06] bg-zinc-950/80">
-      <motion.div
-        className="absolute rounded-full bg-emerald-500/20"
-        animate={{ scale: [1, 1.6, 1], opacity: [0.35, 0, 0.35] }}
-        transition={{ duration: 2.4, repeat: Infinity, ease: 'easeOut' }}
-        style={{ width: 72, height: 72 }}
-        aria-hidden
-      />
-      <motion.div
-        className="absolute rounded-full border border-emerald-500/30 bg-emerald-500/10"
-        animate={{ scale: [1, 1.35, 1], opacity: [0.5, 0.15, 0.5] }}
-        transition={{ duration: 2.4, repeat: Infinity, ease: 'easeOut', delay: 0.2 }}
-        style={{ width: 56, height: 56 }}
-        aria-hidden
-      />
-      <div className="relative flex h-14 w-14 items-center justify-center rounded-full border border-emerald-500/40 bg-zinc-900 text-emerald-400 shadow-[0_0_24px_-4px_rgba(16,185,129,0.55)]">
-        <Mic className="h-6 w-6" aria-hidden />
-      </div>
-    </div>
-  );
-}
-
 function ChecklistVisual() {
   return (
     <div className="mt-4 space-y-2 rounded-xl border border-white/[0.06] bg-zinc-950/80 p-3">
@@ -216,14 +192,7 @@ const cells = [
     body: 'Keep-style lines inside each action — check off steps without fighting a form.',
     icon: ListChecks,
     visual: <ChecklistVisual />,
-    className: 'md:col-span-1',
-  },
-  {
-    title: 'Voice to action',
-    body: 'Speak an action into existence when typing is too slow. Built for momentum.',
-    icon: Mic,
-    visual: <VoiceVisual />,
-    className: 'md:col-span-1',
+    className: 'md:col-span-2',
   },
 ];
 

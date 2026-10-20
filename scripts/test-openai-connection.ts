@@ -35,14 +35,6 @@ async function testConnection() {
     console.log('✅ Connection successful!');
     console.log('📊 Available models:', models.data.length);
     
-    // Check if Whisper is available
-    const whisperModel = models.data.find(m => m.id === 'whisper-1');
-    if (whisperModel) {
-      console.log('✅ Whisper model available');
-    } else {
-      console.log('⚠️  Whisper model not found in list');
-    }
-
     // Check if GPT-4 is available
     const gpt4Model = models.data.find(m => m.id.includes('gpt-4'));
     if (gpt4Model) {

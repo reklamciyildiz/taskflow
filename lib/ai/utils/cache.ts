@@ -224,7 +224,6 @@ export const getCacheStats = async (
  * Cache TTL configurations (in seconds)
  */
 export const CACHE_TTL = {
-  VOICE_TO_TASK: 3600,
   DESCRIPTION_GENERATOR: 7200,
   DAILY_STANDUP: 1800,
   BLOCKER_DETECTOR: 3600,
