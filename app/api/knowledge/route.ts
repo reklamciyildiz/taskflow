@@ -12,9 +12,17 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   try {
     const teamId = new URL(request.url).searchParams.get('teamId');
+    const rawLimit = new URL(request.url).searchParams.get('limit');
+    const limit = rawLimit === null ? undefined : Number(rawLimit);
     if (!teamId) {
       return NextResponse.json<ApiResponse<null>>(
         { success: false, error: 'teamId is required' },
+        { status: 400 },
+      );
+    }
+    if (limit !== undefined && (!Number.isInteger(limit) || limit < 1 || limit > 100)) {
+      return NextResponse.json<ApiResponse<null>>(
+        { success: false, error: 'limit must be an integer between 1 and 100' },
         { status: 400 },
       );
     }
@@ -40,7 +48,12 @@ export async function GET(request: NextRequest) {
     });
     const visibleTaskIds = new Set(visibleTasks.map((task: any) => String(task.id)));
 
-    const scopedNotes = await noteDb.getByTeamScope({ organizationId, teamId });
+    const scopedNotes = await noteDb.getByTeamScope({
+      organizationId,
+      teamId,
+      taskIds: [...visibleTaskIds],
+      limit,
+    });
     const notes = scopedNotes
       .filter((note: any) => visibleTaskIds.has(String(note.task_id)))
       .map(serializeNote);

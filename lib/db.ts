@@ -844,8 +844,8 @@ export const noteDb = {
     return data ?? [];
   },
 
-  async getByTeamScope(scope: { organizationId: string; teamId: string }) {
-    const { data, error } = await db
+  async getByTeamScope(scope: { organizationId: string; teamId: string; taskIds?: string[]; limit?: number }) {
+    let query = db
       .from('notes')
       .select(`
         *,
@@ -858,6 +858,14 @@ export const noteDb = {
       .eq('organization_id', scope.organizationId)
       .eq('team_id', scope.teamId)
       .order('updated_at', { ascending: false });
+
+    if (scope.taskIds) {
+      if (scope.taskIds.length === 0) return [];
+      query = query.in('task_id', scope.taskIds);
+    }
+    if (scope.limit) query = query.limit(scope.limit);
+
+    const { data, error } = await query;
 
     if (error) throw error;
     return data ?? [];

@@ -134,8 +134,11 @@ export const taskApi = {
 };
 
 export const noteApi = {
-  getForKnowledge: (teamId: string) =>
-    fetchApi<Note[]>(`/knowledge?teamId=${encodeURIComponent(teamId)}`),
+  getForKnowledge: (teamId: string, limit?: number) => {
+    const params = new URLSearchParams({ teamId });
+    if (limit !== undefined) params.set('limit', String(limit));
+    return fetchApi<Note[]>(`/knowledge?${params.toString()}`);
+  },
 
   getByTask: (taskId: string) =>
     fetchApi<Note[]>(`/tasks/${taskId}/notes`),

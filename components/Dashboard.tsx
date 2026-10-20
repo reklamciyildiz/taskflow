@@ -9,9 +9,7 @@ import { Profile } from '@/components/Profile';
 import { TeamMembers } from '@/components/TeamMembers';
 import { Achievements } from '@/components/Achievements';
 import { KnowledgeHubView } from '@/components/KnowledgeHubView';
-import { DashboardInsights } from '@/components/DashboardInsights';
 import { DashboardShell } from '@/components/DashboardShell';
-import { FocusDashboard } from '@/components/FocusDashboard';
 import dynamic from 'next/dynamic';
 
 const Integrations = dynamic(() => import('@/app/(shell)/integrations/page'), { ssr: false });
