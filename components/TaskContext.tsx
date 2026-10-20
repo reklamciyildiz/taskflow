@@ -126,7 +126,7 @@ interface TaskContextType {
   openBoardForProject: (projectId: string) => void;
   setBoardScope: (scope: BoardScope) => void;
   setGeneralBoardColumns: (cols: ProjectColumnConfig[]) => void;
-  addTask: (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'attachments' | 'comments' | 'boardPosition' | 'status'> & { status?: string }) => Promise<void>;
+  addTask: (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'attachments' | 'comments' | 'boardPosition' | 'status'> & { status?: string }) => Promise<Task>;
   updateTask: (id: string, updates: TaskUpdateFields) => Promise<boolean>;
   /** Optimistic multi-patch (e.g. kanban reorder); rolls back if any request fails. */
   applyTaskUpdates: (items: { id: string; changes: TaskUpdateFields }[]) => Promise<boolean>;
@@ -984,6 +984,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
         setTasks(prev => [...prev, newTask]);
         // Refresh customers to update task stats
         await fetchCustomers();
+        return newTask;
       } else {
         throw new Error(response.error || 'Could not create Action');
       }

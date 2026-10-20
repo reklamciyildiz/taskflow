@@ -97,6 +97,7 @@ export async function PUT(request: NextRequest) {
       scheduleDate: body?.scheduleDate,
       scheduleTime: body?.scheduleTime ?? null,
       timeZone: body?.timeZone ?? null,
+      durationMinutes: body?.durationMinutes ?? null,
       recurrenceFrequency: body?.recurrenceFrequency ?? null,
       recurrenceInterval: body?.recurrenceInterval ?? 1,
       recurrenceWeekdays: body?.recurrenceWeekdays ?? [],

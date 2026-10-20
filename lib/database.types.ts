@@ -240,6 +240,7 @@ export interface Database {
           schedule_date: string
           schedule_time: string | null
           time_zone: string | null
+          duration_minutes: number | null
           recurrence_frequency: 'daily' | 'weekly' | null
           recurrence_interval: number
           recurrence_weekdays: number[]
@@ -259,6 +260,7 @@ export interface Database {
           schedule_date: string
           schedule_time?: string | null
           time_zone?: string | null
+          duration_minutes?: number | null
           recurrence_frequency?: 'daily' | 'weekly' | null
           recurrence_interval?: number
           recurrence_weekdays?: number[]
@@ -278,6 +280,7 @@ export interface Database {
           schedule_date?: string
           schedule_time?: string | null
           time_zone?: string | null
+          duration_minutes?: number | null
           recurrence_frequency?: 'daily' | 'weekly' | null
           recurrence_interval?: number
           recurrence_weekdays?: number[]

@@ -170,6 +170,7 @@ function scheduleInsert(input: WorkScheduleInput, task: any) {
     schedule_date: normalized.scheduleDate,
     schedule_time: normalized.scheduleTime,
     time_zone: normalized.timeZone,
+    duration_minutes: normalized.durationMinutes,
     recurrence_frequency: normalized.recurrenceFrequency,
     recurrence_interval: normalized.recurrenceInterval,
     recurrence_weekdays: normalized.recurrenceWeekdays,
@@ -295,6 +296,7 @@ export async function updateWorkSchedule(
     scheduleDate: patch.scheduleDate ?? schedule.scheduleDate,
     scheduleTime: patch.scheduleTime !== undefined ? patch.scheduleTime : schedule.scheduleTime,
     timeZone: patch.timeZone !== undefined ? patch.timeZone : schedule.timeZone,
+    durationMinutes: patch.durationMinutes !== undefined ? patch.durationMinutes : schedule.durationMinutes,
     recurrenceFrequency: convertingToOneOff
       ? null
       : patch.recurrenceFrequency !== undefined

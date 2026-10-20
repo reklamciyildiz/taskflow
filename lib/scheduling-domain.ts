@@ -20,6 +20,8 @@ export interface WorkSchedule {
   scheduleTime: string | null;
   /** IANA time zone, required exactly when scheduleTime is present. */
   timeZone: string | null;
+  /** Optional visual time-block length. It never changes reminder delivery time. */
+  durationMinutes: number | null;
   recurrenceFrequency: RecurrenceFrequency | null;
   recurrenceInterval: number;
   /** ISO weekdays: Monday=1 ... Sunday=7. Used only for weekly recurrence. */
@@ -49,6 +51,7 @@ export interface WorkScheduleInput {
   scheduleDate: string;
   scheduleTime?: string | null;
   timeZone?: string | null;
+  durationMinutes?: number | null;
   recurrenceFrequency?: RecurrenceFrequency | null;
   recurrenceInterval?: number;
   recurrenceWeekdays?: number[];
@@ -121,6 +124,15 @@ export function normalizeWorkScheduleInput(input: WorkScheduleInput): WorkSchedu
   if (timeZone && !isIanaTimeZone(timeZone)) {
     throw new SchedulingValidationError('timeZone must be a valid IANA time zone');
   }
+  const durationMinutes = input.durationMinutes ?? null;
+  if (durationMinutes !== null) {
+    if (!scheduleTime) {
+      throw new SchedulingValidationError('durationMinutes requires scheduleTime');
+    }
+    if (!Number.isInteger(durationMinutes) || durationMinutes < 5 || durationMinutes > 1440) {
+      throw new SchedulingValidationError('durationMinutes must be an integer between 5 and 1440');
+    }
+  }
 
   const recurrenceInterval = input.recurrenceInterval ?? 1;
   if (!Number.isInteger(recurrenceInterval) || recurrenceInterval < 1 || recurrenceInterval > 32767) {
@@ -168,6 +180,7 @@ export function normalizeWorkScheduleInput(input: WorkScheduleInput): WorkSchedu
     scheduleDate: input.scheduleDate,
     scheduleTime,
     timeZone,
+    durationMinutes,
     recurrenceFrequency,
     recurrenceInterval,
     recurrenceWeekdays,
@@ -286,6 +299,7 @@ export function workScheduleFromRow(row: any): WorkSchedule {
     scheduleDate: String(row.schedule_date),
     scheduleTime: row.schedule_time ? String(row.schedule_time) : null,
     timeZone: row.time_zone ? String(row.time_zone) : null,
+    durationMinutes: row.duration_minutes == null ? null : Number(row.duration_minutes),
     recurrenceFrequency: row.recurrence_frequency as RecurrenceFrequency | null,
     recurrenceInterval: Number(row.recurrence_interval),
     recurrenceWeekdays: Array.isArray(row.recurrence_weekdays)

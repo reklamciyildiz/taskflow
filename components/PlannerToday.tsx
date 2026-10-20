@@ -272,7 +272,7 @@ function PlannerRow({
   );
 }
 
-export function PlannerToday() {
+export function PlannerToday({ embedded = false }: { embedded?: boolean }) {
   const {
     tasks,
     projects,
@@ -627,6 +627,7 @@ export function PlannerToday() {
         scheduleDate: nextDate,
         scheduleTime: item.scheduleTime,
         timeZone: item.timeZone,
+        durationMinutes: item.durationMinutes,
         reminderRules: item.reminderRules,
       });
       success = response.success;
@@ -713,8 +714,8 @@ export function PlannerToday() {
   );
 
   return (
-    <main className="mx-auto w-full max-w-4xl pb-16">
-      <header className="mb-5 flex items-start justify-between gap-4">
+    <main className={cn('w-full pb-8', !embedded && 'mx-auto max-w-4xl pb-16')}>
+      {!embedded ? <header className="mb-5 flex items-start justify-between gap-4">
         <div>
           <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-primary">
             <CalendarDays className="h-4 w-4" aria-hidden /> Planner
@@ -735,7 +736,7 @@ export function PlannerToday() {
             <RefreshCw className="mr-2 h-3.5 w-3.5" /> Retry
           </Button>
         ) : null}
-      </header>
+      </header> : null}
 
       <div className="mb-7 inline-flex rounded-lg border border-border/60 bg-muted/20 p-1" role="tablist" aria-label="Planner view">
         {(['today', 'upcoming'] as const).map((candidate) => (

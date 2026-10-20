@@ -2,10 +2,10 @@
 
 import { useEffect } from 'react';
 import { useView } from '@/components/ViewContext';
-import { PlannerToday } from '@/components/PlannerToday';
+import { PlannerV2 } from '@/components/planner/PlannerV2';
 
 export default function PlannerPage() {
   const { setCurrentView } = useView();
   useEffect(() => setCurrentView('planner'), [setCurrentView]);
-  return <PlannerToday />;
+  return <PlannerV2 />;
 }

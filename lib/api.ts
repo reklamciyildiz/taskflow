@@ -16,7 +16,7 @@ import {
   CreateNoteRequest,
   UpdateNoteRequest,
 } from './types';
-import type { PlannerTodayProjection, PlannerUpcomingProjection } from './planner-projection';
+import type { PlannerProjectionItem, PlannerTodayProjection, PlannerUpcomingProjection } from './planner-projection';
 import type { WorkSchedule, WorkScheduleInput, WorkSource } from './scheduling-domain';
 
 const API_BASE = '/api';
@@ -187,6 +187,11 @@ export const plannerApi = {
     });
     const endpoint = `/planner/upcoming?${params.toString()}`;
     return coalescedPlannerRequest(endpoint, () => fetchApi<PlannerUpcomingProjection>(endpoint), fresh);
+  },
+  getRoutines: (input: { startDate: string; teamId: string }, fresh = false) => {
+    const params = new URLSearchParams(input);
+    const endpoint = `/planner/routines?${params.toString()}`;
+    return coalescedPlannerRequest(endpoint, () => fetchApi<PlannerProjectionItem[]>(endpoint), fresh);
   },
   setOccurrenceCompleted: (input: {
     scheduleId: string;

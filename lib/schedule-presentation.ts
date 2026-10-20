@@ -25,9 +25,10 @@ export function formatScheduleDate(value: string): string {
 
 export function scheduleChipLabel(schedule: WorkSchedule): string {
   const recurrence = recurrenceLabel(schedule);
-  if (recurrence) return recurrence;
+  const duration = schedule.durationMinutes ? ` · ${schedule.durationMinutes}m` : '';
+  if (recurrence) return `${recurrence}${duration}`;
   const time = schedule.scheduleTime ? ` · ${schedule.scheduleTime.slice(0, 5)}` : '';
-  return `${formatScheduleDate(schedule.scheduleDate)}${time}`;
+  return `${formatScheduleDate(schedule.scheduleDate)}${time}${duration}`;
 }
 
 export function reminderRuleForPreset(preset: ReminderPresetId | null): Json[] {

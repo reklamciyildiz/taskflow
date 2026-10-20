@@ -22,6 +22,7 @@ export interface PlannerProjectionItem {
   assigneeId: string | null;
   scheduleTime: string | null;
   timeZone: string | null;
+  durationMinutes: number | null;
   isRecurring: boolean;
   recurrenceFrequency: RecurrenceFrequency | null;
   recurrenceInterval: number;

@@ -118,6 +118,7 @@ async function executeCanonical(row: any, scope: Scope) {
       scheduleDate: payload.scheduleDate,
       scheduleTime: payload.scheduleTime,
       timeZone: payload.scheduleTime ? payload.timeZone : null,
+      durationMinutes: current?.durationMinutes ?? null,
       recurrenceFrequency: scheduleType === 'recurring' ? current?.recurrenceFrequency : null,
       recurrenceInterval: scheduleType === 'recurring' ? current?.recurrenceInterval : 1,
       recurrenceWeekdays: scheduleType === 'recurring' ? current?.recurrenceWeekdays : [],

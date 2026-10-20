@@ -350,6 +350,7 @@ async function getPlannerProjectionForDates(
         assigneeId: checklistItem?.assigneeId ?? (task.assignee_id ? String(task.assignee_id) : null),
         scheduleTime: schedule.scheduleTime,
         timeZone: schedule.timeZone,
+        durationMinutes: schedule.durationMinutes,
         isRecurring: schedule.scheduleType === 'recurring',
         recurrenceFrequency: schedule.recurrenceFrequency,
         recurrenceInterval: schedule.recurrenceInterval,
@@ -426,4 +427,25 @@ export async function getPlannerTodayProjection(
     timings: options.timings,
   });
   return buildPlannerTodayProjection(items, date, options.timeZone);
+}
+
+/** Bounded active recurring templates projected through the same ACL-aware resolver. */
+export async function getPlannerRoutinesProjection(
+  actor: SchedulingActor,
+  startDate: string,
+  options: { teamId: string; teamAccessVerified?: boolean; timings?: PlannerRetrievalTimings },
+): Promise<PlannerProjectionItem[]> {
+  const upcoming = await getPlannerUpcomingProjection(actor, startDate, 31, options);
+  const bySchedule = new Map<string, PlannerProjectionItem>();
+  for (const group of upcoming.groups) {
+    for (const item of group.items) {
+      if (!item.isRecurring || item.state === 'skipped') continue;
+      const current = bySchedule.get(item.scheduleId);
+      if (!current || item.effectiveDate < current.effectiveDate) bySchedule.set(item.scheduleId, item);
+    }
+  }
+  return [...bySchedule.values()].sort((left, right) =>
+    left.effectiveDate.localeCompare(right.effectiveDate)
+      || (left.scheduleTime ?? '99:99').localeCompare(right.scheduleTime ?? '99:99')
+      || left.taskTitle.localeCompare(right.taskTitle));
 }

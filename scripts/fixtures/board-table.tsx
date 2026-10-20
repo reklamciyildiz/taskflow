@@ -65,6 +65,7 @@ function Fixture() {
     setRecurring: () => setTasks(current => current.map(task => task.id === 'a' ? { ...task, schedule: {
       id: 'recurring', organizationId: 'org', teamId: 'team', source: { sourceType: 'action', taskId: 'a' },
       scheduleType: 'recurring', scheduleDate: '2026-10-11', scheduleTime: null, timeZone: null,
+      durationMinutes: null,
       recurrenceFrequency: 'daily', recurrenceInterval: 1, recurrenceWeekdays: [], endsOn: null,
       reminderRules: [], archivedAt: null, createdAt: '', updatedAt: '',
     } } : task)),

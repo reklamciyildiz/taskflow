@@ -97,6 +97,7 @@ export function WorkSchedulePicker({
       scheduleDate: input.scheduleDate,
       scheduleTime: input.scheduleTime ?? null,
       timeZone: input.timeZone ?? null,
+      durationMinutes: input.durationMinutes ?? null,
       recurrenceFrequency: input.recurrenceFrequency ?? null,
       recurrenceInterval: input.recurrenceInterval ?? 1,
       recurrenceWeekdays: input.recurrenceWeekdays ?? [],
@@ -140,6 +141,7 @@ export function WorkSchedulePicker({
     timeZone: schedule?.scheduleTime
       ? schedule.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'UTC'
       : null,
+    durationMinutes: schedule?.scheduleTime ? schedule.durationMinutes : null,
     reminderRules: schedule?.reminderRules ?? [],
   });
 
@@ -166,6 +168,7 @@ export function WorkSchedulePicker({
       timeZone: schedule?.scheduleTime
         ? schedule.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'UTC'
         : null,
+      durationMinutes: schedule?.scheduleTime ? schedule.durationMinutes : null,
       recurrenceFrequency,
       recurrenceInterval: 1,
       recurrenceWeekdays,
@@ -211,11 +214,32 @@ export function WorkSchedulePicker({
       recurrenceWeekdays: schedule.recurrenceWeekdays,
       endsOn: schedule.endsOn,
       reminderRules: schedule.reminderRules,
+      durationMinutes: schedule.durationMinutes,
     } : { source, scheduleType: 'one_off', scheduleDate: baseDate, reminderRules: [] };
     await commit({
       ...base,
       scheduleTime: value || null,
       timeZone: value ? Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC' : null,
+      durationMinutes: value ? schedule?.durationMinutes ?? 30 : null,
+    });
+  };
+
+  const setDuration = async (value: string) => {
+    if (!schedule?.scheduleTime) return;
+    const durationMinutes = Number(value);
+    if (!Number.isInteger(durationMinutes) || durationMinutes < 5 || durationMinutes > 1440) return;
+    await commit({
+      source,
+      scheduleType: schedule.scheduleType,
+      scheduleDate: schedule.scheduleDate,
+      scheduleTime: schedule.scheduleTime,
+      timeZone: schedule.timeZone,
+      durationMinutes,
+      recurrenceFrequency: schedule.recurrenceFrequency,
+      recurrenceInterval: schedule.recurrenceInterval,
+      recurrenceWeekdays: schedule.recurrenceWeekdays,
+      endsOn: schedule.endsOn,
+      reminderRules: schedule.reminderRules,
     });
   };
 
@@ -269,6 +293,22 @@ export function WorkSchedulePicker({
                 className="ml-auto h-7 w-28 border-0 bg-muted/40 text-xs"
               />
             </label>
+            {schedule?.scheduleTime ? (
+              <label className="schedule-menu-row cursor-pointer">
+                <Clock3 className="h-4 w-4" /><span>Duration</span>
+                <select
+                  value={String(schedule.durationMinutes ?? 30)}
+                  disabled={saving || disabled}
+                  onChange={(event) => void setDuration(event.target.value)}
+                  className="ml-auto h-8 rounded-md border border-border/50 bg-muted/40 px-2 text-xs text-foreground outline-none focus:ring-2 focus:ring-ring/40"
+                  aria-label="Time block duration"
+                >
+                  {[15, 30, 45, 60, 90, 120].map((minutes) => (
+                    <option key={minutes} value={minutes}>{minutes < 60 ? `${minutes} min` : `${minutes / 60} hr`}</option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
             <button className="schedule-menu-row" disabled={saving || disabled || !schedule} onClick={() => setView('reminder')}>
               <Bell className="h-4 w-4" /><span>Reminder</span>
               <span className="ml-auto text-[11px] text-muted-foreground">
@@ -348,6 +388,7 @@ export function WorkSchedulePicker({
                       scheduleDate: schedule.scheduleDate,
                       scheduleTime: schedule.scheduleTime,
                       timeZone: schedule.timeZone,
+                      durationMinutes: schedule.durationMinutes,
                       recurrenceFrequency: schedule.recurrenceFrequency,
                       recurrenceInterval: schedule.recurrenceInterval,
                       recurrenceWeekdays: schedule.recurrenceWeekdays,
@@ -373,6 +414,7 @@ export function WorkSchedulePicker({
                 scheduleDate: schedule.scheduleDate,
                 scheduleTime: schedule.scheduleTime,
                 timeZone: schedule.timeZone,
+                durationMinutes: schedule.durationMinutes,
                 recurrenceFrequency: schedule.recurrenceFrequency,
                 recurrenceInterval: schedule.recurrenceInterval,
                 recurrenceWeekdays: schedule.recurrenceWeekdays,

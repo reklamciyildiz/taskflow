@@ -29,6 +29,7 @@ import {
 } from '../lib/planner-projection';
 import { setChecklistItemCheckedInDocument } from '../components/editor/reorderChecklistItem';
 import { canonicalNotificationLink } from '../lib/notification-nav-link';
+import { layoutPlannerTimeline, parsePlannerCapture } from '../lib/planner-v2-utils';
 
 const recurringBase: WorkSchedule = {
   id: 'schedule-1',
@@ -39,6 +40,7 @@ const recurringBase: WorkSchedule = {
   scheduleDate: '2026-10-05',
   scheduleTime: null,
   timeZone: null,
+  durationMinutes: null,
   recurrenceFrequency: 'daily',
   recurrenceInterval: 1,
   recurrenceWeekdays: [],
@@ -121,10 +123,27 @@ const timed = normalizeWorkScheduleInput({
   scheduleDate: '2026-10-09',
   scheduleTime: '10:45',
   timeZone: 'Europe/Istanbul',
+  durationMinutes: 45,
 });
 assert.equal(timed.scheduleDate, '2026-10-09');
 assert.equal(timed.scheduleTime, '10:45');
 assert.equal(timed.timeZone, 'Europe/Istanbul');
+assert.equal(timed.durationMinutes, 45);
+assert.deepEqual(parsePlannerCapture('Yarın saat 14.30 dişçiyi ara', '2026-10-20'), {
+  title: 'dişçiyi ara',
+  date: '2026-10-21',
+  time: '14:30',
+});
+
+assert.throws(
+  () => normalizeWorkScheduleInput({
+    source: { sourceType: 'action', taskId: 'task-1' },
+    scheduleType: 'one_off',
+    scheduleDate: '2026-10-09',
+    durationMinutes: 30,
+  }),
+  SchedulingValidationError,
+);
 
 assert.throws(
   () => normalizeWorkScheduleInput({
@@ -225,6 +244,7 @@ const plannerItem = (
   assigneeId: null,
   scheduleTime: null,
   timeZone: null,
+  durationMinutes: null,
   isRecurring: false,
   recurrenceFrequency: null,
   recurrenceInterval: 1,
@@ -234,6 +254,15 @@ const plannerItem = (
   missedCount: 0,
   ...overrides,
 });
+
+const overlappingBlocks = layoutPlannerTimeline([
+  plannerItem({ id: 'block-a', scheduleTime: '09:00', durationMinutes: 60 }),
+  plannerItem({ id: 'block-b', scheduleTime: '09:30', durationMinutes: 30 }),
+  plannerItem({ id: 'block-c', scheduleTime: '10:00', durationMinutes: 30 }),
+]);
+assert.equal(overlappingBlocks.find((block) => block.item.id === 'block-a')?.lane, 0);
+assert.equal(overlappingBlocks.find((block) => block.item.id === 'block-b')?.lane, 1);
+assert.equal(overlappingBlocks.find((block) => block.item.id === 'block-c')?.lane, 0);
 
 const todayProjection = buildPlannerTodayProjection([
   plannerItem({ id: 'today-action' }),
