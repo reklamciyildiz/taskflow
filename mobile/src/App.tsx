@@ -3,12 +3,16 @@ import { Capacitor } from '@capacitor/core';
 import { App as NativeApp } from '@capacitor/app';
 import { Network } from '@capacitor/network';
 import {
-  ArrowLeft, BookOpen, CalendarDays, ChevronRight, CloudOff, FolderKanban, Home,
-  LayoutDashboard, ListChecks, LockKeyhole, LogOut, RefreshCw, UserRound,
+  ArrowLeft, BookOpen, CalendarDays, CloudOff, Home,
+  LockKeyhole, LogOut, UserRound,
   ShieldCheck, Sparkles, Wifi,
 } from 'lucide-react';
 import type { MobileActionDetail, MobileProcessDetail, MobileSessionTokens, MobileWorkspace } from '../../shared/mobile-contracts';
-import { AxiomActionList, AxiomChecklistList, AxiomProcessList } from '../../shared/product-ui/AxiomWorkspaceLists';
+import {
+  AxiomActionView,
+  AxiomProcessView,
+  AxiomWorkspaceDashboard,
+} from '../../shared/product-ui/AxiomWorkspaceViews';
 import {
   completeGoogleSignIn, credentialsSignIn, ensureDeviceId, loadAction,
   loadProcess, loadWorkspace, logout, mobileApiConfigured, restoreSession,
@@ -38,10 +42,6 @@ function firstName(session: MobileSessionTokens): string {
 function initials(session: MobileSessionTokens): string {
   const source = session.user.name?.trim() || session.user.email;
   return source.split(/\s+|@/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join('');
-}
-
-function priorityLabel(priority: string | null): string {
-  return priority ? priority.charAt(0).toUpperCase() + priority.slice(1) : 'Normal';
 }
 
 export function App() {
@@ -207,99 +207,24 @@ export function App() {
       ) : null}
 
       {screen === 'workspace' && session && workspace ? (
-        <section className="workspace" aria-labelledby="workspace-title">
-          <div className="page-heading">
-            <div className="heading-copy">
-              <p className="date-label">{dateLabel}</p>
-              <h1 id="workspace-title">{greeting()}, {firstName(session)}</h1>
-              <p className="summary">Your work, organized around what matters now.</p>
-            </div>
-            <button className="icon-button quiet" type="button" onClick={() => void refreshWorkspace()} disabled={busy} aria-label="Refresh workspace"><RefreshCw className={busy ? 'spin' : ''} /></button>
-          </div>
-
-          <section className="overview-card" aria-label="Workspace overview">
-            <div><span>Visible Processes</span><strong>{workspace.processes.length}</strong></div>
-            <div className="overview-separator" />
-            <div><span>Recent Actions</span><strong>{workspace.recentActions.length}</strong></div>
-            <div className="overview-icon"><LayoutDashboard /></div>
-          </section>
-
-          <section className="content-section" id="mobile-processes">
-            <div className="section-heading"><div><p className="eyebrow">Workspace</p><h2>Processes</h2></div><span>{workspace.processes.length}</span></div>
-            <div className="item-list">{workspace.processes.length ? (
-              <AxiomProcessList
-                items={workspace.processes}
-                onOpen={(id) => void openProcess(id)}
-                disabled={busy}
-              />
-            ) : <div className="empty"><FolderKanban /><strong>No accessible Processes</strong><span>Your permitted workspace Processes will appear here.</span></div>}</div>
-          </section>
-
-          <section className="content-section">
-            <div className="section-heading"><div><p className="eyebrow">Recently updated</p><h2>Actions</h2></div><span>{workspace.recentActions.length}</span></div>
-            <div className="item-list">{workspace.recentActions.length ? (
-              <AxiomActionList
-                items={workspace.recentActions.map((action) => ({
-                  id: action.id,
-                  title: action.title,
-                  contextLabel: action.projectName,
-                  priorityLabel: priorityLabel(action.priority),
-                }))}
-                onOpen={(id) => void openAction(id)}
-                disabled={busy}
-              />
-            ) : <div className="empty"><ListChecks /><strong>No recent Actions</strong><span>Recently updated work will appear here.</span></div>}</div>
-          </section>
-
-          <button className="logout-button" type="button" onClick={() => void signOut()} disabled={busy}><LogOut />Log out of this device</button>
-        </section>
+        <AxiomWorkspaceDashboard
+          workspace={workspace}
+          dateLabel={dateLabel}
+          greeting={`${greeting()}, ${firstName(session)}`}
+          onRefresh={() => void refreshWorkspace()}
+          onOpenProcess={(id) => void openProcess(id)}
+          onOpenAction={(id) => void openAction(id)}
+          busy={busy}
+          footer={<button className="logout-button" type="button" onClick={() => void signOut()} disabled={busy}><LogOut />Log out of this device</button>}
+        />
       ) : null}
 
       {screen === 'process' && processDetail ? (
-        <section className="workspace detail-view" aria-labelledby="process-title">
-          <div className="detail-hero">
-            <span className="detail-icon"><FolderKanban /></span>
-            <p className="eyebrow">Process</p>
-            <h1 id="process-title">{processDetail.process.name}</h1>
-            <p className="summary">{processDetail.process.visibility} workspace</p>
-          </div>
-          <div className="detail-metrics"><div><strong>{processDetail.process.activeActionCount}</strong><span>Active</span></div><div><strong>{processDetail.totalActions}</strong><span>Total Actions</span></div></div>
-          <section className="content-section">
-            <div className="section-heading"><div><p className="eyebrow">Current work</p><h2>Actions</h2></div><span>{processDetail.hasMore ? '50+' : processDetail.actions.length}</span></div>
-            <div className="item-list">{processDetail.actions.length ? (
-              <AxiomActionList
-                items={processDetail.actions.map((action) => ({
-                  id: action.id,
-                  title: action.title,
-                  stageLabel: action.stageLabel,
-                  checklistLabel: `${action.checklist.completed}/${action.checklist.total} Checklist`,
-                  completed: action.completed,
-                }))}
-                onOpen={(id) => void openAction(id)}
-                disabled={busy}
-              />
-            ) : <div className="empty"><ListChecks /><strong>No accessible Actions</strong><span>This Process has no Actions you can view.</span></div>}</div>
-          </section>
-        </section>
+        <AxiomProcessView detail={processDetail} onOpenAction={(id) => void openAction(id)} busy={busy} />
       ) : null}
 
       {screen === 'action' && actionDetail ? (
-        <section className="workspace detail-view" aria-labelledby="action-title">
-          <div className="detail-hero action-hero">
-            <div className="action-context"><span>{actionDetail.process?.name ?? 'General'}</span><ChevronRight /></div>
-            <p className="eyebrow">Action</p>
-            <h1 id="action-title">{actionDetail.title}</h1>
-            <div className="action-meta"><span>{actionDetail.stageLabel}</span><span className={`priority priority-${actionDetail.priority ?? 'normal'}`}>{priorityLabel(actionDetail.priority)}</span></div>
-          </div>
-          {actionDetail.description ? <section className="description-card"><p className="eyebrow">Description</p><p>{actionDetail.description}</p></section> : null}
-          <section className="content-section checklist-section">
-            <div className="section-heading"><div><p className="eyebrow">Progress</p><h2>Checklist</h2></div><span>{actionDetail.checklist.filter((item) => item.checked).length}/{actionDetail.checklist.length}</span></div>
-            {actionDetail.checklist.length ? <div className="progress-track" aria-hidden="true"><span style={{ width: `${Math.round((actionDetail.checklist.filter((item) => item.checked).length / actionDetail.checklist.length) * 100)}%` }} /></div> : null}
-            <div className="checklist">{actionDetail.checklist.length ? (
-              <AxiomChecklistList items={actionDetail.checklist} />
-            ) : <div className="empty"><ListChecks /><strong>No Checklist items</strong><span>This Action does not have a Checklist yet.</span></div>}</div>
-          </section>
-        </section>
+        <AxiomActionView detail={actionDetail} />
       ) : null}
 
       {screen === 'planner' ? <MobilePlanner onOpenAction={(id) => void openAction(id)} onError={setError} /> : null}

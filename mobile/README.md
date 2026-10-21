@@ -66,7 +66,40 @@ by bypassing this preflight.
 
 The current debug APK is emitted at `mobile/android/app/build/outputs/apk/debug/app-debug.apk`. Installing it with `adb install -r` updates the app without deliberately clearing Android Keystore-backed session data.
 
+## Debug-only real web application diagnostic
+
+To test the existing Next.js product itself inside the Android WebView, use:
+
+```powershell
+npm.cmd --prefix mobile run android:debug:web-diagnostic
+```
+
+This explicit target opens the existing `axiom-mobile-staging.vercel.app` Next.js
+deployment, including its SSR, App Router and NextAuth flows. It does not bundle the
+Vite mobile UI and emits `mobile/artifacts/axiom-web-diagnostic-debug.apk`.
+
+This is a diagnostic build only. Capacitor documents `server.url` as a live-reload
+facility and warns that it is not intended for production. Do not submit this APK to
+an app store or substitute the production site. Generic and device-staging builds do
+not receive `server.url`; it exists only while this named command is running.
+
 The shell includes native network state, Android Keystore-backed refresh-session storage, credentials login, system-browser Google OAuth/PKCE wiring, session restore, logout, and the first ACL-filtered Process/Action workspace screen. The backend remains the existing Next.js application and the feature is disabled unless `AXIOM_MOBILE_AUTH_ENABLED=true`.
+
+## Shared product UI boundary
+
+The local Android/iOS bundle does not maintain a second copy of the core workspace
+screens. Dashboard, Process, Action and Checklist presentation lives under
+`shared/product-ui/` and is imported by the Capacitor client. The Next.js Dashboard
+uses the same Process rows, while the web Action panel uses the same Checklist
+progress primitive. Platform work stays at the edges: `mobile/src/mobile-api.ts`
+adapts bearer sessions and HTTPS requests, and `mobile/src/App.tsx` adapts Capacitor
+back navigation, app links, network state and safe-area shell behavior.
+
+Server Components, NextAuth cookies, `next/navigation`, and the TipTap editing
+lifecycle remain web-only. The mobile Action view therefore exposes only the
+canonical read behavior currently backed by the mobile API; it must not simulate an
+unsupported mutation. Future mutations must be added through a server-side canonical
+command and the existing mobile authorization guard.
 
 Before a real staging login, apply `20261021010000_mobile_auth_foundation.sql` to staging only and configure the server-only mobile auth variables shown in the root `.env.example`. Build the client with an exact HTTPS `VITE_AXIOM_API_ORIGIN`; this public origin is not a secret.
 

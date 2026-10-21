@@ -87,6 +87,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { WorkSchedulePicker } from "@/components/schedule/WorkSchedulePicker";
+import { AxiomChecklistProgress } from "@/shared/product-ui/AxiomWorkspaceViews";
 import {
   Dialog,
   DialogContent,
@@ -855,10 +856,6 @@ function ActionPanelContent({
     [persistChecklistNow, tab],
   );
 
-  const checklistProgress =
-    checklistCounts.total > 0
-      ? Math.round((checklistCounts.done / checklistCounts.total) * 100)
-      : 0;
   const allDone =
     checklistCounts.total > 0 && checklistCounts.done === checklistCounts.total;
 
@@ -1430,22 +1427,7 @@ function ActionPanelContent({
         {/* Progress rail: sits on the tab divider so it reads as part of the chrome, not content. */}
         <div className="h-0.5 w-full shrink-0 bg-transparent" aria-hidden={tab !== "checklist"}>
           {tab === "checklist" && checklistCounts.total > 0 ? (
-            <div
-              className="h-full w-full bg-muted/40"
-              role="progressbar"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={checklistProgress}
-              aria-label="Checklist progress"
-            >
-              <div
-                className={cn(
-                  "h-full transition-[width] duration-300 ease-out",
-                  allDone ? "bg-emerald-500" : "bg-primary",
-                )}
-                style={{ width: `${checklistProgress}%` }}
-              />
-            </div>
+            <AxiomChecklistProgress completed={checklistCounts.done} total={checklistCounts.total} compact />
           ) : null}
         </div>
 

@@ -1,3 +1,6 @@
+@import "../shared/product-ui/axiom-workspace-lists.css";
+@import "../shared/product-ui/axiom-workspace-views.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
