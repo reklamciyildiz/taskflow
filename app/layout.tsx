@@ -1,4 +1,5 @@
 import './globals.css';
+import '@/shared/product-ui/axiom-workspace-lists.css';
 import type { Metadata } from 'next';
 import { Providers } from './providers';
 

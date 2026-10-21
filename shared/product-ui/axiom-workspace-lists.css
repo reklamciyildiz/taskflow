@@ -1,0 +1,80 @@
+.axiom-entity-list {
+  display: grid;
+  min-width: 0;
+  overflow: hidden;
+  border-radius: .8rem;
+}
+
+.axiom-entity-row {
+  display: flex;
+  min-width: 0;
+  min-height: 4.25rem;
+  align-items: stretch;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 9%, transparent);
+  transition: background-color 140ms ease;
+}
+
+.axiom-entity-row:last-child { border-bottom: 0; }
+.axiom-entity-row:hover { background: color-mix(in srgb, currentColor 3%, transparent); }
+
+.axiom-entity-main {
+  display: flex;
+  min-width: 0;
+  min-height: 2.75rem;
+  flex: 1;
+  align-items: center;
+  gap: .75rem;
+  padding: .62rem .7rem;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.axiom-entity-main:focus-visible,
+.axiom-entity-pin:focus-visible {
+  outline: 2px solid #60a5fa;
+  outline-offset: -2px;
+}
+
+.axiom-entity-icon {
+  display: grid;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, #60a5fa 22%, transparent);
+  border-radius: .68rem;
+  color: #60a5fa;
+  background: color-mix(in srgb, #60a5fa 8%, transparent);
+}
+
+.axiom-entity-icon svg { width: 1rem; height: 1rem; stroke-width: 1.8; }
+.axiom-entity-icon.is-complete { color: #34d399; border-color: color-mix(in srgb, #34d399 25%, transparent); background: color-mix(in srgb, #34d399 9%, transparent); }
+.axiom-entity-copy { display: grid; min-width: 0; flex: 1; gap: .2rem; }
+.axiom-entity-copy strong { overflow: hidden; font-size: .86rem; font-weight: 650; line-height: 1.25rem; letter-spacing: -.008em; text-overflow: ellipsis; white-space: nowrap; }
+.axiom-entity-copy strong.is-complete { opacity: .62; text-decoration: line-through; }
+.axiom-entity-meta { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; gap: .22rem .55rem; opacity: .68; font-size: .68rem; line-height: 1rem; }
+.axiom-entity-meta > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.axiom-entity-meta-strong { opacity: .92; font-weight: 600; }
+.axiom-entity-badge { padding: .05rem .38rem; border-radius: 999px; background: color-mix(in srgb, #60a5fa 11%, transparent); color: #60a5fa; text-transform: capitalize; }
+.axiom-entity-chevron { width: 1rem; height: 1rem; flex: 0 0 auto; opacity: .35; }
+.axiom-entity-pin { display: grid; width: 2.75rem; min-width: 2.75rem; min-height: 2.75rem; margin: auto .35rem auto 0; place-items: center; border: 0; border-radius: .65rem; color: inherit; opacity: .58; background: transparent; cursor: pointer; }
+.axiom-entity-pin:hover { background: color-mix(in srgb, #fbbf24 10%, transparent); opacity: 1; }
+.axiom-entity-pin svg { width: 1rem; height: 1rem; }
+.axiom-entity-pin.is-pinned { color: #fbbf24; opacity: 1; }
+.axiom-entity-pin.is-pinned svg { fill: currentColor; }
+
+.axiom-checklist-list { display: grid; min-width: 0; gap: .38rem; }
+.axiom-checklist-row { display: flex; min-width: 0; min-height: 2.75rem; align-items: flex-start; gap: .65rem; padding: .65rem .72rem; border: 1px solid color-mix(in srgb, currentColor 10%, transparent); border-radius: .7rem; font-size: .8rem; line-height: 1.3rem; }
+.axiom-checklist-row.is-complete { opacity: .62; }
+.axiom-checklist-row.is-complete > span:last-child { text-decoration: line-through; }
+.axiom-checklist-mark { display: grid; width: 1.2rem; height: 1.2rem; flex: 0 0 auto; place-items: center; color: #60a5fa; }
+.axiom-checklist-mark svg { width: .9rem; height: .9rem; }
+
+@media (max-width: 430px) {
+  .axiom-entity-row { min-height: 4.5rem; }
+  .axiom-entity-main { padding-inline: .55rem; }
+  .axiom-entity-copy strong { display: -webkit-box; overflow: hidden; white-space: normal; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+}

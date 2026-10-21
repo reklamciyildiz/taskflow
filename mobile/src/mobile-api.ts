@@ -1,5 +1,6 @@
 import type { MobileActionDetail, MobileProcessDetail, MobileSessionTokens, MobileWorkspace } from '../../shared/mobile-contracts';
 import { Browser } from '@capacitor/browser';
+import { Capacitor } from '@capacitor/core';
 import { secureSession } from './secure-session';
 
 const apiBase = (import.meta.env.VITE_AXIOM_API_ORIGIN ?? '').replace(/\/$/, '');
@@ -8,6 +9,24 @@ let accessToken: string | null = null;
 function endpoint(path: string) {
   if (!apiBase) throw new Error('Mobile API environment is not configured.');
   return `${apiBase}${path}`;
+}
+
+function platform(): 'android' | 'ios' {
+  return Capacitor.getPlatform() === 'ios' ? 'ios' : 'android';
+}
+
+async function mobileFetch(path: string, init?: RequestInit): Promise<Response> {
+  try {
+    return await fetch(endpoint(path), init);
+  } catch (error) {
+    if (error instanceof TypeError) {
+      const localHint = apiBase === 'https://localhost:3443'
+        ? ' Restart the local staging bridge with `npm --prefix mobile run android:connect:staging`.'
+        : '';
+      throw new Error(`Axiom could not reach the mobile API.${localHint}`);
+    }
+    throw error;
+  }
 }
 
 export async function ensureDeviceId(): Promise<string> {
@@ -31,9 +50,9 @@ async function parse<T>(response: Response): Promise<T> {
 }
 
 export async function credentialsSignIn(email: string, password: string) {
-  const response = await fetch(endpoint('/api/mobile/auth/credentials'), {
+  const response = await mobileFetch('/api/mobile/auth/credentials', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password, platform: 'android', deviceId: await ensureDeviceId() }),
+    body: JSON.stringify({ email, password, platform: platform(), deviceId: await ensureDeviceId() }),
   });
   return acceptTokens(await parse<MobileSessionTokens>(response));
 }
@@ -53,7 +72,7 @@ export async function startGoogleSignIn() {
   const state = randomBase64Url(32);
   await Promise.all([secureSession.set('oauthVerifier', verifier), secureSession.set('oauthState', state)]);
   const challenge = await sha256Base64Url(verifier);
-  const url = endpoint(`/api/mobile/auth/google/start?platform=android&code_challenge=${encodeURIComponent(challenge)}&state=${encodeURIComponent(state)}`);
+  const url = endpoint(`/api/mobile/auth/google/start?platform=${platform()}&code_challenge=${encodeURIComponent(challenge)}&state=${encodeURIComponent(state)}`);
   await Browser.open({ url, presentationStyle: 'popover' });
 }
 
@@ -63,9 +82,9 @@ export async function completeGoogleSignIn(callbackUrl: string) {
   const returnedState = url.searchParams.get('state');
   const [verifier, expectedState] = await Promise.all([secureSession.get('oauthVerifier'), secureSession.get('oauthState')]);
   if (!code || !verifier || !returnedState || returnedState !== expectedState) throw new Error('Google sign-in callback validation failed.');
-  const response = await fetch(endpoint('/api/mobile/auth/exchange'), {
+  const response = await mobileFetch('/api/mobile/auth/exchange', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ code, codeVerifier: verifier, platform: 'android', deviceId: await ensureDeviceId() }),
+    body: JSON.stringify({ code, codeVerifier: verifier, platform: platform(), deviceId: await ensureDeviceId() }),
   });
   const tokens = await acceptTokens(await parse<MobileSessionTokens>(response));
   await Promise.all([secureSession.remove('oauthVerifier'), secureSession.remove('oauthState'), Browser.close().catch(() => undefined)]);
@@ -76,7 +95,7 @@ export async function restoreSession() {
   const refreshToken = await secureSession.get('refreshToken');
   if (!refreshToken) return null;
   try {
-    const response = await fetch(endpoint('/api/mobile/auth/refresh'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refreshToken }) });
+    const response = await mobileFetch('/api/mobile/auth/refresh', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refreshToken }) });
     return acceptTokens(await parse<MobileSessionTokens>(response));
   } catch (error) {
     await secureSession.remove('refreshToken');
@@ -87,10 +106,10 @@ export async function restoreSession() {
 
 export async function authenticatedGet<T>(path: string): Promise<T> {
   if (!accessToken) await restoreSession();
-  let response = await fetch(endpoint(path), { headers: { Authorization: `Bearer ${accessToken}` } });
+  let response = await mobileFetch(path, { headers: { Authorization: `Bearer ${accessToken}` } });
   if (response.status === 401 && await secureSession.get('refreshToken')) {
     await restoreSession();
-    response = await fetch(endpoint(path), { headers: { Authorization: `Bearer ${accessToken}` } });
+    response = await mobileFetch(path, { headers: { Authorization: `Bearer ${accessToken}` } });
   }
   return parse<T>(response);
 }
@@ -100,7 +119,7 @@ export async function loadProcess(processId: string) { return authenticatedGet<M
 export async function loadAction(actionId: string) { return authenticatedGet<MobileActionDetail>(`/api/mobile/actions/${encodeURIComponent(actionId)}`); }
 
 export async function logout() {
-  if (accessToken) await fetch(endpoint('/api/mobile/auth/logout'), { method: 'POST', headers: { Authorization: `Bearer ${accessToken}` } }).catch(() => undefined);
+  if (accessToken) await mobileFetch('/api/mobile/auth/logout', { method: 'POST', headers: { Authorization: `Bearer ${accessToken}` } }).catch(() => undefined);
   accessToken = null;
   await secureSession.remove('refreshToken');
 }

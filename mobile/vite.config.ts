@@ -6,6 +6,12 @@ export default defineConfig(({ mode }) => {
   if (mode === 'android-staging' && env.VITE_AXIOM_API_ORIGIN !== 'https://localhost:3443') {
     throw new Error('Android staging builds must use the verified local HTTPS staging bridge.');
   }
+  if (mode === 'android-device-staging') {
+    const origin = new URL(env.VITE_AXIOM_API_ORIGIN);
+    if (origin.protocol !== 'https:' || origin.hostname === 'localhost' || origin.hostname === '127.0.0.1') {
+      throw new Error('Android device staging builds require a public HTTPS API origin.');
+    }
+  }
 
   return {
     plugins: [react()],

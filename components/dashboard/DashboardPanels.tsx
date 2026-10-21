@@ -21,7 +21,7 @@ import { useTaskContext } from '@/components/TaskContext';
 import { useKnowledgeRetrieval } from '@/hooks/useKnowledgeRetrieval';
 import { formatKnowledgeEntryDate, type KnowledgeHubCard } from '@/lib/knowledge-retrieval';
 import { resolveStageLifecycle } from '@/lib/stage-lifecycle';
-import { cn } from '@/lib/utils';
+import { AxiomProcessList } from '@/shared/product-ui/AxiomWorkspaceLists';
 
 const PINNED_PROJECTS_KEY = 'taskflow:pinnedProjectIds';
 const RECENT_PROJECTS_KEY = 'taskflow:recentProjectIds';
@@ -104,28 +104,25 @@ export function DashboardFocusProcesses() {
             <FolderKanban className="h-5 w-5 text-muted-foreground" />
             <div><p className="text-sm font-medium">No Processes yet</p><p className="text-xs text-muted-foreground">Create a Process to keep important work close.</p></div>
           </div>
-        ) : visible.map((project) => {
-          const summary = summaries.get(project.id);
-          const pinned = pinnedIds.includes(project.id);
-          return (
-            <div key={project.id} className="dashboard-v2-row group min-h-[72px] gap-1 px-3 py-2.5">
-              <button type="button" onClick={() => openBoardForProject(project.id)} className="flex min-w-0 flex-1 items-center gap-3 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40">
-                <span className="dashboard-v2-row-icon"><FolderKanban className="h-4 w-4" /></span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[0.84rem] font-semibold tracking-[-0.008em] sm:text-sm">{project.name}</span>
-                  <span className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-[0.68rem] text-muted-foreground">
-                    <span className="font-medium text-foreground/75">{summary?.active ?? 0} active</span>
-                    <span>{summary?.total ?? 0} Actions</span>
-                    {summary?.latest ? <span className="truncate">Updated {new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(summary.latest.updatedAt)}</span> : null}
-                  </span>
-                </span>
-              </button>
-              <Button type="button" variant="ghost" size="icon" className="h-11 w-11 shrink-0 rounded-lg hover:bg-amber-500/10" onClick={() => togglePin(project.id)} aria-label={pinned ? `Unpin ${project.name}` : `Pin ${project.name}`}>
-                <Star className={cn('h-4 w-4 text-muted-foreground', pinned && 'fill-amber-400 text-amber-500')} />
-              </Button>
-            </div>
-          );
-        })}
+        ) : (
+          <AxiomProcessList
+            items={visible.map((project) => {
+              const summary = summaries.get(project.id);
+              return {
+                id: project.id,
+                name: project.name,
+                activeActionCount: summary?.active ?? 0,
+                totalActionCount: summary?.total ?? 0,
+                updatedLabel: summary?.latest
+                  ? `Updated ${new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(summary.latest.updatedAt)}`
+                  : undefined,
+                pinned: pinnedIds.includes(project.id),
+              };
+            })}
+            onOpen={openBoardForProject}
+            onTogglePin={togglePin}
+          />
+        )}
       </div>
     </section>
   );

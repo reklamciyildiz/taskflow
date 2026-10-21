@@ -7,19 +7,25 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "build:android-staging": "tsc -b && vite build --mode android-staging",
+    "verify:android-device-staging": "node scripts/verify-android-device-staging.mjs",
+    "build:android-device-staging": "npm run verify:android-device-staging && tsc -b && vite build --mode android-device-staging",
     "preview": "vite preview",
     "cap:sync": "node scripts/require-android-build-target.mjs",
     "android:sync": "node scripts/require-android-build-target.mjs",
     "android:sync:staging": "npm run build:android-staging && cap sync android",
+    "android:sync:device-staging": "npm run build:android-device-staging && cap sync android",
+    "android:connect:staging": "node scripts/connect-android-staging.mjs",
     "android:open": "cap open android",
     "android:debug": "node scripts/require-android-build-target.mjs",
-    "android:debug:staging": "npm run android:sync:staging && cd android && .\\gradlew.bat assembleDebug"
+    "android:debug:staging": "npm run android:sync:staging && node scripts/build-android-debug.mjs && npm run android:connect:staging",
+    "android:debug:device-staging": "npm run android:sync:device-staging && node scripts/build-android-debug.mjs"
   },
   "dependencies": {
     "@capacitor/app": "^8.0.0",
     "@capacitor/browser": "^8.0.0",
     "@capacitor/core": "8.5.3",
     "@capacitor/network": "^8.0.0",
+    "lucide-react": "^0.446.0",
     "react": "18.2.0",
     "react-dom": "18.2.0"
   },
