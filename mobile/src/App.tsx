@@ -3,8 +3,8 @@ import { Capacitor } from '@capacitor/core';
 import { App as NativeApp } from '@capacitor/app';
 import { Network } from '@capacitor/network';
 import {
-  ArrowLeft, ChevronRight, CloudOff, FolderKanban,
-  LayoutDashboard, ListChecks, LockKeyhole, LogOut, RefreshCw,
+  ArrowLeft, BookOpen, CalendarDays, ChevronRight, CloudOff, FolderKanban, Home,
+  LayoutDashboard, ListChecks, LockKeyhole, LogOut, RefreshCw, UserRound,
   ShieldCheck, Sparkles, Wifi,
 } from 'lucide-react';
 import type { MobileActionDetail, MobileProcessDetail, MobileSessionTokens, MobileWorkspace } from '../../shared/mobile-contracts';
@@ -14,8 +14,10 @@ import {
   loadProcess, loadWorkspace, logout, mobileApiConfigured, restoreSession,
   startGoogleSignIn,
 } from './mobile-api';
+import { MobilePlanner } from './MobilePlanner';
+import { MobileKnowledge } from './MobileKnowledge';
 
-type Screen = 'booting' | 'signin' | 'workspace' | 'process' | 'action';
+type Screen = 'booting' | 'signin' | 'workspace' | 'planner' | 'knowledge' | 'account' | 'process' | 'action';
 const googleOAuthEnabled = import.meta.env.VITE_AXIOM_GOOGLE_OAUTH_ENABLED === 'true';
 
 function todayLabel(): string {
@@ -67,6 +69,13 @@ export function App() {
     else if (screenRef.current === 'action' || screenRef.current === 'process') setScreen('workspace');
     else void NativeApp.minimizeApp();
   }, [processDetail]);
+
+  const selectRoot = useCallback((next: Extract<Screen, 'workspace' | 'planner' | 'knowledge' | 'account'>) => {
+    setProcessDetail(null);
+    setActionDetail(null);
+    setScreen(next);
+    window.scrollTo({ top: 0 });
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -293,9 +302,28 @@ export function App() {
         </section>
       ) : null}
 
+      {screen === 'planner' ? <MobilePlanner onOpenAction={(id) => void openAction(id)} onError={setError} /> : null}
+
+      {screen === 'knowledge' ? <MobileKnowledge onOpenAction={(id) => void openAction(id)} onError={setError} /> : null}
+
+      {screen === 'account' && session ? (
+        <section className="workspace mobile-product-view account-view" aria-labelledby="mobile-account-title">
+          <div className="account-hero"><span className="account-avatar">{initials(session)}</span><p className="eyebrow">Secure session</p><h1 id="mobile-account-title">{session.user.name || 'Axiom account'}</h1><p className="summary">{session.user.email}</p></div>
+          <div className="account-security"><ShieldCheck /><div><strong>Protected on this device</strong><span>Refresh credentials are encrypted by Android Keystore. Workspace access still follows Axiom organization, team, and Process permissions.</span></div></div>
+          <button className="account-logout" type="button" onClick={() => void signOut()} disabled={busy}><LogOut />Log out of this device</button>
+        </section>
+      ) : null}
+
       {busy && authenticated ? <div className="busy-indicator" role="status"><div className="spinner" /><span>Updating workspace…</span></div> : null}
       {error && screen !== 'signin' ? <div className="notice error global-error" role="alert">{error}<button type="button" onClick={() => setError(null)}>Dismiss</button></div> : null}
-      <footer>{Capacitor.getPlatform()} · local bundle</footer>
+      {authenticated ? (
+        <nav className="mobile-tab-bar" aria-label="Primary navigation">
+          <button type="button" className={screen === 'workspace' ? 'is-active' : ''} onClick={() => selectRoot('workspace')}><Home /><span>Home</span></button>
+          <button type="button" className={screen === 'planner' ? 'is-active' : ''} onClick={() => selectRoot('planner')}><CalendarDays /><span>Planner</span></button>
+          <button type="button" className={screen === 'knowledge' ? 'is-active' : ''} onClick={() => selectRoot('knowledge')}><BookOpen /><span>Knowledge</span></button>
+          <button type="button" className={screen === 'account' ? 'is-active' : ''} onClick={() => selectRoot('account')}><UserRound /><span>Account</span></button>
+        </nav>
+      ) : <footer>{Capacitor.getPlatform()} · local bundle</footer>}
     </main>
   );
 }

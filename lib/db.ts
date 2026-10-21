@@ -726,7 +726,7 @@ export const taskDb = {
   async listKnowledgeScope(teamId: string) {
     const { data, error } = await db
       .from('tasks')
-      .select('id, project_id, organization_id')
+      .select('id, title, project_id, organization_id')
       .eq('team_id', teamId);
 
     if (error) throw error;

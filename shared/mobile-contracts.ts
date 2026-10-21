@@ -37,6 +37,45 @@ export type MobileWorkspace = {
   recentActions: MobileActionSummary[];
 };
 
+export type MobilePlannerItem = {
+  id: string;
+  scheduleId: string;
+  taskId: string;
+  taskTitle: string;
+  sourceType: 'action' | 'checklist_item';
+  checklistItemId: string | null;
+  checklistItemText: string | null;
+  processId: string | null;
+  processName: string | null;
+  effectiveDate: string;
+  occurrenceDate: string;
+  scheduleTime: string | null;
+  durationMinutes: number | null;
+  state: 'pending' | 'completed' | 'skipped';
+  recurring: boolean;
+  missedCount: number;
+};
+
+export type MobilePlannerToday = {
+  date: string;
+  overdue: MobilePlannerItem[];
+  today: MobilePlannerItem[];
+  completedToday: MobilePlannerItem[];
+};
+
+export type MobileKnowledgeEntry = {
+  id: string;
+  actionId: string;
+  actionTitle: string;
+  processId: string | null;
+  processName: string | null;
+  title: string;
+  type: 'note' | 'learning' | 'idea' | 'decision';
+  excerpt: string;
+  updatedAt: string;
+  authorName: string;
+};
+
 export type MobileProcessDetail = {
   process: MobileProcessSummary;
   totalActions: number;

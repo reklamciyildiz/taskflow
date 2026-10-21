@@ -1,4 +1,11 @@
-import type { MobileActionDetail, MobileProcessDetail, MobileSessionTokens, MobileWorkspace } from '../../shared/mobile-contracts';
+import type {
+  MobileActionDetail,
+  MobileKnowledgeEntry,
+  MobilePlannerToday,
+  MobileProcessDetail,
+  MobileSessionTokens,
+  MobileWorkspace,
+} from '../../shared/mobile-contracts';
 import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
 import { secureSession } from './secure-session';
@@ -117,6 +124,13 @@ export async function authenticatedGet<T>(path: string): Promise<T> {
 export async function loadWorkspace() { return authenticatedGet<MobileWorkspace>('/api/mobile/workspace'); }
 export async function loadProcess(processId: string) { return authenticatedGet<MobileProcessDetail>(`/api/mobile/processes/${encodeURIComponent(processId)}`); }
 export async function loadAction(actionId: string) { return authenticatedGet<MobileActionDetail>(`/api/mobile/actions/${encodeURIComponent(actionId)}`); }
+export async function loadPlannerToday(date: string, timeZone: string) {
+  const query = new URLSearchParams({ date, timeZone });
+  return authenticatedGet<MobilePlannerToday>(`/api/mobile/planner/today?${query}`);
+}
+export async function loadKnowledge(limit = 30) {
+  return authenticatedGet<MobileKnowledgeEntry[]>(`/api/mobile/knowledge?limit=${Math.min(50, Math.max(1, limit))}`);
+}
 
 export async function logout() {
   if (accessToken) await mobileFetch('/api/mobile/auth/logout', { method: 'POST', headers: { Authorization: `Bearer ${accessToken}` } }).catch(() => undefined);
