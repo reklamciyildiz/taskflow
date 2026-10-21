@@ -31,7 +31,8 @@ if (!javaHome) {
 
 const androidDirectory = join(process.cwd(), 'android');
 const gradle = join(androidDirectory, windows ? 'gradlew.bat' : 'gradlew');
-const result = spawnSync(gradle, ['assembleDebug'], {
+const tasks = process.argv.includes('--clean') ? ['clean', 'assembleDebug'] : ['assembleDebug'];
+const result = spawnSync(gradle, tasks, {
   cwd: androidDirectory,
   env: { ...process.env, JAVA_HOME: javaHome },
   stdio: 'inherit',

@@ -20,7 +20,7 @@ async function mobileFetch(path: string, init?: RequestInit): Promise<Response> 
     return await fetch(endpoint(path), init);
   } catch (error) {
     if (error instanceof TypeError) {
-      const localHint = apiBase === 'https://localhost:3443'
+      const localHint = import.meta.env.MODE === 'android-staging'
         ? ' Restart the local staging bridge with `npm --prefix mobile run android:connect:staging`.'
         : '';
       throw new Error(`Axiom could not reach the mobile API.${localHint}`);

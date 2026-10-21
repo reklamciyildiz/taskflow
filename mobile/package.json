@@ -18,7 +18,7 @@
     "android:open": "cap open android",
     "android:debug": "node scripts/require-android-build-target.mjs",
     "android:debug:staging": "npm run android:sync:staging && node scripts/build-android-debug.mjs && npm run android:connect:staging",
-    "android:debug:device-staging": "npm run android:sync:device-staging && node scripts/build-android-debug.mjs"
+    "android:debug:device-staging": "npm run android:sync:device-staging && node scripts/build-android-device-staging.mjs"
   },
   "dependencies": {
     "@capacitor/app": "^8.0.0",
