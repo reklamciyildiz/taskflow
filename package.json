@@ -25,6 +25,7 @@
     "test:planner:visual": "node scripts/test-planner-v2-visual.cjs",
     "test:editor": "tsx scripts/test-editor-slash-commands.ts",
     "test:mobile:workspace": "node scripts/test-mobile-shared-workspace-contract.mjs",
+    "test:twa": "node scripts/test-twa-pwa-contract.mjs",
     "migrate:auth": "tsx scripts/migrate-users-to-supabase-auth.ts",
     "mobile:build": "npm --prefix mobile run build",
     "mobile:android:sync": "npm --prefix mobile run android:sync",

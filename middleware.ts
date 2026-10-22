@@ -143,6 +143,6 @@ export const config = {
      * - favicon.ico (favicon file)
      * - public folder
      */
-    '/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|public).*)',
+    '/((?!_next/static|_next/image|favicon.ico|apple-touch-icon.png|icon-192x192.png|icon-512x512.png|manifest.webmanifest|sw.js|public).*)',
   ],
 };

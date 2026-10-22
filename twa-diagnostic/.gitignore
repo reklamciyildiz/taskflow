@@ -1,0 +1,11 @@
+.android-sdk/
+.gradle/
+build/
+app/build/
+*.jks
+*.keystore
+*.apk
+*.aab
+*.apk.idsig
+emulator-*.png
+bubblewrap-config.json
