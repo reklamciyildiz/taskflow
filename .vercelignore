@@ -3,7 +3,7 @@
 .local-android-avd/
 .local-android-user/
 node_modules/
-mobile/
+/mobile/
 coverage/
 out/
 build/
