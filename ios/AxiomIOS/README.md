@@ -50,3 +50,22 @@ NextAuth session cookie.
 
 See [APP_STORE_READINESS.md](APP_STORE_READINESS.md) for the remaining Apple
 Developer and App Review work.
+
+## GitHub Actions Simulator build
+
+The `iOS Simulator Build` workflow is manual-only:
+
+1. Open the repository's **Actions** tab.
+2. Select **iOS Simulator Build**.
+3. Choose **Run workflow** on `main`.
+4. After the job finishes, download the
+   `axiom-ios-simulator-<run-number>` artifact from the run summary.
+
+The artifact is retained for seven days and contains the unsigned Simulator
+`.app` archive, Xcode result bundle, build/Simulator logs, Xcode/runtime
+inventory, and launch screenshot. It cannot be installed on a physical iPhone.
+
+The workflow deliberately contains no signing, certificate, provisioning
+profile, App Store Connect key, archive upload, or TestFlight step. Those will
+be added only after the unsigned build passes and Apple credentials are
+available as encrypted GitHub Actions secrets.

@@ -27,8 +27,9 @@
     "test:twa": "node scripts/test-twa-pwa-contract.mjs",
     "test:ios-shell": "node scripts/test-ios-shell-contract.mjs",
     "test:ios-auth": "node scripts/test-ios-auth-security.mjs",
+    "test:ios-ci": "node scripts/test-ios-ci-workflow.mjs",
     "migrate:auth": "tsx scripts/migrate-users-to-supabase-auth.ts",
-    "ios:check": "npm run test:ios-shell && npm run test:ios-auth"
+    "ios:check": "npm run test:ios-shell && npm run test:ios-auth && npm run test:ios-ci"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^18.0.1",

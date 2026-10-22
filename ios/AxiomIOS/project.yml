@@ -24,3 +24,12 @@ targets:
       path: Axiom/Info.plist
     entitlements:
       path: Axiom/Axiom.entitlements
+schemes:
+  Axiom:
+    build:
+      targets:
+        Axiom: all
+    run:
+      config: Debug
+    archive:
+      config: Release
