@@ -127,7 +127,7 @@ export async function authenticatedGet<T>(path: string): Promise<T> {
   return authenticatedRequest<T>(path);
 }
 
-export async function authenticatedRequest<T>(path: string, init?: RequestInit): Promise<T> {
+export async function authenticatedFetch(path: string, init?: RequestInit): Promise<Response> {
   if (!accessToken) await restoreSession();
   const request = () => mobileFetch(path, {
     ...init,
@@ -142,7 +142,11 @@ export async function authenticatedRequest<T>(path: string, init?: RequestInit):
     await restoreSession();
     response = await request();
   }
-  return parse<T>(response);
+  return response;
+}
+
+export async function authenticatedRequest<T>(path: string, init?: RequestInit): Promise<T> {
+  return parse<T>(await authenticatedFetch(path, init));
 }
 
 export async function loadWorkspace() { return authenticatedGet<MobileWorkspace>('/api/mobile/workspace'); }

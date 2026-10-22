@@ -31,14 +31,27 @@ import {
   type KnowledgeHubCard,
 } from '@/lib/knowledge-retrieval';
 import { useKnowledgeRetrieval } from '@/hooks/useKnowledgeRetrieval';
+import type { ApiResponse, Note, Project, Task, TaskUpdateFields, Team } from '@/lib/types';
 export type { KnowledgeHubCard } from '@/lib/knowledge-retrieval';
 
 const PIN_KEY = 'taskflow:pinnedKnowledgeEntryIds';
 
-export function KnowledgeHubView() {
-  const router = useRouter();
-  const { tasks, projects, teams, currentTeam, loading, openTaskEditor, updateTask, canEditTask } =
-    useTaskContext();
+export type KnowledgeHubRuntime = {
+  tasks: Task[];
+  projects: Project[];
+  teams: Team[];
+  currentTeam: Team | null;
+  loading: boolean;
+  openTaskEditor: (taskId: string, checklistItemId?: string | null) => void;
+  updateTask: (taskId: string, updates: TaskUpdateFields) => Promise<boolean>;
+  canEditTask: (creatorId?: string | null, assigneeId?: string | null) => boolean;
+  navigate: (path: string) => void;
+  loadNotes?: (teamId: string, limit?: number) => Promise<ApiResponse<Note[]>>;
+};
+
+/** Platform-neutral Knowledge Hub presentation shared by Next.js and Capacitor. */
+export function KnowledgeHubViewContent({ runtime }: { runtime: KnowledgeHubRuntime }) {
+  const { tasks, projects, teams, currentTeam, loading, openTaskEditor, updateTask, canEditTask, navigate, loadNotes } = runtime;
   const [query, setQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<KnowledgeContentFilter>('all');
   const [projectFilter, setProjectFilter] = useState<string>('all');
@@ -64,6 +77,7 @@ export function KnowledgeHubView() {
     projects: projectsScoped,
     teams,
     teamId: currentTeam?.id ?? null,
+    loadNotes,
   });
 
   const filtered = useMemo(() => {
@@ -103,7 +117,7 @@ export function KnowledgeHubView() {
     const params = new URLSearchParams({ origin: 'knowledge_hub' });
     if (currentTeam?.id) params.set('teamId', currentTeam.id);
     if (projectFilter !== 'all' && projectFilter !== '__none__') params.set('processId', projectFilter);
-    router.push(`/ai?${params.toString()}`);
+    navigate(`/ai?${params.toString()}`);
   };
 
   return (
@@ -221,7 +235,7 @@ export function KnowledgeHubView() {
                     <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
                       Open an action on the board and add checklist items or notes.
                     </p>
-                    <Button variant="default" className="mt-4 gap-2" onClick={() => router.push('/board')}>
+                    <Button variant="default" className="mt-4 gap-2" onClick={() => navigate('/board')}>
                       <LayoutGrid className="h-4 w-4" />
                       Go to board
                     </Button>
@@ -441,5 +455,25 @@ export function KnowledgeHubView() {
         </p>
       )}
     </div>
+  );
+}
+
+export function KnowledgeHubView() {
+  const router = useRouter();
+  const context = useTaskContext();
+  return (
+    <KnowledgeHubViewContent
+      runtime={{
+        tasks: context.tasks,
+        projects: context.projects,
+        teams: context.teams,
+        currentTeam: context.currentTeam,
+        loading: context.loading,
+        openTaskEditor: context.openTaskEditor,
+        updateTask: context.updateTask,
+        canEditTask: context.canEditTask,
+        navigate: (path) => router.push(path),
+      }}
+    />
   );
 }

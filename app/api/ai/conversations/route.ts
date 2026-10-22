@@ -9,14 +9,14 @@ const createSchema=z.object({ context:z.object({
   processId:z.string().uuid().optional(),
 }).strict().default({ origin:'global' }) }).strict();
 
-export async function GET() {
-  const scope=await requireAIChatUser(); if (scope instanceof NextResponse) return scope;
+export async function GET(request:NextRequest) {
+  const scope=await requireAIChatUser(request); if (scope instanceof NextResponse) return scope;
   try { return NextResponse.json({ conversations:await listConversations(scope) }); }
   catch(error) { return chatErrorResponse(error); }
 }
 
 export async function POST(request:NextRequest) {
-  const scope=await requireAIChatUser(); if (scope instanceof NextResponse) return scope;
+  const scope=await requireAIChatUser(request); if (scope instanceof NextResponse) return scope;
   try {
     const parsed=createSchema.safeParse(await request.json().catch(()=>({})));
     if (!parsed.success) return NextResponse.json({ error:{ code:'INVALID_REQUEST',message:'Invalid conversation context' } },{ status:400 });

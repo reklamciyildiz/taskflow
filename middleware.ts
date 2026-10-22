@@ -16,7 +16,12 @@ export async function middleware(request: NextRequest) {
     pathname === '/api/tasks' ||
     /^\/api\/tasks\/[^/]+$/.test(pathname) ||
     /^\/api\/planner\/(today|upcoming|routines|occurrences)$/.test(pathname) ||
-    pathname === '/api/schedules';
+    pathname === '/api/schedules' ||
+    pathname === '/api/knowledge' ||
+    pathname === '/api/ai/chat' ||
+    pathname === '/api/ai/conversations' ||
+    /^\/api\/ai\/conversations\/[^/]+$/.test(pathname) ||
+    /^\/api\/ai\/write-proposals\/[^/]+$/.test(pathname);
   const mobileOriginAllowed = Boolean(origin && allowedMobileOrigins.has(origin));
 
   if (mobileSharedApi && mobileOriginAllowed && request.method === 'OPTIONS') {

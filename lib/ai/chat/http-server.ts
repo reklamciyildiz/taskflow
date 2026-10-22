@@ -1,14 +1,14 @@
 import 'server-only';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { requireAuthedUser } from '@/lib/server-authz';
 import { isAIChatEnabled } from './config';
 import { isAIBetaScopeAllowed } from '@/lib/ai/beta-access';
 
-export async function requireAIChatUser() {
+export async function requireAIChatUser(request?: NextRequest) {
   if (!isAIChatEnabled()) {
     return NextResponse.json({ error:{ code:'FEATURE_DISABLED',message:'Axiom AI is not enabled' } },{ status:503 });
   }
-  const authed=await requireAuthedUser();
+  const authed=await requireAuthedUser(request);
   if (authed instanceof NextResponse) return authed;
   if (!authed.user.organization_id) {
     return NextResponse.json({ error:{ code:'FORBIDDEN',message:'Organization required' } },{ status:403 });

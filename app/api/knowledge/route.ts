@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const authed = await requireAuthedUser();
+    const authed = await requireAuthedUser(request);
     if (authed instanceof NextResponse) return authed;
     const teamAccess = await requireTeamMemberOrOrgAdmin(teamId, authed);
     if (teamAccess instanceof NextResponse) return teamAccess;

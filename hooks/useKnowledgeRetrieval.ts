@@ -16,6 +16,7 @@ interface UseKnowledgeRetrievalInput {
   teamId: string | null;
   /** Dashboard previews can bound Note payloads; Knowledge Hub intentionally omits it. */
   noteLimit?: number;
+  loadNotes?: (teamId: string, limit?: number) => ReturnType<typeof noteApi.getForKnowledge>;
 }
 
 export function useKnowledgeRetrieval({
@@ -24,6 +25,7 @@ export function useKnowledgeRetrieval({
   teams,
   teamId,
   noteLimit,
+  loadNotes: loadNotesOverride,
 }: UseKnowledgeRetrievalInput) {
   const [notes, setNotes] = useState<Note[]>([]);
   const [notesLoading, setNotesLoading] = useState(Boolean(teamId));
@@ -41,7 +43,7 @@ export function useKnowledgeRetrieval({
 
     setNotesLoading(true);
     setNotesError(null);
-    const result = await noteApi.getForKnowledge(teamId, noteLimit);
+    const result = await (loadNotesOverride ?? noteApi.getForKnowledge)(teamId, noteLimit);
     if (requestId !== requestRef.current) return;
     if (!result.success || !result.data) {
       setNotes([]);
@@ -51,7 +53,7 @@ export function useKnowledgeRetrieval({
     }
     setNotes(result.data);
     setNotesLoading(false);
-  }, [teamId, noteLimit]);
+  }, [teamId, noteLimit, loadNotesOverride]);
 
   useEffect(() => {
     void loadNotes();

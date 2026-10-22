@@ -15,7 +15,7 @@ import { useTaskContext } from '@/components/TaskContext';
 
 const suggestions=['What did I learn recently?','List the latest Actions in this Process','How does Planner scheduling work?'];
 
-function contextFromParams(params:ReturnType<typeof useSearchParams>):AIChatContext {
+function contextFromParams(params:Pick<URLSearchParams, 'get'>):AIChatContext {
   const teamId=params.get('teamId') ?? undefined,processId=params.get('processId') ?? undefined;
   return { origin:params.get('origin')==='knowledge_hub'?'knowledge_hub':'global',
     ...(teamId ? { teamId } : {}),...(processId ? { processId } : {}) };
@@ -33,9 +33,22 @@ function HistoryPanel(props:{ conversations:AIConversationSummary[];activeId:str
   </div>;
 }
 
-export function AxiomAIChat({ enabled }:{ enabled:boolean }) {
-  const { openTaskEditor,refreshData } = useTaskContext();
-  const params=useSearchParams(),context=useMemo(()=>contextFromParams(params),[params]);
+export type AxiomAIChatViewProps = {
+  enabled: boolean;
+  context?: AIChatContext;
+  request?: typeof fetch;
+  openTaskEditor: (taskId: string, checklistItemId?: string | null) => void;
+  refreshData: () => Promise<void>;
+};
+
+/** Platform-neutral AI presentation shared by Next.js and Capacitor. */
+export function AxiomAIChatView({
+  enabled,
+  context = { origin: 'global' },
+  request = fetch,
+  openTaskEditor,
+  refreshData,
+}: AxiomAIChatViewProps) {
   const [conversations,setConversations]=useState<AIConversationSummary[]>([]);
   const [conversationId,setConversationId]=useState<string|null>(null);
   const [messages,setMessages]=useState<AIChatMessage[]>([]);
@@ -45,27 +58,27 @@ export function AxiomAIChat({ enabled }:{ enabled:boolean }) {
 
   const refreshConversations=useCallback(async()=>{
     if (!enabled) return;
-    const response=await fetch('/api/ai/conversations',{ cache:'no-store' });
+    const response=await request('/api/ai/conversations',{ cache:'no-store' });
     if (response.ok) setConversations((await response.json()).conversations ?? []);
-  },[enabled]);
+  },[enabled,request]);
   useEffect(()=>{ void refreshConversations(); },[refreshConversations]);
   useEffect(()=>{ bottomRef.current?.scrollIntoView({ behavior:'smooth',block:'end' }); },[messages,loading]);
 
   const selectConversation=async(id:string)=>{
     if (loading) return; setConversationId(id);setHistoryOpen(false);
-    const response=await fetch(`/api/ai/conversations/${id}`,{ cache:'no-store' });
+    const response=await request(`/api/ai/conversations/${id}`,{ cache:'no-store' });
     if (!response.ok) { toast.error('Conversation could not be loaded');return; }
     setMessages((await response.json()).messages ?? []);
   };
   const newConversation=()=>{ if (!loading){ setConversationId(null);setMessages([]);setHistoryOpen(false); } };
   const renameConversation=async(item:AIConversationSummary)=>{
     const title=window.prompt('Conversation title',item.title)?.trim();if (!title||title===item.title) return;
-    const response=await fetch(`/api/ai/conversations/${item.id}`,{ method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({ title }) });
+    const response=await request(`/api/ai/conversations/${item.id}`,{ method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({ title }) });
     if (!response.ok) toast.error('Title could not be saved');else void refreshConversations();
   };
   const removeConversation=async(id:string)=>{
     if (!window.confirm('Delete this conversation?')) return;
-    const response=await fetch(`/api/ai/conversations/${id}`,{ method:'DELETE' });
+    const response=await request(`/api/ai/conversations/${id}`,{ method:'DELETE' });
     if (!response.ok) { toast.error('Conversation could not be deleted');return; }
     if (conversationId===id) newConversation();void refreshConversations();
   };
@@ -74,7 +87,7 @@ export function AxiomAIChat({ enabled }:{ enabled:boolean }) {
     if(!conversationId||proposalBusy) return;
     setProposalBusy(proposalId);
     try {
-      const response=await fetch(`/api/ai/write-proposals/${proposalId}`,{method:'POST',headers:{'Content-Type':'application/json'},
+      const response=await request(`/api/ai/write-proposals/${proposalId}`,{method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({conversationId,action})});
       const payload=await response.json().catch(()=>null);
       if(!response.ok) throw new Error(payload?.error?.message??'Proposal could not be processed');
@@ -92,7 +105,7 @@ export function AxiomAIChat({ enabled }:{ enabled:boolean }) {
     let activeConversation=conversationId;
     try {
       if (!activeConversation) {
-        const created=await fetch('/api/ai/conversations',{ method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ context }) });
+        const created=await request('/api/ai/conversations',{ method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ context }) });
         if (!created.ok) throw new Error((await created.json()).error?.message ?? 'Conversation could not be created');
         activeConversation=(await created.json()).conversation.id;setConversationId(activeConversation);
       }
@@ -101,7 +114,7 @@ export function AxiomAIChat({ enabled }:{ enabled:boolean }) {
         { id:optimisticUser,role:'user',content:message,status:'completed',model:null,createdAt:new Date().toISOString(),sources:[] },
         { id:optimisticAssistant,role:'assistant',content:'',status:'streaming',model:null,createdAt:new Date().toISOString(),sources:[] },
       ]);
-      const response=await fetch('/api/ai/chat',{ method:'POST',signal:controller.signal,headers:{'Content-Type':'application/json'},
+      const response=await request('/api/ai/chat',{ method:'POST',signal:controller.signal,headers:{'Content-Type':'application/json'},
         body:JSON.stringify({ conversationId:activeConversation,clientRequestId:requestId,message,context }) });
       if (!response.ok||!response.body) {
         const payload=await response.json().catch(()=>null);throw new Error(payload?.error?.message ?? 'Axiom AI is unavailable');
@@ -134,7 +147,7 @@ export function AxiomAIChat({ enabled }:{ enabled:boolean }) {
   const history=<HistoryPanel conversations={conversations} activeId={conversationId} onSelect={(id)=>void selectConversation(id)} onNew={newConversation} onRename={(item)=>void renameConversation(item)} onDelete={(id)=>void removeConversation(id)}/>;
   if(!enabled) return <div className="mx-auto flex min-h-[60vh] max-w-xl items-center justify-center"><div className="rounded-2xl border bg-card p-8 text-center"><Bot className="mx-auto mb-4 h-10 w-10 text-primary"/><h1 className="text-xl font-semibold">Axiom AI is not enabled</h1><p className="mt-2 text-sm text-muted-foreground">An administrator must verify the chat migration, atomic quota and provider configuration first.</p></div></div>;
 
-  return <div className="mx-auto flex h-[calc(100vh-8.5rem)] min-h-[520px] max-w-7xl overflow-hidden rounded-2xl border bg-card shadow-sm">
+  return <div className="axiom-ai-chat mx-auto flex h-[calc(100dvh-8.5rem)] min-h-[32rem] max-w-7xl overflow-hidden rounded-2xl border bg-card shadow-sm">
     <aside className="hidden w-72 shrink-0 border-r bg-muted/20 lg:block">{history}</aside>
     <section className="flex min-w-0 flex-1 flex-col">
       <header className="flex h-14 shrink-0 items-center gap-3 border-b px-3 sm:px-5">
@@ -165,4 +178,18 @@ export function AxiomAIChat({ enabled }:{ enabled:boolean }) {
       <footer className="shrink-0 border-t bg-background/90 p-3 backdrop-blur sm:p-4"><div className="mx-auto flex max-w-3xl items-end gap-2 rounded-2xl border bg-card p-2 shadow-sm"><Textarea value={input} onChange={(event)=>setInput(event.target.value)} placeholder="Ask Axiom AI…" aria-label="Message Axiom AI" rows={1} className="max-h-36 min-h-[42px] resize-none border-0 bg-transparent focus-visible:ring-0" onKeyDown={(event)=>{ if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();void send(input);} }}/>{loading?<Button size="icon" variant="destructive" aria-label="Stop generating" onClick={()=>abortRef.current?.abort()}><Square className="h-4 w-4 fill-current"/></Button>:<Button size="icon" aria-label="Send message" disabled={!input.trim()} onClick={()=>void send(input)}><Send className="h-4 w-4"/></Button>}</div><p className="mt-2 text-center text-[11px] text-muted-foreground">Axiom AI can make mistakes. Source cards are shown only after current access validation.</p></footer>
     </section>
   </div>;
+}
+
+export function AxiomAIChat({ enabled }:{ enabled:boolean }) {
+  const { openTaskEditor,refreshData } = useTaskContext();
+  const params=useSearchParams();
+  const context=useMemo(()=>contextFromParams(params),[params]);
+  return (
+    <AxiomAIChatView
+      enabled={enabled}
+      context={context}
+      openTaskEditor={openTaskEditor}
+      refreshData={refreshData}
+    />
+  );
 }

@@ -411,6 +411,31 @@
   gap: 1.25rem;
   margin-bottom: 1.25rem;
 }
+.planner-team-switcher {
+  display: grid;
+  width: min(17rem, 100%);
+  min-width: 0;
+  flex: none;
+  gap: 0.35rem;
+}
+.planner-team-switcher-label {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.planner-team-switcher-label svg { width: 0.85rem; height: 0.85rem; }
+.planner-team-switcher-trigger {
+  width: 100%;
+  min-height: 2.75rem;
+  color: hsl(var(--foreground));
+  background: hsl(var(--card) / 0.78);
+  box-shadow: none;
+}
 .planner-v2-hero h1 {
   margin-top: 0.35rem;
   font-size: clamp(1.75rem, 2.6vw, 2.35rem);
@@ -681,7 +706,8 @@
 
 @media (max-width: 767px) {
   .planner-v2::before { left: -10rem; width: 30rem; }
-  .planner-v2-hero { margin-bottom: 1rem; }
+  .planner-v2-hero { align-items: stretch; flex-direction: column; margin-bottom: 1rem; }
+  .planner-team-switcher { width: 100%; }
   .planner-v2-hero p { max-width: 23rem; }
   .planner-v2-capture { border-radius: 0.9rem; }
   .planner-v2-tabs { position: static; width: 100%; max-width: none; margin: 1.15rem 0 0.8rem; }

@@ -3,7 +3,7 @@ import { Capacitor } from '@capacitor/core';
 import { App as NativeApp } from '@capacitor/app';
 import { Network } from '@capacitor/network';
 import {
-  ArrowLeft, BookOpen, CalendarDays, CloudOff, Home,
+  ArrowLeft, Bot, BookOpen, CalendarDays, CloudOff, Home,
   LockKeyhole, LogOut, UserRound,
   ShieldCheck, Sparkles, Wifi,
 } from 'lucide-react';
@@ -16,14 +16,15 @@ import {
 import {
   completeGoogleSignIn, credentialsSignIn, ensureDeviceId, loadAction,
   googleOAuthAvailable, loadProcess, loadWorkspace, logout, mobileApiConfigured, restoreSession,
-  startGoogleSignIn,
+  startGoogleSignIn, authenticatedFetch,
 } from './mobile-api';
 import { PlannerV2View } from '../../components/planner/PlannerV2View';
 import { MobilePlannerRuntime } from './PlannerRuntimeAdapter';
-import { MobileKnowledge } from './MobileKnowledge';
+import { MobileKnowledgeHub } from './MobileKnowledgeHub';
 import { Toaster } from 'sonner';
+import { AxiomAIChatView } from '../../components/ai/AxiomAIChat';
 
-type Screen = 'booting' | 'signin' | 'workspace' | 'planner' | 'knowledge' | 'account' | 'process' | 'action';
+type Screen = 'booting' | 'signin' | 'workspace' | 'planner' | 'knowledge' | 'ai' | 'account' | 'process' | 'action';
 function todayLabel(): string {
   return new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'long', day: 'numeric' }).format(new Date());
 }
@@ -43,6 +44,11 @@ function initials(session: MobileSessionTokens): string {
   const source = session.user.name?.trim() || session.user.email;
   return source.split(/\s+|@/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join('');
 }
+
+const mobileAIRequest: typeof fetch = (input, init) => {
+  const path = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+  return authenticatedFetch(path, init);
+};
 
 export function App() {
   const [screen, setScreen] = useState<Screen>('booting');
@@ -72,7 +78,7 @@ export function App() {
     else void NativeApp.minimizeApp();
   }, [processDetail]);
 
-  const selectRoot = useCallback((next: Extract<Screen, 'workspace' | 'planner' | 'knowledge' | 'account'>) => {
+  const selectRoot = useCallback((next: Extract<Screen, 'workspace' | 'planner' | 'knowledge' | 'ai' | 'account'>) => {
     setProcessDetail(null);
     setActionDetail(null);
     setScreen(next);
@@ -243,7 +249,26 @@ export function App() {
         </MobilePlannerRuntime>
       ) : null}
 
-      {screen === 'knowledge' ? <MobileKnowledge onOpenAction={(id) => void openAction(id)} onError={setError} /> : null}
+      {screen === 'knowledge' ? (
+        <MobilePlannerRuntime onOpenAction={(id) => void openAction(id)} onError={setError}>
+          <MobileKnowledgeHub
+            onOpenAction={(id) => void openAction(id)}
+            onOpenAI={() => selectRoot('ai')}
+            onOpenBoard={() => selectRoot('workspace')}
+          />
+        </MobilePlannerRuntime>
+      ) : null}
+
+      {screen === 'ai' ? (
+        <section className="workspace mobile-product-view mobile-ai-view" aria-label="Axiom AI">
+          <AxiomAIChatView
+            enabled
+            request={mobileAIRequest}
+            openTaskEditor={(id) => void openAction(id)}
+            refreshData={async () => { await refreshWorkspace(); }}
+          />
+        </section>
+      ) : null}
 
       {screen === 'account' && session ? (
         <section className="workspace mobile-product-view account-view" aria-labelledby="mobile-account-title">
@@ -261,6 +286,7 @@ export function App() {
           <button type="button" className={screen === 'workspace' ? 'is-active' : ''} onClick={() => selectRoot('workspace')}><Home /><span>Home</span></button>
           <button type="button" className={screen === 'planner' ? 'is-active' : ''} onClick={() => selectRoot('planner')}><CalendarDays /><span>Planner</span></button>
           <button type="button" className={screen === 'knowledge' ? 'is-active' : ''} onClick={() => selectRoot('knowledge')}><BookOpen /><span>Knowledge</span></button>
+          <button type="button" className={screen === 'ai' ? 'is-active' : ''} onClick={() => selectRoot('ai')}><Bot /><span>AI</span></button>
           <button type="button" className={screen === 'account' ? 'is-active' : ''} onClick={() => selectRoot('account')}><UserRound /><span>Account</span></button>
         </nav>
       ) : <footer>{Capacitor.getPlatform()} · local bundle</footer>}

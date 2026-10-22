@@ -1,25 +1,44 @@
 ﻿:root {
-  color-scheme: dark;
-  --mobile-background: #0f172a;
-  --background-deep: #0b1324;
-  --mobile-foreground: #f8fafc;
-  --surface: rgb(30 41 59 / 72%);
-  --surface-solid: #182337;
-  --surface-soft: rgb(30 41 59 / 46%);
-  --mobile-muted: #94a3b8;
-  --muted-strong: #b7c4d6;
-  --mobile-border: rgb(148 163 184 / 16%);
-  --border-strong: rgb(148 163 184 / 25%);
-  --mobile-primary: #60a5fa;
-  --primary-soft: rgb(96 165 250 / 12%);
-  --mobile-secondary: #34d399;
-  --danger: #f87171;
-  --warning: #fbbf24;
+  color-scheme: light;
+  --mobile-background: hsl(var(--background));
+  --background-deep: #eef3f9;
+  --mobile-foreground: hsl(var(--foreground));
+  --surface: hsl(var(--card) / 88%);
+  --surface-solid: hsl(var(--card));
+  --surface-soft: hsl(var(--card) / 75%);
+  --mobile-muted: hsl(var(--muted-foreground));
+  --muted-strong: #334155;
+  --mobile-border: hsl(var(--border) / 70%);
+  --border-strong: hsl(var(--border));
+  --mobile-primary: hsl(var(--primary));
+  --primary-soft: hsl(var(--primary) / 9%);
+  --mobile-secondary: #10b981;
+  --danger: hsl(var(--destructive));
+  --warning: #f59e0b;
   color: var(--mobile-foreground);
   background: var(--mobile-background);
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
+}
+
+.dark {
+  color-scheme: dark;
+  --mobile-background: hsl(var(--background));
+  --background-deep: #0b1324;
+  --mobile-foreground: hsl(var(--foreground));
+  --surface: hsl(var(--card) / 72%);
+  --surface-solid: hsl(var(--card));
+  --surface-soft: hsl(var(--card) / 46%);
+  --mobile-muted: hsl(var(--muted-foreground));
+  --muted-strong: #b7c4d6;
+  --mobile-border: hsl(var(--border) / 72%);
+  --border-strong: hsl(var(--border));
+  --mobile-primary: hsl(var(--primary));
+  --primary-soft: hsl(var(--primary) / 12%);
+  --mobile-secondary: #34d399;
+  --danger: #f87171;
+  --warning: #fbbf24;
 }
 
 * { box-sizing: border-box; }
@@ -41,6 +60,7 @@ svg { width: 1rem; height: 1rem; stroke-width: 1.8; }
   background:
     radial-gradient(circle at 8% -10%, rgb(59 130 246 / 14%), transparent 32rem),
     linear-gradient(180deg, var(--background-deep), var(--mobile-background) 18rem);
+  color: var(--mobile-foreground);
 }
 
 .app-header {
@@ -274,7 +294,7 @@ footer { width: min(100%, 47rem); margin: 1.5rem auto 0; color: rgb(148 163 184 
   min-height: 4rem;
   margin: auto;
   padding: .35rem;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   border: 1px solid var(--border-strong);
   border-radius: 1.15rem;
   background: rgb(15 23 42 / 94%);
@@ -285,6 +305,11 @@ footer { width: min(100%, 47rem); margin: 1.5rem auto 0; color: rgb(148 163 184 
 .mobile-tab-bar button svg { width: 1.05rem; height: 1.05rem; }
 .mobile-tab-bar button.is-active { color: #dbeafe; background: var(--primary-soft); }
 .mobile-tab-bar button.is-active svg { color: var(--mobile-primary); }
+.mobile-ai-view { width: min(100%, 80rem); padding-top: 0; }
+.mobile-ai-view .axiom-ai-chat { height: calc(100dvh - 9.75rem - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+.mobile-knowledge-view { width: min(100%, 72rem); }
+.mobile-workspace-toolbar { display: flex; justify-content: flex-end; margin-bottom: 1rem; }
+.mobile-workspace-toolbar .planner-team-switcher { width: min(100%, 22rem); }
 
 .mobile-product-view { padding-top: .15rem; }
 .product-heading { display: flex; margin-bottom: 1.15rem; align-items: flex-start; justify-content: space-between; gap: .75rem; }
@@ -363,36 +388,17 @@ footer { width: min(100%, 47rem); margin: 1.5rem auto 0; color: rgb(148 163 184 
   .item-row { padding-right: .65rem; padding-left: .65rem; gap: .6rem; }
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color-scheme: light;
-    --mobile-background: #f8fafc;
-    --background-deep: #eef3f9;
-    --mobile-foreground: #0f172a;
-    --surface: rgb(255 255 255 / 88%);
-    --surface-solid: #ffffff;
-    --surface-soft: rgb(255 255 255 / 75%);
-    --mobile-muted: #64748b;
-    --muted-strong: #334155;
-    --mobile-border: rgb(51 65 85 / 11%);
-    --border-strong: rgb(51 65 85 / 18%);
-    --mobile-primary: #3b82f6;
-    --primary-soft: rgb(59 130 246 / 9%);
-    --mobile-secondary: #10b981;
-    --danger: #ef4444;
-    --warning: #f59e0b;
-  }
-  .mobile-shell { background: radial-gradient(circle at 8% -10%, rgb(59 130 246 / 10%), transparent 30rem), linear-gradient(180deg, #f5f8fc, var(--mobile-background) 18rem); }
-  .panel { box-shadow: inset 0 1px 0 #fff, 0 24px 60px -40px rgb(15 23 42 / 30%); }
-  input { background: #fff; }
-  .brand-mark { color: #fff; }
-  .overview-card { background: linear-gradient(135deg, rgb(59 130 246 / 9%), rgb(255 255 255 / 78%)); }
-  .row-icon { background: rgb(248 250 252 / 90%); }
-  .completion-mark.completed, .check.done { color: #fff; }
-  .mobile-tab-bar { background: rgb(255 255 255 / 94%); box-shadow: 0 18px 45px rgb(15 23 42 / 18%), inset 0 1px 0 #fff; }
-  .mobile-tab-bar button.is-active { color: #1e3a5f; }
-  .planner-check.is-complete { color: #fff; }
-}
+html:not(.dark) .mobile-shell { background: radial-gradient(circle at 8% -10%, rgb(59 130 246 / 10%), transparent 30rem), linear-gradient(180deg, #f5f8fc, var(--mobile-background) 18rem); }
+html:not(.dark) .panel { box-shadow: inset 0 1px 0 #fff, 0 24px 60px -40px rgb(15 23 42 / 30%); }
+html:not(.dark) input { background: #fff; }
+html:not(.dark) .brand-mark { color: #fff; }
+html:not(.dark) .overview-card { background: linear-gradient(135deg, rgb(59 130 246 / 9%), rgb(255 255 255 / 78%)); }
+html:not(.dark) .row-icon { background: rgb(248 250 252 / 90%); }
+html:not(.dark) .completion-mark.completed,
+html:not(.dark) .check.done { color: #fff; }
+html:not(.dark) .mobile-tab-bar { background: rgb(255 255 255 / 94%); box-shadow: 0 18px 45px rgb(15 23 42 / 18%), inset 0 1px 0 #fff; }
+html:not(.dark) .mobile-tab-bar button.is-active { color: #1e3a5f; }
+html:not(.dark) .planner-check.is-complete { color: #fff; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }

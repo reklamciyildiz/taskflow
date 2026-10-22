@@ -14,14 +14,17 @@ export function PlannerTeamSwitcher() {
   const { teams, currentTeam, setCurrentTeam, loading } = usePlannerRuntime();
 
   return (
-    <div className="flex min-w-0 items-center gap-2" aria-label="Planner workspace">
-      <Building2 className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+    <div className="planner-team-switcher" aria-label="Planner workspace">
+      <span className="planner-team-switcher-label">
+        <Building2 aria-hidden />
+        Workspace
+      </span>
       <Select
         value={currentTeam?.id}
         onValueChange={(teamId) => void setCurrentTeam(teamId)}
         disabled={loading || teams.length === 0}
       >
-        <SelectTrigger className="h-10 w-[min(17rem,62vw)] bg-card/55 shadow-none sm:w-64" aria-label="Select workspace">
+        <SelectTrigger className="planner-team-switcher-trigger" aria-label="Select workspace">
           <SelectValue placeholder={loading ? 'Loading workspaces…' : 'Select workspace'} />
         </SelectTrigger>
         <SelectContent align="end">

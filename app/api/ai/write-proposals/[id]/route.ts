@@ -8,7 +8,7 @@ export const runtime = 'nodejs';
 const bodySchema = z.object({ conversationId: z.string().uuid(), action: z.enum(['approve', 'reject']) }).strict();
 
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
-  const scope = await requireAIChatUser(); if (scope instanceof NextResponse) return scope;
+  const scope = await requireAIChatUser(request); if (scope instanceof NextResponse) return scope;
   if (!areAIWriteToolsEnabled()) return NextResponse.json({ error: { code: 'WRITE_TOOLS_DISABLED', message: 'AI write tools are not enabled' } }, { status: 404 });
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success || !z.string().uuid().safeParse(params.id).success) {

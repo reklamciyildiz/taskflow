@@ -86,7 +86,7 @@ function safeError(error:unknown,provider?:GroqChatProvider) {
 }
 
 export async function POST(request:NextRequest) {
-  const scope=await requireAIChatUser(); if (scope instanceof NextResponse) return scope;
+  const scope=await requireAIChatUser(request); if (scope instanceof NextResponse) return scope;
   if (!isAIChatRuntimeReady()) {
     return NextResponse.json({ error:{ code:'CHAT_NOT_READY',message:'Axiom AI requires verified provider and atomic quota configuration' } },{ status:503 });
   }
