@@ -112,6 +112,24 @@ Before a real staging login, apply `20261021010000_mobile_auth_foundation.sql` t
 
 Google OAuth requires an approved HTTPS host, an Android App Link intent filter, and matching `/.well-known/assetlinks.json`. Those deployment-bound files are intentionally not fabricated in the foundation build; add them after the staging host and signing certificate fingerprint are approved.
 
+Google availability is discovered from `/api/mobile/auth/google/status`; it is not a
+compile-time promise. The same local-bundle APK enables the system-browser button only
+after the backend has its Google client, HTTPS callback, encrypted OAuth state, and App
+Link configuration. Add the exact callback below to the existing Google Web OAuth
+client used by NextAuth:
+
+`https://axiom-mobile-staging.vercel.app/api/mobile/auth/google/callback`
+
+## Controlled production beta
+
+`npm run android:debug:production-beta` is gated by live checks for the
+production HTTPS API, Google OAuth status, bearer guard, CORS, and Android App
+Links. It packages the local React bundle and points only its public API origin
+at `https://getaxiomm.vercel.app`; it never uses `server.url`, localhost, ADB
+reverse, or staging. The production backend also enforces
+`AXIOM_MOBILE_AUTH_ALLOWED_USER_IDS`, so enabling the feature flag alone does
+not grant access to other users.
+
 The React/TypeScript client, mobile API contracts, and domain types are shared across Android and the future iOS target. Secure credential storage, verified links, push notifications, and platform lifecycle integrations remain small native adapters (Android Keystore/App Links versus iOS Keychain/Universal Links).
 
 ## Web/mobile UI sharing boundary

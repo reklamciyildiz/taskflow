@@ -2,7 +2,7 @@ import 'server-only';
 
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'crypto';
 import { google } from 'googleapis';
-import { MobileAuthError } from './server';
+import { mobileBetaAllowlistConfigured, MobileAuthError } from './server';
 
 function encryptionKey(): Buffer {
   const value = process.env.MOBILE_AUTH_ENCRYPTION_KEY;
@@ -30,13 +30,32 @@ export function mobileGoogleClient() {
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
   const redirectUri = process.env.MOBILE_GOOGLE_CALLBACK_URL;
   if (!clientId || !clientSecret || !redirectUri) throw new MobileAuthError('MOBILE_AUTH_NOT_CONFIGURED', 503, 'Mobile Google OAuth is not configured.');
+  const parsedRedirect = new URL(redirectUri);
+  if (parsedRedirect.protocol !== 'https:') throw new MobileAuthError('MOBILE_AUTH_NOT_CONFIGURED', 503, 'Mobile Google callback must use HTTPS.');
   return { clientId, redirectUri, client: new google.auth.OAuth2(clientId, clientSecret, redirectUri) };
 }
 
-export function mobileAppLinkUrl(): URL {
-  const raw = process.env.MOBILE_AUTH_APP_LINK_URL;
+export function mobileGoogleAuthConfigured(): boolean {
+  try {
+    if (process.env.AXIOM_MOBILE_AUTH_ENABLED !== 'true'
+      || !mobileBetaAllowlistConfigured()
+      || !process.env.MOBILE_AUTH_ENCRYPTION_KEY
+      || process.env.MOBILE_AUTH_ENCRYPTION_KEY.length < 32) return false;
+    mobileGoogleClient();
+    mobileAppLinkUrl();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function mobileAppLinkUrl(expected?: string): URL {
+  const raw = expected ?? process.env.MOBILE_AUTH_APP_LINK_URL;
   if (!raw) throw new MobileAuthError('MOBILE_AUTH_NOT_CONFIGURED', 503, 'Mobile App Link is not configured.');
   const url = new URL(raw);
   if (url.protocol !== 'https:') throw new MobileAuthError('MOBILE_AUTH_NOT_CONFIGURED', 503, 'Mobile App Link must use HTTPS.');
+  if (expected && expected !== process.env.MOBILE_AUTH_APP_LINK_URL) {
+    throw new MobileAuthError('INVALID_OAUTH_STATE', 400, 'OAuth redirect target is no longer valid.');
+  }
   return url;
 }

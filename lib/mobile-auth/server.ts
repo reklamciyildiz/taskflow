@@ -19,6 +19,29 @@ export function mobileAuthEnabled(): boolean {
   return process.env.AXIOM_MOBILE_AUTH_ENABLED === 'true';
 }
 
+function allowedUserIds(): Set<string> {
+  return new Set(
+    (process.env.AXIOM_MOBILE_AUTH_ALLOWED_USER_IDS ?? '')
+      .split(',')
+      .map((value) => value.trim().toLowerCase())
+      .filter((value) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(value)),
+  );
+}
+
+export function mobileBetaAllowlistConfigured(): boolean {
+  return allowedUserIds().size > 0;
+}
+
+export function mobileUserAllowed(userId: string): boolean {
+  return allowedUserIds().has(userId.toLowerCase());
+}
+
+export function assertMobileUserAllowed(userId: string): void {
+  if (!mobileUserAllowed(userId)) {
+    throw new MobileAuthError('MOBILE_BETA_ACCESS_DENIED', 403, 'This account is not enabled for the mobile beta.');
+  }
+}
+
 function pepper(): string {
   const value = process.env.MOBILE_AUTH_TOKEN_PEPPER;
   if (!value || value.length < 32) throw new MobileAuthError('MOBILE_AUTH_NOT_CONFIGURED', 503, 'Mobile authentication is not configured.');
@@ -59,6 +82,7 @@ export async function issueMobileSession(input: {
   platform: 'android' | 'ios';
   deviceId?: string | null;
 }): Promise<MobileSessionTokens> {
+  assertMobileUserAllowed(String(input.user.id));
   const accessToken = randomToken();
   const refreshToken = randomToken(48);
   const now = Date.now();
@@ -78,13 +102,22 @@ export async function issueMobileSession(input: {
 }
 
 export async function rotateMobileSession(refreshToken: string): Promise<MobileSessionTokens> {
+  const refreshTokenHash = hashSecret(refreshToken);
+  const { data: existing, error: existingError } = await supabaseAdmin
+    .from('mobile_auth_sessions')
+    .select('user_id')
+    .eq('refresh_token_hash', refreshTokenHash)
+    .maybeSingle();
+  if (existingError) throw existingError;
+  if (!existing?.user_id) throw new MobileAuthError('INVALID_REFRESH_TOKEN', 401, 'Refresh session is invalid or expired.');
+  assertMobileUserAllowed(String(existing.user_id));
   const accessToken = randomToken();
   const nextRefreshToken = randomToken(48);
   const now = Date.now();
   const accessTokenExpiresAt = new Date(now + ACCESS_TTL_MS).toISOString();
   const refreshTokenExpiresAt = new Date(now + REFRESH_TTL_MS).toISOString();
   const { data, error } = await supabaseAdmin.rpc('rotate_mobile_auth_session', {
-    p_refresh_token_hash: hashSecret(refreshToken),
+    p_refresh_token_hash: refreshTokenHash,
     p_new_access_token_hash: hashSecret(accessToken),
     p_new_refresh_token_hash: hashSecret(nextRefreshToken),
     p_access_expires_at: accessTokenExpiresAt,
@@ -97,6 +130,7 @@ export async function rotateMobileSession(refreshToken: string): Promise<MobileS
     throw new MobileAuthError(replayed ? 'REFRESH_REPLAY_DETECTED' : 'INVALID_REFRESH_TOKEN', 401, replayed ? 'Session revoked because a refresh token was reused.' : 'Refresh session is invalid or expired.');
   }
   const user = await userDb.getById(String(result.user_id));
+  assertMobileUserAllowed(String(user.id));
   return { accessToken, refreshToken: nextRefreshToken, accessTokenExpiresAt, refreshTokenExpiresAt, user: publicMobileUser(user) };
 }
 
@@ -119,6 +153,7 @@ export async function authenticateMobileRequest(request: NextRequest): Promise<M
   }
   const user = await userDb.getById(String(data.user_id));
   if (!user?.id) throw new MobileAuthError('UNAUTHORIZED', 401, 'User no longer exists.');
+  assertMobileUserAllowed(String(user.id));
   return { user, sessionId: String(data.id), accessTokenHash };
 }
 

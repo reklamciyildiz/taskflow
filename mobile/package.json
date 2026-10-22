@@ -9,6 +9,7 @@
     "build:android-staging": "tsc -b && vite build --mode android-staging",
     "verify:android-device-staging": "node scripts/verify-android-device-staging.mjs",
     "build:android-device-staging": "npm run verify:android-device-staging && tsc -b && vite build --mode android-device-staging",
+    "build:android-production-beta": "npm run verify:android-production-beta && tsc -b && vite build --mode android-production-beta",
     "preview": "vite preview",
     "cap:sync": "node scripts/require-android-build-target.mjs",
     "android:sync": "node scripts/require-android-build-target.mjs",
@@ -19,6 +20,9 @@
     "android:debug": "node scripts/require-android-build-target.mjs",
     "android:debug:staging": "npm run android:sync:staging && node scripts/build-android-debug.mjs && npm run android:connect:staging",
     "android:debug:device-staging": "npm run android:sync:device-staging && node scripts/build-android-device-staging.mjs",
+    "android:sync:production-beta": "npm run build:android-production-beta && cap sync android",
+    "android:debug:production-beta": "npm run android:sync:production-beta && node scripts/build-android-production-beta.mjs",
+    "verify:android-production-beta": "node scripts/verify-android-production-beta.mjs",
     "android:debug:web-diagnostic": "node scripts/build-android-web-diagnostic.mjs"
   },
   "dependencies": {

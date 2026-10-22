@@ -15,15 +15,13 @@ import {
 } from '../../shared/product-ui/AxiomWorkspaceViews';
 import {
   completeGoogleSignIn, credentialsSignIn, ensureDeviceId, loadAction,
-  loadProcess, loadWorkspace, logout, mobileApiConfigured, restoreSession,
+  googleOAuthAvailable, loadProcess, loadWorkspace, logout, mobileApiConfigured, restoreSession,
   startGoogleSignIn,
 } from './mobile-api';
 import { MobilePlanner } from './MobilePlanner';
 import { MobileKnowledge } from './MobileKnowledge';
 
 type Screen = 'booting' | 'signin' | 'workspace' | 'planner' | 'knowledge' | 'account' | 'process' | 'action';
-const googleOAuthEnabled = import.meta.env.VITE_AXIOM_GOOGLE_OAUTH_ENABLED === 'true';
-
 function todayLabel(): string {
   return new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'long', day: 'numeric' }).format(new Date());
 }
@@ -54,6 +52,8 @@ export function App() {
   const [online, setOnline] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [googleOAuthEnabled, setGoogleOAuthEnabled] = useState(false);
+  const [googleOAuthChecked, setGoogleOAuthChecked] = useState(false);
   const dateLabel = useMemo(todayLabel, []);
 
   useEffect(() => { screenRef.current = screen; }, [screen]);
@@ -96,6 +96,14 @@ export function App() {
     else void restoreSession()
       .then((tokens) => tokens ? enterWorkspace(tokens) : setScreen('signin'))
       .catch(() => setScreen('signin'));
+    if (mobileApiConfigured()) {
+      void googleOAuthAvailable()
+        .then(setGoogleOAuthEnabled)
+        .catch(() => setGoogleOAuthEnabled(false))
+        .finally(() => setGoogleOAuthChecked(true));
+    } else {
+      setGoogleOAuthChecked(true);
+    }
     return () => {
       active = false;
       void Promise.all([networkHandle, linkHandle, backHandle])
@@ -199,8 +207,8 @@ export function App() {
             <button className="primary" disabled={busy || !online || !mobileApiConfigured()}>{busy ? 'Signing in…' : 'Sign in'}</button>
           </form>
           <div className="divider"><span>or</span></div>
-          <button className="secondary" onClick={() => void startGoogleSignIn().catch((cause) => setError(cause instanceof Error ? cause.message : 'Google sign-in failed.'))} disabled={busy || !online || !mobileApiConfigured() || !googleOAuthEnabled}>{googleOAuthEnabled ? 'Continue with Google' : 'Google sign-in — setup pending'}</button>
-          {!googleOAuthEnabled ? <p className="security-note">Google sign-in will be enabled after the OAuth callback and Android App Link are verified.</p> : null}
+          <button className="secondary" onClick={() => void startGoogleSignIn().catch((cause) => setError(cause instanceof Error ? cause.message : 'Google sign-in failed.'))} disabled={busy || !online || !mobileApiConfigured() || !googleOAuthEnabled}>{googleOAuthEnabled ? 'Continue with Google' : googleOAuthChecked ? 'Google sign-in — setup pending' : 'Checking Google sign-in…'}</button>
+          {!googleOAuthEnabled && googleOAuthChecked ? <p className="security-note">Google sign-in will be enabled after the OAuth callback and Android App Link are verified.</p> : null}
           {error ? <div className="notice error" role="alert">{error}</div> : null}
           <p className="security-note secure-note"><ShieldCheck />Refresh credentials are protected by Android Keystore and never stored in localStorage.</p>
         </section>

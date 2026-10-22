@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { hashPkceVerifier, hashSecret, mobileAuthEnabled, MobileAuthError, mobileErrorResponse, mobileJson, mobileOptions, publicMobileUser, randomToken } from '@/lib/mobile-auth/server';
+import { assertMobileUserAllowed, hashPkceVerifier, hashSecret, mobileAuthEnabled, MobileAuthError, mobileErrorResponse, mobileJson, mobileOptions, publicMobileUser, randomToken } from '@/lib/mobile-auth/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { userDb } from '@/lib/db';
 
@@ -28,6 +28,12 @@ export async function POST(request: NextRequest) {
     const claimed = Array.isArray(data) ? data[0] : data;
     if (!claimed?.user_id) throw new MobileAuthError('INVALID_AUTHORIZATION_CODE', 401, 'Authorization code is invalid, expired, or already used.');
     const user = await userDb.getById(String(claimed.user_id));
+    try {
+      assertMobileUserAllowed(String(user.id));
+    } catch (allowlistError) {
+      await supabaseAdmin.rpc('revoke_mobile_auth_session', { p_access_token_hash: hashSecret(accessToken) });
+      throw allowlistError;
+    }
     return mobileJson(request, { success: true, data: { accessToken, refreshToken, accessTokenExpiresAt, refreshTokenExpiresAt, user: publicMobileUser(user) } });
   } catch (error) { return mobileErrorResponse(request, error); }
 }

@@ -3,6 +3,7 @@ import GoogleProvider from 'next-auth/providers/google';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import { syncUserToSupabaseAuth } from '@/lib/supabase-auth';
 import bcrypt from 'bcryptjs';
+import { bindVerifiedGoogleIdentity } from '@/lib/mobile-auth/identity';
 
 // Lazy import - only load at runtime
 function getUserDb() {
@@ -185,8 +186,14 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
     async signIn({ user, account }) {
-      // Allow all sign-ins - onboarding will handle new user setup
       if (!user.email) return false;
+      if (account?.provider === 'google') {
+        if (!account.providerAccountId) return false;
+        const binding = await bindVerifiedGoogleIdentity(user.email, account.providerAccountId);
+        // A user without a canonical row still follows the existing onboarding
+        // path. Existing users fail closed if the provider identity conflicts.
+        if (binding === 'conflict') return false;
+      }
       return true;
     },
     async redirect({ url, baseUrl }) {

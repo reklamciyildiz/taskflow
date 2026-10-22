@@ -83,12 +83,24 @@ export async function startGoogleSignIn() {
   await Browser.open({ url, presentationStyle: 'popover' });
 }
 
+export async function googleOAuthAvailable(): Promise<boolean> {
+  const response = await mobileFetch('/api/mobile/auth/google/status');
+  const result = await parse<{ enabled: boolean }>(response);
+  return result.enabled === true;
+}
+
 export async function completeGoogleSignIn(callbackUrl: string) {
   const url = new URL(callbackUrl);
   const code = url.searchParams.get('code');
+  const providerError = url.searchParams.get('error');
   const returnedState = url.searchParams.get('state');
   const [verifier, expectedState] = await Promise.all([secureSession.get('oauthVerifier'), secureSession.get('oauthState')]);
-  if (!code || !verifier || !returnedState || returnedState !== expectedState) throw new Error('Google sign-in callback validation failed.');
+  if (!verifier || !returnedState || returnedState !== expectedState) throw new Error('Google sign-in callback validation failed.');
+  if (providerError) {
+    await Promise.all([secureSession.remove('oauthVerifier'), secureSession.remove('oauthState'), Browser.close().catch(() => undefined)]);
+    throw new Error(providerError === 'access_denied' ? 'Google sign-in was cancelled.' : 'Google sign-in could not be completed.');
+  }
+  if (!code) throw new Error('Google sign-in callback validation failed.');
   const response = await mobileFetch('/api/mobile/auth/exchange', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ code, codeVerifier: verifier, platform: platform(), deviceId: await ensureDeviceId() }),
