@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Separator } from '@/components/ui/separator';
 import { CheckSquare, Mail, Lock, Loader2 } from 'lucide-react';
 import Link from 'next/link';
+import { requestNativeGoogleSignIn } from '@/lib/client/native-shell';
 
 export function SignInClient({
   callbackUrl,
@@ -53,6 +54,7 @@ export function SignInClient({
   const handleGoogleSignIn = async () => {
     setIsGoogleLoading(true);
     try {
+      if (requestNativeGoogleSignIn(callbackUrl)) return;
       await signIn('google', { callbackUrl });
     } catch (error) {
       console.error('Google sign in error:', error);

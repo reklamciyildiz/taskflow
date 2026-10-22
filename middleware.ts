@@ -61,6 +61,7 @@ export async function middleware(request: NextRequest) {
     '/auth/error',
     '/manifest.webmanifest',
     '/.well-known/assetlinks.json',
+    '/.well-known/apple-app-site-association',
     '/api/auth',
     // Mobile endpoints authenticate with their own short-lived bearer/session guard.
     // Keeping them out of NextAuth cookie middleware does not make them anonymous:

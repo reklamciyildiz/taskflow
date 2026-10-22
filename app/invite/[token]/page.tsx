@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useSession, signIn } from 'next-auth/react';
 import { useRouter, useParams } from 'next/navigation';
 import { Users, Loader2, CheckCircle2, XCircle, Building2 } from 'lucide-react';
+import { requestNativeGoogleSignIn } from '@/lib/client/native-shell';
 
 interface InvitationDetails {
   id: string;
@@ -99,6 +100,7 @@ export default function InvitePage() {
     if (!session?.user) {
       // Store token and redirect to sign in
       sessionStorage.setItem('pendingInviteToken', token);
+      if (requestNativeGoogleSignIn(`/invite/${token}`)) return;
       signIn('google', { callbackUrl: `/invite/${token}` });
       return;
     }
