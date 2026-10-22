@@ -36,7 +36,10 @@ if (preflight.status !== 204 || preflight.headers['access-control-allow-origin']
   throw new Error(`Production credentials preflight is not ready (HTTP ${preflight.status ?? 'unknown'}).`);
 }
 
-const sharedApiPaths = ['/api/knowledge', '/api/ai/conversations'];
+const sharedApiPaths = [
+  '/api/knowledge?teamId=00000000-0000-0000-0000-000000000000',
+  '/api/ai/conversations',
+];
 for (const path of sharedApiPaths) {
   const sharedPreflight = await request(path, {
     method: 'OPTIONS',
