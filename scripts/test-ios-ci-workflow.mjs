@@ -16,6 +16,7 @@ assert.match(workflow, /xcrun simctl io.*screenshot/);
 assert.match(workflow, /Axiom-Simulator\.app\.zip/);
 assert.match(workflow, /AxiomBuild\.xcresult/);
 assert.match(workflow, /retention-days: 7/);
+assert.doesNotMatch(workflow, /\$\{\{ runner\.temp \}\}/);
 assert.doesNotMatch(workflow, /APP_STORE|API_KEY|PRIVATE_KEY|PROVISIONING|CERTIFICATE/);
 assert.match(project, /^schemes:\r?\n  Axiom:/m);
 

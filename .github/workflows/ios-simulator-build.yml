@@ -17,11 +17,12 @@ jobs:
     timeout-minutes: 30
     env:
       IOS_PROJECT_DIR: ios/AxiomIOS
-      DERIVED_DATA: ${{ runner.temp }}/AxiomDerivedData
-      BUILD_LOG: ${{ runner.temp }}/axiom-xcodebuild.log
-      RESULT_BUNDLE: ${{ runner.temp }}/AxiomBuild.xcresult
-      SCREENSHOT: ${{ runner.temp }}/axiom-simulator-launch.png
-      APP_ARCHIVE: ${{ runner.temp }}/Axiom-Simulator.app.zip
+      CI_OUTPUT: ${{ github.workspace }}/.ci
+      DERIVED_DATA: ${{ github.workspace }}/.ci/AxiomDerivedData
+      BUILD_LOG: ${{ github.workspace }}/.ci/axiom-xcodebuild.log
+      RESULT_BUNDLE: ${{ github.workspace }}/.ci/AxiomBuild.xcresult
+      SCREENSHOT: ${{ github.workspace }}/.ci/axiom-simulator-launch.png
+      APP_ARCHIVE: ${{ github.workspace }}/.ci/Axiom-Simulator.app.zip
 
     steps:
       - name: Check out source
@@ -31,14 +32,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          mkdir -p "${CI_OUTPUT}"
           sw_vers
-          xcodebuild -version | tee "${RUNNER_TEMP}/xcode-version.txt"
+          xcodebuild -version | tee "${CI_OUTPUT}/xcode-version.txt"
           XCODE_MAJOR="$(xcodebuild -version | awk '/Xcode/{split($2,v,"."); print v[1]}')"
           if [ "${XCODE_MAJOR}" -lt 26 ]; then
             echo "Xcode 26 or newer is required; found $(xcodebuild -version | head -1)." >&2
             exit 1
           fi
-          xcrun simctl list runtimes | tee "${RUNNER_TEMP}/simulator-runtimes.txt"
+          xcrun simctl list runtimes | tee "${CI_OUTPUT}/simulator-runtimes.txt"
 
       - name: Verify iOS security contracts
         run: npm run ios:check
@@ -104,7 +106,7 @@ jobs:
         shell: bash
         run: |
           if [ -n "${DEVICE_UDID:-}" ]; then
-            xcrun simctl spawn "${DEVICE_UDID}" log show --style compact --last 5m --predicate 'process == "Axiom"' > "${RUNNER_TEMP}/axiom-simulator.log" || true
+            xcrun simctl spawn "${DEVICE_UDID}" log show --style compact --last 5m --predicate 'process == "Axiom"' > "${CI_OUTPUT}/axiom-simulator.log" || true
             xcrun simctl shutdown "${DEVICE_UDID}" || true
             xcrun simctl delete "${DEVICE_UDID}" || true
           fi
@@ -117,10 +119,10 @@ jobs:
           retention-days: 7
           if-no-files-found: warn
           path: |
-            ${{ runner.temp }}/Axiom-Simulator.app.zip
-            ${{ runner.temp }}/AxiomBuild.xcresult
-            ${{ runner.temp }}/axiom-xcodebuild.log
-            ${{ runner.temp }}/axiom-simulator-launch.png
-            ${{ runner.temp }}/axiom-simulator.log
-            ${{ runner.temp }}/xcode-version.txt
-            ${{ runner.temp }}/simulator-runtimes.txt
+            ${{ github.workspace }}/.ci/Axiom-Simulator.app.zip
+            ${{ github.workspace }}/.ci/AxiomBuild.xcresult
+            ${{ github.workspace }}/.ci/axiom-xcodebuild.log
+            ${{ github.workspace }}/.ci/axiom-simulator-launch.png
+            ${{ github.workspace }}/.ci/axiom-simulator.log
+            ${{ github.workspace }}/.ci/xcode-version.txt
+            ${{ github.workspace }}/.ci/simulator-runtimes.txt
