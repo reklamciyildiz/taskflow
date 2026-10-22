@@ -21,6 +21,39 @@ export type AxiomActionListItem = {
   completed?: boolean;
 };
 
+export function AxiomChecklistProgress({
+  completed,
+  total,
+  compact = false,
+}: {
+  completed: number;
+  total: number;
+  compact?: boolean;
+}) {
+  const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
+  const complete = total > 0 && completed === total;
+  return (
+    <div className={`axiom-checklist-progress${compact ? ' is-compact' : ''}`}>
+      {!compact ? (
+        <div className="axiom-checklist-progress-copy">
+          <span>Checklist progress</span>
+          <strong>{completed}/{total}</strong>
+        </div>
+      ) : null}
+      <div
+        className="axiom-checklist-progress-track"
+        role="progressbar"
+        aria-label="Checklist progress"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={percentage}
+      >
+        <span className={complete ? 'is-complete' : undefined} style={{ width: `${percentage}%` }} />
+      </div>
+    </div>
+  );
+}
+
 function EntityButton({
   icon,
   title,

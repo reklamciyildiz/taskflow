@@ -8,7 +8,7 @@ import {
   type UserWorkspacePreferences,
 } from '@/lib/user-preferences';
 
-type PreferencesContextValue = UserWorkspacePreferences & {
+export type PreferencesContextValue = UserWorkspacePreferences & {
   loading: boolean;
   actionPanelTabOrderByTask: Record<string, ActionPanelTabOrder>;
   loadActionPanelTabOrder: (taskId: string) => Promise<void>;
@@ -25,6 +25,16 @@ const fallback: PreferencesContextValue = {
   setProcessOrder: async () => false,
 };
 const UserPreferencesContext = createContext<PreferencesContextValue>(fallback);
+
+export function UserPreferencesRuntimeProvider({
+  value,
+  children,
+}: {
+  value: PreferencesContextValue;
+  children: React.ReactNode;
+}) {
+  return <UserPreferencesContext.Provider value={value}>{children}</UserPreferencesContext.Provider>;
+}
 
 async function requestPreferences<T = UserWorkspacePreferences>(init?: RequestInit, taskId?: string) {
   const url = taskId

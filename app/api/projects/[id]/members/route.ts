@@ -1,25 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { projectDb, projectMemberDb, teamMemberDb, userDb } from '@/lib/db';
+import { projectDb, projectMemberDb, teamMemberDb } from '@/lib/db';
 import { ApiResponse } from '@/lib/types';
+import { requireAuthedUser } from '@/lib/server-authz';
 
 function isTeamAdmin(m: any): boolean {
   return m?.role === 'admin';
 }
 
 // GET /api/projects/[id]/members - list explicit project members
-export async function GET(_request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
-      return NextResponse.json<ApiResponse<null>>(
-        { success: false, error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
-
-    const user: any = await userDb.getByEmail(session.user.email);
+    const authed = await requireAuthedUser(request);
+    if (authed instanceof NextResponse) return authed;
+    const user: any = authed.user;
     if (!user) {
       return NextResponse.json<ApiResponse<null>>({ success: false, error: 'User not found' }, { status: 404 });
     }
@@ -57,15 +50,9 @@ export async function GET(_request: NextRequest, { params }: { params: { id: str
 // PUT /api/projects/[id]/members - replace membership list (team admin only)
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
-      return NextResponse.json<ApiResponse<null>>(
-        { success: false, error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
-
-    const user: any = await userDb.getByEmail(session.user.email);
+    const authed = await requireAuthedUser(request);
+    if (authed instanceof NextResponse) return authed;
+    const user: any = authed.user;
     if (!user) {
       return NextResponse.json<ApiResponse<null>>({ success: false, error: 'User not found' }, { status: 404 });
     }

@@ -89,7 +89,7 @@ export type BoardScope =
   | { type: 'general' }
   | { type: 'project'; projectId: string };
 
-interface TaskContextType {
+export interface TaskContextType {
   tasks: Task[];
   teams: Team[];
   projects: Project[];
@@ -168,6 +168,21 @@ interface TaskContextType {
 }
 
 const TaskContext = createContext<TaskContextType | undefined>(undefined);
+
+/**
+ * Platform-neutral provider for clients that reuse Axiom's real task UI with a
+ * non-NextAuth transport (Capacitor). The web app continues to use TaskProvider;
+ * both render the same TaskContext consumers and canonical UI components.
+ */
+export function TaskRuntimeProvider({
+  value,
+  children,
+}: {
+  value: TaskContextType;
+  children: React.ReactNode;
+}) {
+  return <TaskContext.Provider value={value}>{children}</TaskContext.Provider>;
+}
 
 function lastTeamStorageKey(organizationId: string | null | undefined, userId: string | null | undefined): string | null {
   if (!organizationId || !userId) return null;

@@ -154,17 +154,17 @@ svg { width: 1rem; height: 1rem; stroke-width: 1.8; }
 
 .hero-icon { width: 2.7rem; height: 2.7rem; margin-bottom: 1.1rem; border-radius: .85rem; color: var(--mobile-primary); background: var(--primary-soft); }
 .eyebrow, .date-label { margin: 0; color: var(--mobile-primary); font-size: .64rem; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
-h1, h2, h3, p { overflow-wrap: anywhere; }
-h1 { margin: .42rem 0 0; font-size: clamp(1.8rem, 8vw, 2.45rem); line-height: 1.08; letter-spacing: -.045em; }
-h2 { margin: .2rem 0 0; font-size: .96rem; line-height: 1.25; letter-spacing: -.015em; }
+.mobile-shell h1, .mobile-shell h2, .mobile-shell h3, .mobile-shell p { overflow-wrap: anywhere; }
+.auth-panel h1, .account-view h1 { margin: .42rem 0 0; font-size: clamp(1.8rem, 8vw, 2.45rem); line-height: 1.08; letter-spacing: -.045em; }
+.auth-panel h2, .account-view h2 { margin: .2rem 0 0; font-size: .96rem; line-height: 1.25; letter-spacing: -.015em; }
 .summary { margin: .65rem 0 0; color: var(--mobile-muted); font-size: .82rem; line-height: 1.55; }
 
-form { display: grid; gap: 1rem; margin-top: 1.5rem; }
-label { display: grid; gap: .45rem; color: var(--muted-strong); font-size: .74rem; font-weight: 650; }
-input { width: 100%; min-height: 3.15rem; padding: 0 .95rem; border: 1px solid var(--border-strong); border-radius: .78rem; outline: none; color: var(--mobile-foreground); background: rgb(11 19 36 / 62%); }
-input:focus { border-color: var(--mobile-primary); box-shadow: 0 0 0 3px rgb(96 165 250 / 13%); }
-button { min-height: 2.75rem; border: 0; border-radius: .75rem; cursor: pointer; font-weight: 720; }
-button:disabled { cursor: not-allowed; opacity: .52; }
+.auth-panel form { display: grid; gap: 1rem; margin-top: 1.5rem; }
+.auth-panel label { display: grid; gap: .45rem; color: var(--muted-strong); font-size: .74rem; font-weight: 650; }
+.auth-panel input { width: 100%; min-height: 3.15rem; padding: 0 .95rem; border: 1px solid var(--border-strong); border-radius: .78rem; outline: none; color: var(--mobile-foreground); background: rgb(11 19 36 / 62%); }
+.auth-panel input:focus { border-color: var(--mobile-primary); box-shadow: 0 0 0 3px rgb(96 165 250 / 13%); }
+.auth-panel button, .app-header button, .account-view button { min-height: 2.75rem; border: 0; border-radius: .75rem; cursor: pointer; font-weight: 720; }
+.mobile-shell button:disabled { cursor: not-allowed; opacity: .52; }
 .primary { min-height: 3.15rem; color: #07101f; background: var(--mobile-primary); box-shadow: 0 12px 28px -18px rgb(96 165 250 / 85%); }
 .secondary { width: 100%; min-height: 3.15rem; color: var(--mobile-foreground); border: 1px solid var(--border-strong); background: var(--surface-soft); }
 .divider { display: flex; align-items: center; gap: .8rem; margin: 1rem 0; color: #708198; font-size: .68rem; }
@@ -308,10 +308,14 @@ footer { width: min(100%, 47rem); margin: 1.5rem auto 0; color: rgb(148 163 184 
 .mobile-ai-view { width: min(100%, 80rem); padding-top: 0; }
 .mobile-ai-view .axiom-ai-chat { height: calc(100dvh - 9.75rem - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
 .mobile-knowledge-view { width: min(100%, 72rem); }
-.mobile-workspace-toolbar { display: flex; justify-content: flex-end; margin-bottom: 1rem; }
+.mobile-workspace-toolbar { display: flex; width: min(100%, 90rem); margin: 0 auto 1rem; justify-content: flex-end; }
 .mobile-workspace-toolbar .planner-team-switcher { width: min(100%, 22rem); }
 
 .mobile-product-view { padding-top: .15rem; }
+.mobile-pwa-view { width: min(100%, 90rem); padding-bottom: calc(6.25rem + env(safe-area-inset-bottom)); }
+.mobile-pwa-view .dashboard-v2 { padding-right: 0; padding-left: 0; }
+.mobile-board-view { min-width: 0; overflow-x: clip; }
+.mobile-board-view > * { min-width: 0; max-width: 100%; }
 .product-heading { display: flex; margin-bottom: 1.15rem; align-items: flex-start; justify-content: space-between; gap: .75rem; }
 .product-heading > div { min-width: 0; }
 .product-heading .eyebrow { display: flex; align-items: center; gap: .4rem; }

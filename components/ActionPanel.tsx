@@ -87,7 +87,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { WorkSchedulePicker } from "@/components/schedule/WorkSchedulePicker";
-import { AxiomChecklistProgress } from "@/shared/product-ui/AxiomWorkspaceViews";
+import { AxiomChecklistProgress } from "@/shared/product-ui/AxiomWorkspaceLists";
 import {
   Dialog,
   DialogContent,
@@ -1355,7 +1355,7 @@ function ActionPanelContent({
                         <textarea
                           value={description}
                           disabled={!canEdit}
-                          enterKeyHint="enter"
+                          {...({ enterKeyHint: "enter" } as any)}
                           onChange={(e) => {
                             const v = e.target.value;
                             setDescription(v);

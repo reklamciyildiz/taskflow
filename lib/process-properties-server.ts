@@ -1,5 +1,5 @@
 import 'server-only';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin as db } from './supabase-admin';
 import { projectDb } from './db';
 import { isOrgAdmin, requireAuthedUser, requireTeamMemberOrOrgAdmin } from './server-authz';
@@ -21,9 +21,9 @@ export function propertyErrorResponse(error: unknown) {
   return NextResponse.json({ error: 'Properties could not be loaded or saved.' }, { status: 500 });
 }
 
-export async function requireProcessPropertyAccess(projectId: string, teamId: string | null, manage = false) {
+export async function requireProcessPropertyAccess(projectId: string, teamId: string | null, manage = false, request?: NextRequest) {
   if (!z.string().uuid().safeParse(projectId).success || !z.string().uuid().safeParse(teamId).success) throw new PropertyError('Select a valid process and team');
-  const authed = await requireAuthedUser();
+  const authed = await requireAuthedUser(request);
   if (authed instanceof NextResponse) return authed;
   const scope = await requireTeamMemberOrOrgAdmin(teamId!, authed);
   if (scope instanceof NextResponse) return scope;
@@ -94,11 +94,13 @@ export async function mutateProcessProperty(projectId: string, input: unknown) {
   }
 }
 
-export async function setActionProperty(taskId: string, input: unknown) {
+export async function setActionProperty(taskId: string, input: unknown, request?: NextRequest) {
   if (!z.string().uuid().safeParse(taskId).success) throw new PropertyError('Invalid Action');
   const command = propertyValueSchema.parse(input);
   // Reuse existing Action organization/team/viewer/project-visibility authorization unchanged.
-  const access = await requireTaskNoteAccess(taskId, { mutate: true });
+  const authed = await requireAuthedUser(request);
+  if (authed instanceof NextResponse) return authed;
+  const access = await requireTaskNoteAccess(taskId, { mutate: true }, authed);
   if (access instanceof NextResponse) return access;
   const projectId = access.task.project_id;
   if (!projectId) throw new PropertyError('General Actions do not have process properties');

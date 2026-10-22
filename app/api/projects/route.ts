@@ -1,28 +1,21 @@
 import { stageErrorMessage } from '@/lib/stage-server';
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { projectDb, teamMemberDb, userDb } from '@/lib/db';
+import { projectDb, teamMemberDb } from '@/lib/db';
 import { ApiResponse } from '@/lib/types';
 import { getOrganizationEntitlements, getPlanLimits } from '@/lib/entitlements';
+import { requireAuthedUser } from '@/lib/server-authz';
 
 // GET /api/projects — list projects for the signed-in user's organization
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const authed = await requireAuthedUser(request);
+    if (authed instanceof NextResponse) return authed;
+    const user: any = authed.user;
     const { searchParams } = new URL(request.url);
     const organizationIdParam = searchParams.get('organizationId');
     const teamIdParam = searchParams.get('teamId');
 
     let organizationId = organizationIdParam;
-    if (!session?.user?.email) {
-      return NextResponse.json<ApiResponse<null>>(
-        { success: false, error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
-
-    const user: any = await userDb.getByEmail(session.user.email);
     if (!user?.id) {
       return NextResponse.json<ApiResponse<null>>(
         { success: false, error: 'User not found' },
@@ -84,7 +77,9 @@ export async function GET(request: NextRequest) {
 // POST /api/projects — create a new project (process/pipeline) in the signed-in user's organization
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const authed = await requireAuthedUser(request);
+    if (authed instanceof NextResponse) return authed;
+    const user: any = authed.user;
     const body = await request.json().catch(() => null);
 
     const name = typeof body?.name === 'string' ? body.name.trim() : '';
@@ -105,13 +100,6 @@ export async function POST(request: NextRequest) {
 
     let organizationId = organizationIdParam;
     let createdBy: string | null = null;
-    if (!session?.user?.email) {
-      return NextResponse.json<ApiResponse<null>>(
-        { success: false, error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
-    const user: any = await userDb.getByEmail(session.user.email);
     if (!user?.id) {
       return NextResponse.json<ApiResponse<null>>(
         { success: false, error: 'User not found' },

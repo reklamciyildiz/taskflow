@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { App as NativeApp } from '@capacitor/app';
 import { Network } from '@capacitor/network';
@@ -7,15 +7,10 @@ import {
   LockKeyhole, LogOut, UserRound,
   ShieldCheck, Sparkles, Wifi,
 } from 'lucide-react';
-import type { MobileActionDetail, MobileProcessDetail, MobileSessionTokens, MobileWorkspace } from '../../shared/mobile-contracts';
+import type { MobileSessionTokens } from '../../shared/mobile-contracts';
 import {
-  AxiomActionView,
-  AxiomProcessView,
-  AxiomWorkspaceDashboard,
-} from '../../shared/product-ui/AxiomWorkspaceViews';
-import {
-  completeGoogleSignIn, credentialsSignIn, ensureDeviceId, loadAction,
-  googleOAuthAvailable, loadProcess, loadWorkspace, logout, mobileApiConfigured, restoreSession,
+  completeGoogleSignIn, credentialsSignIn, ensureDeviceId,
+  googleOAuthAvailable, logout, mobileApiConfigured, restoreSession,
   startGoogleSignIn, authenticatedFetch,
 } from './mobile-api';
 import { PlannerV2View } from '../../components/planner/PlannerV2View';
@@ -23,23 +18,13 @@ import { MobilePlannerRuntime } from './PlannerRuntimeAdapter';
 import { MobileKnowledgeHub } from './MobileKnowledgeHub';
 import { Toaster } from 'sonner';
 import { AxiomAIChatView } from '../../components/ai/AxiomAIChat';
+import { DashboardV2 } from '../../components/dashboard/DashboardV2';
+import { TaskBoard } from '../../components/TaskBoard';
+import { ActionPanel } from '../../components/ActionPanel';
+import { useTaskContext } from '../../components/TaskContext';
+import { PlannerTeamSwitcher } from '../../components/planner/PlannerTeamSwitcher';
 
-type Screen = 'booting' | 'signin' | 'workspace' | 'planner' | 'knowledge' | 'ai' | 'account' | 'process' | 'action';
-function todayLabel(): string {
-  return new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'long', day: 'numeric' }).format(new Date());
-}
-
-function greeting(): string {
-  const hour = new Date().getHours();
-  if (hour < 12) return 'Good morning';
-  if (hour < 18) return 'Good afternoon';
-  return 'Good evening';
-}
-
-function firstName(session: MobileSessionTokens): string {
-  return session.user.name?.trim().split(/\s+/)[0] || session.user.email.split('@')[0];
-}
-
+type Screen = 'booting' | 'signin' | 'workspace' | 'planner' | 'knowledge' | 'ai' | 'account' | 'process';
 function initials(session: MobileSessionTokens): string {
   const source = session.user.name?.trim() || session.user.email;
   return source.split(/\s+|@/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join('');
@@ -50,37 +35,124 @@ const mobileAIRequest: typeof fetch = (input, init) => {
   return authenticatedFetch(path, init);
 };
 
+function MobileProductContent({
+  screen,
+  session,
+  busy,
+  selectRoot,
+  signOut,
+}: {
+  screen: Screen;
+  session: MobileSessionTokens;
+  busy: boolean;
+  selectRoot: (screen: Extract<Screen, 'workspace' | 'planner' | 'knowledge' | 'ai' | 'account'>) => void;
+  signOut: () => Promise<void>;
+}) {
+  const {
+    tasks,
+    editingTaskId,
+    openTaskEditor,
+    closeTaskEditor,
+    setBoardScope,
+    refreshData,
+  } = useTaskContext();
+  const editingTask = editingTaskId ? tasks.find((task) => task.id === editingTaskId) ?? null : null;
+
+  useEffect(() => {
+    const navigate = (event: Event) => {
+      const path = String((event as CustomEvent<{ path?: string }>).detail?.path ?? '');
+      const url = new URL(path || '/', 'https://mobile.axiom.local');
+      if (url.pathname === '/planner') selectRoot('planner');
+      else if (url.pathname === '/dashboard/knowledge-hub') selectRoot('knowledge');
+      else if (url.pathname === '/ai') selectRoot('ai');
+      else if (url.pathname === '/board' || url.pathname === '/dashboard/processes') {
+        const projectId = url.searchParams.get('project');
+        setBoardScope(projectId ? { type: 'project', projectId } : { type: 'general' });
+        window.dispatchEvent(new CustomEvent('axiom-mobile:set-screen', { detail: { screen: 'process' } }));
+      } else if (url.pathname === '/' || url.pathname === '/dashboard') selectRoot('workspace');
+    };
+    const openAction = (event: Event) => {
+      const taskId = String((event as CustomEvent<{ taskId?: string }>).detail?.taskId ?? '');
+      if (taskId) openTaskEditor(taskId);
+    };
+    const back = (event: Event) => {
+      if (!editingTaskId) return;
+      event.preventDefault();
+      closeTaskEditor();
+    };
+    window.addEventListener('axiom-mobile:navigate', navigate);
+    window.addEventListener('axiom-mobile:open-action', openAction);
+    window.addEventListener('axiom-mobile:back', back);
+    return () => {
+      window.removeEventListener('axiom-mobile:navigate', navigate);
+      window.removeEventListener('axiom-mobile:open-action', openAction);
+      window.removeEventListener('axiom-mobile:back', back);
+    };
+  }, [closeTaskEditor, editingTaskId, openTaskEditor, selectRoot, setBoardScope]);
+
+  return (
+    <>
+      {(screen === 'workspace' || screen === 'process') ? (
+        <div className="mobile-workspace-toolbar"><PlannerTeamSwitcher /></div>
+      ) : null}
+      {screen === 'workspace' ? <section className="workspace mobile-pwa-view"><DashboardV2 /></section> : null}
+      {screen === 'process' ? <section className="workspace mobile-pwa-view mobile-board-view"><TaskBoard /></section> : null}
+      {screen === 'planner' ? <PlannerV2View /> : null}
+      {screen === 'knowledge' ? (
+        <MobileKnowledgeHub
+          onOpenAction={openTaskEditor}
+          onOpenAI={() => selectRoot('ai')}
+          onOpenBoard={() => selectRoot('workspace')}
+        />
+      ) : null}
+      {screen === 'ai' ? (
+        <section className="workspace mobile-product-view mobile-ai-view" aria-label="Axiom AI">
+          <AxiomAIChatView
+            enabled
+            request={mobileAIRequest}
+            openTaskEditor={openTaskEditor}
+            refreshData={refreshData}
+          />
+        </section>
+      ) : null}
+      {screen === 'account' ? (
+        <section className="workspace mobile-product-view account-view" aria-labelledby="mobile-account-title">
+          <div className="account-hero"><span className="account-avatar">{initials(session)}</span><p className="eyebrow">Secure session</p><h1 id="mobile-account-title">{session.user.name || 'Axiom account'}</h1><p className="summary">{session.user.email}</p></div>
+          <div className="account-security"><ShieldCheck /><div><strong>Protected on this device</strong><span>Refresh credentials are encrypted by Android Keystore. Workspace access still follows Axiom organization, team, and Process permissions.</span></div></div>
+          <button className="account-logout" type="button" onClick={() => void signOut()} disabled={busy}><LogOut />Log out of this device</button>
+        </section>
+      ) : null}
+      <ActionPanel task={editingTask} open={Boolean(editingTask)} onClose={closeTaskEditor} />
+    </>
+  );
+}
+
 export function App() {
   const [screen, setScreen] = useState<Screen>('booting');
   const screenRef = useRef<Screen>('booting');
   const [session, setSession] = useState<MobileSessionTokens | null>(null);
-  const [workspace, setWorkspace] = useState<MobileWorkspace | null>(null);
-  const [processDetail, setProcessDetail] = useState<MobileProcessDetail | null>(null);
-  const [actionDetail, setActionDetail] = useState<MobileActionDetail | null>(null);
   const [online, setOnline] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [googleOAuthEnabled, setGoogleOAuthEnabled] = useState(false);
   const [googleOAuthChecked, setGoogleOAuthChecked] = useState(false);
-  const dateLabel = useMemo(todayLabel, []);
 
   useEffect(() => { screenRef.current = screen; }, [screen]);
 
   const enterWorkspace = useCallback(async (tokens: MobileSessionTokens) => {
     setSession(tokens);
-    setWorkspace(await loadWorkspace());
     setScreen('workspace');
   }, []);
 
   const goBack = useCallback(() => {
-    if (screenRef.current === 'action' && processDetail) setScreen('process');
-    else if (screenRef.current === 'action' || screenRef.current === 'process') setScreen('workspace');
+    const event = new CustomEvent('axiom-mobile:back', { cancelable: true });
+    window.dispatchEvent(event);
+    if (event.defaultPrevented) return;
+    if (screenRef.current === 'process') setScreen('workspace');
     else void NativeApp.minimizeApp();
-  }, [processDetail]);
+  }, []);
 
   const selectRoot = useCallback((next: Extract<Screen, 'workspace' | 'planner' | 'knowledge' | 'ai' | 'account'>) => {
-    setProcessDetail(null);
-    setActionDetail(null);
     setScreen(next);
     window.scrollTo({ top: 0 });
   }, []);
@@ -100,6 +172,11 @@ export function App() {
         .finally(() => setBusy(false));
     });
     const backHandle = NativeApp.addListener('backButton', goBack);
+    const setScreenFromSharedUi = (event: Event) => {
+      const next = (event as CustomEvent<{ screen?: Screen }>).detail?.screen;
+      if (next) setScreen(next);
+    };
+    window.addEventListener('axiom-mobile:set-screen', setScreenFromSharedUi);
     if (!mobileApiConfigured()) setScreen('signin');
     else void restoreSession()
       .then((tokens) => tokens ? enterWorkspace(tokens) : setScreen('signin'))
@@ -116,6 +193,7 @@ export function App() {
       active = false;
       void Promise.all([networkHandle, linkHandle, backHandle])
         .then((handles) => Promise.all(handles.map((handle) => handle.remove())));
+      window.removeEventListener('axiom-mobile:set-screen', setScreenFromSharedUi);
     };
   }, [enterWorkspace, goBack]);
 
@@ -133,54 +211,10 @@ export function App() {
     }
   }
 
-  async function refreshWorkspace() {
-    setBusy(true);
-    setError(null);
-    try {
-      setWorkspace(await loadWorkspace());
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Workspace could not be refreshed.');
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function openProcess(processId: string) {
-    setBusy(true);
-    setError(null);
-    try {
-      setProcessDetail(await loadProcess(processId));
-      setActionDetail(null);
-      setScreen('process');
-      window.scrollTo({ top: 0 });
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Process could not be loaded.');
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function openAction(actionId: string) {
-    setBusy(true);
-    setError(null);
-    try {
-      setActionDetail(await loadAction(actionId));
-      setScreen('action');
-      window.scrollTo({ top: 0 });
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Action could not be loaded.');
-    } finally {
-      setBusy(false);
-    }
-  }
-
   async function signOut() {
     setBusy(true);
     await logout();
     setSession(null);
-    setWorkspace(null);
-    setProcessDetail(null);
-    setActionDetail(null);
     setScreen('signin');
     setBusy(false);
   }
@@ -190,7 +224,7 @@ export function App() {
   return (
     <main className={`mobile-shell screen-${screen}`}>
       <header className="app-header">
-        {screen === 'process' || screen === 'action' ? (
+        {screen === 'process' ? (
           <button className="icon-button" type="button" onClick={goBack} aria-label="Go back"><ArrowLeft /></button>
         ) : <span className="brand-mark" aria-hidden="true"><Sparkles /></span>}
         <div className="brand-copy"><strong>Axiom</strong><span>{authenticated ? 'Mobile workspace' : 'Secure workspace'}</span></div>
@@ -222,60 +256,19 @@ export function App() {
         </section>
       ) : null}
 
-      {screen === 'workspace' && session && workspace ? (
-        <AxiomWorkspaceDashboard
-          workspace={workspace}
-          dateLabel={dateLabel}
-          greeting={`${greeting()}, ${firstName(session)}`}
-          onRefresh={() => void refreshWorkspace()}
-          onOpenProcess={(id) => void openProcess(id)}
-          onOpenAction={(id) => void openAction(id)}
-          busy={busy}
-          footer={<button className="logout-button" type="button" onClick={() => void signOut()} disabled={busy}><LogOut />Log out of this device</button>}
-        />
-      ) : null}
-
-      {screen === 'process' && processDetail ? (
-        <AxiomProcessView detail={processDetail} onOpenAction={(id) => void openAction(id)} busy={busy} />
-      ) : null}
-
-      {screen === 'action' && actionDetail ? (
-        <AxiomActionView detail={actionDetail} />
-      ) : null}
-
-      {screen === 'planner' ? (
-        <MobilePlannerRuntime onOpenAction={(id) => void openAction(id)} onError={setError}>
-          <PlannerV2View />
-        </MobilePlannerRuntime>
-      ) : null}
-
-      {screen === 'knowledge' ? (
-        <MobilePlannerRuntime onOpenAction={(id) => void openAction(id)} onError={setError}>
-          <MobileKnowledgeHub
-            onOpenAction={(id) => void openAction(id)}
-            onOpenAI={() => selectRoot('ai')}
-            onOpenBoard={() => selectRoot('workspace')}
+      {authenticated && session ? (
+        <MobilePlannerRuntime
+          onOpenAction={(taskId) => window.dispatchEvent(new CustomEvent('axiom-mobile:open-action', { detail: { taskId } }))}
+          onError={setError}
+        >
+          <MobileProductContent
+            screen={screen}
+            session={session}
+            busy={busy}
+            selectRoot={selectRoot}
+            signOut={signOut}
           />
         </MobilePlannerRuntime>
-      ) : null}
-
-      {screen === 'ai' ? (
-        <section className="workspace mobile-product-view mobile-ai-view" aria-label="Axiom AI">
-          <AxiomAIChatView
-            enabled
-            request={mobileAIRequest}
-            openTaskEditor={(id) => void openAction(id)}
-            refreshData={async () => { await refreshWorkspace(); }}
-          />
-        </section>
-      ) : null}
-
-      {screen === 'account' && session ? (
-        <section className="workspace mobile-product-view account-view" aria-labelledby="mobile-account-title">
-          <div className="account-hero"><span className="account-avatar">{initials(session)}</span><p className="eyebrow">Secure session</p><h1 id="mobile-account-title">{session.user.name || 'Axiom account'}</h1><p className="summary">{session.user.email}</p></div>
-          <div className="account-security"><ShieldCheck /><div><strong>Protected on this device</strong><span>Refresh credentials are encrypted by Android Keystore. Workspace access still follows Axiom organization, team, and Process permissions.</span></div></div>
-          <button className="account-logout" type="button" onClick={() => void signOut()} disabled={busy}><LogOut />Log out of this device</button>
-        </section>
       ) : null}
 
       {busy && authenticated ? <div className="busy-indicator" role="status"><div className="spinner" /><span>Updating workspace…</span></div> : null}

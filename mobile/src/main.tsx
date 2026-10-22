@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { App } from './App';
+import { installSharedMobileFetchAdapter } from './mobile-api';
 import '../../app/globals.css';
 import './mobile.css';
 
@@ -22,6 +23,7 @@ const applyTheme = ({ matches }: Pick<MediaQueryList, 'matches'>) => {
 
 applyTheme(systemTheme);
 systemTheme.addEventListener('change', applyTheme);
+installSharedMobileFetchAdapter();
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

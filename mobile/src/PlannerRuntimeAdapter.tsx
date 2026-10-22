@@ -1,6 +1,12 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { PlannerRuntimeProvider, type PlannerRuntime } from '../../components/planner/PlannerRuntime';
-import { canCompleteTask, canEditTask, type Role } from '../../lib/permissions';
+import { TaskRuntimeProvider, type BoardScope, type FilterType, type TaskContextType } from '../../components/TaskContext';
+import {
+  UserPreferencesRuntimeProvider,
+  type PreferencesContextValue,
+} from '../../components/UserPreferencesContext';
+import { DEFAULT_USER_WORKSPACE_PREFERENCES, type ActionPanelTabOrder } from '../../lib/user-preferences';
+import { canCompleteTask, canDeleteTask, canEditTask, getPermissions, type Role } from '../../lib/permissions';
 import {
   FALLBACK_BOARD_COLUMNS,
   parseColumnConfigFromJson,
@@ -118,6 +124,15 @@ export function MobilePlannerRuntime({ children, onOpenAction, onError }: {
 }) {
   const [payload, setPayload] = useState<ContextPayload | null>(null);
   const [loading, setLoading] = useState(true);
+  const [boardScope, setBoardScopeState] = useState<BoardScope>({ type: 'general' });
+  const [generalBoardColumns, setGeneralBoardColumns] = useState(FALLBACK_BOARD_COLUMNS);
+  const [filter, setFilter] = useState<FilterType>(null);
+  const [customerFilter, setCustomerFilter] = useState<string | null>(null);
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [actionPanelTabOrderByTask, setActionPanelTabOrderByTask] = useState<Record<string, ActionPanelTabOrder>>({});
+  const [processOrderByTeam, setProcessOrderByTeam] = useState<Record<string, string[]>>({});
+  const suppressEditorUntil = useRef(0);
+  const checklistFocus = useRef<{ taskId: string; checklistItemId: string } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -147,6 +162,10 @@ export function MobilePlannerRuntime({ children, onOpenAction, onError }: {
     };
   }, [currentTeam, payload?.user]);
   const role: Role = currentUser?.role === 'viewer' ? 'viewer' : currentUser?.role === 'admin' ? 'admin' : 'member';
+  const boardProject = boardScope.type === 'project'
+    ? projects.find((project) => project.id === boardScope.projectId) ?? null
+    : null;
+  const boardColumns = boardProject?.columnConfig?.length ? boardProject.columnConfig : generalBoardColumns;
 
   const plannerApi = useMemo(() => ({
     getToday: (input: { date: string; teamId: string; timeZone: string }) => response<any>(`/api/planner/today?${new URLSearchParams(input)}`),
@@ -214,5 +233,159 @@ export function MobilePlannerRuntime({ children, onOpenAction, onError }: {
     scheduleApi: scheduleApi as PlannerRuntime['scheduleApi'],
   }), [currentTeam, currentUser, loading, onError, onOpenAction, payload, plannerApi, projects, role, scheduleApi, tasks, teams]);
 
-  return <PlannerRuntimeProvider runtime={runtime}>{children}</PlannerRuntimeProvider>;
+  const refreshData = useCallback(async () => {
+    const selectedTeamId = payload?.team?.id ? String(payload.team.id) : readSelectedTeamId(payload ?? { teams: [], team: null, projects: [], tasks: [], user: null });
+    const next = await loadPlannerContext(selectedTeamId ?? undefined) as ContextPayload;
+    setPayload(next);
+  }, [payload]);
+
+  const updateTask = useCallback(async (id: string, updates: TaskUpdateFields) => {
+    try {
+      const updated = await authenticatedRequest<any>(`/api/tasks/${encodeURIComponent(id)}`, {
+        method: 'PATCH', body: JSON.stringify(taskUpdates(updates)),
+      });
+      setPayload((current) => current ? {
+        ...current,
+        tasks: current.tasks.map((task) => String(task.id) === id ? updated : task),
+      } : current);
+      return true;
+    } catch (error) {
+      onError(error instanceof Error ? error.message : 'Action could not be updated.');
+      return false;
+    }
+  }, [onError]);
+
+  const addTask = useCallback<TaskContextType['addTask']>(async (input) => {
+    const created = await authenticatedRequest<any>('/api/tasks', {
+      method: 'POST',
+      body: JSON.stringify({
+        title: input.title, description: input.description, status: input.status, priority: input.priority,
+        dueDate: input.dueDate?.toISOString(), assigneeId: input.assigneeId, customerId: input.customerId,
+        teamId: input.teamId, projectId: input.projectId,
+      }),
+    });
+    setPayload((current) => current ? { ...current, tasks: [created, ...current.tasks] } : current);
+    return taskFromApi(created);
+  }, []);
+
+  const setBoardScope = useCallback((next: BoardScope) => {
+    setBoardScopeState(next);
+  }, []);
+
+  const openBoardForProject = useCallback((projectId: string) => {
+    setBoardScopeState({ type: 'project', projectId });
+    window.dispatchEvent(new CustomEvent('axiom-mobile:navigate', {
+      detail: { path: `/board?project=${encodeURIComponent(projectId)}` },
+    }));
+  }, []);
+
+  const openTaskEditor = useCallback((taskId: string, checklistItemId?: string | null) => {
+    if (Date.now() < suppressEditorUntil.current) return;
+    if (checklistItemId) checklistFocus.current = { taskId, checklistItemId };
+    setEditingTaskId(taskId);
+  }, []);
+
+  const unsupported = useCallback(async () => {
+    throw new Error('This workspace administration operation is not available in the mobile shell.');
+  }, []);
+
+  const taskRuntime = useMemo<TaskContextType>(() => ({
+    tasks,
+    teams,
+    projects,
+    customers: [],
+    currentTeam,
+    currentProject: boardProject,
+    boardScope,
+    boardProject,
+    boardColumns,
+    generalBoardColumns,
+    currentUser,
+    currentUserRole: role,
+    permissions: getPermissions(role),
+    organizationName: '',
+    organizationId: payload?.user?.organization_id ?? payload?.user?.organizationId ?? null,
+    customerDirectoryLabel: 'Customers',
+    customerSingularLabel: 'Customer',
+    updateCustomerTerminology: () => undefined,
+    loading,
+    error: null,
+    filter,
+    customerFilter,
+    setFilter,
+    setCustomerFilter,
+    setCurrentProjectId: (projectId) => setBoardScopeState(projectId ? { type: 'project', projectId } : { type: 'general' }),
+    openBoardForProject,
+    setBoardScope,
+    setGeneralBoardColumns,
+    addTask,
+    updateTask,
+    applyTaskUpdates: async (items) => {
+      const results = await Promise.all(items.map((item) => updateTask(item.id, item.changes)));
+      return results.every(Boolean);
+    },
+    deleteTask: async (id) => {
+      await authenticatedRequest(`/api/tasks/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      setPayload((current) => current ? { ...current, tasks: current.tasks.filter((task) => String(task.id) !== id) } : current);
+      setEditingTaskId((current) => current === id ? null : current);
+    },
+    setCurrentTeam: (teamId) => { void runtime.setCurrentTeam(teamId); setBoardScopeState({ type: 'general' }); },
+    addTeam: unsupported,
+    createTeam: unsupported,
+    updateTeam: unsupported,
+    updateMemberRole: unsupported,
+    addMember: unsupported,
+    updateMember: unsupported,
+    removeMember: unsupported,
+    getTeamMembers: (teamId) => teams.find((team) => team.id === teamId)?.members ?? [],
+    inviteMember: unsupported,
+    moveMember: unsupported,
+    addMemberToTeam: unsupported,
+    updateOrganization: unsupported,
+    refreshData,
+    fetchCustomers: async () => undefined,
+    addCustomer: unsupported,
+    updateCustomer: unsupported,
+    deleteCustomer: unsupported,
+    canEditTask: (creatorId, assigneeId) => Boolean(currentUser && canEditTask(role, currentUser.id, creatorId, assigneeId)),
+    canDeleteTask: (creatorId) => Boolean(currentUser && canDeleteTask(role, currentUser.id, creatorId)),
+    canCompleteTask: (assigneeId) => Boolean(currentUser && canCompleteTask(role, currentUser.id, assigneeId)),
+    editingTaskId,
+    openTaskEditor,
+    openActionEditor: (taskId) => openTaskEditor(taskId),
+    closeTaskEditor: () => setEditingTaskId(null),
+    suppressTaskEditorOpenFor: (ms) => { suppressEditorUntil.current = Date.now() + ms; },
+    consumeChecklistFocusForTask: (taskId) => {
+      if (checklistFocus.current?.taskId !== taskId) return null;
+      const id = checklistFocus.current.checklistItemId;
+      checklistFocus.current = null;
+      return id;
+    },
+  }), [addTask, boardColumns, boardProject, boardScope, currentTeam, currentUser, customerFilter, editingTaskId, filter, generalBoardColumns, loading, openBoardForProject, openTaskEditor, payload?.user, projects, refreshData, role, runtime, setBoardScope, tasks, teams, unsupported, updateTask]);
+
+  const preferencesRuntime = useMemo<PreferencesContextValue>(() => ({
+    ...DEFAULT_USER_WORKSPACE_PREFERENCES,
+    processOrderByTeam,
+    loading: false,
+    actionPanelTabOrderByTask,
+    loadActionPanelTabOrder: async () => undefined,
+    setActionPanelTabOrder: async (taskId, order) => {
+      setActionPanelTabOrderByTask((current) => ({ ...current, [taskId]: order }));
+      return true;
+    },
+    setProcessOrder: async (teamId, projectIds) => {
+      setProcessOrderByTeam((current) => ({ ...current, [teamId]: projectIds }));
+      return true;
+    },
+  }), [actionPanelTabOrderByTask, processOrderByTeam]);
+
+  return (
+    <PlannerRuntimeProvider runtime={runtime}>
+      <TaskRuntimeProvider value={taskRuntime}>
+        <UserPreferencesRuntimeProvider value={preferencesRuntime}>
+          {children}
+        </UserPreferencesRuntimeProvider>
+      </TaskRuntimeProvider>
+    </PlannerRuntimeProvider>
+  );
 }

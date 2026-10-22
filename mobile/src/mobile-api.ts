@@ -1,17 +1,12 @@
-import type {
-  MobileActionDetail,
-  MobileKnowledgeEntry,
-  MobilePlannerToday,
-  MobileProcessDetail,
-  MobileSessionTokens,
-  MobileWorkspace,
-} from '../../shared/mobile-contracts';
+import type { MobileKnowledgeEntry, MobilePlannerToday, MobileSessionTokens } from '../../shared/mobile-contracts';
 import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
 import { secureSession } from './secure-session';
 
 const apiBase = (import.meta.env.VITE_AXIOM_API_ORIGIN ?? '').replace(/\/$/, '');
 let accessToken: string | null = null;
+const platformFetch = globalThis.fetch.bind(globalThis);
+let sharedFetchInstalled = false;
 
 function endpoint(path: string) {
   if (!apiBase) throw new Error('Mobile API environment is not configured.');
@@ -24,7 +19,7 @@ function platform(): 'android' | 'ios' {
 
 async function mobileFetch(path: string, init?: RequestInit): Promise<Response> {
   try {
-    return await fetch(endpoint(path), init);
+    return await platformFetch(endpoint(path), init);
   } catch (error) {
     if (error instanceof TypeError) {
       const localHint = import.meta.env.MODE === 'android-staging'
@@ -52,8 +47,30 @@ async function acceptTokens(tokens: MobileSessionTokens) {
 
 async function parse<T>(response: Response): Promise<T> {
   const payload = await response.json().catch(() => null);
-  if (!response.ok || !payload?.success) throw new Error(payload?.error?.message ?? `Request failed (${response.status})`);
+  if (!response.ok || !payload?.success) {
+    const message = typeof payload?.error === 'string' ? payload.error : payload?.error?.message;
+    throw new Error(message ?? `Request failed (${response.status})`);
+  }
   return payload.data as T;
+}
+
+/**
+ * Lets the real PWA client components keep their canonical relative `/api/*`
+ * calls. Only those calls are adapted to the production HTTPS backend and the
+ * short-lived mobile bearer session; external URLs retain the platform fetch.
+ */
+export function installSharedMobileFetchAdapter() {
+  if (sharedFetchInstalled) return;
+  sharedFetchInstalled = true;
+  globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
+    const raw = typeof input === 'string'
+      ? input
+      : input instanceof URL
+        ? input.toString()
+        : input.url;
+    if (raw.startsWith('/api/')) return authenticatedFetch(raw, init);
+    return platformFetch(input, init);
+  }) as typeof fetch;
 }
 
 export async function credentialsSignIn(email: string, password: string) {
@@ -149,9 +166,6 @@ export async function authenticatedRequest<T>(path: string, init?: RequestInit):
   return parse<T>(await authenticatedFetch(path, init));
 }
 
-export async function loadWorkspace() { return authenticatedGet<MobileWorkspace>('/api/mobile/workspace'); }
-export async function loadProcess(processId: string) { return authenticatedGet<MobileProcessDetail>(`/api/mobile/processes/${encodeURIComponent(processId)}`); }
-export async function loadAction(actionId: string) { return authenticatedGet<MobileActionDetail>(`/api/mobile/actions/${encodeURIComponent(actionId)}`); }
 export async function loadPlannerToday(date: string, timeZone: string) {
   const query = new URLSearchParams({ date, timeZone });
   return authenticatedGet<MobilePlannerToday>(`/api/mobile/planner/today?${query}`);

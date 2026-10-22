@@ -19,6 +19,9 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         '@': fileURLToPath(new URL('../', import.meta.url)),
+        'next/link': fileURLToPath(new URL('./src/platform/next-link.tsx', import.meta.url)),
+        'next/navigation': fileURLToPath(new URL('./src/platform/next-navigation.ts', import.meta.url)),
+        'next-auth/react': fileURLToPath(new URL('./src/platform/next-auth-react.tsx', import.meta.url)),
         react: fileURLToPath(new URL('../node_modules/react', import.meta.url)),
         'react-dom': fileURLToPath(new URL('../node_modules/react-dom', import.meta.url)),
       },

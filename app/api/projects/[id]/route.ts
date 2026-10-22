@@ -1,9 +1,8 @@
 import { stageErrorMessage } from '@/lib/stage-server';
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { projectDb, teamMemberDb, userDb } from '@/lib/db';
+import { projectDb, teamMemberDb } from '@/lib/db';
 import { ApiResponse } from '@/lib/types';
+import { requireAuthedUser } from '@/lib/server-authz';
 
 // PATCH /api/projects/[id] — update existing project (name, team, column_config)
 export async function PATCH(
@@ -11,15 +10,10 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions);
+    const authed = await requireAuthedUser(request);
+    if (authed instanceof NextResponse) return authed;
+    const user: any = authed.user;
     const body = await request.json().catch(() => null);
-
-    if (!session?.user?.email) {
-      return NextResponse.json<ApiResponse<null>>(
-        { success: false, error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
 
     const existing = await projectDb.getById(params.id);
     if (!existing) {
@@ -43,7 +37,6 @@ export async function PATCH(
         : undefined;
 
     // Optional: shallow authorization by organization
-    const user: any = await userDb.getByEmail(session.user.email);
     if (user?.organization_id && existing.organization_id !== user.organization_id) {
       return NextResponse.json<ApiResponse<null>>(
         { success: false, error: 'Forbidden' },
@@ -94,17 +87,13 @@ export async function PATCH(
 
 // DELETE /api/projects/[id] — delete a project
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
-      return NextResponse.json<ApiResponse<null>>(
-        { success: false, error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
+    const authed = await requireAuthedUser(request);
+    if (authed instanceof NextResponse) return authed;
+    const user: any = authed.user;
 
     const existing = await projectDb.getById(params.id);
     if (!existing) {
@@ -114,7 +103,6 @@ export async function DELETE(
       );
     }
 
-    const user: any = await userDb.getByEmail(session.user.email);
     if (user?.organization_id && existing.organization_id !== user.organization_id) {
       return NextResponse.json<ApiResponse<null>>(
         { success: false, error: 'Forbidden' },
