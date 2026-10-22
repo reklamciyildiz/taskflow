@@ -1,10 +1,8 @@
 import { stageErrorMessage } from '@/lib/stage-server';
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { taskDb, notificationDb, userDb, teamMemberDb, projectDb } from '@/lib/db';
 import { ApiResponse } from '@/lib/types';
-import { canMutateTeamTasks, viewerCannotMutateTasksResponse } from '@/lib/server-authz';
+import { canMutateTeamTasks, requireAuthedUser, viewerCannotMutateTasksResponse } from '@/lib/server-authz';
 import { triggerWebhook } from '@/lib/webhook-trigger';
 import { TaskCreatedPayload, TaskAssignedPayload } from '@/lib/webhooks';
 import { sendPushToUser } from '@/lib/push';
@@ -24,20 +22,15 @@ import { extractChecklistItemsFromTipTap } from '@/lib/tiptap-parser';
 // GET /api/tasks - Get all tasks (optionally filtered by teamId or organizationId)
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const authed = await requireAuthedUser(request);
+    if (authed instanceof NextResponse) return authed;
     const { searchParams } = new URL(request.url);
     const teamId = searchParams.get('teamId');
     const organizationId = searchParams.get('organizationId');
 
     let tasks: any[];
     if (teamId) {
-      if (!session?.user?.email) {
-        return NextResponse.json<ApiResponse<null>>(
-          { success: false, error: 'Authentication required' },
-          { status: 401 }
-        );
-      }
-      const user: any = await userDb.getByEmail(session.user.email);
+      const user: any = authed.user;
       if (!user) {
         return NextResponse.json<ApiResponse<null>>(
           { success: false, error: 'User not found' },
@@ -70,13 +63,7 @@ export async function GET(request: NextRequest) {
       });
     } else if (organizationId) {
       // Only org admins can list an entire organization across teams.
-      if (!session?.user?.email) {
-        return NextResponse.json<ApiResponse<null>>(
-          { success: false, error: 'Authentication required' },
-          { status: 401 }
-        );
-      }
-      const user: any = await userDb.getByEmail(session.user.email);
+      const user: any = authed.user;
       if (!user?.organization_id || user.organization_id !== organizationId) {
         return NextResponse.json<ApiResponse<null>>(
           { success: false, error: 'Forbidden' },
@@ -114,12 +101,10 @@ export async function GET(request: NextRequest) {
 // POST /api/tasks - Create a new task
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
     const body = await request.json();
 
-    if (!session?.user?.email) {
-      return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
-    }
+    const authed = await requireAuthedUser(request);
+    if (authed instanceof NextResponse) return authed;
 
     if (!body.title || !body.teamId) {
       return NextResponse.json<ApiResponse<null>>(
@@ -129,7 +114,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Ownership is session-derived, never supplied by a stage/create payload.
-    const actor: any = await userDb.getByEmail(session.user.email);
+    const actor: any = authed.user;
     const userId = actor?.id;
     const organizationId = actor?.organization_id;
 
@@ -283,7 +268,7 @@ export async function POST(request: NextRequest) {
           customerId: task.customer_id,
           teamId: task.team_id,
           createdBy: task.created_by,
-          creatorName: actor?.name || session?.user?.name || 'Unknown',
+          creatorName: actor?.name || 'Unknown',
         },
       };
 

@@ -5,10 +5,9 @@ import { AlertCircle, CalendarPlus, Clock3, Loader2, Plus, RotateCw, Sparkles } 
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useTaskContext } from '@/components/TaskContext';
 import { formatDueDateYmdLocal, parseYmdDateInput } from '@/lib/due-date';
 import { isTerminalBoardColumn } from '@/lib/types';
-import { scheduleApi } from '@/lib/api';
+import { usePlannerRuntime } from './PlannerRuntime';
 import {
   dispatchScheduleChanged,
   PLANNER_CAPTURE_TIME_EVENT,
@@ -17,7 +16,7 @@ import {
 import { parsePlannerCapture } from '@/lib/planner-v2-utils';
 
 export function PlannerQuickAdd() {
-  const { addTask, currentTeam, currentUser, generalBoardColumns } = useTaskContext();
+  const { addTask, currentTeam, currentUser, generalBoardColumns, scheduleApi } = usePlannerRuntime();
   const today = formatDueDateYmdLocal(new Date());
   const [value, setValue] = useState('');
   const [date, setDate] = useState<string | null>(null);

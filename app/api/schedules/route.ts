@@ -25,8 +25,8 @@ function sourceFromValues(taskId: unknown, checklistItemId: unknown): WorkSource
     : { sourceType: 'action', taskId: normalizedTaskId };
 }
 
-async function actor() {
-  const authed = await requireAuthedUser();
+async function actor(request: NextRequest) {
+  const authed = await requireAuthedUser(request);
   if (authed instanceof NextResponse) return authed;
   return {
     userId: String(authed.user.id),
@@ -71,7 +71,7 @@ async function cleanupObsoleteScheduleNotifications(source: WorkSource): Promise
 
 export async function GET(request: NextRequest) {
   try {
-    const identity = await actor();
+    const identity = await actor(request);
     if (identity instanceof NextResponse) return identity;
     const params = new URL(request.url).searchParams;
     const source = sourceFromValues(params.get('taskId'), params.get('checklistItemId'));
@@ -86,7 +86,7 @@ export async function PUT(request: NextRequest) {
   const startedAt = performance.now();
   try {
     const authStartedAt = performance.now();
-    const identity = await actor();
+    const identity = await actor(request);
     if (identity instanceof NextResponse) return identity;
     const authDuration = performance.now() - authStartedAt;
     const body = await request.json();
@@ -130,7 +130,7 @@ export async function DELETE(request: NextRequest) {
   const startedAt = performance.now();
   try {
     const authStartedAt = performance.now();
-    const identity = await actor();
+    const identity = await actor(request);
     if (identity instanceof NextResponse) return identity;
     const authDuration = performance.now() - authStartedAt;
     const params = new URL(request.url).searchParams;

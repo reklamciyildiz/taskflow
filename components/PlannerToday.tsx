@@ -20,8 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { useTaskContext } from '@/components/TaskContext';
-import { plannerApi, scheduleApi } from '@/lib/api';
+import { usePlannerRuntime } from '@/components/planner/PlannerRuntime';
 import { formatDueDateYmdLocal } from '@/lib/due-date';
 import {
   buildPlannerTodayProjection,
@@ -116,7 +115,7 @@ function PlannerSkeleton() {
 
 function columnsForItem(
   item: PlannerProjectionItem,
-  projects: ReturnType<typeof useTaskContext>['projects'],
+  projects: ReturnType<typeof usePlannerRuntime>['projects'],
 ): ProjectColumnConfig[] {
   const configured = projects.find((project) => project.id === item.projectId)?.columnConfig;
   return item.projectId ? configured ?? [] : FALLBACK_BOARD_COLUMNS;
@@ -284,7 +283,9 @@ export function PlannerToday({ embedded = false }: { embedded?: boolean }) {
     openTaskEditor,
     canCompleteTask,
     canEditTask,
-  } = useTaskContext();
+    plannerApi,
+    scheduleApi,
+  } = usePlannerRuntime();
   const [view, setView] = useState<'today' | 'upcoming'>('today');
   const [localDay, setLocalDay] = useState<{ date: string; timeZone: string } | null>(null);
   useEffect(() => {
@@ -365,7 +366,7 @@ export function PlannerToday({ embedded = false }: { embedded?: boolean }) {
     plannerCache.set(cacheKey, response.data);
     setProjection(response.data);
     setProjectionScopeKey(cacheKey);
-  }, [cacheKey, currentTeam, date, localDay, timeZone]);
+  }, [cacheKey, currentTeam, date, localDay, plannerApi, timeZone]);
 
   const loadUpcoming = useCallback(async (fresh = false) => {
     if (!currentTeam || !localDay) return;
@@ -390,7 +391,7 @@ export function PlannerToday({ embedded = false }: { embedded?: boolean }) {
     upcomingCache.set(upcomingKey, response.data);
     setUpcoming(response.data);
     setUpcomingScopeKey(upcomingKey);
-  }, [currentTeam, date, localDay, upcomingKey]);
+  }, [currentTeam, date, localDay, plannerApi, upcomingKey]);
 
   useEffect(() => {
     if (!cacheKey) return;
@@ -603,6 +604,7 @@ export function PlannerToday({ embedded = false }: { embedded?: boolean }) {
     canEditTask,
     load,
     loadUpcoming,
+    plannerApi,
     projects,
     replaceVisibleItem,
     setOptimisticState,
@@ -640,7 +642,7 @@ export function PlannerToday({ embedded = false }: { embedded?: boolean }) {
       return;
     }
     toast.success(`Rescheduled to ${compactDate(nextDate)}`);
-  }, []);
+  }, [plannerApi, scheduleApi]);
 
   const skip = useCallback(async (item: PlannerProjectionItem) => {
     if (!item.isRecurring) return;
@@ -655,7 +657,7 @@ export function PlannerToday({ embedded = false }: { embedded?: boolean }) {
     }
     dispatchOccurrenceChanged(item.scheduleId, item.occurrenceDate);
     toast.success('Occurrence skipped');
-  }, []);
+  }, [plannerApi]);
 
   if (view === 'today' && !visibleProjection && error) {
     return (

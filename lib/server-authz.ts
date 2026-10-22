@@ -1,5 +1,5 @@
 import { getServerSession } from 'next-auth';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { authOptions } from '@/lib/auth';
 import { ApiResponse } from '@/lib/types';
 import { teamDb, teamMemberDb, userDb } from '@/lib/db';
@@ -16,7 +16,19 @@ export type AuthedContext = {
   user: DbUser;
 };
 
-export async function requireAuthedUser(): Promise<AuthedContext | NextResponse<ApiResponse<null>>> {
+export async function requireAuthedUser(request?: NextRequest): Promise<AuthedContext | NextResponse<ApiResponse<null>>> {
+  const authorization = request?.headers.get('authorization') ?? '';
+  if (authorization.startsWith('Bearer ')) {
+    // Deferred import avoids coupling the normal web session path to mobile token code.
+    // Both paths resolve to the same canonical user row and all downstream ACL checks.
+    const { authenticateMobileRequest } = await import('@/lib/mobile-auth/server');
+    try {
+      const { user } = await authenticateMobileRequest(request!);
+      return { user };
+    } catch {
+      return NextResponse.json<ApiResponse<null>>({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+  }
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) {
     return NextResponse.json<ApiResponse<null>>({ success: false, error: 'Unauthorized' }, { status: 401 });

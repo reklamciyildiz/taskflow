@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
     const startDate = params.get('startDate') ?? '';
     const teamId = params.get('teamId') ?? '';
     if (!startDate || !teamId) return NextResponse.json({ success: false, error: 'startDate and teamId are required' }, { status: 400 });
-    const authed = await requireAuthedUser();
+    const authed = await requireAuthedUser(request);
     if (authed instanceof NextResponse) return authed;
     const access = await requireTeamScopeAccess(teamId, authed);
     if (access instanceof NextResponse) return access;

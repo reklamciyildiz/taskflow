@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { formatDueDateYmdLocal, parseYmdDateInput } from '@/lib/due-date';
 import { addCalendarDays, isoWeekday, type WorkSchedule, type WorkScheduleInput, type WorkSource } from '@/lib/scheduling-domain';
-import { scheduleApi } from '@/lib/api';
+import { scheduleApi as defaultScheduleApi } from '@/lib/api';
 import { REMINDER_PRESETS, type ReminderPresetId } from '@/lib/reminder-presets';
 import { dispatchScheduleChanged } from '@/lib/schedule-events';
 import {
@@ -34,6 +34,7 @@ export function WorkSchedulePicker({
   onScheduleChange,
   onOptimisticScheduleChange,
   onRequestClose,
+  scheduleClient = defaultScheduleApi,
 }: {
   source: WorkSource;
   initialSchedule: WorkSchedule | null;
@@ -42,6 +43,7 @@ export function WorkSchedulePicker({
   onScheduleChange?: (schedule: WorkSchedule | null) => void;
   onOptimisticScheduleChange?: (schedule: WorkSchedule | null) => void;
   onRequestClose?: () => void;
+  scheduleClient?: typeof defaultScheduleApi;
 }) {
   const today = formatDueDateYmdLocal(new Date());
   const [schedule, setSchedule] = useState<WorkSchedule | null>(initialSchedule);
@@ -114,7 +116,7 @@ export function WorkSchedulePicker({
     setEndsOn(optimistic.endsOn ?? '');
     setWeekdays(optimistic.recurrenceWeekdays);
     onOptimisticScheduleChange?.(optimistic);
-    const response = await scheduleApi.save(input).finally(() => {
+    const response = await scheduleClient.save(input).finally(() => {
       savingRef.current = false;
       setSaving(false);
     });
@@ -186,7 +188,7 @@ export function WorkSchedulePicker({
     setSaving(true);
     setSchedule(null);
     onOptimisticScheduleChange?.(null);
-    const response = await scheduleApi.remove(source).finally(() => {
+    const response = await scheduleClient.remove(source).finally(() => {
       savingRef.current = false;
       setSaving(false);
     });

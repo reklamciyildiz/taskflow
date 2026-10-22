@@ -124,11 +124,23 @@ export async function restoreSession() {
 }
 
 export async function authenticatedGet<T>(path: string): Promise<T> {
+  return authenticatedRequest<T>(path);
+}
+
+export async function authenticatedRequest<T>(path: string, init?: RequestInit): Promise<T> {
   if (!accessToken) await restoreSession();
-  let response = await mobileFetch(path, { headers: { Authorization: `Bearer ${accessToken}` } });
+  const request = () => mobileFetch(path, {
+    ...init,
+    headers: {
+      ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
+      ...init?.headers,
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+  let response = await request();
   if (response.status === 401 && await secureSession.get('refreshToken')) {
     await restoreSession();
-    response = await mobileFetch(path, { headers: { Authorization: `Bearer ${accessToken}` } });
+    response = await request();
   }
   return parse<T>(response);
 }
@@ -139,6 +151,10 @@ export async function loadAction(actionId: string) { return authenticatedGet<Mob
 export async function loadPlannerToday(date: string, timeZone: string) {
   const query = new URLSearchParams({ date, timeZone });
   return authenticatedGet<MobilePlannerToday>(`/api/mobile/planner/today?${query}`);
+}
+export async function loadPlannerContext(teamId?: string) {
+  const query = teamId ? `?teamId=${encodeURIComponent(teamId)}` : '';
+  return authenticatedGet<any>(`/api/mobile/planner/context${query}`);
 }
 export async function loadKnowledge(limit = 30) {
   return authenticatedGet<MobileKnowledgeEntry[]>(`/api/mobile/knowledge?limit=${Math.min(50, Math.max(1, limit))}`);

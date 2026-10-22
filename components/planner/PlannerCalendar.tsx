@@ -11,8 +11,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import { useTaskContext } from '@/components/TaskContext';
-import { plannerApi } from '@/lib/api';
+import { usePlannerRuntime } from './PlannerRuntime';
 import { addCalendarDays, isoWeekday, type WorkSource } from '@/lib/scheduling-domain';
 import { formatDueDateYmdLocal } from '@/lib/due-date';
 import type { PlannerProjectionItem } from '@/lib/planner-projection';
@@ -44,7 +43,7 @@ function startOfWeek(date: string) {
 }
 
 export function PlannerCalendar() {
-  const { currentTeam, tasks, projects, generalBoardColumns, openTaskEditor } = useTaskContext();
+  const { currentTeam, tasks, projects, generalBoardColumns, openTaskEditor, plannerApi } = usePlannerRuntime();
   const today = formatDueDateYmdLocal(new Date());
   const [selectedDate, setSelectedDate] = useState(today);
   const [mode, setMode] = useState<'day' | 'week'>('day');
@@ -82,7 +81,7 @@ export function PlannerCalendar() {
     } finally {
       if (!silent) setLoading(false);
     }
-  }, [currentTeam, weekStart]);
+  }, [currentTeam, plannerApi, weekStart]);
 
   useEffect(() => { void load(); }, [load]);
   useEffect(() => { setAllDayExpanded(false); }, [selectedDate]);

@@ -6,7 +6,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { WorkSchedulePicker } from '@/components/schedule/WorkSchedulePicker';
-import { plannerApi, scheduleApi } from '@/lib/api';
+import { usePlannerRuntime } from './PlannerRuntime';
 import type { WorkSchedule, WorkSource } from '@/lib/scheduling-domain';
 import type { PlannerProjectionItem } from '@/lib/planner-projection';
 import { dispatchOccurrenceChanged } from '@/lib/schedule-events';
@@ -17,6 +17,7 @@ export function PlannerScheduleDialog({ open, onOpenChange, source, title, occur
   open: boolean; onOpenChange: (open: boolean) => void; source: WorkSource | null;
   title: string; occurrence?: PlannerProjectionItem | null; onSaved?: () => void; onOpenSource?: () => void;
 }) {
+  const { plannerApi, scheduleApi } = usePlannerRuntime();
   const [schedule, setSchedule] = useState<WorkSchedule | null>(null);
   const [loading, setLoading] = useState(false);
   const [occurrenceDate, setOccurrenceDate] = useState('');
@@ -105,7 +106,7 @@ export function PlannerScheduleDialog({ open, onOpenChange, source, title, occur
                 <p className="text-[11px] text-muted-foreground">Changes in the schedule editor below apply to the whole series.</p>
               </div>
             ) : null}
-            <WorkSchedulePicker source={source} initialSchedule={schedule}
+            <WorkSchedulePicker source={source} initialSchedule={schedule} scheduleClient={scheduleApi}
               onOptimisticScheduleChange={setSchedule}
               onScheduleChange={(next) => { setSchedule(next); onSaved?.(); }}
               onRequestClose={() => onOpenChange(false)} />

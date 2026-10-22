@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     }
 
     const authStartedAt = performance.now();
-    const authed = await requireAuthedUser();
+    const authed = await requireAuthedUser(request);
     if (authed instanceof NextResponse) return authed;
     const authDuration = performance.now() - authStartedAt;
     const accessStartedAt = performance.now();

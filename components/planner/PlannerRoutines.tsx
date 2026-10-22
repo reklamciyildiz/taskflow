@@ -14,12 +14,11 @@ import {
   SkipForward,
 } from "lucide-react";
 import { toast } from "sonner";
-import { plannerApi } from "@/lib/api";
 import type { PlannerProjectionItem } from "@/lib/planner-projection";
 import { addCalendarDays } from "@/lib/scheduling-domain";
 import { formatDueDateYmdLocal } from "@/lib/due-date";
 import { formatScheduleDate } from "@/lib/schedule-presentation";
-import { useTaskContext } from "@/components/TaskContext";
+import { usePlannerRuntime } from './PlannerRuntime';
 import { PlannerScheduleDialog } from "./PlannerScheduleDialog";
 import { dispatchOccurrenceChanged } from "@/lib/schedule-events";
 import {
@@ -51,7 +50,7 @@ function sourceTitle(item: PlannerProjectionItem) {
 }
 
 export function PlannerRoutines() {
-  const { currentTeam, openTaskEditor } = useTaskContext();
+  const { currentTeam, openTaskEditor, plannerApi } = usePlannerRuntime();
   const [items, setItems] = useState<PlannerProjectionItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -75,7 +74,7 @@ export function PlannerRoutines() {
         setLoading(false);
       }
     },
-    [currentTeam?.id, today]
+    [currentTeam?.id, plannerApi, today]
   );
 
   useEffect(() => {

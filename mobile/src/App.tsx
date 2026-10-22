@@ -18,8 +18,10 @@ import {
   googleOAuthAvailable, loadProcess, loadWorkspace, logout, mobileApiConfigured, restoreSession,
   startGoogleSignIn,
 } from './mobile-api';
-import { MobilePlanner } from './MobilePlanner';
+import { PlannerV2View } from '../../components/planner/PlannerV2View';
+import { MobilePlannerRuntime } from './PlannerRuntimeAdapter';
 import { MobileKnowledge } from './MobileKnowledge';
+import { Toaster } from 'sonner';
 
 type Screen = 'booting' | 'signin' | 'workspace' | 'planner' | 'knowledge' | 'account' | 'process' | 'action';
 function todayLabel(): string {
@@ -235,7 +237,11 @@ export function App() {
         <AxiomActionView detail={actionDetail} />
       ) : null}
 
-      {screen === 'planner' ? <MobilePlanner onOpenAction={(id) => void openAction(id)} onError={setError} /> : null}
+      {screen === 'planner' ? (
+        <MobilePlannerRuntime onOpenAction={(id) => void openAction(id)} onError={setError}>
+          <PlannerV2View />
+        </MobilePlannerRuntime>
+      ) : null}
 
       {screen === 'knowledge' ? <MobileKnowledge onOpenAction={(id) => void openAction(id)} onError={setError} /> : null}
 
@@ -249,6 +255,7 @@ export function App() {
 
       {busy && authenticated ? <div className="busy-indicator" role="status"><div className="spinner" /><span>Updating workspace…</span></div> : null}
       {error && screen !== 'signin' ? <div className="notice error global-error" role="alert">{error}<button type="button" onClick={() => setError(null)}>Dismiss</button></div> : null}
+      <Toaster richColors position="top-center" />
       {authenticated ? (
         <nav className="mobile-tab-bar" aria-label="Primary navigation">
           <button type="button" className={screen === 'workspace' ? 'is-active' : ''} onClick={() => selectRoot('workspace')}><Home /><span>Home</span></button>

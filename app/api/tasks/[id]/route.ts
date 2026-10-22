@@ -2,8 +2,6 @@ import { stageErrorMessage, validateTaskStage } from '@/lib/stage-server';
 import { resolveStageLifecycle } from '@/lib/stage-lifecycle';
 import { FALLBACK_BOARD_COLUMNS, parseColumnConfigFromJson } from '@/lib/types';
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import {
   taskDb,
   userDb,
@@ -14,6 +12,7 @@ import {
 import { ApiResponse } from "@/lib/types";
 import {
   canMutateTeamTasks,
+  requireAuthedUser,
   viewerCannotMutateTasksResponse,
 } from "@/lib/server-authz";
 import { triggerWebhook } from "@/lib/webhook-trigger";
@@ -56,15 +55,9 @@ export async function GET(
   { params }: { params: { id: string } },
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
-      return NextResponse.json<ApiResponse<null>>(
-        { success: false, error: "Authentication required" },
-        { status: 401 },
-      );
-    }
-
-    const user: any = await userDb.getByEmail(session.user.email);
+    const authed = await requireAuthedUser(request);
+    if (authed instanceof NextResponse) return authed;
+    const user: any = authed.user;
     if (!user) {
       return NextResponse.json<ApiResponse<null>>(
         { success: false, error: "User not found" },
@@ -140,17 +133,10 @@ export async function PATCH(
   { params }: { params: { id: string } },
 ) {
   try {
-    const session = await getServerSession(authOptions);
     const body = await request.json();
-
-    if (!session?.user?.email) {
-      return NextResponse.json<ApiResponse<null>>(
-        { success: false, error: "Authentication required" },
-        { status: 401 },
-      );
-    }
-
-    const actor: any = await userDb.getByEmail(session.user.email);
+    const authed = await requireAuthedUser(request);
+    if (authed instanceof NextResponse) return authed;
+    const actor: any = authed.user;
     if (!actor) {
       return NextResponse.json<ApiResponse<null>>(
         { success: false, error: "User not found" },
@@ -538,13 +524,10 @@ export async function PATCH(
       let organizationId = originalTask.organization_id;
       let actorUserId: string | null = null;
       let actorName: string | null = null;
-      if (session?.user?.email) {
-        const user: any = await userDb.getByEmail(session.user.email);
-        if (user) {
-          organizationId = user.organization_id;
-          actorUserId = user.id ?? null;
-          actorName = user.name ?? null;
-        }
+      if (actor) {
+        organizationId = actor.organization_id;
+        actorUserId = actor.id ?? null;
+        actorName = actor.name ?? null;
       }
 
       // Detect changes
@@ -669,9 +652,7 @@ export async function PATCH(
       const finalProject = !stageChanged ? null : finalProjectId === currentProjectId ? previousProject : finalProjectId ? await projectDb.getById(finalProjectId) : null;
       const finalColumns = finalProject ? parseColumnConfigFromJson(finalProject.column_config) : FALLBACK_BOARD_COLUMNS;
       if (stageChanged && !wasTerminal && resolveStageLifecycle(updatedTask.status, finalColumns).isTerminal) {
-        const completedByUserId = session?.user
-          ? (session.user as any).id
-          : originalTask.created_by;
+        const completedByUserId = actor?.id ?? originalTask.created_by;
         const completedByName = actorName || "Someone";
         const taskCompletedPayload: TaskCompletedPayload = {
           task: {
@@ -750,11 +731,7 @@ export async function PATCH(
 
     // Google Calendar sync (best-effort, per-user)
     try {
-      let actorUserId: string | null = null;
-      if (session?.user?.email) {
-        const u: any = await userDb.getByEmail(session.user.email);
-        actorUserId = u?.id ?? null;
-      }
+      let actorUserId: string | null = actor?.id ?? null;
       actorUserId = actorUserId ?? (originalTask.created_by as any) ?? null;
 
       const assigneePatched = body.assigneeId !== undefined;
@@ -817,15 +794,9 @@ export async function DELETE(
   { params }: { params: { id: string } },
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
-      return NextResponse.json<ApiResponse<null>>(
-        { success: false, error: "Authentication required" },
-        { status: 401 },
-      );
-    }
-
-    const actor: any = await userDb.getByEmail(session.user.email);
+    const authed = await requireAuthedUser(request);
+    if (authed instanceof NextResponse) return authed;
+    const actor: any = authed.user;
     if (!actor) {
       return NextResponse.json<ApiResponse<null>>(
         { success: false, error: "User not found" },
@@ -887,12 +858,7 @@ export async function DELETE(
     // Trigger webhook
     try {
       let organizationId = task.organization_id;
-      if (session?.user?.email) {
-        const user: any = await userDb.getByEmail(session.user.email);
-        if (user) {
-          organizationId = user.organization_id;
-        }
-      }
+      if (actor?.organization_id) organizationId = actor.organization_id;
 
       const taskDeletedPayload: TaskDeletedPayload = {
         taskId: params.id,

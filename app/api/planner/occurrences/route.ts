@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
         { status: 400 },
       );
     }
-    const authed = await requireAuthedUser();
+    const authed = await requireAuthedUser(request);
     if (authed instanceof NextResponse) return authed;
     const data = await getOccurrenceState({
       userId: String(authed.user.id),
@@ -75,7 +75,7 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const authed = await requireAuthedUser();
+    const authed = await requireAuthedUser(request);
     if (authed instanceof NextResponse) return authed;
     const actor = {
       userId: String(authed.user.id),

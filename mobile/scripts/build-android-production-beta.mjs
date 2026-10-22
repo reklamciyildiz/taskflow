@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, renameSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, renameSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -26,7 +26,15 @@ try {
     stdio: 'inherit',
     shell: false,
   });
-  if (result.status !== 0) process.exitCode = result.status ?? 1;
+  if (result.status !== 0) {
+    process.exitCode = result.status ?? 1;
+  } else {
+    const sourceApk = join(mobileRoot, 'android', 'app', 'build', 'outputs', 'apk', 'debug', 'app-debug.apk');
+    const artifactDirectory = join(mobileRoot, 'artifacts');
+    if (!existsSync(sourceApk)) throw new Error(`Android debug APK was not produced: ${sourceApk}`);
+    mkdirSync(artifactDirectory, { recursive: true });
+    copyFileSync(sourceApk, join(artifactDirectory, 'axiom-production-beta-debug.apk'));
+  }
 } finally {
   for (const { source, destination } of moved.reverse()) renameSync(destination, source);
 }
