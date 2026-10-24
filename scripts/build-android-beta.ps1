@@ -172,7 +172,7 @@ try {
     Write-Output "Package=$($identity.Package) VersionCode=$($identity.VersionCode) VersionName=$($identity.VersionName)"
     Write-Output "CertificateSHA256=$certificate"
 } finally {
-    foreach ($temporary in @($alignedApk, $signedApk)) {
+    foreach ($temporary in @($alignedApk, "$alignedApk.idsig", $signedApk, "$signedApk.idsig")) {
         if (Test-Path -LiteralPath $temporary) { Remove-Item -LiteralPath $temporary -Force }
     }
 }
