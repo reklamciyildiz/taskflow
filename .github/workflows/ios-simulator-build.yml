@@ -173,13 +173,13 @@ jobs:
           retention-days: 7
           if-no-files-found: warn
           path: |
-            ${{ github.workspace }}/.ci/Axiom-Simulator.app.zip
-            ${{ github.workspace }}/.ci/AxiomBuild.xcresult
-            ${{ github.workspace }}/.ci/axiom-xcodebuild.log
-            ${{ github.workspace }}/.ci/screenshots/
-            ${{ github.workspace }}/.ci/axiom-simulator-*.log
-            ${{ github.workspace }}/.ci/screenshot-*-dimensions.txt
-            ${{ github.workspace }}/.ci/simulator-device-types.txt
-            ${{ github.workspace }}/.ci/compiled-info-plist.txt
-            ${{ github.workspace }}/.ci/xcode-version.txt
-            ${{ github.workspace }}/.ci/simulator-runtimes.txt
+            .ci/Axiom-Simulator.app.zip
+            .ci/AxiomBuild.xcresult
+            .ci/axiom-xcodebuild.log
+            .ci/screenshots/
+            .ci/axiom-simulator-*.log
+            .ci/screenshot-*-dimensions.txt
+            .ci/simulator-device-types.txt
+            .ci/compiled-info-plist.txt
+            .ci/xcode-version.txt
+            .ci/simulator-runtimes.txt
