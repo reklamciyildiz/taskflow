@@ -1,5 +1,6 @@
 .android-sdk/
 .gradle/
+.gradle-user-home/
 build/
 app/build/
 *.jks

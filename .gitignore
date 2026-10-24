@@ -40,6 +40,9 @@ yarn-error.log*
 /.local-android-user/
 /mobile/artifacts/
 
+# Local, verified mobile distribution outputs (never commit binaries or signing material)
+/dist/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

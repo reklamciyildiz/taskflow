@@ -30,6 +30,8 @@
     "test:ios-ci": "node scripts/test-ios-ci-workflow.mjs",
     "test:ios-device-ci": "node scripts/test-ios-device-ipa-workflow.mjs",
     "test:mobile-connectivity": "node scripts/test-mobile-connectivity.mjs",
+    "test:mobile-release": "node scripts/test-mobile-release-contract.mjs",
+    "build:android:beta": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-android-beta.ps1",
     "migrate:auth": "tsx scripts/migrate-users-to-supabase-auth.ts",
     "ios:check": "npm run test:ios-shell && npm run test:ios-auth && npm run test:ios-ci && npm run test:ios-device-ci"
   },
