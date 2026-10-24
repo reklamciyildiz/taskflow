@@ -66,7 +66,7 @@ final class AxiomWebViewController: UIViewController, WKNavigationDelegate, WKUI
         webView.scrollView.bounces = false
         webView.scrollView.alwaysBounceVertical = false
         webView.scrollView.alwaysBounceHorizontal = false
-        webView.scrollView.directionalLockEnabled = true
+        webView.scrollView.isDirectionalLockEnabled = true
         webView.scrollView.keyboardDismissMode = .interactive
         view.addSubview(webView)
         NSLayoutConstraint.activate([

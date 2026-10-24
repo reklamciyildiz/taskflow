@@ -28,6 +28,7 @@ assert.doesNotMatch(controller, /server\.url|localhost|axiom-mobile-staging/);
 assert.match(controller, /configuration\.websiteDataStore = \.default\(\)/);
 assert.match(controller, /contentInsetAdjustmentBehavior = \.automatic/);
 assert.match(controller, /scrollView\.bounces = false/);
+assert.match(controller, /scrollView\.isDirectionalLockEnabled = true/);
 assert.match(controller, /keyboardDismissMode = \.interactive/);
 assert.doesNotMatch(controller, /UIRefreshControl/);
 assert.match(layout, /viewportFit: 'cover'/);
