@@ -171,6 +171,7 @@ jobs:
         with:
           name: axiom-ios-simulator-${{ github.run_number }}
           retention-days: 7
+          include-hidden-files: true
           if-no-files-found: warn
           path: |
             .ci/Axiom-Simulator.app.zip
