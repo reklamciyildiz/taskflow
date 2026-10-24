@@ -90,9 +90,8 @@ public final class OfflineActivity extends Activity {
             runOnUiThread(() -> {
                 if (reachable) {
                     statusView.setText("Connection restored. Loading Axiom…");
-                    Intent intent = new Intent(this, LauncherActivity.class);
-                    intent.setAction(getIntent().getAction());
-                    intent.setData(getIntent().getData());
+                    Intent intent = new Intent(getIntent());
+                    intent.setClass(this, LauncherActivity.class);
                     startActivity(intent);
                     finish();
                 } else {

@@ -94,7 +94,11 @@ assert.ok(listeners.has('notificationclick'), 'Notification click handler must r
 assert.match(androidManifest, /android:name="EntryActivity"/);
 assert.match(androidManifest, /android:name="OfflineActivity"/);
 assert.match(androidEntry, /AxiomReachability\.canReachAxiom\(\)/);
+assert.match(androidEntry, /new Intent\(getIntent\(\)\)/);
+assert.match(androidEntry, /setClass\(this, reachable \? LauncherActivity\.class : OfflineActivity\.class\)/);
 assert.match(androidOffline, /Try again/);
+assert.match(androidOffline, /new Intent\(getIntent\(\)\)/);
+assert.match(androidOffline, /setClass\(this, LauncherActivity\.class\)/);
 assert.match(iosController, /didFailProvisionalNavigation/);
 assert.match(iosController, /decidePolicyFor navigationResponse/);
 assert.match(iosController, /axiom\.connectivity\.retry/);

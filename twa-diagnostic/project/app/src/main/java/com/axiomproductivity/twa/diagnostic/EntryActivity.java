@@ -20,10 +20,8 @@ public final class EntryActivity extends Activity {
     }
 
     private void route(boolean reachable) {
-        Intent target = new Intent(this, reachable ? LauncherActivity.class : OfflineActivity.class);
-        target.setAction(getIntent().getAction());
-        target.setData(getIntent().getData());
-        if (getIntent().getExtras() != null) target.putExtras(getIntent().getExtras());
+        Intent target = new Intent(getIntent());
+        target.setClass(this, reachable ? LauncherActivity.class : OfflineActivity.class);
         startActivity(target);
         finish();
     }
