@@ -113,31 +113,40 @@ jobs:
             exit 1
           fi
 
+          run_bounded() {
+            local seconds="$1"
+            shift
+            python3 -c 'import subprocess, sys; subprocess.run(sys.argv[2:], check=True, timeout=int(sys.argv[1]))' "${seconds}" "$@"
+          }
+
           SUCCESSFUL_DEVICES=0
           while IFS= read -r entry; do
+            if [ "${SUCCESSFUL_DEVICES}" -ge 2 ]; then break; fi
             LABEL="${entry%%|*}"
             DEVICE_TYPE="${entry#*|}"
-            if ! DEVICE_UDID="$(xcrun simctl create "Axiom CI iPhone ${LABEL}" "${DEVICE_TYPE}" "${RUNTIME_ID}")"; then
+            if ! DEVICE_UDID="$(run_bounded 20 xcrun simctl create "Axiom CI iPhone ${LABEL}" "${DEVICE_TYPE}" "${RUNTIME_ID}")"; then
               echo "Skipping unsupported ${LABEL} device type ${DEVICE_TYPE}."
               continue
             fi
             echo "${DEVICE_UDID}|${LABEL}" >> "${DEVICE_LIST}"
-            xcrun simctl boot "${DEVICE_UDID}"
-            if ! python3 -c 'import subprocess, sys; subprocess.run(["xcrun", "simctl", "bootstatus", sys.argv[1], "-b"], check=True, timeout=120)' "${DEVICE_UDID}"; then
-              echo "Skipping ${LABEL}; Simulator did not finish booting within 120 seconds."
-              xcrun simctl shutdown "${DEVICE_UDID}" || true
-              xcrun simctl delete "${DEVICE_UDID}" || true
-              continue
+            DEVICE_OK=true
+            if ! run_bounded 20 xcrun simctl boot "${DEVICE_UDID}"; then DEVICE_OK=false; fi
+            if ${DEVICE_OK} && ! run_bounded 120 xcrun simctl bootstatus "${DEVICE_UDID}" -b; then DEVICE_OK=false; fi
+            if ${DEVICE_OK} && ! run_bounded 30 xcrun simctl install "${DEVICE_UDID}" "${DERIVED_DATA}/Build/Products/Debug-iphonesimulator/Axiom.app"; then DEVICE_OK=false; fi
+            if ${DEVICE_OK} && ! run_bounded 20 xcrun simctl launch "${DEVICE_UDID}" com.axiomproductivity.ios; then DEVICE_OK=false; fi
+            if ${DEVICE_OK}; then
+              sleep 10
+              if ! run_bounded 20 xcrun simctl io "${DEVICE_UDID}" screenshot "${SCREENSHOT_DIR}/axiom-${LABEL}.png"; then DEVICE_OK=false; fi
             fi
-            xcrun simctl install "${DEVICE_UDID}" "${DERIVED_DATA}/Build/Products/Debug-iphonesimulator/Axiom.app"
-            xcrun simctl launch "${DEVICE_UDID}" com.axiomproductivity.ios
-            sleep 10
-            xcrun simctl io "${DEVICE_UDID}" screenshot "${SCREENSHOT_DIR}/axiom-${LABEL}.png"
-            sips -g pixelWidth -g pixelHeight "${SCREENSHOT_DIR}/axiom-${LABEL}.png" | tee "${CI_OUTPUT}/screenshot-${LABEL}-dimensions.txt"
-            xcrun simctl spawn "${DEVICE_UDID}" log show --style compact --last 3m --predicate 'process == "Axiom"' > "${CI_OUTPUT}/axiom-simulator-${LABEL}.log" || true
-            xcrun simctl shutdown "${DEVICE_UDID}"
-            xcrun simctl delete "${DEVICE_UDID}"
-            SUCCESSFUL_DEVICES=$((SUCCESSFUL_DEVICES + 1))
+            if ${DEVICE_OK}; then
+              sips -g pixelWidth -g pixelHeight "${SCREENSHOT_DIR}/axiom-${LABEL}.png" | tee "${CI_OUTPUT}/screenshot-${LABEL}-dimensions.txt"
+              run_bounded 20 xcrun simctl spawn "${DEVICE_UDID}" log show --style compact --last 3m --predicate 'process == "Axiom"' > "${CI_OUTPUT}/axiom-simulator-${LABEL}.log" || true
+              SUCCESSFUL_DEVICES=$((SUCCESSFUL_DEVICES + 1))
+            else
+              echo "Skipping ${LABEL}; a bounded Simulator command failed or timed out."
+            fi
+            run_bounded 20 xcrun simctl shutdown "${DEVICE_UDID}" || true
+            run_bounded 20 xcrun simctl delete "${DEVICE_UDID}" || true
           done < "${DEVICE_TYPE_LIST}"
           if [ "${SUCCESSFUL_DEVICES}" -lt 2 ]; then
             echo "Axiom must launch successfully on at least two iPhone Simulator sizes." >&2
@@ -151,8 +160,8 @@ jobs:
           if [ -f "${DEVICE_LIST}" ]; then
             while IFS='|' read -r DEVICE_UDID LABEL; do
               [ -n "${DEVICE_UDID}" ] || continue
-              xcrun simctl shutdown "${DEVICE_UDID}" || true
-              xcrun simctl delete "${DEVICE_UDID}" || true
+              python3 -c 'import subprocess, sys; subprocess.run(sys.argv[2:], check=True, timeout=int(sys.argv[1]))' 20 xcrun simctl shutdown "${DEVICE_UDID}" || true
+              python3 -c 'import subprocess, sys; subprocess.run(sys.argv[2:], check=True, timeout=int(sys.argv[1]))' 20 xcrun simctl delete "${DEVICE_UDID}" || true
             done < "${DEVICE_LIST}"
           fi
 
