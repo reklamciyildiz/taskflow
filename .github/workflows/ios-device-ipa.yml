@@ -99,6 +99,11 @@ jobs:
           cp "${GITHUB_WORKSPACE}/ios/AxiomIOS/Axiom/Axiom.entitlements" "${CI_OUTPUT}/requested-entitlements.plist"
           plutil -lint "${CI_OUTPUT}/requested-entitlements.plist"
           BUNDLE_ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "${APP_PATH}/Info.plist")"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :UILaunchScreen:UIColorName' "${APP_PATH}/Info.plist")" = "LaunchBackground"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :UILaunchScreen:UIImageName' "${APP_PATH}/Info.plist")" = "LaunchLogo"
+          /usr/libexec/PlistBuddy -c 'Print :UIDeviceFamily' "${APP_PATH}/Info.plist" | grep -q '1'
+          /usr/libexec/PlistBuddy -c 'Print :UISupportedInterfaceOrientations' "${APP_PATH}/Info.plist" >/dev/null
+          plutil -p "${APP_PATH}/Info.plist" > "${CI_OUTPUT}/compiled-info-plist.txt"
           {
             echo "bundle_id=${BUNDLE_ID}"
             echo "architectures=${ARCHS}"
@@ -134,6 +139,7 @@ jobs:
             ${{ github.workspace }}/.ci-device/device-build-metadata.txt
             ${{ github.workspace }}/.ci-device/requested-entitlements.plist
             ${{ github.workspace }}/.ci-device/ipa-contents.txt
+            ${{ github.workspace }}/.ci-device/compiled-info-plist.txt
             ${{ github.workspace }}/.ci-device/AxiomDeviceBuild.xcresult
             ${{ github.workspace }}/.ci-device/axiom-device-xcodebuild.log
             ${{ github.workspace }}/.ci-device/xcode-version.txt

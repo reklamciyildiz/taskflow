@@ -15,6 +15,8 @@ final class AxiomWebViewController: UIViewController, WKNavigationDelegate, WKUI
     private var isNetworkAvailable = true
     private var lastFailedRequest: URLRequest?
 
+    override var preferredStatusBarStyle: UIStatusBarStyle { .lightContent }
+
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = UIColor(red: 15 / 255, green: 23 / 255, blue: 42 / 255, alpha: 1)
@@ -57,10 +59,15 @@ final class AxiomWebViewController: UIViewController, WKNavigationDelegate, WKUI
         webView.navigationDelegate = self
         webView.uiDelegate = self
         webView.allowsBackForwardNavigationGestures = true
-        webView.scrollView.contentInsetAdjustmentBehavior = .never
-        let refresh = UIRefreshControl()
-        refresh.addTarget(self, action: #selector(refreshPage(_:)), for: .valueChanged)
-        webView.scrollView.refreshControl = refresh
+        webView.isOpaque = false
+        webView.backgroundColor = view.backgroundColor
+        webView.scrollView.backgroundColor = view.backgroundColor
+        webView.scrollView.contentInsetAdjustmentBehavior = .automatic
+        webView.scrollView.bounces = false
+        webView.scrollView.alwaysBounceVertical = false
+        webView.scrollView.alwaysBounceHorizontal = false
+        webView.scrollView.directionalLockEnabled = true
+        webView.scrollView.keyboardDismissMode = .interactive
         view.addSubview(webView)
         NSLayoutConstraint.activate([
             webView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
@@ -202,11 +209,6 @@ final class AxiomWebViewController: UIViewController, WKNavigationDelegate, WKUI
         webView.load(request)
     }
 
-    @objc private func refreshPage(_ sender: UIRefreshControl) {
-        webView.reload()
-        sender.endRefreshing()
-    }
-
     @objc private func retryConnectivity() {
         retryButton.isEnabled = false
         connectivityStatusLabel.text = "Checking the connection…"
@@ -290,7 +292,6 @@ final class AxiomWebViewController: UIViewController, WKNavigationDelegate, WKUI
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        webView.scrollView.refreshControl?.endRefreshing()
         lastFailedRequest = nil
         connectivityView.isHidden = true
         retryButton.isEnabled = true
@@ -354,7 +355,6 @@ final class AxiomWebViewController: UIViewController, WKNavigationDelegate, WKUI
     }
 
     private func showConnectivityError(message: String) {
-        webView.scrollView.refreshControl?.endRefreshing()
         connectivityStatusLabel.text = message
         retryButton.isEnabled = true
         connectivityView.isHidden = false

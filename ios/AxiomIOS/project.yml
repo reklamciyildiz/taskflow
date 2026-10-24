@@ -22,6 +22,25 @@ targets:
         SUPPORTS_MACCATALYST: false
     info:
       path: Axiom/Info.plist
+      properties:
+        CFBundleDisplayName: Axiom
+        LSRequiresIPhoneOS: true
+        NSCameraUsageDescription: Attach photos and documents to your Axiom work.
+        NSPhotoLibraryUsageDescription: Select images to attach to your Axiom work.
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+          UIImageName: LaunchLogo
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        "UISupportedInterfaceOrientations~ipad":
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UIStatusBarStyle: UIStatusBarStyleLightContent
+        UIViewControllerBasedStatusBarAppearance: true
     entitlements:
       path: Axiom/Axiom.entitlements
 schemes:

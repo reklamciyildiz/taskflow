@@ -42,11 +42,24 @@ NextAuth session cookie.
 - Dashboard loads, then remains signed in after force-close and relaunch.
 - Dashboard, Process/Action, Planner, Knowledge, Notes, and AI open against
   production data without a second local data store.
-- Pull-to-refresh and foreground resume refresh stale client state.
+- Foreground resume notifies the existing web client so it can refresh stale state.
 - Offline mode shows a clear banner and recovers after reconnect.
 - External links leave the app; same-origin links remain in Axiom.
 - File/photo selection, keyboard, safe areas, share actions, and back gestures
   are checked on a real iPhone.
+
+## Full-screen compatibility contract
+
+XcodeGen owns the generated `Info.plist`. The launch-screen dictionary therefore
+lives in `project.yml` (and is mirrored in the checked-in plist for inspection).
+Both CI workflows inspect the compiled app plist and fail if `UILaunchScreen` or
+the iPhone device family is missing. This prevents iOS from silently launching
+the app in a legacy, letterboxed iPhone compatibility viewport.
+
+The WKWebView keeps normal document scrolling and interactive keyboard dismissal,
+but native rubber-band and pull-to-refresh movement are disabled. The web viewport
+uses `viewport-fit=cover`; native status/home-indicator regions retain Axiom's navy
+background while SwiftUI continues to respect keyboard safe-area changes.
 
 See [APP_STORE_READINESS.md](APP_STORE_READINESS.md) for the remaining Apple
 Developer and App Review work.

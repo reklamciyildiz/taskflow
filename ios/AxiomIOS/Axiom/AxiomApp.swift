@@ -4,11 +4,14 @@ import SwiftUI
 struct AxiomApp: App {
     var body: some Scene {
         WindowGroup {
-            AxiomWebContainer()
-                .ignoresSafeArea(.keyboard)
-                .onOpenURL { url in
-                    AxiomOAuthCoordinator.shared.handleCallback(url)
-                }
+            ZStack {
+                Color(red: 15 / 255, green: 23 / 255, blue: 42 / 255)
+                    .ignoresSafeArea()
+                AxiomWebContainer()
+            }
+            .onOpenURL { url in
+                AxiomOAuthCoordinator.shared.handleCallback(url)
+            }
         }
     }
 }

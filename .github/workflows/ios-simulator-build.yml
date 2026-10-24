@@ -21,7 +21,8 @@ jobs:
       DERIVED_DATA: ${{ github.workspace }}/.ci/AxiomDerivedData
       BUILD_LOG: ${{ github.workspace }}/.ci/axiom-xcodebuild.log
       RESULT_BUNDLE: ${{ github.workspace }}/.ci/AxiomBuild.xcresult
-      SCREENSHOT: ${{ github.workspace }}/.ci/axiom-simulator-launch.png
+      SCREENSHOT_DIR: ${{ github.workspace }}/.ci/screenshots
+      DEVICE_LIST: ${{ github.workspace }}/.ci/simulator-devices.txt
       APP_ARCHIVE: ${{ github.workspace }}/.ci/Axiom-Simulator.app.zip
 
     steps:
@@ -71,12 +72,19 @@ jobs:
 
           APP_PATH="${DERIVED_DATA}/Build/Products/Debug-iphonesimulator/Axiom.app"
           test -d "${APP_PATH}"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :UILaunchScreen:UIColorName' "${APP_PATH}/Info.plist")" = "LaunchBackground"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :UILaunchScreen:UIImageName' "${APP_PATH}/Info.plist")" = "LaunchLogo"
+          /usr/libexec/PlistBuddy -c 'Print :UIDeviceFamily' "${APP_PATH}/Info.plist" | grep -q '1'
+          /usr/libexec/PlistBuddy -c 'Print :UISupportedInterfaceOrientations' "${APP_PATH}/Info.plist" >/dev/null
+          plutil -p "${APP_PATH}/Info.plist" > "${CI_OUTPUT}/compiled-info-plist.txt"
           ditto -c -k --sequesterRsrc --keepParent "${APP_PATH}" "${APP_ARCHIVE}"
 
-      - name: Boot Simulator and launch Axiom
+      - name: Launch Axiom across iPhone sizes
         shell: bash
         run: |
           set -euo pipefail
+          mkdir -p "${SCREENSHOT_DIR}"
+          : > "${DEVICE_LIST}"
           RUNTIME_ID="$(xcrun simctl list runtimes -j | python3 -c '
           import json, sys
           values = [r for r in json.load(sys.stdin)["runtimes"] if r.get("isAvailable") and "SimRuntime.iOS" in r.get("identifier", "")]
@@ -84,31 +92,63 @@ jobs:
               raise SystemExit("No available iOS Simulator runtime")
           print(sorted(values, key=lambda r: tuple(int(x) for x in r.get("version", "0").split(".")))[-1]["identifier"])
           ')"
-          DEVICE_TYPE="$(xcrun simctl list devicetypes -j | python3 -c '
+          DEVICE_TYPE_LIST="${CI_OUTPUT}/simulator-device-types.txt"
+          xcrun simctl list devicetypes -j | python3 -c '
           import json, sys
           values = [d for d in json.load(sys.stdin)["devicetypes"] if d.get("name", "").startswith("iPhone")]
-          preferred = [d for d in values if "Pro" in d.get("name", "")]
-          choice = sorted(preferred or values, key=lambda d: d["identifier"])[-1]
-          print(choice["identifier"])
-          ')"
-          DEVICE_UDID="$(xcrun simctl create 'Axiom CI iPhone' "${DEVICE_TYPE}" "${RUNTIME_ID}")"
-          echo "DEVICE_UDID=${DEVICE_UDID}" >> "${GITHUB_ENV}"
+          if not values:
+              raise SystemExit("No iPhone Simulator device types are available")
+          small = next((d for d in values if "SE" in d["name"]), values[0])
+          standard = [d for d in values if "Pro" in d["name"] and "Max" not in d["name"]]
+          large = [d for d in values if "Pro Max" in d["name"]]
+          choices = [("small", small), ("standard", (standard or values)[-1]), ("large", (large or values)[-1])]
+          emitted = set()
+          for label, device in choices:
+              if device["identifier"] not in emitted:
+                  emitted.add(device["identifier"])
+                  print("{}|{}".format(label, device["identifier"]))
+          ' > "${DEVICE_TYPE_LIST}"
+          if [ "$(wc -l < "${DEVICE_TYPE_LIST}" | tr -d ' ')" -lt 2 ]; then
+            echo "At least two distinct iPhone Simulator sizes are required." >&2
+            exit 1
+          fi
 
-          xcrun simctl boot "${DEVICE_UDID}"
-          xcrun simctl bootstatus "${DEVICE_UDID}" -b
-          xcrun simctl install "${DEVICE_UDID}" "${DERIVED_DATA}/Build/Products/Debug-iphonesimulator/Axiom.app"
-          xcrun simctl launch "${DEVICE_UDID}" com.axiomproductivity.ios
-          sleep 12
-          xcrun simctl io "${DEVICE_UDID}" screenshot "${SCREENSHOT}"
+          SUCCESSFUL_DEVICES=0
+          while IFS= read -r entry; do
+            LABEL="${entry%%|*}"
+            DEVICE_TYPE="${entry#*|}"
+            if ! DEVICE_UDID="$(xcrun simctl create "Axiom CI iPhone ${LABEL}" "${DEVICE_TYPE}" "${RUNTIME_ID}")"; then
+              echo "Skipping unsupported ${LABEL} device type ${DEVICE_TYPE}."
+              continue
+            fi
+            echo "${DEVICE_UDID}|${LABEL}" >> "${DEVICE_LIST}"
+            xcrun simctl boot "${DEVICE_UDID}"
+            xcrun simctl bootstatus "${DEVICE_UDID}" -b
+            xcrun simctl install "${DEVICE_UDID}" "${DERIVED_DATA}/Build/Products/Debug-iphonesimulator/Axiom.app"
+            xcrun simctl launch "${DEVICE_UDID}" com.axiomproductivity.ios
+            sleep 10
+            xcrun simctl io "${DEVICE_UDID}" screenshot "${SCREENSHOT_DIR}/axiom-${LABEL}.png"
+            sips -g pixelWidth -g pixelHeight "${SCREENSHOT_DIR}/axiom-${LABEL}.png" | tee "${CI_OUTPUT}/screenshot-${LABEL}-dimensions.txt"
+            xcrun simctl spawn "${DEVICE_UDID}" log show --style compact --last 3m --predicate 'process == "Axiom"' > "${CI_OUTPUT}/axiom-simulator-${LABEL}.log" || true
+            xcrun simctl shutdown "${DEVICE_UDID}"
+            xcrun simctl delete "${DEVICE_UDID}"
+            SUCCESSFUL_DEVICES=$((SUCCESSFUL_DEVICES + 1))
+          done < "${DEVICE_TYPE_LIST}"
+          if [ "${SUCCESSFUL_DEVICES}" -lt 2 ]; then
+            echo "Axiom must launch successfully on at least two iPhone Simulator sizes." >&2
+            exit 1
+          fi
 
       - name: Collect Simulator logs
         if: always()
         shell: bash
         run: |
-          if [ -n "${DEVICE_UDID:-}" ]; then
-            xcrun simctl spawn "${DEVICE_UDID}" log show --style compact --last 5m --predicate 'process == "Axiom"' > "${CI_OUTPUT}/axiom-simulator.log" || true
-            xcrun simctl shutdown "${DEVICE_UDID}" || true
-            xcrun simctl delete "${DEVICE_UDID}" || true
+          if [ -f "${DEVICE_LIST}" ]; then
+            while IFS='|' read -r DEVICE_UDID LABEL; do
+              [ -n "${DEVICE_UDID}" ] || continue
+              xcrun simctl shutdown "${DEVICE_UDID}" || true
+              xcrun simctl delete "${DEVICE_UDID}" || true
+            done < "${DEVICE_LIST}"
           fi
 
       - name: Upload Simulator build evidence
@@ -122,7 +162,10 @@ jobs:
             ${{ github.workspace }}/.ci/Axiom-Simulator.app.zip
             ${{ github.workspace }}/.ci/AxiomBuild.xcresult
             ${{ github.workspace }}/.ci/axiom-xcodebuild.log
-            ${{ github.workspace }}/.ci/axiom-simulator-launch.png
-            ${{ github.workspace }}/.ci/axiom-simulator.log
+            ${{ github.workspace }}/.ci/screenshots/
+            ${{ github.workspace }}/.ci/axiom-simulator-*.log
+            ${{ github.workspace }}/.ci/screenshot-*-dimensions.txt
+            ${{ github.workspace }}/.ci/simulator-device-types.txt
+            ${{ github.workspace }}/.ci/compiled-info-plist.txt
             ${{ github.workspace }}/.ci/xcode-version.txt
             ${{ github.workspace }}/.ci/simulator-runtimes.txt
