@@ -22,6 +22,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.axiomproductivity.twa.diagnostic">
 
+        <uses-permission android:name="android.permission.INTERNET"/>
 
         <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
@@ -79,7 +80,7 @@
         <activity android:name="LauncherActivity"
             android:alwaysRetainTaskState="true"
             android:label="@string/launcherName"
-            android:exported="true">
+            android:exported="false">
             <meta-data android:name="android.support.customtabs.trusted.DEFAULT_URL"
                 android:value="@string/launchUrl" />
 
@@ -139,6 +140,17 @@
 
 
 
+        </activity>
+
+        <activity android:name="OfflineActivity"
+            android:exported="false"
+            android:theme="@style/AxiomOfflineTheme" />
+
+        <activity android:name="EntryActivity"
+            android:alwaysRetainTaskState="true"
+            android:label="@string/launcherName"
+            android:exported="true"
+            android:theme="@style/AxiomOfflineTheme">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -153,10 +165,6 @@
 
                 />
             </intent-filter>
-
-
-
-
         </activity>
 
         <activity android:name="com.google.androidbrowserhelper.trusted.FocusActivity" />

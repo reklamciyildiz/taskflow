@@ -8,13 +8,19 @@ final class AxiomWebViewController: UIViewController, WKNavigationDelegate, WKUI
     private let monitorQueue = DispatchQueue(label: "com.axiomproductivity.ios.network")
     private var webView: WKWebView!
     private let offlineLabel = UILabel()
+    private let connectivityView = UIView()
+    private let connectivityStatusLabel = UILabel()
+    private let retryButton = UIButton(type: .system)
     private var wasOffline = false
+    private var isNetworkAvailable = true
+    private var lastFailedRequest: URLRequest?
 
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = UIColor(red: 15 / 255, green: 23 / 255, blue: 42 / 255, alpha: 1)
         configureWebView()
         configureOfflineBanner()
+        configureConnectivityView()
         startNetworkMonitor()
         NotificationCenter.default.addObserver(
             self,
@@ -82,15 +88,96 @@ final class AxiomWebViewController: UIViewController, WKNavigationDelegate, WKUI
         ])
     }
 
+    private func configureConnectivityView() {
+        connectivityView.translatesAutoresizingMaskIntoConstraints = false
+        connectivityView.backgroundColor = UIColor(red: 15 / 255, green: 23 / 255, blue: 42 / 255, alpha: 1)
+        connectivityView.isHidden = true
+        connectivityView.accessibilityIdentifier = "axiom.connectivity.error"
+
+        let card = UIView()
+        card.translatesAutoresizingMaskIntoConstraints = false
+        card.backgroundColor = UIColor(red: 22 / 255, green: 34 / 255, blue: 53 / 255, alpha: 1)
+        card.layer.cornerRadius = 24
+        card.layer.borderWidth = 1
+        card.layer.borderColor = UIColor(red: 42 / 255, green: 58 / 255, blue: 81 / 255, alpha: 1).cgColor
+
+        let brandLabel = UILabel()
+        brandLabel.text = "✦  Axiom"
+        brandLabel.textColor = UIColor(red: 96 / 255, green: 165 / 255, blue: 250 / 255, alpha: 1)
+        brandLabel.font = .preferredFont(forTextStyle: .headline)
+
+        let titleLabel = UILabel()
+        titleLabel.text = "We can’t reach Axiom"
+        titleLabel.textColor = .white
+        titleLabel.font = .preferredFont(forTextStyle: .largeTitle)
+        titleLabel.adjustsFontForContentSizeCategory = true
+        titleLabel.numberOfLines = 0
+
+        let detailLabel = UILabel()
+        detailLabel.text = "Your connection or Axiom may be temporarily unavailable. Your account and saved work are unchanged."
+        detailLabel.textColor = UIColor(red: 168 / 255, green: 181 / 255, blue: 199 / 255, alpha: 1)
+        detailLabel.font = .preferredFont(forTextStyle: .body)
+        detailLabel.adjustsFontForContentSizeCategory = true
+        detailLabel.numberOfLines = 0
+
+        connectivityStatusLabel.text = "Reconnect, then try again."
+        connectivityStatusLabel.textColor = UIColor(red: 168 / 255, green: 181 / 255, blue: 199 / 255, alpha: 1)
+        connectivityStatusLabel.font = .preferredFont(forTextStyle: .footnote)
+        connectivityStatusLabel.adjustsFontForContentSizeCategory = true
+        connectivityStatusLabel.numberOfLines = 0
+        connectivityStatusLabel.accessibilityIdentifier = "axiom.connectivity.status"
+
+        retryButton.setTitle("Try again", for: .normal)
+        retryButton.setTitleColor(UIColor(red: 7 / 255, green: 17 / 255, blue: 31 / 255, alpha: 1), for: .normal)
+        retryButton.titleLabel?.font = .preferredFont(forTextStyle: .headline)
+        retryButton.backgroundColor = UIColor(red: 96 / 255, green: 165 / 255, blue: 250 / 255, alpha: 1)
+        retryButton.layer.cornerRadius = 14
+        retryButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 50).isActive = true
+        retryButton.addTarget(self, action: #selector(retryConnectivity), for: .touchUpInside)
+        retryButton.accessibilityIdentifier = "axiom.connectivity.retry"
+
+        let stack = UIStackView(arrangedSubviews: [brandLabel, titleLabel, detailLabel, connectivityStatusLabel, retryButton])
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        stack.axis = .vertical
+        stack.spacing = 16
+        stack.setCustomSpacing(28, after: brandLabel)
+        stack.setCustomSpacing(10, after: titleLabel)
+        stack.setCustomSpacing(18, after: detailLabel)
+        stack.setCustomSpacing(18, after: connectivityStatusLabel)
+        card.addSubview(stack)
+        connectivityView.addSubview(card)
+        view.addSubview(connectivityView)
+
+        NSLayoutConstraint.activate([
+            connectivityView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            connectivityView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            connectivityView.topAnchor.constraint(equalTo: view.topAnchor),
+            connectivityView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            card.leadingAnchor.constraint(equalTo: connectivityView.safeAreaLayoutGuide.leadingAnchor, constant: 24),
+            card.trailingAnchor.constraint(equalTo: connectivityView.safeAreaLayoutGuide.trailingAnchor, constant: -24),
+            card.centerYAnchor.constraint(equalTo: connectivityView.safeAreaLayoutGuide.centerYAnchor),
+            stack.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 28),
+            stack.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -28),
+            stack.topAnchor.constraint(equalTo: card.topAnchor, constant: 28),
+            stack.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -28),
+        ])
+    }
+
     private func startNetworkMonitor() {
         monitor.pathUpdateHandler = { [weak self] path in
             DispatchQueue.main.async {
                 guard let self else { return }
                 let isOnline = path.status == .satisfied
+                self.isNetworkAvailable = isOnline
                 self.offlineLabel.isHidden = isOnline
                 if isOnline, self.wasOffline {
                     self.notifyWebApp(event: "online")
                     self.notifyWebApp(event: "focus")
+                    if !self.connectivityView.isHidden {
+                        self.connectivityStatusLabel.text = "A connection is available. Try again when you’re ready."
+                    }
+                } else if !isOnline, !self.connectivityView.isHidden {
+                    self.connectivityStatusLabel.text = "Your device appears to be offline."
                 }
                 self.wasOffline = !isOnline
             }
@@ -100,7 +187,9 @@ final class AxiomWebViewController: UIViewController, WKNavigationDelegate, WKUI
 
     @objc private func applicationDidBecomeActive() {
         notifyWebApp(event: "focus")
-        notifyWebApp(event: "online")
+        if isNetworkAvailable {
+            notifyWebApp(event: "online")
+        }
     }
 
     private func notifyWebApp(event: String) {
@@ -108,12 +197,23 @@ final class AxiomWebViewController: UIViewController, WKNavigationDelegate, WKUI
     }
 
     private func loadAxiom() {
-        webView.load(URLRequest(url: origin, cachePolicy: .useProtocolCachePolicy, timeoutInterval: 30))
+        let request = URLRequest(url: origin, cachePolicy: .useProtocolCachePolicy, timeoutInterval: 30)
+        lastFailedRequest = request
+        webView.load(request)
     }
 
     @objc private func refreshPage(_ sender: UIRefreshControl) {
         webView.reload()
         sender.endRefreshing()
+    }
+
+    @objc private func retryConnectivity() {
+        retryButton.isEnabled = false
+        connectivityStatusLabel.text = "Checking the connection…"
+        let request = lastFailedRequest
+            ?? webView.url.map { URLRequest(url: $0, cachePolicy: .reloadRevalidatingCacheData, timeoutInterval: 30) }
+            ?? URLRequest(url: origin, cachePolicy: .reloadRevalidatingCacheData, timeoutInterval: 30)
+        webView.load(request)
     }
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
@@ -191,6 +291,75 @@ final class AxiomWebViewController: UIViewController, WKNavigationDelegate, WKUI
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         webView.scrollView.refreshControl?.endRefreshing()
+        lastFailedRequest = nil
+        connectivityView.isHidden = true
+        retryButton.isEnabled = true
+    }
+
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        handleNavigationFailure(error, request: webView.url.map { URLRequest(url: $0) })
+    }
+
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        handleNavigationFailure(error, request: webView.url.map { URLRequest(url: $0) })
+    }
+
+    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        lastFailedRequest = webView.url.map { URLRequest(url: $0) }
+        showConnectivityError(message: "Axiom needs to reload after being paused by iOS.")
+    }
+
+    func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse,
+                 decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void) {
+        if navigationResponse.isForMainFrame,
+           let response = navigationResponse.response as? HTTPURLResponse,
+           (500...599).contains(response.statusCode) {
+            lastFailedRequest = response.url.map { URLRequest(url: $0) }
+            showConnectivityError(message: "Axiom is temporarily unavailable. Try again shortly.")
+            decisionHandler(.cancel)
+            return
+        }
+        decisionHandler(.allow)
+    }
+
+    private func handleNavigationFailure(_ error: Error, request: URLRequest?) {
+        let nsError = error as NSError
+        if nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled { return }
+        guard isConnectivityFailure(nsError) else {
+            showError("Axiom could not open this page: \(nsError.localizedDescription)")
+            return
+        }
+        let failingURL = nsError.userInfo[NSURLErrorFailingURLErrorKey] as? URL
+        lastFailedRequest = failingURL.map { URLRequest(url: $0) } ?? request ?? lastFailedRequest
+        let message = isNetworkAvailable
+            ? "Axiom could not be reached. The server or connection may be temporarily unavailable."
+            : "Your device appears to be offline. Reconnect, then try again."
+        showConnectivityError(message: message)
+    }
+
+    private func isConnectivityFailure(_ error: NSError) -> Bool {
+        guard error.domain == NSURLErrorDomain else { return false }
+        return [
+            NSURLErrorTimedOut,
+            NSURLErrorCannotFindHost,
+            NSURLErrorCannotConnectToHost,
+            NSURLErrorNetworkConnectionLost,
+            NSURLErrorDNSLookupFailed,
+            NSURLErrorNotConnectedToInternet,
+            NSURLErrorInternationalRoamingOff,
+            NSURLErrorCallIsActive,
+            NSURLErrorDataNotAllowed,
+            NSURLErrorResourceUnavailable,
+        ].contains(error.code)
+    }
+
+    private func showConnectivityError(message: String) {
+        webView.scrollView.refreshControl?.endRefreshing()
+        connectivityStatusLabel.text = message
+        retryButton.isEnabled = true
+        connectivityView.isHidden = false
+        view.bringSubviewToFront(connectivityView)
+        UIAccessibility.post(notification: .screenChanged, argument: connectivityStatusLabel)
     }
 
     private func showError(_ message: String) {

@@ -60,6 +60,7 @@ export async function middleware(request: NextRequest) {
     '/auth/signup',
     '/auth/error',
     '/manifest.webmanifest',
+    '/offline.html',
     '/.well-known/assetlinks.json',
     '/.well-known/apple-app-site-association',
     '/api/auth',
@@ -144,6 +145,6 @@ export const config = {
      * - favicon.ico (favicon file)
      * - public folder
      */
-    '/((?!_next/static|_next/image|favicon.ico|apple-touch-icon.png|icon-192x192.png|icon-512x512.png|manifest.webmanifest|sw.js|public).*)',
+    '/((?!_next/static|_next/image|favicon.ico|apple-touch-icon.png|icon-192x192.png|icon-512x512.png|manifest.webmanifest|offline.html|sw.js|public).*)',
   ],
 };
