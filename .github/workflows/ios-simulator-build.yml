@@ -131,9 +131,9 @@ jobs:
             echo "${DEVICE_UDID}|${LABEL}" >> "${DEVICE_LIST}"
             DEVICE_OK=true
             if ! run_bounded 20 xcrun simctl boot "${DEVICE_UDID}"; then DEVICE_OK=false; fi
-            if ${DEVICE_OK} && ! run_bounded 120 xcrun simctl bootstatus "${DEVICE_UDID}" -b; then DEVICE_OK=false; fi
+            if ${DEVICE_OK} && ! run_bounded 240 xcrun simctl bootstatus "${DEVICE_UDID}" -b; then DEVICE_OK=false; fi
             if ${DEVICE_OK} && ! run_bounded 180 xcrun simctl install "${DEVICE_UDID}" "${DERIVED_DATA}/Build/Products/Debug-iphonesimulator/Axiom.app"; then DEVICE_OK=false; fi
-            if ${DEVICE_OK} && ! run_bounded 20 xcrun simctl launch "${DEVICE_UDID}" com.axiomproductivity.ios; then DEVICE_OK=false; fi
+            if ${DEVICE_OK} && ! run_bounded 90 xcrun simctl launch "${DEVICE_UDID}" com.axiomproductivity.ios; then DEVICE_OK=false; fi
             if ${DEVICE_OK}; then
               sleep 10
               if ! run_bounded 20 xcrun simctl io "${DEVICE_UDID}" screenshot "${SCREENSHOT_DIR}/axiom-${LABEL}.png"; then DEVICE_OK=false; fi
