@@ -101,7 +101,7 @@ jobs:
           small = next((d for d in values if "SE" in d["name"]), values[0])
           standard = [d for d in values if "Pro" in d["name"] and "Max" not in d["name"]]
           large = [d for d in values if "Pro Max" in d["name"]]
-          choices = [("small", small), ("standard", (standard or values)[-1]), ("large", (large or values)[-1])]
+          choices = [("standard", (standard or values)[-1]), ("large", (large or values)[-1]), ("small", small)]
           emitted = set()
           for label, device in choices:
               if device["identifier"] not in emitted:
@@ -123,7 +123,12 @@ jobs:
             fi
             echo "${DEVICE_UDID}|${LABEL}" >> "${DEVICE_LIST}"
             xcrun simctl boot "${DEVICE_UDID}"
-            xcrun simctl bootstatus "${DEVICE_UDID}" -b
+            if ! python3 -c 'import subprocess, sys; subprocess.run(["xcrun", "simctl", "bootstatus", sys.argv[1], "-b"], check=True, timeout=120)' "${DEVICE_UDID}"; then
+              echo "Skipping ${LABEL}; Simulator did not finish booting within 120 seconds."
+              xcrun simctl shutdown "${DEVICE_UDID}" || true
+              xcrun simctl delete "${DEVICE_UDID}" || true
+              continue
+            fi
             xcrun simctl install "${DEVICE_UDID}" "${DERIVED_DATA}/Build/Products/Debug-iphonesimulator/Axiom.app"
             xcrun simctl launch "${DEVICE_UDID}" com.axiomproductivity.ios
             sleep 10
