@@ -1,0 +1,140 @@
+name: iOS Device Unsigned IPA
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-device-ipa-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-unsigned-ipa:
+    name: Build unsigned ARM64 IPA
+    runs-on: macos-26
+    timeout-minutes: 25
+    env:
+      IOS_PROJECT_DIR: ios/AxiomIOS
+      CI_OUTPUT: ${{ github.workspace }}/.ci-device
+      DERIVED_DATA: ${{ github.workspace }}/.ci-device/AxiomDeviceDerivedData
+      BUILD_LOG: ${{ github.workspace }}/.ci-device/axiom-device-xcodebuild.log
+      RESULT_BUNDLE: ${{ github.workspace }}/.ci-device/AxiomDeviceBuild.xcresult
+      IPA_PATH: ${{ github.workspace }}/.ci-device/Axiom-unsigned.ipa
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Verify runner and iPhoneOS SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${CI_OUTPUT}"
+          sw_vers
+          xcodebuild -version | tee "${CI_OUTPUT}/xcode-version.txt"
+          XCODE_MAJOR="$(xcodebuild -version | awk '/Xcode/{split($2,v,"."); print v[1]}')"
+          if [ "${XCODE_MAJOR}" -lt 26 ]; then
+            echo "Xcode 26 or newer is required." >&2
+            exit 1
+          fi
+          xcrun --sdk iphoneos --show-sdk-version | tee "${CI_OUTPUT}/iphoneos-sdk-version.txt"
+
+      - name: Verify iOS security contracts
+        run: npm run ios:check
+
+      - name: Install XcodeGen
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v xcodegen >/dev/null 2>&1; then
+            brew install xcodegen
+          fi
+          xcodegen --version
+
+      - name: Generate Xcode project
+        working-directory: ${{ env.IOS_PROJECT_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodegen generate --spec project.yml
+          xcodebuild -project Axiom.xcodeproj -list
+
+      - name: Build unsigned iPhoneOS app
+        working-directory: ${{ env.IOS_PROJECT_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild -project Axiom.xcodeproj -scheme Axiom -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath "${DERIVED_DATA}" -resultBundlePath "${RESULT_BUNDLE}" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' build | tee "${BUILD_LOG}"
+
+      - name: Validate and package unsigned IPA
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP_PATH="${DERIVED_DATA}/Build/Products/Release-iphoneos/Axiom.app"
+          test -d "${APP_PATH}"
+          EXECUTABLE_NAME="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "${APP_PATH}/Info.plist")"
+          EXECUTABLE_PATH="${APP_PATH}/${EXECUTABLE_NAME}"
+          test -f "${EXECUTABLE_PATH}"
+
+          ARCHS="$(lipo -archs "${EXECUTABLE_PATH}")"
+          case " ${ARCHS} " in
+            *" arm64 "*) ;;
+            *) echo "Expected arm64 device binary; found: ${ARCHS}" >&2; exit 1 ;;
+          esac
+          if [[ " ${ARCHS} " == *" x86_64 "* ]]; then
+            echo "Simulator architecture unexpectedly present: ${ARCHS}" >&2
+            exit 1
+          fi
+          if [ -e "${APP_PATH}/embedded.mobileprovision" ]; then
+            echo "Unsigned artifact unexpectedly contains a provisioning profile." >&2
+            exit 1
+          fi
+          if codesign --verify --deep --strict "${APP_PATH}" >/dev/null 2>&1; then
+            echo "Artifact unexpectedly contains a valid code signature." >&2
+            exit 1
+          fi
+
+          cp "${GITHUB_WORKSPACE}/ios/AxiomIOS/Axiom/Axiom.entitlements" "${CI_OUTPUT}/requested-entitlements.plist"
+          plutil -lint "${CI_OUTPUT}/requested-entitlements.plist"
+          BUNDLE_ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "${APP_PATH}/Info.plist")"
+          {
+            echo "bundle_id=${BUNDLE_ID}"
+            echo "architectures=${ARCHS}"
+            echo "sdk=$(xcrun --sdk iphoneos --show-sdk-version)"
+            echo "signed=false"
+            echo "provisioning_profile=false"
+            echo "associated_domains_requested=true"
+            echo "note=Installer must re-sign and provision this IPA. Free-account capabilities are not guaranteed."
+          } > "${CI_OUTPUT}/device-build-metadata.txt"
+
+          PACKAGE_ROOT="${CI_OUTPUT}/package"
+          mkdir -p "${PACKAGE_ROOT}/Payload"
+          cp -R "${APP_PATH}" "${PACKAGE_ROOT}/Payload/Axiom.app"
+          (
+            cd "${PACKAGE_ROOT}"
+            /usr/bin/zip -qry "${IPA_PATH}" Payload
+          )
+          zipinfo -1 "${IPA_PATH}" > "${CI_OUTPUT}/ipa-contents.txt"
+          head -20 "${CI_OUTPUT}/ipa-contents.txt"
+          grep -q '^Payload/Axiom.app/Info.plist$' "${CI_OUTPUT}/ipa-contents.txt"
+          shasum -a 256 "${IPA_PATH}" | tee "${CI_OUTPUT}/Axiom-unsigned.ipa.sha256"
+
+      - name: Upload unsigned device IPA
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: axiom-ios-device-unsigned-${{ github.run_number }}
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            ${{ github.workspace }}/.ci-device/Axiom-unsigned.ipa
+            ${{ github.workspace }}/.ci-device/Axiom-unsigned.ipa.sha256
+            ${{ github.workspace }}/.ci-device/device-build-metadata.txt
+            ${{ github.workspace }}/.ci-device/requested-entitlements.plist
+            ${{ github.workspace }}/.ci-device/ipa-contents.txt
+            ${{ github.workspace }}/.ci-device/AxiomDeviceBuild.xcresult
+            ${{ github.workspace }}/.ci-device/axiom-device-xcodebuild.log
+            ${{ github.workspace }}/.ci-device/xcode-version.txt
+            ${{ github.workspace }}/.ci-device/iphoneos-sdk-version.txt

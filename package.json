@@ -28,8 +28,9 @@
     "test:ios-shell": "node scripts/test-ios-shell-contract.mjs",
     "test:ios-auth": "node scripts/test-ios-auth-security.mjs",
     "test:ios-ci": "node scripts/test-ios-ci-workflow.mjs",
+    "test:ios-device-ci": "node scripts/test-ios-device-ipa-workflow.mjs",
     "migrate:auth": "tsx scripts/migrate-users-to-supabase-auth.ts",
-    "ios:check": "npm run test:ios-shell && npm run test:ios-auth && npm run test:ios-ci"
+    "ios:check": "npm run test:ios-shell && npm run test:ios-auth && npm run test:ios-ci && npm run test:ios-device-ci"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^18.0.1",

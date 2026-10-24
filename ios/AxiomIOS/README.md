@@ -69,3 +69,32 @@ The workflow deliberately contains no signing, certificate, provisioning
 profile, App Store Connect key, archive upload, or TestFlight step. Those will
 be added only after the unsigned build passes and Apple credentials are
 available as encrypted GitHub Actions secrets.
+
+## Unsigned device IPA
+
+The separate `iOS Device Unsigned IPA` workflow is also manual-only. It builds
+the same project with the `iphoneos` SDK, verifies that the executable contains
+ARM64, confirms that no valid signature or embedded provisioning profile is
+present, and packages `Payload/Axiom.app` as `Axiom-unsigned.ipa`.
+
+The artifact also contains its SHA-256 checksum, Xcode result/build logs, IPA
+contents, requested entitlements, and a device-build metadata report. The IPA
+is not directly installable: a tool such as Sideloadly must create a
+device-specific signature and provisioning profile.
+
+### Sideloadly test limitations
+
+- A free Apple Account profile expires after seven days and must then be
+  refreshed/reinstalled. Apple also limits free accounts to three installed
+  apps per device and ten App IDs in a seven-day period.
+- iOS 16 and later requires Developer Mode on the device.
+- On Windows, follow Sideloadly's current setup requirements, connect and trust
+  the iPhone, select the IPA, enter the installer's own Apple Account, and
+  sideload. Never send Apple credentials with the IPA.
+- The app currently requests Associated Domains for secure Universal Link
+  OAuth callbacks. A free-account re-sign may reject or omit that entitlement,
+  and Sideloadly may change the application identifier. Installation success
+  therefore does not prove that Google OAuth or Universal Links will work.
+  These protections are not removed in the unsigned build.
+- This workflow is only a device-build/sideload diagnostic. It is not a
+  TestFlight or App Store distribution artifact.
