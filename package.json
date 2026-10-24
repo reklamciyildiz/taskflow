@@ -31,6 +31,7 @@
     "test:ios-device-ci": "node scripts/test-ios-device-ipa-workflow.mjs",
     "test:mobile-connectivity": "node scripts/test-mobile-connectivity.mjs",
     "test:mobile-release": "node scripts/test-mobile-release-contract.mjs",
+    "test:android-twa-lifecycle": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-android-twa-lifecycle.ps1 -IncludeOffline",
     "build:android:beta": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-android-beta.ps1",
     "migrate:auth": "tsx scripts/migrate-users-to-supabase-auth.ts",
     "ios:check": "npm run test:ios-shell && npm run test:ios-auth && npm run test:ios-ci && npm run test:ios-device-ci"

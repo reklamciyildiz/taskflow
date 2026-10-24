@@ -2,15 +2,14 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
 
-const [workerSource, offlinePage, providers, middleware, androidManifest, androidEntry, androidOffline, iosController] =
+const [workerSource, offlinePage, providers, middleware, androidManifest, androidLauncher, iosController] =
   await Promise.all([
     readFile('public/sw.js', 'utf8'),
     readFile('public/offline.html', 'utf8'),
     readFile('app/providers.tsx', 'utf8'),
     readFile('middleware.ts', 'utf8'),
     readFile('twa-diagnostic/project/app/src/main/AndroidManifest.xml', 'utf8'),
-    readFile('twa-diagnostic/project/app/src/main/java/com/axiomproductivity/twa/diagnostic/EntryActivity.java', 'utf8'),
-    readFile('twa-diagnostic/project/app/src/main/java/com/axiomproductivity/twa/diagnostic/OfflineActivity.java', 'utf8'),
+    readFile('twa-diagnostic/project/app/src/main/java/com/axiomproductivity/twa/diagnostic/LauncherActivity.java', 'utf8'),
     readFile('ios/AxiomIOS/Axiom/AxiomWebViewController.swift', 'utf8'),
   ]);
 
@@ -91,14 +90,12 @@ assert.equal(shownNotification[0], 'Reminder');
 assert.equal(shownNotification[1].body, 'Due now');
 assert.ok(listeners.has('notificationclick'), 'Notification click handler must remain registered');
 
-assert.match(androidManifest, /android:name="EntryActivity"/);
-assert.match(androidManifest, /android:name="OfflineActivity"/);
-assert.match(androidEntry, /AxiomReachability\.canReachAxiom\(\)/);
-assert.match(androidEntry, /new Intent\(getIntent\(\)\)/);
-assert.match(androidEntry, /setClass\(this, reachable \? LauncherActivity\.class : OfflineActivity\.class\)/);
-assert.match(androidOffline, /Try again/);
-assert.match(androidOffline, /new Intent\(getIntent\(\)\)/);
-assert.match(androidOffline, /setClass\(this, LauncherActivity\.class\)/);
+assert.match(androidManifest, /<activity android:name="LauncherActivity"[\s\S]*?android:exported="true"[\s\S]*?<action android:name="android\.intent\.action\.MAIN" \/>[\s\S]*?<category android:name="android\.intent\.category\.LAUNCHER" \/>/);
+assert.match(androidManifest, /<activity android:name="LauncherActivity"[\s\S]*?<action android:name="android\.intent\.action\.VIEW"\/>/);
+assert.match(androidManifest, /<activity-alias[\s\S]*?android:name="EntryActivity"[\s\S]*?android:targetActivity="LauncherActivity"[\s\S]*?android:enabled="true"[\s\S]*?android:exported="true"[\s\S]*?\/>/);
+assert.doesNotMatch(androidManifest.match(/<activity-alias[\s\S]*?\/>/)?.[0] ?? '', /android\.intent\.action\.MAIN|android\.intent\.category\.LAUNCHER|intent-filter/);
+assert.doesNotMatch(androidManifest, /<activity android:name="EntryActivity"|android:name="OfflineActivity"/);
+assert.match(androidLauncher, /extends com\.google\.androidbrowserhelper\.trusted\.LauncherActivity/);
 assert.match(iosController, /didFailProvisionalNavigation/);
 assert.match(iosController, /decidePolicyFor navigationResponse/);
 assert.match(iosController, /axiom\.connectivity\.retry/);

@@ -1,6 +1,8 @@
 param(
     [switch]$PromptForSeparateKeyPassword,
-    [switch]$PasswordFromStandardInput
+    [switch]$PasswordFromStandardInput,
+    [switch]$CandidateOnly,
+    [string]$CandidateOutput
 )
 
 $ErrorActionPreference = 'Stop'
@@ -18,6 +20,11 @@ $baselineApk = Join-Path $repoRoot 'twa-diagnostic\axiom-twa-production-beta.apk
 $unsignedApk = Join-Path $projectRoot 'app\build\outputs\apk\release\app-release-unsigned.apk'
 $distDir = Join-Path $repoRoot 'dist\android'
 $targetApk = Join-Path $distDir 'Axiom.apk'
+$candidateApk = if ($CandidateOutput) {
+    [IO.Path]::GetFullPath($CandidateOutput, $repoRoot)
+} else {
+    Join-Path $distDir 'Axiom-v1.0.4-test.apk'
+}
 
 if (-not (Test-Path -LiteralPath $keystore)) {
     throw 'The original Android signing keystore is missing. Refusing to create a replacement key.'
@@ -152,23 +159,27 @@ try {
     $identity = Read-ApkIdentity $signedApk
     $certificate = Read-ApkCertificate $signedApk
     if ($identity.Package -ne $baselineIdentity.Package) { throw 'Application ID changed; refusing promotion.' }
-    if ($identity.VersionCode -le $baselineIdentity.VersionCode -or $identity.VersionCode -lt $minimumVersionCode) {
+    $currentIdentity = if (Test-Path -LiteralPath $targetApk) { Read-ApkIdentity $targetApk } else { $baselineIdentity }
+    if ($identity.VersionCode -le $currentIdentity.VersionCode -or $identity.VersionCode -lt $minimumVersionCode) {
         throw 'versionCode is not greater than the installed beta version.'
     }
     if ($certificate -ne $baselineCertificate -or $certificate -ne $expectedCertificate) {
         throw 'Signing certificate changed; refusing promotion.'
     }
 
-    $backup = Join-Path $distDir '.Axiom.previous.apk'
-    if (Test-Path -LiteralPath $targetApk) {
-        [IO.File]::Replace($signedApk, $targetApk, $backup, $true)
+    $outputApk = if ($CandidateOnly) { $candidateApk } else { $targetApk }
+    $outputDirectory = Split-Path -Parent $outputApk
+    New-Item -ItemType Directory -Path $outputDirectory -Force | Out-Null
+    $backup = Join-Path $outputDirectory ('.' + [IO.Path]::GetFileName($outputApk) + '.previous')
+    if (Test-Path -LiteralPath $outputApk) {
+        [IO.File]::Replace($signedApk, $outputApk, $backup, $true)
         Remove-Item -LiteralPath $backup -Force
     } else {
-        Move-Item -LiteralPath $signedApk -Destination $targetApk
+        Move-Item -LiteralPath $signedApk -Destination $outputApk
     }
-    $hash = (Get-FileHash -LiteralPath $targetApk -Algorithm SHA256).Hash
-    Set-Content -LiteralPath (Join-Path $distDir 'Axiom.apk.sha256') -Value "$hash  Axiom.apk" -Encoding ascii
-    Write-Output "Axiom Android beta is ready: $targetApk"
+    $hash = (Get-FileHash -LiteralPath $outputApk -Algorithm SHA256).Hash
+    Set-Content -LiteralPath ($outputApk + '.sha256') -Value "$hash  $([IO.Path]::GetFileName($outputApk))" -Encoding ascii
+    Write-Output "Axiom Android beta is ready: $outputApk"
     Write-Output "Package=$($identity.Package) VersionCode=$($identity.VersionCode) VersionName=$($identity.VersionName)"
     Write-Output "CertificateSHA256=$certificate"
 } finally {

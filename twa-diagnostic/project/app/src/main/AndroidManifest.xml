@@ -80,7 +80,7 @@
         <activity android:name="LauncherActivity"
             android:alwaysRetainTaskState="true"
             android:label="@string/launcherName"
-            android:exported="false">
+            android:exported="true">
             <meta-data android:name="android.support.customtabs.trusted.DEFAULT_URL"
                 android:value="@string/launchUrl" />
 
@@ -134,23 +134,6 @@
             <meta-data android:name="android.support.customtabs.trusted.SCREEN_ORIENTATION"
                 android:value="@string/orientation"/>
 
-
-
-
-
-
-
-        </activity>
-
-        <activity android:name="OfflineActivity"
-            android:exported="false"
-            android:theme="@style/AxiomOfflineTheme" />
-
-        <activity android:name="EntryActivity"
-            android:alwaysRetainTaskState="true"
-            android:label="@string/launcherName"
-            android:exported="true"
-            android:theme="@style/AxiomOfflineTheme">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -165,7 +148,19 @@
 
                 />
             </intent-filter>
+
         </activity>
+
+        <!--
+            Backward-compatible component for launcher databases that persisted the
+            v1.0.2 entry point. This is manifest indirection only: it instantiates
+            LauncherActivity directly and intentionally has no MAIN/LAUNCHER filter.
+        -->
+        <activity-alias
+            android:name="EntryActivity"
+            android:targetActivity="LauncherActivity"
+            android:enabled="true"
+            android:exported="true" />
 
         <activity android:name="com.google.androidbrowserhelper.trusted.FocusActivity" />
 

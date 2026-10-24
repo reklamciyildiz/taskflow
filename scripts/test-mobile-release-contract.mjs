@@ -11,15 +11,17 @@ const [gradle, twaManifestText, androidBuild, iosPromote, gitignore] = await Pro
 const twaManifest = JSON.parse(twaManifestText);
 
 assert.match(gradle, /applicationId "com\.axiomproductivity\.twa\.diagnostic"/);
-assert.match(gradle, /versionCode 3/);
-assert.match(gradle, /versionName "1\.0\.2"/);
+assert.match(gradle, /versionCode 5/);
+assert.match(gradle, /versionName "1\.0\.4"/);
 assert.equal(twaManifest.packageId, 'com.axiomproductivity.twa.diagnostic');
-assert.equal(twaManifest.appVersionCode, 3);
-assert.equal(twaManifest.appVersionName, '1.0.2');
+assert.equal(twaManifest.appVersionCode, 5);
+assert.equal(twaManifest.appVersionName, '1.0.4');
 assert.match(androidBuild, /Read-Host 'Android keystore password \(input is hidden\)' -AsSecureString/);
 assert.match(androidBuild, /84AADFBFCF2BF320DDC89D53E00E4D786DA09BD822F740A31609DFBC8E383CA8/);
 assert.match(androidBuild, /versionCode is not greater than the installed beta version/);
 assert.match(androidBuild, /Signing certificate changed; refusing promotion/);
+assert.match(androidBuild, /\[switch\]\$CandidateOnly/);
+assert.match(androidBuild, /Axiom-v1\.0\.4-test\.apk/);
 assert.match(androidBuild, /dist\\android/);
 assert.match(androidBuild, /Axiom\.apk/);
 assert.doesNotMatch(androidBuild, /storePassword\s*=\s*['"][^'"]+['"]/i);

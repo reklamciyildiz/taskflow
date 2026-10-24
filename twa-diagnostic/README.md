@@ -33,6 +33,21 @@ The existing `dist/android/Axiom.apk`, if present, is not replaced until the
 new APK passes package, version, signature, zipalign, and apksigner checks.
 Build intermediates and distribution binaries remain ignored by Git.
 
+The verified Bubblewrap `LauncherActivity` is the only `MAIN`/`LAUNCHER` and
+deep-link entry point. A filter-free `EntryActivity` activity alias is retained
+only so launcher databases from v1.0.2 can resolve their old explicit component
+directly to `LauncherActivity`; it does not create another launcher Activity or
+icon. Connectivity fallback remains in the PWA service worker; do not insert a
+native network-probe Activity in front of the Android Browser Helper launcher
+because it breaks its task restart and duplicate-launch safeguards.
+
+With an emulator running and the candidate APK installed, repeat the launcher,
+Home/Recents, Chrome recovery, offline, and reconnect regression suite with:
+
+```powershell
+npm run test:android-twa-lifecycle
+```
+
 The unsigned iOS artifact remains produced by GitHub Actions. After downloading
 its artifact ZIP, normalize it locally with:
 
