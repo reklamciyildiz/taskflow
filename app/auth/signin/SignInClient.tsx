@@ -54,7 +54,12 @@ export function SignInClient({
   const handleGoogleSignIn = async () => {
     setIsGoogleLoading(true);
     try {
-      if (requestNativeGoogleSignIn(callbackUrl)) return;
+      if (await requestNativeGoogleSignIn(callbackUrl)) {
+        // A cancelled Custom Tab returns to this still-mounted page. Do not
+        // leave the button permanently disabled while waiting for an App Link.
+        setIsGoogleLoading(false);
+        return;
+      }
       await signIn('google', { callbackUrl });
     } catch (error) {
       console.error('Google sign in error:', error);

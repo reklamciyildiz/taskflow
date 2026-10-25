@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 const read = (path) => readFile(path, 'utf8');
-const [project, info, app, controller, layout, oauth, entitlements, adapter, sessionRoute, middleware, packageJson, tailwind] = await Promise.all([
+const [project, info, app, controller, layout, oauth, entitlements, adapter, sessionRoute, sharedSession, middleware, packageJson, tailwind] = await Promise.all([
   read('ios/AxiomIOS/project.yml'),
   read('ios/AxiomIOS/Axiom/Info.plist'),
   read('ios/AxiomIOS/Axiom/AxiomApp.swift'),
@@ -12,6 +12,7 @@ const [project, info, app, controller, layout, oauth, entitlements, adapter, ses
   read('ios/AxiomIOS/Axiom/Axiom.entitlements'),
   read('lib/client/native-shell.ts'),
   read('app/api/mobile/auth/ios/web-session/route.ts'),
+  read('lib/mobile-auth/web-session.ts'),
   read('middleware.ts'),
   read('package.json'),
   read('tailwind.config.ts'),
@@ -40,15 +41,16 @@ assert.match(oauth, /SHA256/);
 assert.match(entitlements, /applinks:getaxiomm\.vercel\.app/);
 assert.match(entitlements, /webcredentials:getaxiomm\.vercel\.app/);
 assert.match(adapter, /messageHandlers\?\.axiomAuth/);
-assert.match(sessionRoute, /__Secure-next-auth\.session-token/);
-assert.match(sessionRoute, /hashPkceVerifier/);
-assert.match(sessionRoute, /assertMobileUserAllowed/);
-assert.match(sessionRoute, /\.eq\('platform', 'ios'\)/);
-assert.match(sessionRoute, /\.is\('consumed_at', null\)/);
-assert.match(sessionRoute, /httpOnly: true/);
-assert.match(sessionRoute, /secure: true/);
-assert.match(sessionRoute, /sameSite: 'lax'/);
-assert.match(sessionRoute, /value\.startsWith\('\/\/'\)/);
+assert.match(sessionRoute, /createMobileWebSession\(request, 'ios'\)/);
+assert.match(sharedSession, /__Secure-next-auth\.session-token/);
+assert.match(sharedSession, /hashPkceVerifier/);
+assert.match(sharedSession, /assertMobileUserAllowed/);
+assert.match(sharedSession, /\.eq\('platform', platform\)/);
+assert.match(sharedSession, /\.is\('consumed_at', null\)/);
+assert.match(sharedSession, /httpOnly: true/);
+assert.match(sharedSession, /secure: true/);
+assert.match(sharedSession, /sameSite: 'lax'/);
+assert.match(sharedSession, /value\.startsWith\('\/\/'\)/);
 assert.match(middleware, /apple-app-site-association/);
 assert.doesNotMatch(packageJson, /"mobile:build"/);
 assert.doesNotMatch(tailwind, /mobile\/src/);

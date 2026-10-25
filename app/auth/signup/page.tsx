@@ -78,7 +78,10 @@ export default function SignUpPage() {
   const handleGoogleSignIn = async () => {
     setIsGoogleLoading(true);
     try {
-      if (requestNativeGoogleSignIn(callbackUrl)) return;
+      if (await requestNativeGoogleSignIn(callbackUrl)) {
+        setIsGoogleLoading(false);
+        return;
+      }
       await signIn('google', { callbackUrl });
     } catch (error) {
       console.error('Google sign in error:', error);

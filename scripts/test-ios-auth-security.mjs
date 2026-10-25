@@ -7,6 +7,7 @@ const [
   googleStart,
   googleCallback,
   webSession,
+  sharedWebSession,
   oauthCoordinator,
   aasa,
   project,
@@ -15,6 +16,7 @@ const [
   read('app/api/mobile/auth/google/start/route.ts'),
   read('app/api/mobile/auth/google/callback/route.ts'),
   read('app/api/mobile/auth/ios/web-session/route.ts'),
+  read('lib/mobile-auth/web-session.ts'),
   read('ios/AxiomIOS/Axiom/AxiomOAuthCoordinator.swift'),
   read('app/.well-known/apple-app-site-association/route.ts'),
   read('ios/AxiomIOS/project.yml'),
@@ -37,16 +39,17 @@ assert.match(googleCallback, /secureEqual\(hashSecret\(payload\.nonce\), attempt
 assert.match(googleCallback, /is\('consumed_at', null\)/);
 assert.match(googleCallback, /assertMobileUserAllowed/);
 
-assert.match(webSession, /eq\('platform', 'ios'\)/);
-assert.match(webSession, /secureEqual\(String\(pendingCode\.code_challenge\), hashPkceVerifier\(verifier\)\)/);
-assert.match(webSession, /AUTHORIZATION_CODE_REPLAYED/);
-assert.match(webSession, /assertMobileUserAllowed/);
-assert.match(webSession, /__Secure-next-auth\.session-token/);
-assert.match(webSession, /httpOnly: true/);
-assert.match(webSession, /secure: true/);
-assert.match(webSession, /sameSite: 'lax'/);
-assert.match(webSession, /value\.startsWith\('\/\/'\)/);
-assert.doesNotMatch(webSession, /getByEmail|form\.get\('email'\)/);
+assert.match(webSession, /createMobileWebSession\(request, 'ios'\)/);
+assert.match(sharedWebSession, /eq\('platform', platform\)/);
+assert.match(sharedWebSession, /secureEqual\(String\(pendingCode\.code_challenge\), hashPkceVerifier\(verifier\)\)/);
+assert.match(sharedWebSession, /AUTHORIZATION_CODE_REPLAYED/);
+assert.match(sharedWebSession, /assertMobileUserAllowed/);
+assert.match(sharedWebSession, /__Secure-next-auth\.session-token/);
+assert.match(sharedWebSession, /httpOnly: true/);
+assert.match(sharedWebSession, /secure: true/);
+assert.match(sharedWebSession, /sameSite: 'lax'/);
+assert.match(sharedWebSession, /value\.startsWith\('\/\/'\)/);
+assert.doesNotMatch(sharedWebSession, /getByEmail|form\.get\('email'\)/);
 
 assert.match(oauthCoordinator, /ASWebAuthenticationSession\.Callback\.https/);
 assert.match(oauthCoordinator, /SHA256\.hash/);

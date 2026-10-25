@@ -22,6 +22,7 @@
     "android:debug:device-staging": "npm run android:sync:device-staging && node scripts/build-android-device-staging.mjs",
     "android:sync:production-beta": "npm run build:android-production-beta && cap sync android",
     "android:debug:production-beta": "npm run android:sync:production-beta && node scripts/build-android-production-beta.mjs",
+    "android:debug:capacitor-poc": "node scripts/build-capacitor-production-poc.mjs",
     "verify:android-production-beta": "node scripts/verify-android-production-beta.mjs",
     "android:debug:web-diagnostic": "node scripts/build-android-web-diagnostic.mjs"
   },

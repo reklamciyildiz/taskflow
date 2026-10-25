@@ -100,7 +100,7 @@ export default function InvitePage() {
     if (!session?.user) {
       // Store token and redirect to sign in
       sessionStorage.setItem('pendingInviteToken', token);
-      if (requestNativeGoogleSignIn(`/invite/${token}`)) return;
+      if (await requestNativeGoogleSignIn(`/invite/${token}`)) return;
       signIn('google', { callbackUrl: `/invite/${token}` });
       return;
     }
@@ -136,6 +136,12 @@ export default function InvitePage() {
     } finally {
       setJoining(false);
     }
+  };
+
+  const handleGoogleInviteSignIn = async () => {
+    const callbackUrl = `/invite/${token}`;
+    if (await requestNativeGoogleSignIn(callbackUrl)) return;
+    await signIn('google', { callbackUrl });
   };
 
   const handleResetSoloWorkspace = async () => {
@@ -295,7 +301,7 @@ export default function InvitePage() {
               Sign in to accept this invitation
             </p>
             <button
-              onClick={() => signIn('google', { callbackUrl: `/invite/${token}` })}
+              onClick={() => void handleGoogleInviteSignIn()}
               className="w-full py-3 px-4 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-medium rounded-lg transition-colors flex items-center justify-center gap-3"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24">
