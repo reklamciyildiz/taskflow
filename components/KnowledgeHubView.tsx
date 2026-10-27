@@ -153,7 +153,7 @@ export function KnowledgeHubViewContent({ runtime }: { runtime: KnowledgeHubRunt
           <div className="mt-2">
             <Button type="button" className="gap-2" onClick={openAxiomAI}>
               <Sparkles className="h-4 w-4" />
-              Ask Axiom AI
+              Ask Actiproc AI
             </Button>
           </div>
         </div>

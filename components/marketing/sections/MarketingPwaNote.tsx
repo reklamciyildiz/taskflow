@@ -130,13 +130,13 @@ export function MarketingPwaNote() {
         <DialogContent className="max-w-md border-white/[0.08] bg-zinc-950 text-zinc-50 shadow-xl ring-1 ring-white/[0.06] sm:rounded-2xl">
           <DialogHeader>
             <DialogTitle className="text-lg text-zinc-50">
-              {instructionsStandalone ? 'Already installed' : 'Install Axiom'}
+              {instructionsStandalone ? 'Already installed' : 'Install Actiproc'}
             </DialogTitle>
             <DialogDescription className="text-left text-sm text-zinc-400">
               {instructionsStandalone ? (
                 <>
                   This window is already running as an installed or standalone experience. Use your
-                  home screen or app launcher to open Axiom next time.
+                  home screen or app launcher to open Actiproc next time.
                 </>
               ) : (
                 <>
@@ -151,7 +151,7 @@ export function MarketingPwaNote() {
               <ul className="list-disc space-y-3 pl-5 text-sm leading-relaxed text-zinc-300">
                 <li>
                   <span className="font-medium text-zinc-200">Chrome / Edge (desktop):</span> look for the
-                  install icon in the address bar, or open the menu (⋮) → <em>Install Axiom…</em> /{' '}
+                  install icon in the address bar, or open the menu (⋮) → <em>Install Actiproc…</em> /{' '}
                   <em>Apps</em> → <em>Install this site as an app</em>.
                 </li>
                 <li>

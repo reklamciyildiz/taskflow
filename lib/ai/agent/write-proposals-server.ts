@@ -157,7 +157,7 @@ function rowToProposal(row: any): AIWriteProposal {
   const display = row.display_snapshot ?? {};
   return {
     id: String(row.id), toolName: row.tool_name, status: row.status,
-    title: String(display.title ?? 'Axiom change proposal'), summary: String(display.summary ?? ''),
+    title: String(display.title ?? 'Actiproc change proposal'), summary: String(display.summary ?? ''),
     targetLabel: String(display.targetLabel ?? ''), fields: Array.isArray(display.fields) ? display.fields : [],
     expiresAt: String(row.expires_at), result: row.result ?? null, error: row.error_message ?? null,
   };

@@ -45,7 +45,7 @@ async function routeResult(response: Response) {
   const body = await response.json().catch(() => null);
   if (!response.ok || !body?.success) throw new AIWriteExecutionError(
     response.status === 403 ? 'AUTHORIZATION_DENIED' : 'CANONICAL_COMMAND_FAILED',
-    typeof body?.error === 'string' ? body.error : 'The Axiom change could not be completed', response.status,
+    typeof body?.error === 'string' ? body.error : 'The Actiproc change could not be completed', response.status,
   );
   return body.data;
 }
@@ -83,7 +83,7 @@ async function executeCanonical(row: any, scope: Scope) {
       throw new AIWriteExecutionError('AUTHORIZATION_DENIED', 'Action is no longer accessible', 403);
     }
     if (String(task.updated_at) !== payload.expectedTaskUpdatedAt) {
-      throw new AIWriteExecutionError('STALE_VERSION', 'The Action changed after this proposal was created. Ask Axiom AI for a new proposal.', 409);
+      throw new AIWriteExecutionError('STALE_VERSION', 'The Action changed after this proposal was created. Ask Actiproc AI for a new proposal.', 409);
     }
     const data = await routeResult(await updateTaskRoute(
       jsonRequest(`/api/tasks/${payload.actionId}`, 'PATCH', payload.patch),
@@ -97,7 +97,7 @@ async function executeCanonical(row: any, scope: Scope) {
       throw new AIWriteExecutionError('AUTHORIZATION_DENIED', 'Action is no longer accessible', 403);
     }
     if (String(task.updated_at) !== payload.expectedTaskUpdatedAt) {
-      throw new AIWriteExecutionError('STALE_VERSION', 'The Action changed after this proposal was created. Ask Axiom AI for a new proposal.', 409);
+      throw new AIWriteExecutionError('STALE_VERSION', 'The Action changed after this proposal was created. Ask Actiproc AI for a new proposal.', 409);
     }
     const actor = { userId: String(row.user_id), organizationId: String(row.organization_id), role: scope.role };
     const source = { sourceType: 'action' as const, taskId: payload.actionId };
@@ -105,7 +105,7 @@ async function executeCanonical(row: any, scope: Scope) {
     const expected = payload.expectedSchedule;
     if ((!expected && current)
       || (expected && (!current || current.id !== expected.id || current.updatedAt !== expected.updatedAt))) {
-      throw new AIWriteExecutionError('STALE_VERSION', 'The Planner schedule changed after this proposal was created. Ask Axiom AI for a new proposal.', 409);
+      throw new AIWriteExecutionError('STALE_VERSION', 'The Planner schedule changed after this proposal was created. Ask Actiproc AI for a new proposal.', 409);
     }
     if (current?.scheduleType === 'recurring' && payload.recurrenceScope === 'occurrence') {
       await rescheduleOccurrence(actor, current.id, payload.occurrenceDate, payload.scheduleDate);
@@ -133,7 +133,7 @@ async function executeCanonical(row: any, scope: Scope) {
   const item = extractChecklistItemsFromTipTap(task.checklist_blocks).find((candidate) => candidate.id === payload.checklistItemId);
   if (!item) throw new AIWriteExecutionError('STALE_VERSION', 'Checklist item no longer exists', 409);
   if (String(task.updated_at) !== payload.expectedTaskUpdatedAt || item.checked !== payload.expectedChecked) {
-    throw new AIWriteExecutionError('STALE_VERSION', 'The Action changed after this proposal was created. Ask Axiom AI for a new proposal.', 409);
+    throw new AIWriteExecutionError('STALE_VERSION', 'The Action changed after this proposal was created. Ask Actiproc AI for a new proposal.', 409);
   }
   const checklistBlocks = setChecklistItemCheckedInDocument(task.checklist_blocks, payload.checklistItemId, payload.completed);
   if (!checklistBlocks) throw new AIWriteExecutionError('STALE_VERSION', 'Checklist item no longer exists', 409);
@@ -170,7 +170,7 @@ export async function approveAIWriteProposal(proposalId: string, scope: Scope): 
     const result = await executeCanonical(row, scope);
     return await finish(row, 'completed', { result });
   } catch (cause) {
-    const failure = cause instanceof AIWriteExecutionError ? cause : new AIWriteExecutionError('CANONICAL_COMMAND_FAILED', 'The Axiom change could not be completed', 500);
+    const failure = cause instanceof AIWriteExecutionError ? cause : new AIWriteExecutionError('CANONICAL_COMMAND_FAILED', 'The Actiproc change could not be completed', 500);
     await finish(row, 'failed', { errorCode: failure.code, errorMessage: failure.message });
     throw failure;
   }

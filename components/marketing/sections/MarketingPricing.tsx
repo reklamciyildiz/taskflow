@@ -116,7 +116,7 @@ export function MarketingPricing() {
             <div className="flex items-start justify-between gap-3 border-b border-white/[0.06] pb-6">
               <div>
                 <h3 className="text-lg font-semibold text-zinc-100">Free</h3>
-                <p className="mt-1 text-sm text-zinc-500">Try Axiom with a partner</p>
+                <p className="mt-1 text-sm text-zinc-500">Try Actiproc with a partner</p>
               </div>
               <div className="text-right">
                 <p className="text-3xl font-semibold tracking-tight text-zinc-50 sm:text-4xl">$0</p>

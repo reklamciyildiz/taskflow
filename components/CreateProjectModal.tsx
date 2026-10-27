@@ -287,7 +287,7 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId }
               id="project-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Job search, Axiom development…"
+              placeholder="e.g. Job search, Actiproc development…"
               required
             />
           </div>

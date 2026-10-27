@@ -954,7 +954,7 @@ export function Settings() {
                     <span>Enabled. Scheduled alerts arrive when their reminder or due window is reached.</span>
                   ) : (
                     <span>
-                      Browser permission is granted, but push is <strong>disabled</strong> in Axiom (toggle is OFF).
+                      Browser permission is granted, but push is <strong>disabled</strong> in Actiproc (toggle is OFF).
                     </span>
                   )
                 ) : pushNotifications ? (

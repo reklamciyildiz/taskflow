@@ -5,8 +5,8 @@ const manifest = JSON.parse(await readFile('public/manifest.webmanifest', 'utf8'
 const middleware = await readFile('middleware.ts', 'utf8');
 const assetLinksRoute = await readFile('app/.well-known/assetlinks.json/route.ts', 'utf8');
 
-assert.equal(manifest.name, 'Axiom - Team & Personal Productivity');
-assert.equal(manifest.short_name, 'Axiom');
+assert.equal(manifest.name, 'Actiproc - Team & Personal Productivity');
+assert.equal(manifest.short_name, 'Actiproc');
 assert.equal(manifest.id, '/');
 assert.equal(manifest.start_url, '/');
 assert.equal(manifest.scope, '/');

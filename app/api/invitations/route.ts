@@ -149,7 +149,7 @@ export async function POST(request: NextRequest) {
 
     // Get organization name for the email
     const organization = await organizationDb.getById(user.organization_id);
-    const organizationName = organization?.name || 'Axiom Organization';
+    const organizationName = organization?.name || 'Actiproc Organization';
     const inviterName = user.name || session.user.name || 'A team member';
 
     // Send invitation email (don't block on failure)

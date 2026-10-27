@@ -8,9 +8,9 @@ function normalizeIntentText(query: string) {
     .replace(/\p{M}/gu, '');
 }
 
-const productHelp = /\b(how (do|can) i|axiom (nasil|nedir)|yardim|help|knowledge hub|planner nasil)\b/i;
+const productHelp = /\b(how (do|can) i|(axiom|actiproc) (nasil|nedir)|yardim|help|knowledge hub|planner nasil)\b/i;
 const structured = /\b(kac|count|list|listele|hangi action|which action|priority|oncelik|status|stage|asama|due|scheduled|planlanmis|today|bugun|tomorrow|yarin)\b/i;
-const knowledge = /\b(notlarim|gecmiste|ogrendim|karar verdik|hatirliyor|my notes|previously|what did (i|we)|what do we know|knowledge|checklist|belgelerim|bilgilerim|axiom bilgiler|workspace|calisma alani|cite|citation|source|kaynak|atif|referans|dogrulama kodu|verification phrase)\b/i;
+const knowledge = /\b(notlarim|gecmiste|ogrendim|karar verdik|hatirliyor|my notes|previously|what did (i|we)|what do we know|knowledge|checklist|belgelerim|bilgilerim|(axiom|actiproc) bilgiler|workspace|calisma alani|cite|citation|source|kaynak|atif|referans|dogrulama kodu|verification phrase)\b/i;
 const workspaceIdentifier = /\b[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*-\d+\b/;
 const smallTalk = /^(hi|hello|hey|merhaba|selam|nasilsin|how are you|thanks|thank you|tesekkurler)[!.? ]*$/i;
 const workspaceSignal = /\b(action|checklist|note|not|process|surec|süreç|task|gorev|görev|kart|workspace|knowledge hub|planner|project|proje|dogrulama kodu|verification phrase)\b/i;
@@ -39,7 +39,7 @@ export function shouldAttemptKnowledgeRetrieval(query: string, intent: ChatInten
 
 export function fixedProductHelp(query: string): string | null {
   if (/knowledge hub/i.test(query)) {
-    return 'Knowledge Hub, erişebildiğiniz Action, Checklist ve Notes içeriklerini tek yerde aramanızı sağlar. Axiom AI içinden soru sorarken mevcut ekip ve Process bağlamını da kullanabilirsiniz.';
+    return 'Knowledge Hub, erişebildiğiniz Action, Checklist ve Notes içeriklerini tek yerde aramanızı sağlar. Actiproc AI içinden soru sorarken mevcut ekip ve Process bağlamını da kullanabilirsiniz.';
   }
   if (/planner/i.test(query)) {
     return 'Planner, planlanmış Action ve Checklist öğelerini Today ve Upcoming görünümlerinde bir araya getirir. Planlama ayarlarını ActionPanel içindeki Schedule kontrolünden değiştirebilirsiniz.';

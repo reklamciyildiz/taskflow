@@ -56,7 +56,7 @@ async function executeReadToolWithTimeout(call:AIReadToolCall,actor:{userId:stri
     return await Promise.race([
       executeAIReadTool(call.name,call.arguments,actor),
       new Promise<never>((_resolve,reject)=>{timer=setTimeout(()=>reject(
-        new AIReadToolError('unavailable','Axiom data lookup timed out'),
+        new AIReadToolError('unavailable','Actiproc data lookup timed out'),
       ),READ_TOOL_TIMEOUT_MS);}),
     ]);
   } finally { if(timer)clearTimeout(timer); }
@@ -65,7 +65,7 @@ async function executeReadToolWithTimeout(call:AIReadToolCall,actor:{userId:stri
 function safeError(error:unknown,provider?:GroqChatProvider) {
   if (error instanceof Error && error.name==='AbortError') return { code:'CANCELLED',message:'Generation stopped',retryable:true };
   if (error instanceof Error && error.name==='CitationRequiredError') return {
-    code:'CITATION_REQUIRED',message:'Axiom AI could not verify a source citation. Please retry.',retryable:true,
+    code:'CITATION_REQUIRED',message:'Actiproc AI could not verify a source citation. Please retry.',retryable:true,
   };
   if (error instanceof AIWriteProposalError) return {
     code:`WRITE_PROPOSAL_${error.code.toUpperCase()}`,
@@ -80,15 +80,15 @@ function safeError(error:unknown,provider?:GroqChatProvider) {
         : 'The Groq request limit was reached. Please retry shortly.',retryable:true,retryAfterSeconds };
     }
     if (normalized.code==='timeout') return { code:'PROVIDER_TIMEOUT',message:'The response took too long. Please retry.',retryable:true };
-    if (normalized.code==='configuration') return { code:'PROVIDER_CONFIGURATION',message:'Axiom AI provider is not configured.',retryable:false };
+    if (normalized.code==='configuration') return { code:'PROVIDER_CONFIGURATION',message:'Actiproc AI provider is not configured.',retryable:false };
   }
-  return { code:'AI_UNAVAILABLE',message:'Axiom AI could not complete this response. Please retry.',retryable:true };
+  return { code:'AI_UNAVAILABLE',message:'Actiproc AI could not complete this response. Please retry.',retryable:true };
 }
 
 export async function POST(request:NextRequest) {
   const scope=await requireAIChatUser(request); if (scope instanceof NextResponse) return scope;
   if (!isAIChatRuntimeReady()) {
-    return NextResponse.json({ error:{ code:'CHAT_NOT_READY',message:'Axiom AI requires verified provider and atomic quota configuration' } },{ status:503 });
+    return NextResponse.json({ error:{ code:'CHAT_NOT_READY',message:'Actiproc AI requires verified provider and atomic quota configuration' } },{ status:503 });
   }
   const parsed=requestSchema.safeParse(await request.json().catch(()=>null));
   if (!parsed.success) return NextResponse.json({ error:{ code:'INVALID_REQUEST',message:'Invalid chat request' } },{ status:400 });
@@ -143,13 +143,13 @@ export async function POST(request:NextRequest) {
           const runReadToolCalls=async(calls:AIReadToolCall[])=>{
             const executions:AIReadToolExecution[]=[];
             for(const call of calls.slice(0,2)) {
-              send({type:'tool_status',label:'Axiom verileri kontrol ediliyor…'});
+              send({type:'tool_status',label:'Actiproc verileri kontrol ediliyor…'});
               try { executions.push(await executeReadToolWithTimeout(call,{
                 userId:scope.userId,organizationId:scope.organizationId,role:scope.role,
               })); }
               catch(error) {
                 if(!(error instanceof AIReadToolError)) throw error;
-                executions.push({name:call.name,statusLabel:'Axiom verileri kontrol ediliyor…',citations:[],references:[],
+                executions.push({name:call.name,statusLabel:'Actiproc verileri kontrol ediliyor…',citations:[],references:[],
                   data:{error:error.code,message:error.message}});
               }
             }
@@ -184,7 +184,7 @@ export async function POST(request:NextRequest) {
                 requestId:input.clientRequestId }));
             }
             if (intent==='knowledge' && citations.length===0) {
-              answer='Your Axiom knowledge index does not contain an accessible match yet. Once indexing is enabled and current, I can answer this with verified sources.';
+              answer='Your Actiproc knowledge index does not contain an accessible match yet. Once indexing is enabled and current, I can answer this with verified sources.';
               send({ type:'delta',text:answer });assistantStatus='completed';
               await finalizeAssistantMessage({ messageId:turn.assistantMessageId,scope,content:answer,status:'completed',model:'axiom-index-status' });
               send({ type:'done',finishReason:'completed' });return;
@@ -192,7 +192,7 @@ export async function POST(request:NextRequest) {
             if (citations.length>0) grounding={ kind:'knowledge',teamId:effectiveContext.teamId,processId:effectiveContext.processId };
           } else if (!writeRequested&&!readToolExecutions.length&&!needsModelToolSelection&&intent==='structured') {
             if (!effectiveContext.teamId) {
-              answer='Choose a team or open Axiom AI from Knowledge Hub so I can answer this structured question from canonical Action data.';
+              answer='Choose a team or open Actiproc AI from Knowledge Hub so I can answer this structured question from canonical Action data.';
               send({ type:'delta',text:answer });assistantStatus='completed';
               await finalizeAssistantMessage({ messageId:turn.assistantMessageId,scope,content:answer,status:'completed',model:'axiom-scope-guard' });
               send({ type:'done',finishReason:'completed' });return;
@@ -223,7 +223,7 @@ export async function POST(request:NextRequest) {
           if (!tokenAdmission.allowed) {
             const retryAfterSeconds=tokenAdmission.retryAfterSeconds??60;
             const errorEvent={ type:'error',code:'PROVIDER_TOKEN_BUDGET',
-              message:`Axiom AI is protecting the Groq minute limit. Try again in about ${retryAfterSeconds} seconds.`,
+              message:`Actiproc AI is protecting the Groq minute limit. Try again in about ${retryAfterSeconds} seconds.`,
               retryable:true,retryAfterSeconds } as const;
             if (quotaReserved) await releaseAIQuotaReservation(input.clientRequestId,scope.userId,scope.organizationId);
             quotaReserved=false;
@@ -251,7 +251,7 @@ export async function POST(request:NextRequest) {
                 userId:scope.userId,organizationId:scope.organizationId,role:scope.role,
                 conversationId:input.conversationId,assistantMessageId:turn.assistantMessageId,userRequest:input.message,
               });
-              answer='İşlem taslağını hazırladım. Axiom verilerinde hiçbir değişiklik yapılmadı; yalnızca aşağıdaki Onayla düğmesi işlemi gerçekleştirebilir.';
+              answer='İşlem taslağını hazırladım. Actiproc verilerinde hiçbir değişiklik yapılmadı; yalnızca aşağıdaki Onayla düğmesi işlemi gerçekleştirebilir.';
               await finalizeAssistantMessage({messageId:turn.assistantMessageId,scope,content:answer,status:'completed',model,
                 inputTokens,outputTokens,grounding:{kind:'none'}});
               send({type:'proposal',proposal});send({type:'delta',text:answer});send({type:'done',finishReason:'completed'});

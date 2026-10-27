@@ -63,7 +63,7 @@ export function ExportModal({ open, onClose }: ExportModalProps): JSX.Element {
     ]);
 
     const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-    downloadFile(csvContent, `taskflow-export-${Date.now()}.csv`, 'text/csv');
+    downloadFile(csvContent, `actiproc-export-${Date.now()}.csv`, 'text/csv');
   };
 
   const exportJSON = (tasksToExport: typeof teamTasks) => {
@@ -84,7 +84,7 @@ export function ExportModal({ open, onClose }: ExportModalProps): JSX.Element {
     };
 
     const jsonContent = JSON.stringify(exportData, null, 2);
-    downloadFile(jsonContent, `taskflow-export-${Date.now()}.json`, 'application/json');
+    downloadFile(jsonContent, `actiproc-export-${Date.now()}.json`, 'application/json');
   };
 
   const downloadFile = (content: string, filename: string, mimeType: string) => {

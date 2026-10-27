@@ -56,7 +56,7 @@ export function MarketingIntegrationsStrip() {
         <div className="mx-auto max-w-3xl text-center">
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-500/80">Integrations</p>
           <h2 className="mt-3 text-3xl font-semibold tracking-tighter text-zinc-50 sm:text-4xl">
-            Plug Axiom into your real workflow.
+            Plug Actiproc into your real workflow.
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-base text-zinc-500">
             Calendar for deadlines. Webhooks for automations. Guardrails for teams.

@@ -72,7 +72,7 @@ export async function upsertAllDayTaskEvent(args: {
     summary: args.title,
     description: [
       args.description?.trim() ? args.description.trim() : null,
-      `Open in Axiom: ${args.appUrl}/board?task=${encodeURIComponent(args.taskId)}`,
+      `Open in Actiproc: ${args.appUrl}/board?task=${encodeURIComponent(args.taskId)}`,
     ]
       .filter(Boolean)
       .join('\n\n'),
@@ -130,7 +130,7 @@ export async function upsertTimedTaskEvent(args: {
     summary: args.title,
     description: [
       args.description?.trim() ? args.description.trim() : null,
-      `Open in Axiom: ${args.appUrl}/board?task=${encodeURIComponent(args.taskId)}`,
+      `Open in Actiproc: ${args.appUrl}/board?task=${encodeURIComponent(args.taskId)}`,
     ]
       .filter(Boolean)
       .join('\n\n'),

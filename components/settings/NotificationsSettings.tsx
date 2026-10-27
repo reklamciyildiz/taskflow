@@ -170,7 +170,7 @@ export function NotificationsSettings() {
             ) : pushPermission === 'granted' ? (
               pushNotifications
                 ? 'Enabled. Scheduled alerts arrive when their reminder or due window is reached.'
-                : 'Browser permission is granted, but push is disabled in Axiom (toggle is OFF).'
+                : 'Browser permission is granted, but push is disabled in Actiproc (toggle is OFF).'
             ) : pushNotifications ? (
               'Not allowed yet — turn ON to request permission.'
             ) : (

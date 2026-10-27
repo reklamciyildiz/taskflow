@@ -30,7 +30,7 @@ export function MarketingProductShots() {
             >
               <Image
                 src="/marketing/screens/hero.png"
-                alt="Axiom product preview (placeholder)"
+                alt="Actiproc product preview (placeholder)"
                 width={1920}
                 height={1080}
                 sizes="(min-width: 1024px) 960px, 92vw"

@@ -96,13 +96,13 @@ export default function SignUpPage() {
           <div className="flex justify-center">
             <div className="flex items-center gap-2 text-primary">
               <CheckSquare className="h-8 w-8" />
-              <span className="text-2xl font-bold">Axiom</span>
+              <span className="text-2xl font-bold">Actiproc</span>
             </div>
           </div>
           <div>
             <CardTitle className="text-2xl">Create an account</CardTitle>
             <CardDescription className="mt-2">
-              Get started with Axiom today
+              Get started with Actiproc today
             </CardDescription>
           </div>
         </CardHeader>

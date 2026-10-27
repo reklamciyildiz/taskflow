@@ -59,7 +59,7 @@ export default function SettingsAppearancePage() {
       <div>
         <h1 className="text-xl font-semibold">Appearance</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Customize how Axiom looks and feels.
+          Customize how Actiproc looks and feels.
         </p>
       </div>
 

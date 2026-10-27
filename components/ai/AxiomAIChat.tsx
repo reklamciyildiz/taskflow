@@ -93,7 +93,7 @@ export function AxiomAIChatView({
       if(!response.ok) throw new Error(payload?.error?.message??'Proposal could not be processed');
       if(action==='approve'&&payload.proposal.status==='completed') await refreshData();
       setMessages((current)=>current.map((message)=>message.id===messageId?{...message,proposal:payload.proposal}:message));
-      if(action==='approve'&&payload.proposal.status==='completed') toast.success('Axiom işlemi başarıyla tamamlandı');
+      if(action==='approve'&&payload.proposal.status==='completed') toast.success('Actiproc işlemi başarıyla tamamlandı');
       else if(action==='reject') toast.success('Taslak reddedildi; hiçbir değişiklik yapılmadı');
     } catch(error) { toast.error(error instanceof Error?error.message:'Proposal could not be processed'); }
     finally { setProposalBusy(null); }
@@ -117,7 +117,7 @@ export function AxiomAIChatView({
       const response=await request('/api/ai/chat',{ method:'POST',signal:controller.signal,headers:{'Content-Type':'application/json'},
         body:JSON.stringify({ conversationId:activeConversation,clientRequestId:requestId,message,context }) });
       if (!response.ok||!response.body) {
-        const payload=await response.json().catch(()=>null);throw new Error(payload?.error?.message ?? 'Axiom AI is unavailable');
+        const payload=await response.json().catch(()=>null);throw new Error(payload?.error?.message ?? 'Actiproc AI is unavailable');
       }
       const reader=response.body.getReader(),decoder=new TextDecoder();let buffer='',realAssistantId=optimisticAssistant;
       while(true) {
@@ -138,28 +138,28 @@ export function AxiomAIChatView({
       }
       await refreshConversations();
     } catch(error) {
-      if ((error as Error).name!=='AbortError') toast.error(error instanceof Error?error.message:'Axiom AI is unavailable');
+      if ((error as Error).name!=='AbortError') toast.error(error instanceof Error?error.message:'Actiproc AI is unavailable');
       setMessages((current)=>current.map((item)=>item.status==='streaming'?{...item,status:controller.signal.aborted?'cancelled':'failed'}:item));
     } finally { if(abortRef.current===controller) abortRef.current=null;setLoading(false); }
   };
 
   const lastUser=[...messages].reverse().find((message)=>message.role==='user');
   const history=<HistoryPanel conversations={conversations} activeId={conversationId} onSelect={(id)=>void selectConversation(id)} onNew={newConversation} onRename={(item)=>void renameConversation(item)} onDelete={(id)=>void removeConversation(id)}/>;
-  if(!enabled) return <div className="mx-auto flex min-h-[60vh] max-w-xl items-center justify-center"><div className="rounded-2xl border bg-card p-8 text-center"><Bot className="mx-auto mb-4 h-10 w-10 text-primary"/><h1 className="text-xl font-semibold">Axiom AI is not enabled</h1><p className="mt-2 text-sm text-muted-foreground">An administrator must verify the chat migration, atomic quota and provider configuration first.</p></div></div>;
+  if(!enabled) return <div className="mx-auto flex min-h-[60vh] max-w-xl items-center justify-center"><div className="rounded-2xl border bg-card p-8 text-center"><Bot className="mx-auto mb-4 h-10 w-10 text-primary"/><h1 className="text-xl font-semibold">Actiproc AI is not enabled</h1><p className="mt-2 text-sm text-muted-foreground">An administrator must verify the chat migration, atomic quota and provider configuration first.</p></div></div>;
 
   return <div className="axiom-ai-chat mx-auto flex h-[calc(100dvh-8.5rem)] min-h-[32rem] max-w-7xl overflow-hidden rounded-2xl border bg-card shadow-sm">
     <aside className="hidden w-72 shrink-0 border-r bg-muted/20 lg:block">{history}</aside>
     <section className="flex min-w-0 flex-1 flex-col">
       <header className="flex h-14 shrink-0 items-center gap-3 border-b px-3 sm:px-5">
         <Sheet open={historyOpen} onOpenChange={setHistoryOpen}><SheetTrigger asChild><Button variant="ghost" size="icon" className="lg:hidden" aria-label="Open chat history"><Menu className="h-5 w-5"/></Button></SheetTrigger><SheetContent side="left" className="w-[88vw] max-w-sm p-0"><SheetHeader className="border-b p-4"><SheetTitle>Chat history</SheetTitle></SheetHeader>{history}</SheetContent></Sheet>
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary"><Bot className="h-5 w-5"/></div><div><h1 className="font-semibold">Axiom AI</h1><p className="text-xs text-muted-foreground">Verified workspace knowledge, when available</p></div>
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary"><Bot className="h-5 w-5"/></div><div><h1 className="font-semibold">Actiproc AI</h1><p className="text-xs text-muted-foreground">Verified workspace knowledge, when available</p></div>
       </header>
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-6 sm:px-6">
-        {messages.length===0?<div className="mx-auto flex h-full max-w-2xl flex-col items-center justify-center text-center"><div className="mb-5 rounded-2xl bg-gradient-to-br from-violet-500/15 to-cyan-500/15 p-4"><Bot className="h-9 w-9 text-primary"/></div><h2 className="text-2xl font-semibold">How can I help?</h2><p className="mt-2 max-w-md text-sm text-muted-foreground">Ask about accessible Axiom knowledge, your current work, or how the product works.</p><div className="mt-7 grid w-full gap-2 sm:grid-cols-3">{suggestions.map((suggestion)=><button key={suggestion} className="rounded-xl border bg-background p-3 text-left text-sm transition-colors hover:bg-muted" onClick={()=>void send(suggestion)}>{suggestion}</button>)}</div></div>
+        {messages.length===0?<div className="mx-auto flex h-full max-w-2xl flex-col items-center justify-center text-center"><div className="mb-5 rounded-2xl bg-gradient-to-br from-violet-500/15 to-cyan-500/15 p-4"><Bot className="h-9 w-9 text-primary"/></div><h2 className="text-2xl font-semibold">How can I help?</h2><p className="mt-2 max-w-md text-sm text-muted-foreground">Ask about accessible Actiproc knowledge, your current work, or how the product works.</p><div className="mt-7 grid w-full gap-2 sm:grid-cols-3">{suggestions.map((suggestion)=><button key={suggestion} className="rounded-xl border bg-background p-3 text-left text-sm transition-colors hover:bg-muted" onClick={()=>void send(suggestion)}>{suggestion}</button>)}</div></div>
         :<div className="mx-auto max-w-3xl space-y-6">{messages.map((message)=><article key={message.id} className={cn('group flex gap-3',message.role==='user'&&'justify-end')}>
           {message.role==='assistant'&&<div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><Bot className="h-4 w-4"/></div>}
           <div className={cn('min-w-0 max-w-[88%] rounded-2xl px-4 py-3',message.role==='user'?'bg-primary text-primary-foreground':'border bg-background')}>
-            {message.content?<SafeAIMessage content={message.content} sources={message.sources}/>:message.status==='streaming'?<div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin"/><span>{message.activity??'Axiom AI düşünüyor…'}</span></div>:null}
+            {message.content?<SafeAIMessage content={message.content} sources={message.sources}/>:message.status==='streaming'?<div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin"/><span>{message.activity??'Actiproc AI düşünüyor…'}</span></div>:null}
             {message.sources.length>0&&<div className="mt-4 grid gap-2 border-t pt-3">{message.sources.map((source,index)=><button key={source.citationId} disabled={!source.navigation.actionId} className="rounded-lg border bg-muted/30 p-2.5 text-left text-xs enabled:hover:bg-muted disabled:cursor-default" onClick={()=>source.navigation.actionId&&openTaskEditor(source.navigation.actionId)}><span className="font-medium">[{index+1}] {source.title}</span><span className="mt-1 line-clamp-2 block text-muted-foreground">{source.snippet}</span></button>)}</div>}
             {message.references&&message.references.length>0&&<div className="mt-4 grid gap-2 border-t pt-3">{message.references.slice(0,12).map((reference)=><button key={`${reference.type}:${reference.id}`} disabled={!reference.actionId} className="rounded-lg border bg-muted/30 p-2.5 text-left text-xs enabled:hover:bg-muted disabled:cursor-default" onClick={()=>reference.actionId&&openTaskEditor(reference.actionId,reference.checklistItemId)}><span className="font-medium">{reference.title}</span><span className="mt-1 block capitalize text-muted-foreground">{reference.type}</span></button>)}</div>}
             {message.proposal&&<div className="mt-4 rounded-xl border border-primary/25 bg-primary/[0.04] p-3 text-foreground">
@@ -169,13 +169,13 @@ export function AxiomAIChatView({
               {message.proposal.status==='pending'&&<div className="mt-3 flex flex-wrap gap-2"><Button size="sm" className="gap-1.5" disabled={proposalBusy===message.proposal.id} onClick={()=>void handleProposal(message.id,message.proposal!.id,'approve')}>{proposalBusy===message.proposal.id?<Loader2 className="h-3.5 w-3.5 animate-spin"/>:<Check className="h-3.5 w-3.5"/>}Onayla ve uygula</Button><Button size="sm" variant="outline" className="gap-1.5" disabled={proposalBusy===message.proposal.id} onClick={()=>void handleProposal(message.id,message.proposal!.id,'reject')}><X className="h-3.5 w-3.5"/>Reddet</Button></div>}
               {message.proposal.status==='completed'&&message.proposal.result&&<Button size="sm" variant="outline" className="mt-3" disabled={!message.proposal.result.actionId} onClick={()=>message.proposal?.result?.actionId&&openTaskEditor(message.proposal.result.actionId,message.proposal.result.checklistItemId)}>Kaydı aç</Button>}
               {message.proposal.status==='failed'&&<p className="mt-3 text-xs text-destructive">{message.proposal.error??'İşlem tamamlanamadı; başarı kaydı oluşturulmadı.'}</p>}
-              {message.proposal.status==='rejected'&&<p className="mt-3 text-xs text-muted-foreground">Reddedildi; Axiom verilerinde değişiklik yapılmadı.</p>}
+              {message.proposal.status==='rejected'&&<p className="mt-3 text-xs text-muted-foreground">Reddedildi; Actiproc verilerinde değişiklik yapılmadı.</p>}
               {message.proposal.status==='expired'&&<p className="mt-3 text-xs text-muted-foreground">Bu taslağın süresi doldu. Yeni bir taslak isteyin.</p>}
             </div>}
             {message.role==='assistant'&&message.content&&<div className="mt-2 flex items-center gap-1 opacity-60 transition-opacity group-hover:opacity-100"><Button variant="ghost" size="icon" className="h-7 w-7" aria-label="Copy response" onClick={()=>void navigator.clipboard.writeText(message.content).then(()=>toast.success('Copied'))}><Copy className="h-3.5 w-3.5"/></Button>{message.status==='failed'&&lastUser&&<Button variant="ghost" size="sm" className="h-7 gap-1" onClick={()=>void send(lastUser.content)}><RotateCcw className="h-3.5 w-3.5"/>Retry</Button>}</div>}
           </div></article>)}<div ref={bottomRef}/></div>}
       </div>
-      <footer className="shrink-0 border-t bg-background/90 p-3 backdrop-blur sm:p-4"><div className="mx-auto flex max-w-3xl items-end gap-2 rounded-2xl border bg-card p-2 shadow-sm"><Textarea value={input} onChange={(event)=>setInput(event.target.value)} placeholder="Ask Axiom AI…" aria-label="Message Axiom AI" rows={1} className="max-h-36 min-h-[42px] resize-none border-0 bg-transparent focus-visible:ring-0" onKeyDown={(event)=>{ if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();void send(input);} }}/>{loading?<Button size="icon" variant="destructive" aria-label="Stop generating" onClick={()=>abortRef.current?.abort()}><Square className="h-4 w-4 fill-current"/></Button>:<Button size="icon" aria-label="Send message" disabled={!input.trim()} onClick={()=>void send(input)}><Send className="h-4 w-4"/></Button>}</div><p className="mt-2 text-center text-[11px] text-muted-foreground">Axiom AI can make mistakes. Source cards are shown only after current access validation.</p></footer>
+      <footer className="shrink-0 border-t bg-background/90 p-3 backdrop-blur sm:p-4"><div className="mx-auto flex max-w-3xl items-end gap-2 rounded-2xl border bg-card p-2 shadow-sm"><Textarea value={input} onChange={(event)=>setInput(event.target.value)} placeholder="Ask Actiproc AI…" aria-label="Message Actiproc AI" rows={1} className="max-h-36 min-h-[42px] resize-none border-0 bg-transparent focus-visible:ring-0" onKeyDown={(event)=>{ if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();void send(input);} }}/>{loading?<Button size="icon" variant="destructive" aria-label="Stop generating" onClick={()=>abortRef.current?.abort()}><Square className="h-4 w-4 fill-current"/></Button>:<Button size="icon" aria-label="Send message" disabled={!input.trim()} onClick={()=>void send(input)}><Send className="h-4 w-4"/></Button>}</div><p className="mt-2 text-center text-[11px] text-muted-foreground">Actiproc AI can make mistakes. Source cards are shown only after current access validation.</p></footer>
     </section>
   </div>;
 }

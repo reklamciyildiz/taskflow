@@ -86,7 +86,7 @@ self.addEventListener('push', (event) => {
     }
   }
 
-  const title = data.title || 'TaskFlow';
+  const title = data.title || 'Actiproc';
   const options = {
     body: data.body || '',
     tag: data.tag || 'taskflow',

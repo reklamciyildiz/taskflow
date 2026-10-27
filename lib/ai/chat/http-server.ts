@@ -6,7 +6,7 @@ import { isAIBetaScopeAllowed } from '@/lib/ai/beta-access';
 
 export async function requireAIChatUser(request?: NextRequest) {
   if (!isAIChatEnabled()) {
-    return NextResponse.json({ error:{ code:'FEATURE_DISABLED',message:'Axiom AI is not enabled' } },{ status:503 });
+    return NextResponse.json({ error:{ code:'FEATURE_DISABLED',message:'Actiproc AI is not enabled' } },{ status:503 });
   }
   const authed=await requireAuthedUser(request);
   if (authed instanceof NextResponse) return authed;
@@ -14,7 +14,7 @@ export async function requireAIChatUser(request?: NextRequest) {
     return NextResponse.json({ error:{ code:'FORBIDDEN',message:'Organization required' } },{ status:403 });
   }
   if (!isAIBetaScopeAllowed(authed.user.id,authed.user.organization_id)) {
-    return NextResponse.json({ error:{ code:'BETA_ACCESS_REQUIRED',message:'Axiom AI is currently available to approved beta accounts only' } },{ status:403 });
+    return NextResponse.json({ error:{ code:'BETA_ACCESS_REQUIRED',message:'Actiproc AI is currently available to approved beta accounts only' } },{ status:403 });
   }
   return { userId:authed.user.id,organizationId:authed.user.organization_id,role:authed.user.role??null };
 }

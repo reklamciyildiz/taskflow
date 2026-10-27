@@ -236,7 +236,7 @@ export default function InvitePage() {
             You're invited!
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
-            You've been invited to join an organization on Axiom
+            You've been invited to join an organization on Actiproc
           </p>
         </div>
 
@@ -249,7 +249,7 @@ export default function InvitePage() {
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Organization</p>
               <p className="font-semibold text-gray-900 dark:text-white">
-                {invitation?.organization?.name || 'Axiom Organization'}
+                {invitation?.organization?.name || 'Actiproc Organization'}
               </p>
             </div>
           </div>

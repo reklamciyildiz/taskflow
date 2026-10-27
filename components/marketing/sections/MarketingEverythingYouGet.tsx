@@ -56,7 +56,7 @@ export function MarketingEverythingYouGet() {
             A complete system — not a feature salad.
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-base text-zinc-500">
-            Axiom is designed so you can understand the whole product in one pass. Plans change limits — not your team’s
+            Actiproc is designed so you can understand the whole product in one pass. Plans change limits — not your team’s
             ability to collaborate.
           </p>
         </div>
