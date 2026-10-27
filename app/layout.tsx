@@ -7,10 +7,22 @@ export const metadata: Metadata = {
   title: 'Actiproc - Team & Personal Productivity',
   description: 'Advanced task management with team collaboration, analytics, and AI-powered insights',
   icons: {
-    icon: '/favicon.ico',
-    apple: '/apple-touch-icon.png',
+    icon: [
+      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/icon-192x192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icon-512x512.png', sizes: '512x512', type: 'image/png' },
+    ],
+    shortcut: '/favicon.ico',
+    apple: [
+      { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+    ],
   },
   manifest: '/manifest.webmanifest',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Actiproc',
+  },
   verification: {
     google: 'Do69Btp7iXA2Enu__-hEZgokFD7RGYaXbqN_Iy7S9fg',
   },
@@ -39,6 +51,7 @@ export default function RootLayout({
         <link rel="preconnect" href="https://ujryiwlfzgdnwgvylzqe.supabase.co" />
         <link rel="dns-prefetch" href="https://ujryiwlfzgdnwgvylzqe.supabase.co" />
         <link rel="preconnect" href="https://ui-avatars.com" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
       </head>
       <body className="font-sans">
         <Providers>{children}</Providers>

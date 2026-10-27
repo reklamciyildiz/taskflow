@@ -1,22 +1,24 @@
 /* eslint-disable no-restricted-globals */
 
-const AXIOM_SHELL_CACHE = 'axiom-shell-v1';
+const ACTIPROC_SHELL_CACHE = 'actiproc-shell-v2';
 const AXIOM_OFFLINE_URL = '/offline.html';
-const AXIOM_PUBLIC_SHELL = [
+const ACTIPROC_PUBLIC_SHELL = [
   AXIOM_OFFLINE_URL,
   '/manifest.webmanifest',
   '/icon-192x192.png',
   '/icon-512x512.png',
+  '/apple-touch-icon.png',
+  '/favicon.ico',
 ];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(AXIOM_SHELL_CACHE).then(async (cache) => {
+    caches.open(ACTIPROC_SHELL_CACHE).then(async (cache) => {
       // The offline document is the only required entry. Optional branding assets
       // must never prevent a service-worker update from installing.
       await cache.add(new Request(AXIOM_OFFLINE_URL, { cache: 'reload' }));
       await Promise.allSettled(
-        AXIOM_PUBLIC_SHELL.slice(1).map((url) =>
+        ACTIPROC_PUBLIC_SHELL.slice(1).map((url) =>
           cache.add(new Request(url, { cache: 'reload' }))
         )
       );
@@ -32,7 +34,7 @@ self.addEventListener('activate', (event) => {
       .then((keys) =>
         Promise.all(
           keys
-            .filter((key) => key.startsWith('axiom-shell-') && key !== AXIOM_SHELL_CACHE)
+            .filter((key) => (key.startsWith('axiom-shell-') || key.startsWith('actiproc-shell-')) && key !== ACTIPROC_SHELL_CACHE)
             .map((key) => caches.delete(key))
         )
       )
@@ -89,6 +91,8 @@ self.addEventListener('push', (event) => {
   const title = data.title || 'Actiproc';
   const options = {
     body: data.body || '',
+    icon: '/icon-192x192.png',
+    badge: '/icon-192x192.png',
     tag: data.tag || 'taskflow',
     data: { url: data.url || '/' },
   };
@@ -111,4 +115,3 @@ self.addEventListener('notificationclick', (event) => {
     })
   );
 });
-
