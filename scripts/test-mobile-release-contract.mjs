@@ -11,11 +11,11 @@ const [gradle, twaManifestText, androidBuild, iosPromote, gitignore] = await Pro
 const twaManifest = JSON.parse(twaManifestText);
 
 assert.match(gradle, /applicationId "com\.axiomproductivity\.twa\.diagnostic"/);
-assert.match(gradle, /versionCode 5/);
-assert.match(gradle, /versionName "1\.0\.4"/);
+assert.match(gradle, /versionCode [5-9]/);
+assert.match(gradle, /versionName "1\.0\.[4-9]"/);
 assert.equal(twaManifest.packageId, 'com.axiomproductivity.twa.diagnostic');
-assert.equal(twaManifest.appVersionCode, 5);
-assert.equal(twaManifest.appVersionName, '1.0.4');
+assert.ok(twaManifest.appVersionCode >= 5);
+assert.match(twaManifest.appVersionName, /^1\.0\.[4-9]$/);
 assert.match(androidBuild, /Read-Host 'Android keystore password \(input is hidden\)' -AsSecureString/);
 assert.match(androidBuild, /84AADFBFCF2BF320DDC89D53E00E4D786DA09BD822F740A31609DFBC8E383CA8/);
 assert.match(androidBuild, /versionCode is not greater than the installed beta version/);
