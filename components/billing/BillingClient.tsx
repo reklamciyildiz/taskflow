@@ -33,6 +33,8 @@ function statusBadgeVariant(status: string): 'default' | 'secondary' | 'destruct
   if (status === 'trialing') return 'secondary';
   if (status === 'past_due') return 'destructive';
   if (status === 'cancelled') return 'outline';
+  if (status === 'paused') return 'secondary';
+  if (status === 'expired') return 'destructive';
   return 'secondary';
 }
 
@@ -52,6 +54,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
     seatLimit,
     seatsUsed,
     subscriptionId,
+    endsAt,
     refreshBilling,
     openCheckout,
     openCustomerPortal,
@@ -289,6 +292,21 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
               </div>
             </div>
           )}
+
+          {billingStatus === 'cancelled' && endsAt ? (
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm">
+              Your subscription remains available until{' '}
+              <strong>{new Date(endsAt).toLocaleDateString()}</strong>. You can resume it from the customer portal
+              before that date.
+            </div>
+          ) : null}
+
+          {billingStatus === 'paused' ? (
+            <div className="rounded-lg border border-border bg-muted/30 p-4 text-sm text-muted-foreground">
+              Billing is paused. Your current access remains available; manage or resume billing from the customer
+              portal.
+            </div>
+          ) : null}
 
           {showSeatMeter ? (
             <div className="space-y-2 rounded-xl border bg-card p-4">

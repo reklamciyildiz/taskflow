@@ -97,6 +97,7 @@ const migrationSources = [
   ['20261019120000', 'ai_action_mutation_tools', ['supabase/migrations/20261019120000_ai_action_mutation_tools.sql']],
   ['20261020210000', 'planner_time_block_duration', ['supabase/migrations/20261020210000_planner_time_block_duration.sql']],
   ['20261021010000', 'mobile_auth_foundation', ['supabase/migrations/20261021010000_mobile_auth_foundation.sql']],
+  ['20261025160000', 'lemon_webhook_reliability', ['supabase/migrations/20261025160000_lemon_webhook_reliability.sql']],
 ];
 
 // The historical baseline helper already creates this trigger, while the later

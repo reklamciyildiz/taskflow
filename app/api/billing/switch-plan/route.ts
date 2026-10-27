@@ -1,26 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireOrgAdmin } from '@/lib/server-authz';
 import { organizationDb } from '@/lib/db';
+import { getLemonBillingConfig, variantForPlan } from '@/lib/lemon-config';
 
 type SwitchPlan = 'pro' | 'team';
 type BillingInterval = 'monthly' | 'yearly';
-
-function requiredEnv(name: string): string {
-  const v = process.env[name];
-  if (!v) throw new Error(`Missing env: ${name}`);
-  return v;
-}
-
-function variantIdForPlan(plan: SwitchPlan, billingInterval: BillingInterval): string {
-  const ids =
-    plan === 'pro'
-      ? (process.env.LEMON_VARIANT_PRO_IDS ?? '')
-      : (process.env.LEMON_VARIANT_TEAM_IDS ?? '');
-  const parts = ids.split(',').map((s) => s.trim()).filter(Boolean);
-  if (!parts.length) throw new Error(`Missing variant id for plan: ${plan}`);
-  if (billingInterval === 'yearly' && parts.length >= 2) return parts[1];
-  return parts[0];
-}
 
 /**
  * Switch an existing subscriber between plans (e.g. Pro → Team).
@@ -53,8 +37,8 @@ export async function POST(request: NextRequest) {
     const plan: SwitchPlan = body.plan === 'team' ? 'team' : body.plan === 'pro' ? 'pro' : 'team';
     const billingInterval: BillingInterval = body.billingInterval === 'yearly' ? 'yearly' : 'monthly';
 
-    const apiKey = requiredEnv('LEMONSQUEEZY_API_KEY');
-    const newVariantId = variantIdForPlan(plan, billingInterval);
+    const config = getLemonBillingConfig();
+    const newVariantId = variantForPlan(plan, billingInterval, config);
     const newVariantIdNum = Number(newVariantId);
     if (!Number.isFinite(newVariantIdNum)) {
       return NextResponse.json({ success: false, error: 'Invalid variant id' }, { status: 500 });
@@ -65,7 +49,7 @@ export async function POST(request: NextRequest) {
       headers: {
         Accept: 'application/vnd.api+json',
         'Content-Type': 'application/vnd.api+json',
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Bearer ${config.apiKey}`,
       },
       body: JSON.stringify({
         data: {

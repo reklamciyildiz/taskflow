@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 
 export type BillingPlan = 'free' | 'pro' | 'team';
-export type BillingStatus = 'active' | 'past_due' | 'cancelled' | 'trialing';
+export type BillingStatus = 'active' | 'past_due' | 'cancelled' | 'trialing' | 'paused' | 'expired';
 
 type LemonWindow = Window & {
   LemonSqueezy?: {
@@ -22,11 +22,15 @@ export function useOrganizationBilling(organizationId: string | null) {
   const [seatLimit, setSeatLimit] = useState<number>(Number.POSITIVE_INFINITY);
   const [seatsUsed, setSeatsUsed] = useState(1);
   const [subscriptionId, setSubscriptionId] = useState<string | null>(null);
+  const [endsAt, setEndsAt] = useState<string | null>(null);
 
   const refreshBilling = useCallback(async () => {
     if (!organizationId) return;
     setBillingLoading(true);
     try {
+      // Re-read Lemon's authoritative state before rendering local entitlements.
+      // A failed reconciliation never grants access; the last verified local state remains visible.
+      await fetch('/api/billing/reconcile', { method: 'POST' }).catch(() => null);
       const res = await fetch('/api/billing/summary');
       const json = await res.json();
       if (json?.success && json?.data) {
@@ -40,6 +44,10 @@ export function useOrganizationBilling(organizationId: string | null) {
               ? 'cancelled'
               : status === 'trialing'
                 ? 'trialing'
+                : status === 'paused'
+                  ? 'paused'
+                  : status === 'expired'
+                    ? 'expired'
                 : 'active'
         );
         // null from API = unlimited (Infinity cannot be JSON-serialized)
@@ -51,6 +59,8 @@ export function useOrganizationBilling(organizationId: string | null) {
         setSeatsUsed(Number(json.data.seatsUsed ?? 1) || 1);
         const sid = json.data.subscriptionId;
         setSubscriptionId(typeof sid === 'string' && sid ? sid : null);
+        const end = json.data.endsAt;
+        setEndsAt(typeof end === 'string' && end ? end : null);
       }
     } catch {
       // ignore — stale state is acceptable
@@ -269,6 +279,7 @@ export function useOrganizationBilling(organizationId: string | null) {
     seatLimit,
     seatsUsed,
     subscriptionId,
+    endsAt,
     refreshBilling,
     openCheckout,
     openCustomerPortal,

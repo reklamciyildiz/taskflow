@@ -1287,21 +1287,58 @@ export const notificationDb = {
 // =============================================
 
 export const lemonWebhookEventDb = {
-  async tryMarkSeen(payload_hash: string, event_name: string): Promise<boolean> {
-    // Returns true if inserted (first time), false if already exists.
-    const { data, error } = await db
-      .from('lemon_webhook_events')
-      .insert({ payload_hash, event_name })
-      .select('id')
-      .single();
-    if (!error && data?.id) return true;
-
-    // Unique conflict → already processed
-    const code = (error as any)?.code;
-    if (code === '23505') return false;
+  async claim(input: {
+    payload_hash: string;
+    event_name: string;
+    resource_id?: string | null;
+    resource_updated_at?: string | null;
+  }): Promise<'claimed' | 'duplicate' | 'busy'> {
+    const { data, error } = await (db as any).rpc('claim_lemon_webhook_event', {
+      p_payload_hash: input.payload_hash,
+      p_event_name: input.event_name,
+      p_resource_id: input.resource_id ?? null,
+      p_resource_updated_at: input.resource_updated_at ?? null,
+    });
     if (error) throw error;
-    return false;
+    if (data === 'claimed' || data === 'duplicate' || data === 'busy') return data;
+    throw new Error(`Unexpected Lemon webhook claim result: ${String(data)}`);
   },
+
+  async markCompleted(payload_hash: string): Promise<void> {
+    const now = new Date().toISOString();
+    const { error } = await db
+      .from('lemon_webhook_events')
+      .update({ status: 'completed', last_error: null, processed_at: now, updated_at: now })
+      .eq('payload_hash', payload_hash);
+    if (error) throw error;
+  },
+
+  async markFailed(payload_hash: string, errorMessage: string): Promise<void> {
+    const { error } = await db
+      .from('lemon_webhook_events')
+      .update({
+        status: 'failed',
+        last_error: errorMessage.slice(0, 1000),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('payload_hash', payload_hash);
+    if (error) throw error;
+  },
+
+  async markQuarantined(payload_hash: string, reason: string): Promise<void> {
+    const now = new Date().toISOString();
+    const { error } = await db
+      .from('lemon_webhook_events')
+      .update({
+        status: 'quarantined',
+        last_error: reason.slice(0, 1000),
+        processed_at: now,
+        updated_at: now,
+      })
+      .eq('payload_hash', payload_hash);
+    if (error) throw error;
+  },
+
 };
 
 // =============================================

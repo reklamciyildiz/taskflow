@@ -1,8 +1,8 @@
 {
   "packageId": "com.axiomproductivity.twa.diagnostic",
-  "host": "getaxiomm.vercel.app",
-  "name": "Axiom TWA Diagnostic",
-  "launcherName": "Axiom TWA",
+  "host": "www.actiproc.com",
+  "name": "Actiproc",
+  "launcherName": "Actiproc",
   "display": "standalone",
   "themeColor": "#0F172A",
   "themeColorDark": "#0F172A",
@@ -13,7 +13,7 @@
   "backgroundColor": "#0F172A",
   "enableNotifications": true,
   "startUrl": "/",
-  "iconUrl": "https://getaxiomm.vercel.app/icon-512x512.png",
+  "iconUrl": "https://www.actiproc.com/icon-512x512.png",
   "splashScreenFadeOutDuration": 300,
   "signingKey": {
     "path": "android.keystore",
@@ -23,7 +23,7 @@
   "appVersionCode": 5,
   "shortcuts": [],
   "generatorApp": "bubblewrap-cli",
-  "webManifestUrl": "https://getaxiomm.vercel.app/manifest.webmanifest",
+  "webManifestUrl": "https://www.actiproc.com/manifest.webmanifest",
   "fallbackType": "customtabs",
   "features": {},
   "alphaDependencies": {
@@ -32,11 +32,14 @@
   "enableSiteSettingsShortcut": true,
   "isChromeOSOnly": false,
   "isMetaQuest": false,
-  "fullScopeUrl": "https://getaxiomm.vercel.app/",
+  "fullScopeUrl": "https://www.actiproc.com/",
   "minSdkVersion": 24,
   "orientation": "default",
   "fingerprints": [],
-  "additionalTrustedOrigins": [],
+  "additionalTrustedOrigins": [
+    "https://actiproc.com",
+    "https://getaxiomm.vercel.app"
+  ],
   "retainedBundles": [],
   "protocolHandlers": [],
   "fileHandlers": [],

@@ -1,6 +1,12 @@
 import crypto from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { lemonWebhookEventDb, organizationDb } from '@/lib/db';
+import { getLemonBillingConfig } from '@/lib/lemon-config';
+import { RECONCILE_SUBSCRIPTION_EVENTS, REFUND_EVENTS } from '@/lib/lemon-events';
+import {
+  LemonQuarantineError,
+  reconcileLemonSubscription,
+} from '@/lib/lemon-subscription';
 
 type LemonWebhookPayload = {
   meta?: {
@@ -9,210 +15,150 @@ type LemonWebhookPayload = {
   };
   data?: {
     id?: string;
-    attributes?: Record<string, unknown>;
+    attributes?: Record<string, any>;
   };
 };
 
-function requiredEnv(name: string): string {
-  const v = process.env[name];
-  if (!v) throw new Error(`Missing env: ${name}`);
-  return v;
+function verifySignature(rawBody: string, signatureHex: string, secret: string): boolean {
+  if (!signatureHex || !/^[a-f0-9]+$/i.test(signatureHex) || signatureHex.length % 2 !== 0) {
+    return false;
+  }
+  const signature = Buffer.from(signatureHex, 'hex');
+  const digest = crypto.createHmac('sha256', secret).update(rawBody).digest();
+  return signature.length === digest.length && crypto.timingSafeEqual(signature, digest);
 }
 
-function safePlanFromVariant(variantId: string | null): 'free' | 'pro' | 'team' {
-  if (!variantId) return 'free';
-  const pro = (process.env.LEMON_VARIANT_PRO_IDS ?? '').split(',').map((s) => s.trim()).filter(Boolean);
-  const team = (process.env.LEMON_VARIANT_TEAM_IDS ?? '').split(',').map((s) => s.trim()).filter(Boolean);
-  if (team.includes(variantId)) return 'team';
-  if (pro.includes(variantId)) return 'pro';
-  return 'free';
+function customOrganizationId(payload: LemonWebhookPayload): string | null {
+  const custom = payload.meta?.custom_data ?? {};
+  const value = custom.organizationId ?? custom.organization_id ?? custom.orgId;
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 
-function safeStatus(input: unknown): 'active' | 'past_due' | 'cancelled' | 'trialing' {
-  const s = String(input ?? '').trim().toLowerCase();
-  if (s === 'past_due') return 'past_due';
-  if (s === 'cancelled' || s === 'expired') return 'cancelled';
-  if (s === 'trialing') return 'trialing';
-  return 'active';
+function subscriptionIdForEvent(eventName: string, payload: LemonWebhookPayload): string | null {
+  const attrs = payload.data?.attributes ?? {};
+  if (eventName.startsWith('subscription_') && !eventName.startsWith('subscription_payment_')) {
+    return payload.data?.id ? String(payload.data.id) : null;
+  }
+  const value = attrs.subscription_id ?? attrs.subscriptionId;
+  return value == null ? null : String(value);
 }
 
-// Events that carry full subscription data (plan, seats, variant)
-const SUBSCRIPTION_LIFECYCLE_EVENTS = new Set([
-  'subscription_created',
-  'subscription_updated',
-  'subscription_cancelled',
-  'subscription_expired',
-]);
+function validateWebhookEnvelope(payload: LemonWebhookPayload, storeId: string, testMode: boolean): void {
+  const attrs = payload.data?.attributes ?? {};
+  if (attrs.store_id != null && String(attrs.store_id) !== storeId) {
+    throw new LemonQuarantineError(`Webhook store mismatch: ${String(attrs.store_id)}`);
+  }
+  if (attrs.test_mode != null && Boolean(attrs.test_mode) !== testMode) {
+    throw new LemonQuarantineError('Webhook test/live mode mismatch');
+  }
+}
 
-// Events that only carry payment status change — no plan/seat data
-const PAYMENT_STATUS_EVENTS = new Set([
-  'subscription_payment_failed',
-  'subscription_payment_recovered',
-  'subscription_payment_success',
-]);
+async function resolveOrganizationAndSubscription(
+  eventName: string,
+  payload: LemonWebhookPayload,
+): Promise<{ organizationId: string; subscriptionId: string }> {
+  const customOrgId = customOrganizationId(payload);
+  let subscriptionId = subscriptionIdForEvent(eventName, payload);
 
-/**
- * Resolve organization ID from webhook payload.
- * Primary: custom_data.organizationId (set during checkout).
- * Fallback for payment events: look up org by ls_subscription_id from attributes.
- */
-async function resolveOrganizationId(
-  custom: Record<string, unknown>,
-  attrs: Record<string, unknown>
-): Promise<string | null> {
-  const fromCustom =
-    (custom.organizationId as string | undefined) ||
-    (custom.organization_id as string | undefined) ||
-    (custom.orgId as string | undefined) ||
-    null;
-
-  if (fromCustom) return fromCustom;
-
-  // Payment event payloads: attributes.subscription_id holds the Lemon subscription ID
-  const lsSubId =
-    (attrs as any).subscription_id != null
-      ? String((attrs as any).subscription_id)
+  if (customOrgId) {
+    const organization: any = await organizationDb.getById(customOrgId);
+    const currentSubscriptionId = organization?.ls_subscription_id
+      ? String(organization.ls_subscription_id)
       : null;
+    if (
+      subscriptionId &&
+      currentSubscriptionId &&
+      currentSubscriptionId !== subscriptionId &&
+      organization?.subscription_status !== 'expired'
+    ) {
+      throw new LemonQuarantineError('Webhook organization is linked to a different subscription');
+    }
+    subscriptionId = subscriptionId ?? currentSubscriptionId;
+    if (!subscriptionId) {
+      throw new LemonQuarantineError('Webhook organization has no subscription to reconcile');
+    }
+    return { organizationId: customOrgId, subscriptionId };
+  }
 
-  if (!lsSubId) return null;
-
-  const org = await organizationDb.getBySubscriptionId(lsSubId);
-  return org?.id ?? null;
+  if (!subscriptionId) {
+    throw new LemonQuarantineError('Webhook does not identify a subscription');
+  }
+  const organization: any = await organizationDb.getBySubscriptionId(subscriptionId);
+  if (!organization?.id) {
+    throw new LemonQuarantineError('No organization owns this Lemon subscription');
+  }
+  return { organizationId: String(organization.id), subscriptionId };
 }
 
 export async function POST(request: NextRequest) {
-  let rawBody = '';
+  let payloadHash: string | null = null;
   try {
-    const secret = requiredEnv('LEMONSQUEEZY_WEBHOOK_SECRET');
-
-    rawBody = await request.text();
+    const config = getLemonBillingConfig();
+    const rawBody = await request.text();
     const signatureHex = request.headers.get('X-Signature') ?? '';
-    if (!signatureHex || !rawBody) {
-      return NextResponse.json({ ok: false, error: 'Invalid webhook request' }, { status: 400 });
-    }
-
-    const signature = Buffer.from(signatureHex, 'hex');
-    const digest = Buffer.from(
-      crypto.createHmac('sha256', secret).update(rawBody).digest('hex'),
-      'hex'
-    );
-    const sigView = new Uint8Array(signature);
-    const digView = new Uint8Array(digest);
-    if (
-      sigView.length === 0 ||
-      sigView.length !== digView.length ||
-      !crypto.timingSafeEqual(sigView, digView)
-    ) {
+    if (!rawBody || !verifySignature(rawBody, signatureHex, config.webhookSecret)) {
       return NextResponse.json({ ok: false, error: 'Invalid signature' }, { status: 400 });
     }
 
     const payload = JSON.parse(rawBody) as LemonWebhookPayload;
-    const eventName = (
-      request.headers.get('X-Event-Name') ??
-      payload.meta?.event_name ??
-      ''
-    ).toString();
-
-    if (!eventName) {
-      return NextResponse.json({ ok: false, error: 'Missing event name' }, { status: 400 });
+    const bodyEventName = String(payload.meta?.event_name ?? '').trim();
+    const headerEventName = String(request.headers.get('X-Event-Name') ?? '').trim();
+    if (!bodyEventName || (headerEventName && headerEventName !== bodyEventName)) {
+      return NextResponse.json({ ok: false, error: 'Invalid event name' }, { status: 400 });
     }
 
-    const isLifecycleEvent = SUBSCRIPTION_LIFECYCLE_EVENTS.has(eventName);
-    const isPaymentEvent = PAYMENT_STATUS_EVENTS.has(eventName);
+    const supported = RECONCILE_SUBSCRIPTION_EVENTS.has(bodyEventName) || REFUND_EVENTS.has(bodyEventName);
+    if (!supported) return NextResponse.json({ ok: true, ignored: true });
 
-    if (!isLifecycleEvent && !isPaymentEvent) {
-      return NextResponse.json({ ok: true, ignored: true });
-    }
-
-    // Idempotency: hash the raw payload to deduplicate Lemon retries
-    const payloadHash = crypto.createHash('sha256').update(rawBody).digest('hex');
-    const firstSeen = await lemonWebhookEventDb.tryMarkSeen(payloadHash, eventName);
-    if (!firstSeen) {
-      return NextResponse.json({ ok: true, duplicate: true });
-    }
-
-    const custom = payload.meta?.custom_data ?? {};
-    const attrs = (payload.data?.attributes ?? {}) as Record<string, unknown>;
-
-    const organizationId = await resolveOrganizationId(custom, attrs);
-    if (!organizationId) {
-      console.warn('[lemon-webhook] cannot identify organization', { eventName, custom });
-      return NextResponse.json(
-        { ok: false, error: 'Cannot identify organization' },
-        { status: 400 }
-      );
-    }
-
-    // ─── Payment status events ─────────────────────────────────────────────────
-    // Only update subscription_status; never touch plan_name or seat_limit.
-    if (isPaymentEvent) {
-      const newStatus =
-        eventName === 'subscription_payment_failed' ? 'past_due' : 'active';
-
-      await organizationDb.update(organizationId, { subscription_status: newStatus });
-
-      console.info('[lemon-webhook] payment event processed', { eventName, organizationId, newStatus });
-      return NextResponse.json({ ok: true });
-    }
-
-    // ─── Subscription lifecycle events ────────────────────────────────────────
-    const subscriptionId = payload.data?.id ? String(payload.data.id) : null;
-
-    const variantIdRaw = (attrs as any).variant_id ?? (attrs as any).variantId ?? null;
-    const variantId = variantIdRaw != null ? String(variantIdRaw) : null;
-
-    const statusRaw = (attrs as any).status ?? (attrs as any).status_formatted ?? null;
-    const subscriptionStatus = safeStatus(statusRaw);
-
-    const plan_name = safePlanFromVariant(variantId);
-
-    // ls_customer_id: present in subscription lifecycle payloads
-    const customerIdRaw = (attrs as any).customer_id ?? null;
-    const ls_customer_id =
-      customerIdRaw != null ? String(customerIdRaw) : undefined;
-
-    // Seat limit from Lemon quantity (per-seat products)
-    const qtyRaw =
-      (attrs as any).quantity ??
-      (attrs as any).first_subscription_item?.quantity ??
-      (attrs as any).first_subscription_item?.data?.attributes?.quantity ??
-      null;
-    const qtyNum = Number(qtyRaw);
-    const qtyOk = Number.isFinite(qtyNum) && qtyNum >= 1;
-
-    const seat_limit =
-      (plan_name === 'team' || plan_name === 'pro') && qtyOk
-        ? Math.floor(qtyNum)
-        : 1;
-
-    const updates: Record<string, unknown> = {
-      ls_subscription_id: subscriptionId,
-      variant_id: variantId,
-      plan_name,
-      subscription_status:
-        eventName === 'subscription_cancelled' || eventName === 'subscription_expired'
-          ? 'cancelled'
-          : subscriptionStatus,
-      seat_limit,
-    };
-
-    // Only set ls_customer_id when Lemon provides it (don't overwrite with undefined)
-    if (ls_customer_id) {
-      updates.ls_customer_id = ls_customer_id;
-    }
-
-    await organizationDb.update(organizationId, updates);
-
-    console.info('[lemon-webhook] lifecycle event processed', {
-      eventName,
-      organizationId,
-      plan_name,
-      seat_limit,
+    payloadHash = crypto.createHash('sha256').update(rawBody).digest('hex');
+    const resourceUpdatedAtRaw = payload.data?.attributes?.updated_at;
+    const resourceUpdatedAt = resourceUpdatedAtRaw && !Number.isNaN(Date.parse(String(resourceUpdatedAtRaw)))
+      ? String(resourceUpdatedAtRaw)
+      : null;
+    const claim = await lemonWebhookEventDb.claim({
+      payload_hash: payloadHash,
+      event_name: bodyEventName,
+      resource_id: payload.data?.id ? String(payload.data.id) : null,
+      resource_updated_at: resourceUpdatedAt,
     });
+    if (claim === 'duplicate') return NextResponse.json({ ok: true, duplicate: true });
+    if (claim === 'busy') {
+      return NextResponse.json({ ok: false, error: 'Event is already processing' }, { status: 503 });
+    }
 
-    return NextResponse.json({ ok: true });
-  } catch (e: any) {
-    console.error('lemon webhook failed', e?.message ?? e, { rawBodyLen: rawBody?.length ?? 0 });
+    try {
+      validateWebhookEnvelope(payload, config.storeId, config.mode === 'test');
+      const target = await resolveOrganizationAndSubscription(bodyEventName, payload);
+      const result = await reconcileLemonSubscription({ ...target, config });
+      await lemonWebhookEventDb.markCompleted(payloadHash);
+      console.info('[lemon-webhook] reconciled authoritative subscription', {
+        eventName: bodyEventName,
+        organizationId: target.organizationId,
+        subscriptionId: target.subscriptionId,
+        applied: result.applied,
+        status: result.snapshot.status,
+      });
+      return NextResponse.json({ ok: true, applied: result.applied });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown webhook processing error';
+      if (error instanceof LemonQuarantineError) {
+        await lemonWebhookEventDb.markQuarantined(payloadHash, message);
+        console.warn('[lemon-webhook] quarantined', { eventName: bodyEventName, reason: message });
+        return NextResponse.json({ ok: true, quarantined: true });
+      }
+      await lemonWebhookEventDb.markFailed(payloadHash, message);
+      throw error;
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Internal server error';
+    if (payloadHash) {
+      try {
+        await lemonWebhookEventDb.markFailed(payloadHash, message);
+      } catch (markError) {
+        console.error('[lemon-webhook] could not persist failure state', markError);
+      }
+    }
+    console.error('lemon webhook failed', message);
     return NextResponse.json({ ok: false, error: 'Internal server error' }, { status: 500 });
   }
 }

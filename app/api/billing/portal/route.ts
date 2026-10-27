@@ -1,12 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireOrgAdmin } from '@/lib/server-authz';
 import { organizationDb } from '@/lib/db';
-
-function requiredEnv(name: string): string {
-  const v = process.env[name];
-  if (!v) throw new Error(`Missing env: ${name}`);
-  return v;
-}
+import { getLemonBillingConfig } from '@/lib/lemon-config';
 
 export async function GET(_request: NextRequest) {
   try {
@@ -24,13 +19,13 @@ export async function GET(_request: NextRequest) {
       return NextResponse.json({ success: false, error: 'No subscription found for this organization' }, { status: 400 });
     }
 
-    const apiKey = requiredEnv('LEMONSQUEEZY_API_KEY');
+    const config = getLemonBillingConfig();
     const resp = await fetch(`https://api.lemonsqueezy.com/v1/subscriptions/${encodeURIComponent(subId)}`, {
       method: 'GET',
       headers: {
         Accept: 'application/vnd.api+json',
         'Content-Type': 'application/vnd.api+json',
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Bearer ${config.apiKey}`,
       },
     });
     const json: any = await resp.json().catch(() => null);

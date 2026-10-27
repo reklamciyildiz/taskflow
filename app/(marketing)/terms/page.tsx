@@ -23,7 +23,7 @@ export default function TermsPage() {
         <div className="[&_p]:text-zinc-400 [&_p]:leading-[1.75] [&_p]:mb-4 [&_ul]:text-zinc-400 [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:mb-4 [&_ul]:leading-[1.75] [&_li]:mb-1.5 [&_address]:mt-2">
           <Section title="1. Acceptance of Terms">
             <p>
-              By accessing or using Axiom (&ldquo;the Service&rdquo;) at{' '}
+              By accessing or using Actiproc (&ldquo;the Service&rdquo;) at{' '}
               <a href={APP_URL} className="text-emerald-400 hover:text-emerald-300">
                 {APP_URL}
               </a>
@@ -32,14 +32,14 @@ export default function TermsPage() {
             </p>
             <p>
               These Terms apply to all users, including individuals, teams, and organizations. If
-              you are using Axiom on behalf of an organization, you represent that you have authority
+              you are using Actiproc on behalf of an organization, you represent that you have authority
               to bind that organization to these Terms.
             </p>
           </Section>
 
           <Section title="2. Description of Service">
             <p>
-              Axiom is a team productivity platform offering task management, kanban boards, knowledge
+              Actiproc is a team productivity platform offering task management, kanban boards, knowledge
               hub, reminders, team collaboration, and integrations with third-party services such as
               Google Calendar. The Service is provided as a software-as-a-service (SaaS) application
               accessible via web browser and as a Progressive Web App (PWA).
@@ -48,7 +48,7 @@ export default function TermsPage() {
 
           <Section title="3. Accounts and Registration">
             <p>
-              To use Axiom, you must create an account with a valid email address. You are
+              To use Actiproc, you must create an account with a valid email address. You are
               responsible for:
             </p>
             <ul>
@@ -77,7 +77,7 @@ export default function TermsPage() {
 
           <Section title="5. Subscriptions and Billing">
             <p>
-              Axiom offers free and paid subscription plans. Paid plans are billed through Lemon
+              Actiproc offers free and paid subscription plans. Paid plans are billed through Lemon
               Squeezy, our payment processor. By subscribing to a paid plan, you agree to:
             </p>
             <ul>
@@ -99,26 +99,26 @@ export default function TermsPage() {
 
           <Section title="6. Your Content">
             <p>
-              You retain ownership of all content you create in Axiom (tasks, notes, checklist content,
+              You retain ownership of all content you create in Actiproc (tasks, notes, checklist content,
               etc.). By using the Service, you grant us a limited, non-exclusive license to store,
               process, and display your content solely for the purpose of providing the Service to
               you.
             </p>
             <p>
-              You are solely responsible for the content you create and share within Axiom. You
+              You are solely responsible for the content you create and share within Actiproc. You
               represent that your content does not violate any third-party rights or applicable laws.
             </p>
           </Section>
 
           <Section title="7. Third-Party Integrations">
             <p>
-              Axiom integrates with third-party services including Google Calendar and Lemon Squeezy.
+              Actiproc integrates with third-party services including Google Calendar and Lemon Squeezy.
               Your use of these integrations is subject to the respective third-party terms of service
               and privacy policies. We are not responsible for the practices or content of third-party
               services.
             </p>
             <p>
-              When you connect Google Calendar, you authorize Axiom to access your Google Calendar
+              When you connect Google Calendar, you authorize Actiproc to access your Google Calendar
               data in accordance with our{' '}
               <Link href="/privacy" className="text-emerald-400 hover:text-emerald-300">
                 Privacy Policy
@@ -129,7 +129,7 @@ export default function TermsPage() {
 
           <Section title="8. Intellectual Property">
             <p>
-              The Axiom name, logo, design, software, and all associated intellectual property are
+              The Actiproc name, logo, design, software, and all associated intellectual property are
               owned by us and protected by applicable intellectual property laws. Nothing in these
               Terms grants you any right to use our trademarks, logos, or other proprietary
               materials.

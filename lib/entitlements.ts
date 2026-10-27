@@ -1,7 +1,10 @@
 import { organizationDb, teamMemberDb } from '@/lib/db';
+import { isPaidActive, type SubscriptionStatus } from '@/lib/subscription-access';
+
+export { isPaidActive } from '@/lib/subscription-access';
+export type { SubscriptionStatus } from '@/lib/subscription-access';
 
 export type PlanName = 'free' | 'pro' | 'team';
-export type SubscriptionStatus = 'active' | 'past_due' | 'cancelled' | 'trialing';
 
 export type OrganizationBilling = {
   id: string;
@@ -11,6 +14,7 @@ export type OrganizationBilling = {
   ls_customer_id: string | null;
   ls_subscription_id: string | null;
   seat_limit?: number | null;
+  subscription_ends_at?: string | null;
 };
 
 export type Entitlements = {
@@ -18,6 +22,7 @@ export type Entitlements = {
   subscriptionStatus: SubscriptionStatus;
   /** Maximum allowed seats for this organization (used for invites / access caps). */
   seatLimit: number;
+  endsAt: string | null;
 };
 
 export type PlanLimits = {
@@ -36,14 +41,11 @@ function normalizePlan(plan: unknown): PlanName {
 function normalizeStatus(status: unknown): SubscriptionStatus {
   const s = String(status ?? 'active').trim().toLowerCase();
   if (s === 'cancelled') return 'cancelled';
+  if (s === 'paused') return 'paused';
+  if (s === 'expired') return 'expired';
   if (s === 'past_due') return 'past_due';
   if (s === 'trialing') return 'trialing';
   return 'active';
-}
-
-export function isPaidActive(status: SubscriptionStatus): boolean {
-  // We still allow access during trialing / past_due; finance ops can tighten later.
-  return status === 'active' || status === 'trialing' || status === 'past_due';
 }
 
 /** Default seat caps when org row has no stored `seat_limit` (e.g. legacy rows). Paid caps normally come from Lemon webhooks. */
@@ -54,9 +56,9 @@ export function getSeatLimitFromPlan(plan: PlanName): number {
   return 2;
 }
 
-export function canUseAdvancedReminders(ent: Pick<Entitlements, 'plan' | 'subscriptionStatus'>): boolean {
+export function canUseAdvancedReminders(ent: Pick<Entitlements, 'plan' | 'subscriptionStatus' | 'endsAt'>): boolean {
   if (ent.plan === 'free') return false;
-  return isPaidActive(ent.subscriptionStatus);
+  return isPaidActive(ent.subscriptionStatus, ent.endsAt);
 }
 
 export function canInviteMembers(ent: Pick<Entitlements, 'plan' | 'subscriptionStatus'>): boolean {
@@ -65,10 +67,10 @@ export function canInviteMembers(ent: Pick<Entitlements, 'plan' | 'subscriptionS
   return true;
 }
 
-export function getPlanLimits(ent: Pick<Entitlements, 'plan' | 'subscriptionStatus'>): PlanLimits {
+export function getPlanLimits(ent: Pick<Entitlements, 'plan' | 'subscriptionStatus' | 'endsAt'>): PlanLimits {
   // Note: we treat Pro/Team access as active only when paid is active.
   // Free can always use free limits.
-  const paid = isPaidActive(ent.subscriptionStatus);
+  const paid = isPaidActive(ent.subscriptionStatus, ent.endsAt);
   if (ent.plan === 'team' && paid) {
     return { maxTeams: Number.POSITIVE_INFINITY, maxProcesses: Number.POSITIVE_INFINITY, canUseWebhooks: true };
   }
@@ -83,7 +85,8 @@ export async function getOrganizationEntitlements(organizationId: string): Promi
   const org: any = await organizationDb.getById(organizationId);
   const plan = normalizePlan(org?.plan_name);
   const subscriptionStatus = normalizeStatus(org?.subscription_status);
-  const paid = isPaidActive(subscriptionStatus);
+  const endsAt = org?.subscription_ends_at ? String(org.subscription_ends_at) : null;
+  const paid = isPaidActive(subscriptionStatus, endsAt);
   const stored = Number(org?.seat_limit);
   const storedOk = Number.isFinite(stored) && stored > 0;
 
@@ -106,7 +109,7 @@ export async function getOrganizationEntitlements(organizationId: string): Promi
     seatLimit = getSeatLimitFromPlan('free');
   }
 
-  return { plan, subscriptionStatus, seatLimit };
+  return { plan, subscriptionStatus, seatLimit, endsAt };
 }
 
 export async function getOrganizationSeatUsage(organizationId: string): Promise<number> {

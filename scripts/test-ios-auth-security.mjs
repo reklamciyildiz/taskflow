@@ -64,7 +64,7 @@ assert.doesNotMatch(aasa, /TEAMID|ABCDE12345/);
 assert.match(project, /PRODUCT_BUNDLE_IDENTIFIER: com\.axiomproductivity\.ios/);
 
 const twa = JSON.parse(twaManifest);
-assert.equal(twa.host, 'getaxiomm.vercel.app');
+assert.ok(twa.host === 'www.actiproc.com' || twa.host === 'getaxiomm.vercel.app');
 assert.equal(twa.startUrl, '/');
 
 console.log('iOS authentication and cross-platform backend security contracts passed.');

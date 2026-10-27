@@ -4,7 +4,7 @@ import type { Metadata } from 'next';
 import { Providers } from './providers';
 
 export const metadata: Metadata = {
-  title: 'Axiom - Team & Personal Productivity',
+  title: 'Actiproc - Team & Personal Productivity',
   description: 'Advanced task management with team collaboration, analytics, and AI-powered insights',
   icons: {
     icon: '/favicon.ico',

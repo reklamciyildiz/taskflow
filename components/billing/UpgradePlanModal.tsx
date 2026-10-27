@@ -109,7 +109,7 @@ export function UpgradePlanModal(props: {
     if (wants === 'webhooks') {
       return {
         title: 'Unlock webhooks',
-        description: 'Webhooks are available on the Team plan — upgrade to connect Axiom to the outside world.',
+        description: 'Webhooks are available on the Team plan — upgrade to connect Actiproc to the outside world.',
       };
     }
     if (wants === 'seats') {

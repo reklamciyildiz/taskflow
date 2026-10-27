@@ -2,12 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireOrgAdmin } from '@/lib/server-authz';
 import { organizationDb } from '@/lib/db';
 import { getOrganizationSeatUsage } from '@/lib/entitlements';
-
-function requiredEnv(name: string): string {
-  const v = process.env[name];
-  if (!v) throw new Error(`Missing env: ${name}`);
-  return v;
-}
+import { getLemonBillingConfig } from '@/lib/lemon-config';
 
 export async function POST(request: NextRequest) {
   try {
@@ -43,7 +38,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const apiKey = requiredEnv('LEMONSQUEEZY_API_KEY');
+    const config = getLemonBillingConfig();
 
     // Step 1: fetch subscription — need item ID and payment method presence
     const subResp = await fetch(
@@ -51,7 +46,7 @@ export async function POST(request: NextRequest) {
       {
         headers: {
           Accept: 'application/vnd.api+json',
-          Authorization: `Bearer ${apiKey}`,
+          Authorization: `Bearer ${config.apiKey}`,
         },
       }
     );
@@ -117,7 +112,7 @@ export async function POST(request: NextRequest) {
           headers: {
             Accept: 'application/vnd.api+json',
             'Content-Type': 'application/vnd.api+json',
-            Authorization: `Bearer ${apiKey}`,
+            Authorization: `Bearer ${config.apiKey}`,
           },
           body: JSON.stringify({
             data: {
@@ -153,7 +148,7 @@ export async function POST(request: NextRequest) {
         headers: {
           Accept: 'application/vnd.api+json',
           'Content-Type': 'application/vnd.api+json',
-          Authorization: `Bearer ${apiKey}`,
+          Authorization: `Bearer ${config.apiKey}`,
         },
         body: JSON.stringify({
           data: {

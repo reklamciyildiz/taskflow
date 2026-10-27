@@ -1,32 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireOrgAdmin } from '@/lib/server-authz';
 import { getOrganizationSeatUsage } from '@/lib/entitlements';
+import { organizationDb } from '@/lib/db';
+import { getLemonBillingConfig, variantForPlan } from '@/lib/lemon-config';
+import { APP_URL } from '@/lib/site-config';
 
 type CheckoutPlan = 'pro' | 'team';
 type BillingInterval = 'monthly' | 'yearly';
-
-function requiredEnv(name: string): string {
-  const v = process.env[name];
-  if (!v) throw new Error(`Missing env: ${name}`);
-  return v;
-}
-
-/** Env: `monthlyId,yearlyId`. Yearly falls back to monthly if only one id is configured. */
-function lemonVariantIdForPlan(plan: CheckoutPlan, billingInterval: BillingInterval): string {
-  const ids =
-    plan === 'pro'
-      ? (process.env.LEMON_VARIANT_PRO_IDS ?? '')
-      : (process.env.LEMON_VARIANT_TEAM_IDS ?? '');
-  const parts = ids
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
-  if (!parts.length) {
-    throw new Error(`Missing variant id for plan: ${plan} (set LEMON_VARIANT_${plan.toUpperCase()}_IDS)`);
-  }
-  if (billingInterval === 'yearly' && parts.length >= 2) return parts[1];
-  return parts[0];
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -37,8 +17,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'No organization found' }, { status: 400 });
     }
 
-    const apiKey = requiredEnv('LEMONSQUEEZY_API_KEY');
-    const storeId = requiredEnv('LEMONSQUEEZY_STORE_ID');
+    const organization: any = await organizationDb.getById(orgId);
+    if (organization?.ls_subscription_id && organization?.subscription_status !== 'expired') {
+      return NextResponse.json(
+        { success: false, error: 'An existing subscription must be changed from billing settings.' },
+        { status: 409 },
+      );
+    }
+    const config = getLemonBillingConfig();
 
     const body = (await request.json().catch(() => ({}))) as {
       plan?: CheckoutPlan;
@@ -56,7 +42,7 @@ export async function POST(request: NextRequest) {
     const requestedSeats = requestedOk ? Math.floor(reqNum) : headcount;
     const seats = Math.min(500, Math.max(1, headcount, requestedSeats));
 
-    const variantId = lemonVariantIdForPlan(plan, billingInterval);
+    const variantId = variantForPlan(plan, billingInterval, config);
     const variantIdNum = Number(variantId);
     if (!Number.isFinite(variantIdNum)) {
       return NextResponse.json({ success: false, error: 'Invalid variant id' }, { status: 500 });
@@ -76,12 +62,12 @@ export async function POST(request: NextRequest) {
         attributes: {
           // redirect_url lives in product_options, not checkout_options
           product_options: {
-            redirect_url: `${process.env.NEXTAUTH_URL ?? ''}/settings/billing?checkout=success`,
+            redirect_url: `${APP_URL}/settings/billing?checkout=success`,
           },
           checkout_data: checkoutData,
         },
         relationships: {
-          store: { data: { type: 'stores', id: String(storeId) } },
+          store: { data: { type: 'stores', id: config.storeId } },
           variant: { data: { type: 'variants', id: String(variantId) } },
         },
       },
@@ -92,7 +78,7 @@ export async function POST(request: NextRequest) {
       headers: {
         Accept: 'application/vnd.api+json',
         'Content-Type': 'application/vnd.api+json',
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Bearer ${config.apiKey}`,
       },
       body: JSON.stringify(payload),
     });

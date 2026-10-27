@@ -34,9 +34,22 @@
         \"relation\": [\"delegate_permission/common.handle_all_urls\"],
         \"target\": {
             \"namespace\": \"web\",
+            \"site\": \"https://www.actiproc.com\"
+        }
+    },
+    {
+        \"relation\": [\"delegate_permission/common.handle_all_urls\"],
+        \"target\": {
+            \"namespace\": \"web\",
+            \"site\": \"https://actiproc.com\"
+        }
+    },
+    {
+        \"relation\": [\"delegate_permission/common.handle_all_urls\"],
+        \"target\": {
+            \"namespace\": \"web\",
             \"site\": \"https://getaxiomm.vercel.app\"
         }
     }]
-
   </string>
 </resources>

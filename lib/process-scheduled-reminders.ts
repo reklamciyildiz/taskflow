@@ -35,6 +35,7 @@ const FALLBACK_FREE_ENT: Entitlements = {
   plan: 'free',
   subscriptionStatus: 'active',
   seatLimit: 2,
+  endsAt: null,
 };
 
 async function entitlementsForOrg(

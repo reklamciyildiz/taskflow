@@ -1,11 +1,6 @@
 import { organizationDb } from '@/lib/db';
 import { getOrganizationEntitlements, getOrganizationSeatUsage, isPaidActive } from '@/lib/entitlements';
-
-function requiredEnv(name: string): string {
-  const v = process.env[name];
-  if (!v) throw new Error(`Missing env: ${name}`);
-  return v;
-}
+import { getLemonBillingConfig } from '@/lib/lemon-config';
 
 /**
  * After org membership drops, align Lemon subscription item quantity with current distinct org users.
@@ -17,7 +12,7 @@ export async function syncLemonSubscriptionQuantityToOrgHeadcount(organizationId
 
     const ent = await getOrganizationEntitlements(organizationId);
     if (ent.plan !== 'pro' && ent.plan !== 'team') return;
-    if (!isPaidActive(ent.subscriptionStatus)) return;
+    if (!isPaidActive(ent.subscriptionStatus, ent.endsAt)) return;
 
     const org: any = await organizationDb.getById(organizationId);
     const subId = org?.ls_subscription_id ? String(org.ls_subscription_id) : '';
@@ -26,13 +21,13 @@ export async function syncLemonSubscriptionQuantityToOrgHeadcount(organizationId
     const used = await getOrganizationSeatUsage(organizationId);
     const quantity = Math.max(1, used);
 
-    const apiKey = requiredEnv('LEMONSQUEEZY_API_KEY');
+    const config = getLemonBillingConfig();
     const subResp = await fetch(`https://api.lemonsqueezy.com/v1/subscriptions/${encodeURIComponent(subId)}`, {
       method: 'GET',
       headers: {
         Accept: 'application/vnd.api+json',
         'Content-Type': 'application/vnd.api+json',
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Bearer ${config.apiKey}`,
       },
     });
     const subJson: any = await subResp.json().catch(() => null);
@@ -58,7 +53,7 @@ export async function syncLemonSubscriptionQuantityToOrgHeadcount(organizationId
       headers: {
         Accept: 'application/vnd.api+json',
         'Content-Type': 'application/vnd.api+json',
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Bearer ${config.apiKey}`,
       },
       body: JSON.stringify({
         data: {

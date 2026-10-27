@@ -1,8 +1,8 @@
 import { Resend } from 'resend';
+import { APP_NAME } from '@/lib/site-config';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-const APP_NAME = 'Axiom';
 const APP_URL = process.env.NEXTAUTH_URL || 'http://localhost:3000';
 const IS_DEVELOPMENT = process.env.NODE_ENV === 'development';
 const VERIFIED_DOMAIN = process.env.RESEND_FROM_EMAIL; // e.g., "noreply@yourdomain.com"
