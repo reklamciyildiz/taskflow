@@ -24,8 +24,8 @@ def twaManifest = [
     applicationId: 'com.axiomproductivity.twa.diagnostic',
     hostName: 'www.actiproc.com', // The domain being opened in the TWA.
     launchUrl: '/', // The start path for the TWA. Must be relative to the domain.
-    name: 'Axiom TWA Diagnostic', // The application name.
-    launcherName: 'Axiom TWA', // The name shown on the Android Launcher.
+    name: 'Actiproc', // The application name.
+    launcherName: 'Actiproc', // The name shown on the Android Launcher.
     themeColor: '#0F172A', // The color used for the status bar.
     themeColorDark: '#0F172A', // The color used for the dark status bar.
     navigationColor: '#0F172A', // The color used for the navigation bar.
