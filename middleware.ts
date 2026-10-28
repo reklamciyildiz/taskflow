@@ -63,6 +63,8 @@ export async function middleware(request: NextRequest) {
     '/offline.html',
     '/.well-known/assetlinks.json',
     '/.well-known/apple-app-site-association',
+    '/robots.txt',
+    '/sitemap.xml',
     '/api/auth',
     // Mobile endpoints authenticate with their own short-lived bearer/session guard.
     // Keeping them out of NextAuth cookie middleware does not make them anonymous:
@@ -145,6 +147,6 @@ export const config = {
      * - favicon.ico (favicon file)
      * - public folder
      */
-    '/((?!_next/static|_next/image|favicon.ico|apple-touch-icon.png|icon-192x192.png|icon-512x512.png|manifest.webmanifest|offline.html|sw.js|public).*)',
+    '/((?!_next/static|_next/image|favicon.ico|apple-touch-icon.png|icon-192x192.png|icon-512x512.png|manifest.webmanifest|offline.html|sw.js|robots.txt|sitemap.xml|public).*)',
   ],
 };

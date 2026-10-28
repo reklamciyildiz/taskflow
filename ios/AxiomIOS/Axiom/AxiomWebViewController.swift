@@ -3,7 +3,13 @@ import UIKit
 import WebKit
 
 final class AxiomWebViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler {
-    private let origin = URL(string: "https://getaxiomm.vercel.app")!
+    private let origin = URL(string: "https://www.actiproc.com")!
+    private let legacyOrigin = URL(string: "https://getaxiomm.vercel.app")!
+    private let trustedHosts: Set<String> = [
+        "www.actiproc.com",
+        "actiproc.com",
+        "getaxiomm.vercel.app",
+    ]
     private let monitor = NWPathMonitor()
     private let monitorQueue = DispatchQueue(label: "com.axiomproductivity.ios.network")
     private var webView: WKWebView!
@@ -109,19 +115,19 @@ final class AxiomWebViewController: UIViewController, WKNavigationDelegate, WKUI
         card.layer.borderColor = UIColor(red: 42 / 255, green: 58 / 255, blue: 81 / 255, alpha: 1).cgColor
 
         let brandLabel = UILabel()
-        brandLabel.text = "✦  Axiom"
+        brandLabel.text = "✦  Actiproc"
         brandLabel.textColor = UIColor(red: 96 / 255, green: 165 / 255, blue: 250 / 255, alpha: 1)
         brandLabel.font = .preferredFont(forTextStyle: .headline)
 
         let titleLabel = UILabel()
-        titleLabel.text = "We can’t reach Axiom"
+        titleLabel.text = "We can’t reach Actiproc"
         titleLabel.textColor = .white
         titleLabel.font = .preferredFont(forTextStyle: .largeTitle)
         titleLabel.adjustsFontForContentSizeCategory = true
         titleLabel.numberOfLines = 0
 
         let detailLabel = UILabel()
-        detailLabel.text = "Your connection or Axiom may be temporarily unavailable. Your account and saved work are unchanged."
+        detailLabel.text = "Your connection or Actiproc may be temporarily unavailable. Your account and saved work are unchanged."
         detailLabel.textColor = UIColor(red: 168 / 255, green: 181 / 255, blue: 199 / 255, alpha: 1)
         detailLabel.font = .preferredFont(forTextStyle: .body)
         detailLabel.adjustsFontForContentSizeCategory = true
@@ -224,7 +230,7 @@ final class AxiomWebViewController: UIViewController, WKNavigationDelegate, WKUI
             let callbackPath = body["callbackUrl"] as? String ?? "/"
             startGoogleSignIn(callbackPath: callbackPath)
         } else if message.name == "axiomNative", action == "share" {
-            let text = body["text"] as? String ?? "Axiom"
+            let text = body["text"] as? String ?? "Actiproc"
             let url = (body["url"] as? String).flatMap(URL.init(string:))
             var items: [Any] = [text]
             if let url { items.append(url) }
@@ -272,10 +278,18 @@ final class AxiomWebViewController: UIViewController, WKNavigationDelegate, WKUI
             decisionHandler(.cancel)
             return
         }
-        if let host = url.host, host != origin.host, navigationAction.navigationType == .linkActivated {
-            UIApplication.shared.open(url)
-            decisionHandler(.cancel)
-            return
+        if let host = url.host {
+            let isTrusted = trustedHosts.contains(host)
+            if !isTrusted && navigationAction.navigationType == .linkActivated {
+                UIApplication.shared.open(url)
+                decisionHandler(.cancel)
+                return
+            }
+            if host.hasSuffix("google.com") || host == "accounts.google.com" {
+                UIApplication.shared.open(url)
+                decisionHandler(.cancel)
+                return
+            }
         }
         decisionHandler(.allow)
     }
@@ -283,7 +297,7 @@ final class AxiomWebViewController: UIViewController, WKNavigationDelegate, WKUI
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
                  for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
         guard navigationAction.targetFrame == nil, let url = navigationAction.request.url else { return nil }
-        if url.host == origin.host {
+        if let host = url.host, trustedHosts.contains(host) {
             webView.load(navigationAction.request)
         } else {
             UIApplication.shared.open(url)
@@ -307,7 +321,7 @@ final class AxiomWebViewController: UIViewController, WKNavigationDelegate, WKUI
 
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
         lastFailedRequest = webView.url.map { URLRequest(url: $0) }
-        showConnectivityError(message: "Axiom needs to reload after being paused by iOS.")
+        showConnectivityError(message: "Actiproc needs to reload after being paused by iOS.")
     }
 
     func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse,
@@ -316,7 +330,7 @@ final class AxiomWebViewController: UIViewController, WKNavigationDelegate, WKUI
            let response = navigationResponse.response as? HTTPURLResponse,
            (500...599).contains(response.statusCode) {
             lastFailedRequest = response.url.map { URLRequest(url: $0) }
-            showConnectivityError(message: "Axiom is temporarily unavailable. Try again shortly.")
+            showConnectivityError(message: "Actiproc is temporarily unavailable. Try again shortly.")
             decisionHandler(.cancel)
             return
         }
@@ -327,13 +341,13 @@ final class AxiomWebViewController: UIViewController, WKNavigationDelegate, WKUI
         let nsError = error as NSError
         if nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled { return }
         guard isConnectivityFailure(nsError) else {
-            showError("Axiom could not open this page: \(nsError.localizedDescription)")
+            showError("Actiproc could not open this page: \(nsError.localizedDescription)")
             return
         }
         let failingURL = nsError.userInfo[NSURLErrorFailingURLErrorKey] as? URL
         lastFailedRequest = failingURL.map { URLRequest(url: $0) } ?? request ?? lastFailedRequest
         let message = isNetworkAvailable
-            ? "Axiom could not be reached. The server or connection may be temporarily unavailable."
+            ? "Actiproc could not be reached. The server or connection may be temporarily unavailable."
             : "Your device appears to be offline. Reconnect, then try again."
         showConnectivityError(message: message)
     }
@@ -363,7 +377,7 @@ final class AxiomWebViewController: UIViewController, WKNavigationDelegate, WKUI
     }
 
     private func showError(_ message: String) {
-        let alert = UIAlertController(title: "Axiom", message: message, preferredStyle: .alert)
+        let alert = UIAlertController(title: "Actiproc", message: message, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "OK", style: .default) { [weak self] _ in
             self?.webView.reload()
         })

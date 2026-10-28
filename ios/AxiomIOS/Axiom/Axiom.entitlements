@@ -4,7 +4,11 @@
 <dict>
   <key>com.apple.developer.associated-domains</key>
   <array>
+    <string>applinks:www.actiproc.com</string>
+    <string>applinks:actiproc.com</string>
     <string>applinks:getaxiomm.vercel.app</string>
+    <string>webcredentials:www.actiproc.com</string>
+    <string>webcredentials:actiproc.com</string>
     <string>webcredentials:getaxiomm.vercel.app</string>
   </array>
 </dict>

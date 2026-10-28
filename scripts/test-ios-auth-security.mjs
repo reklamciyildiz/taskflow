@@ -54,6 +54,7 @@ assert.doesNotMatch(sharedWebSession, /getByEmail|form\.get\('email'\)/);
 assert.match(oauthCoordinator, /ASWebAuthenticationSession\.Callback\.https/);
 assert.match(oauthCoordinator, /SHA256\.hash/);
 assert.match(oauthCoordinator, /state == expectedState/);
+assert.match(oauthCoordinator, /https:\/\/www\.actiproc\.com/);
 assert.match(oauthCoordinator, /https:\/\/getaxiomm\.vercel\.app/);
 assert.doesNotMatch(oauthCoordinator, /localhost|staging/);
 

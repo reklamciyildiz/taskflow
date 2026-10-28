@@ -20,6 +20,8 @@ for (const asset of [
   'icon-512x512.png',
   'manifest.webmanifest',
   'sw.js',
+  'robots.txt',
+  'sitemap.xml',
 ]) {
   assert.ok(middleware.includes(asset), `${asset} must bypass authentication middleware`);
 }

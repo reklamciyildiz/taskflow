@@ -27,7 +27,8 @@ final class AxiomOAuthCoordinator: NSObject, ASWebAuthenticationPresentationCont
         let verifier = Self.randomURLSafe(count: 64)
         let state = Self.randomURLSafe(count: 48)
         let challenge = Data(SHA256.hash(data: Data(verifier.utf8))).base64URLEncodedString()
-        var components = URLComponents(string: "https://getaxiomm.vercel.app/api/mobile/auth/google/start")!
+        var components = URLComponents(string: "https://www.actiproc.com/api/mobile/auth/google/start")!
+        // Fallback/legacy compatibility: https://getaxiomm.vercel.app
         components.queryItems = [
             URLQueryItem(name: "platform", value: "ios"),
             URLQueryItem(name: "code_challenge", value: challenge),
@@ -40,7 +41,7 @@ final class AxiomOAuthCoordinator: NSObject, ASWebAuthenticationPresentationCont
         self.callbackPath = Self.safeCallbackPath(callbackPath)
         self.completion = completion
         let callback = ASWebAuthenticationSession.Callback.https(
-            host: "getaxiomm.vercel.app",
+            host: "www.actiproc.com",
             path: "/mobile/auth/callback"
         )
         let session = ASWebAuthenticationSession(
@@ -61,7 +62,7 @@ final class AxiomOAuthCoordinator: NSObject, ASWebAuthenticationPresentationCont
 
     func handleCallback(_ url: URL) {
         guard url.scheme == "https",
-              url.host == "getaxiomm.vercel.app",
+              (url.host == "www.actiproc.com" || url.host == "actiproc.com" || url.host == "getaxiomm.vercel.app"),
               url.path == "/mobile/auth/callback",
               let values = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems,
               let state = values.first(where: { $0.name == "state" })?.value,
@@ -101,15 +102,13 @@ final class AxiomOAuthCoordinator: NSObject, ASWebAuthenticationPresentationCont
     }
 }
 
-enum AxiomOAuthError: Error {
+enum AxiomOAuthError: LocalizedError {
     case invalidCallback
-}
 
-private extension Data {
-    func base64URLEncodedString() -> String {
-        base64EncodedString()
-            .replacingOccurrences(of: "+", with: "-")
-            .replacingOccurrences(of: "/", with: "_")
-            .replacingOccurrences(of: "=", with: "")
+    var errorDescription: String? {
+        switch self {
+        case .invalidCallback:
+            return "The authentication session completed with an invalid callback URL or state."
+        }
     }
 }
