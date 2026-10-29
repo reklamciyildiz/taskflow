@@ -28,6 +28,7 @@ for (const asset of [
 
 assert.ok(assetLinksRoute.includes('process.env.MOBILE_ANDROID_PACKAGE_ID'));
 assert.ok(assetLinksRoute.includes('process.env.MOBILE_ANDROID_CERT_SHA256'));
+assert.ok(assetLinksRoute.includes('com.actiproc.app'));
 assert.ok(assetLinksRoute.includes('com.axiomproductivity.twa.diagnostic'));
 assert.ok(assetLinksRoute.includes('84:AA:DF:BF:CF:2B:F3:20:DD:C8:9D:53:E0:0E:4D:78:6D:A0:9B:D8:22:F7:40:A3:16:09:DF:BC:8E:38:3C:A8'));
 assert.ok(assetLinksRoute.includes('delegate_permission/common.handle_all_urls'));
