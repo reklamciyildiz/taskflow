@@ -10,8 +10,7 @@ type BindingResult = 'bound' | 'already_bound' | 'user_not_found' | 'not_eligibl
 
 /**
  * Bootstrap a canonical Google identity only from NextAuth's verified Google
- * provider callback. Mobile OAuth must never call this function: it may only
- * consume an identity that was already bound by the web sign-in.
+ * provider callback or verified Google ID token.
  */
 export async function bindVerifiedGoogleIdentity(
   email: string,
@@ -46,7 +45,7 @@ export async function bindVerifiedGoogleIdentity(
     .insert({ provider: GOOGLE_PROVIDER, provider_subject: providerSubject, user_id: user.id });
   if (!insertError) return 'bound';
 
-  // A concurrent verified web sign-in may have won the unique insert race.
+  // A concurrent verified sign-in may have won the unique insert race.
   const { data: raced, error: racedError } = await supabaseAdmin
     .from('mobile_auth_provider_identities')
     .select('user_id,provider_subject')
@@ -71,16 +70,23 @@ export async function requireVerifiedGoogleIdentity(
     .maybeSingle();
   if (error) throw error;
   if (!identity?.user_id) {
+    const user: any = await userDb.getByEmail(verifiedEmail.trim().toLowerCase());
+    if (user?.id) {
+      const binding = await bindVerifiedGoogleIdentity(verifiedEmail, providerSubject);
+      if (binding === 'bound' || binding === 'already_bound') {
+        return user;
+      }
+    }
     throw new MobileAuthError(
       'GOOGLE_IDENTITY_NOT_LINKED',
       403,
-      'Sign in to the Axiom web app with Google once, then try again.',
+      'Sign in to the Actiproc web app with Google once, then try again.',
     );
   }
 
   const user: any = await userDb.getById(String(identity.user_id));
   if (!user?.id || String(user.email).toLowerCase() !== verifiedEmail.trim().toLowerCase()) {
-    throw new MobileAuthError('GOOGLE_IDENTITY_MISMATCH', 403, 'Google identity does not match the linked Axiom account.');
+    throw new MobileAuthError('GOOGLE_IDENTITY_MISMATCH', 403, 'Google identity does not match the linked Actiproc account.');
   }
   return user;
 }

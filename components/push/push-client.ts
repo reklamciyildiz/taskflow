@@ -7,9 +7,34 @@ export function urlBase64ToUint8Array(base64String: string) {
   return outputArray;
 }
 
+export function isCapacitorNative(): boolean {
+  if (typeof window === 'undefined') return false;
+  const capacitor = (window as any).Capacitor;
+  return Boolean(
+    capacitor?.isNativePlatform?.() ||
+    capacitor?.getPlatform?.() === 'android' ||
+    capacitor?.getPlatform?.() === 'ios'
+  );
+}
+
 export async function ensureServiceWorkerReady(): Promise<ServiceWorkerRegistration | null> {
   if (typeof window === 'undefined') return null;
   if (!('serviceWorker' in navigator)) return null;
+
+  // In Capacitor WebView, active service workers can conflict with native bridge
+  // injection and request routing. Unregister any existing SWs to preserve clean native bridge.
+  if (isCapacitorNative()) {
+    try {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      for (const reg of regs) {
+        void reg.unregister();
+      }
+    } catch {
+      // ignore
+    }
+    return null;
+  }
+
   try {
     const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
     await navigator.serviceWorker.ready;
@@ -61,4 +86,3 @@ export async function unsubscribeWebPush(): Promise<string | null> {
   }
   return endpoint;
 }
-

@@ -77,14 +77,16 @@ export default function SignUpPage() {
 
   const handleGoogleSignIn = async () => {
     setIsGoogleLoading(true);
+    setError('');
     try {
       if (await requestNativeGoogleSignIn(callbackUrl)) {
         setIsGoogleLoading(false);
         return;
       }
       await signIn('google', { callbackUrl });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Google sign in error:', error);
+      setError(error?.message || 'Google sign in could not be started.');
       setIsGoogleLoading(false);
     }
   };

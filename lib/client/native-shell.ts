@@ -14,6 +14,7 @@ declare global {
       messageHandlers?: Record<string, NativeMessageHandler | undefined>;
     };
     Capacitor?: {
+      isNativePlatform?: () => boolean;
       getPlatform?: () => string;
       Plugins?: {
         AxiomAuth?: CapacitorAuthPlugin;
@@ -32,10 +33,15 @@ export async function requestNativeGoogleSignIn(callbackUrl: string): Promise<bo
   }
 
   const capacitor = window.Capacitor;
-  const androidAuth = capacitor?.getPlatform?.() === 'android'
-    ? (capacitor.Plugins?.ActiprocAuth ?? capacitor.Plugins?.AxiomAuth)
-    : undefined;
-  if (!androidAuth) return false;
-  await androidAuth.startGoogleSignIn({ callbackUrl });
-  return true;
+  const isAndroid = capacitor?.getPlatform?.() === 'android';
+  if (isAndroid) {
+    const androidAuth = capacitor.Plugins?.ActiprocAuth ?? capacitor.Plugins?.AxiomAuth;
+    if (!androidAuth) {
+      throw new Error('Capacitor native auth bridge is unavailable. Please restart the app.');
+    }
+    await androidAuth.startGoogleSignIn({ callbackUrl });
+    return true;
+  }
+
+  return false;
 }

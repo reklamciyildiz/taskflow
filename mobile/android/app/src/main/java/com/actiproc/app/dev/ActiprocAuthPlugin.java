@@ -1,8 +1,14 @@
 package com.actiproc.app.dev;
 
+import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.net.Uri;
 import android.util.Base64;
+import android.webkit.CookieManager;
+
+import androidx.browser.customtabs.CustomTabsIntent;
 
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
@@ -12,9 +18,14 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
+import java.util.List;
 import java.util.regex.Pattern;
 
-/** Secure system-browser OAuth handoff for Actiproc Capacitor app. */
+/**
+ * Secure system-browser Custom Tabs OAuth handoff for Actiproc Capacitor app.
+ * Resolves verified browsers, prevents TWA/WebView loopback, and completes
+ * web-session cookie installation in the app's WebView.
+ */
 @CapacitorPlugin(name = "ActiprocAuth")
 public class ActiprocAuthPlugin extends Plugin {
     private static final String ORIGIN = "https://www.actiproc.com";
@@ -33,6 +44,13 @@ public class ActiprocAuthPlugin extends Plugin {
     @Override
     public void load() {
         super.load();
+        try {
+            CookieManager.getInstance().setAcceptCookie(true);
+            if (bridge != null && bridge.getWebView() != null) {
+                CookieManager.getInstance().setAcceptThirdPartyCookies(bridge.getWebView(), true);
+            }
+        } catch (Exception ignored) {
+        }
         if (getActivity() != null && getActivity().getIntent() != null) {
             handleAuthUri(getActivity().getIntent().getData());
         }
@@ -61,13 +79,26 @@ public class ActiprocAuthPlugin extends Plugin {
                     .appendQueryParameter("code_challenge", challenge)
                     .appendQueryParameter("state", state)
                     .build();
-            Intent browser = new Intent(Intent.ACTION_VIEW, authUrl);
-            browser.addCategory(Intent.CATEGORY_BROWSABLE);
-            getActivity().startActivity(browser);
+
+            String targetBrowser = getTargetBrowserPackage();
+            if (targetBrowser == null) {
+                clearPendingAuth();
+                call.reject("No compatible system web browser found to perform secure Google sign-in.");
+                return;
+            }
+
+            // Launch verified system browser as Custom Tab, never TWA or WebView
+            CustomTabsIntent customTabs = new CustomTabsIntent.Builder()
+                    .setShowTitle(true)
+                    .build();
+            customTabs.intent.setPackage(targetBrowser);
+            customTabs.intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+
+            customTabs.launchUrl(getActivity(), authUrl);
             call.resolve();
         } catch (Exception error) {
             clearPendingAuth();
-            call.reject("Could not start secure Google sign-in.", error);
+            call.reject("Could not start secure Google sign-in: " + error.getMessage(), error);
         }
     }
 
@@ -79,7 +110,7 @@ public class ActiprocAuthPlugin extends Plugin {
         }
     }
 
-    private synchronized void handleAuthUri(Uri uri) {
+    public synchronized void handleAuthUri(Uri uri) {
         if (uri == null) return;
         boolean isHttps = "https".equalsIgnoreCase(uri.getScheme())
                 && ("www.actiproc.com".equalsIgnoreCase(uri.getHost()) || "actiproc.com".equalsIgnoreCase(uri.getHost()))
@@ -126,9 +157,15 @@ public class ActiprocAuthPlugin extends Plugin {
                     + "&code_verifier=" + encode(verifier)
                     + "&callback_path=" + encode(callbackPath)
                     + "&platform=android";
-            getActivity().runOnUiThread(() -> bridge.getWebView().postUrl(
-                    ORIGIN + SESSION_PATH,
-                    body.getBytes(StandardCharsets.UTF_8)));
+            getActivity().runOnUiThread(() -> {
+                bridge.getWebView().postUrl(
+                        ORIGIN + SESSION_PATH,
+                        body.getBytes(StandardCharsets.UTF_8));
+                try {
+                    CookieManager.getInstance().flush();
+                } catch (Exception ignored) {
+                }
+            });
         } catch (Exception error) {
             clearPendingAuth();
             loadSignInError("OAuthCallback");
@@ -145,6 +182,45 @@ public class ActiprocAuthPlugin extends Plugin {
         store.remove(KEY_VERIFIER);
         store.remove(KEY_STATE);
         store.remove(KEY_CALLBACK);
+    }
+
+    private String getTargetBrowserPackage() {
+        Context context = getContext();
+        if (context == null) return null;
+        PackageManager pm = context.getPackageManager();
+        Intent genericHttp = new Intent(Intent.ACTION_VIEW, Uri.parse("https://accounts.google.com"));
+
+        // 1. Check default browser
+        ResolveInfo defaultInfo = pm.resolveActivity(genericHttp, PackageManager.MATCH_DEFAULT_ONLY);
+        if (defaultInfo != null && defaultInfo.activityInfo != null) {
+            String pkg = defaultInfo.activityInfo.packageName;
+            if (isAllowedBrowserPackage(pkg)) {
+                return pkg;
+            }
+        }
+
+        // 2. Query all browsers; prefer Chrome
+        List<ResolveInfo> resolved = pm.queryIntentActivities(genericHttp, PackageManager.MATCH_ALL);
+        for (ResolveInfo info : resolved) {
+            if (info.activityInfo != null && "com.android.chrome".equals(info.activityInfo.packageName)) {
+                return "com.android.chrome";
+            }
+        }
+        for (ResolveInfo info : resolved) {
+            if (info.activityInfo != null && isAllowedBrowserPackage(info.activityInfo.packageName)) {
+                return info.activityInfo.packageName;
+            }
+        }
+        return null;
+    }
+
+    private static boolean isAllowedBrowserPackage(String pkg) {
+        if (pkg == null) return false;
+        return !"com.actiproc.app".equals(pkg)
+                && !"com.actiproc.app.dev".equals(pkg)
+                && !"com.axiomproductivity.twa.diagnostic".equals(pkg)
+                && !"com.axiomproductivity.mobile.dev".equals(pkg)
+                && !"android".equals(pkg);
     }
 
     private static String safeCallbackPath(String value) {
@@ -184,4 +260,3 @@ public class ActiprocAuthPlugin extends Plugin {
         return Uri.encode(value);
     }
 }
-

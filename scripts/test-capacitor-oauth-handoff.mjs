@@ -5,6 +5,7 @@ import { readFile } from 'node:fs/promises';
 const read = (path) => readFile(path, 'utf8');
 const [
   plugin,
+  axiomAliasPlugin,
   secureSessionPlugin,
   mainActivity,
   manifest,
@@ -14,9 +15,10 @@ const [
   sessionRoute,
   sharedSession,
 ] = await Promise.all([
-  read('mobile/android/app/src/main/java/com/axiomproductivity/mobile/dev/AxiomAuthPlugin.java'),
-  read('mobile/android/app/src/main/java/com/axiomproductivity/mobile/dev/SecureSessionPlugin.java'),
-  read('mobile/android/app/src/main/java/com/axiomproductivity/mobile/dev/MainActivity.java'),
+  read('mobile/android/app/src/main/java/com/actiproc/app/dev/ActiprocAuthPlugin.java'),
+  read('mobile/android/app/src/main/java/com/actiproc/app/dev/AxiomAuthPlugin.java'),
+  read('mobile/android/app/src/main/java/com/actiproc/app/dev/SecureSessionPlugin.java'),
+  read('mobile/android/app/src/main/java/com/actiproc/app/dev/MainActivity.java'),
   read('mobile/android/app/src/main/AndroidManifest.xml'),
   read('lib/client/native-shell.ts'),
   read('app/api/mobile/auth/google/start/route.ts'),
@@ -30,15 +32,22 @@ const challenge = createHash('sha256').update(verifier).digest('base64url');
 assert.match(verifier, /^[A-Za-z0-9_-]{43,128}$/);
 assert.equal(challenge.length, 43);
 
+// Android MainActivity must register canonical and legacy plugins
+assert.match(mainActivity, /registerPlugin\(ActiprocAuthPlugin\.class\)/);
 assert.match(mainActivity, /registerPlugin\(AxiomAuthPlugin\.class\)/);
+
+// Manifest must verify App Links and custom scheme for Actiproc
 assert.match(manifest, /android:scheme="https"/);
 assert.match(manifest, /android:pathPrefix="\/mobile\/auth\/callback"/);
-assert.match(plugin, /@CapacitorPlugin\(name = "AxiomAuth"\)/);
+assert.match(manifest, /android:scheme="actiproc"/);
+
+// ActiprocAuthPlugin verification
+assert.match(plugin, /@CapacitorPlugin\(name = "ActiprocAuth"\)/);
 assert.match(plugin, /new SecureRandom\(\)/);
 assert.match(plugin, /MessageDigest\.getInstance\("SHA-256"\)/);
 assert.match(plugin, /MessageDigest\.isEqual/);
-assert.match(plugin, /Intent\.ACTION_VIEW/);
-assert.match(plugin, /CATEGORY_BROWSABLE/);
+assert.match(plugin, /CustomTabsIntent/);
+assert.match(plugin, /getTargetBrowserPackage/);
 assert.match(plugin, /"platform", "android"/);
 assert.match(plugin, /CALLBACK_PATH = "\/mobile\/auth\/callback"/);
 assert.match(plugin, /bridge\.getWebView\(\)\.postUrl/);
@@ -48,9 +57,17 @@ assert.doesNotMatch(plugin, /addJavascriptInterface|Log\.|System\.out|localStora
 assert.match(plugin, /nativeOauthVerifierV1/);
 assert.doesNotMatch(secureSessionPlugin, /nativeOauthVerifierV1|nativeOauthStateV1|nativeOauthCallbackPathV1/);
 
+// AxiomAuthPlugin alias verification: must NOT implement duplicate intent handling
+assert.match(axiomAliasPlugin, /@CapacitorPlugin\(name = "AxiomAuth"\)/);
+assert.match(axiomAliasPlugin, /bridge\.getPlugin\("ActiprocAuth"\)/);
+assert.doesNotMatch(axiomAliasPlugin, /handleOnNewIntent|handleAuthUri/);
+
+// Web native bridge verification
 assert.match(nativeAdapter, /getPlatform\?\.\(\) === 'android'/);
-assert.match(nativeAdapter, /Plugins\?\.AxiomAuth/);
+assert.match(nativeAdapter, /ActiprocAuth/);
 assert.match(nativeAdapter, /androidAuth\.startGoogleSignIn/);
+
+// Backend OAuth contract
 assert.match(startRoute, /code_challenge/);
 assert.match(startRoute, /nonce/);
 assert.match(startRoute, /client_state/);
@@ -74,4 +91,4 @@ assert.match(sharedSession, /request\.nextUrl\.origin !== canonicalOrigin/);
 assert.match(sharedSession, /value\.length > 2048/);
 assert.doesNotMatch(sharedSession, /getByEmail|form\.get\('email'\)|accessToken/);
 
-console.log('Capacitor OAuth and NextAuth WebView session handoff contracts passed.');
+console.log('Actiproc Capacitor OAuth and NextAuth WebView session handoff contracts passed.');

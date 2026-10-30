@@ -25,6 +25,7 @@ export function SignInClient({
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [clientError, setClientError] = useState<string | null>(null);
 
   const handleCredentialsSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,6 +54,7 @@ export function SignInClient({
 
   const handleGoogleSignIn = async () => {
     setIsGoogleLoading(true);
+    setClientError(null);
     try {
       if (await requestNativeGoogleSignIn(callbackUrl)) {
         // A cancelled Custom Tab returns to this still-mounted page. Do not
@@ -61,8 +63,9 @@ export function SignInClient({
         return;
       }
       await signIn('google', { callbackUrl });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Google sign in error:', error);
+      setClientError(error?.message || 'Google sign in could not be started.');
       setIsGoogleLoading(false);
     }
   };
@@ -86,11 +89,11 @@ export function SignInClient({
         </CardHeader>
 
         <CardContent className="space-y-6">
-          {error && (
+          {(clientError || error) && (
             <div className="p-3 text-sm text-red-500 bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-200 dark:border-red-900">
-              {error === 'OAuthAccountNotLinked'
+              {clientError || (error === 'OAuthAccountNotLinked'
                 ? 'This email is already associated with another account.'
-                : 'An error occurred during sign in. Please try again.'}
+                : 'An error occurred during sign in. Please try again.')}
             </div>
           )}
 
