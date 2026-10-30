@@ -8,6 +8,12 @@ const actiprocFingerprints = [
   'AB:BD:C5:FA:06:0F:9F:62:B3:2B:2C:9D:06:9E:5A:B0:FF:14:06:3F:34:D0:E8:28:F0:5F:68:9F:D3:4A:DD:A0',
 ];
 
+const actiprocDevPackageName = 'com.actiproc.app.dev';
+const actiprocDevFingerprints = [
+  '2C:65:2C:AF:1C:A4:88:39:4E:D1:5B:1F:93:34:4D:9E:2A:39:D0:A0:C9:F0:A7:DD:AE:9B:86:4C:CB:A7:54:D3',
+  'AB:BD:C5:FA:06:0F:9F:62:B3:2B:2C:9D:06:9E:5A:B0:FF:14:06:3F:34:D0:E8:28:F0:5F:68:9F:D3:4A:DD:A0',
+];
+
 const legacyTwaPackageName = 'com.axiomproductivity.twa.diagnostic';
 const legacyTwaFingerprints = [
   'AB:BD:C5:FA:06:0F:9F:62:B3:2B:2C:9D:06:9E:5A:B0:FF:14:06:3F:34:D0:E8:28:F0:5F:68:9F:D3:4A:DD:A0',
@@ -41,6 +47,7 @@ export async function GET() {
 
   const statements = [
     createStatement(actiprocPackageName, actiprocFingerprints),
+    createStatement(actiprocDevPackageName, actiprocDevFingerprints),
     createStatement(legacyTwaPackageName, legacyTwaFingerprints),
   ];
   const existingMobileEntryIsValid = Boolean(

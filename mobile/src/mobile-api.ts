@@ -3,7 +3,11 @@ import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
 import { secureSession } from './secure-session';
 
-const apiBase = (import.meta.env.VITE_AXIOM_API_ORIGIN ?? '').replace(/\/$/, '');
+const apiBase = (
+  import.meta.env.VITE_ACTIPROC_API_ORIGIN ??
+  import.meta.env.VITE_AXIOM_API_ORIGIN ??
+  'https://www.actiproc.com'
+).replace(/\/$/, '');
 let accessToken: string | null = null;
 const platformFetch = globalThis.fetch.bind(globalThis);
 let sharedFetchInstalled = false;
@@ -25,7 +29,7 @@ async function mobileFetch(path: string, init?: RequestInit): Promise<Response> 
       const localHint = import.meta.env.MODE === 'android-staging'
         ? ' Restart the local staging bridge with `npm --prefix mobile run android:connect:staging`.'
         : '';
-      throw new Error(`Axiom could not reach the mobile API.${localHint}`);
+      throw new Error(`Actiproc could not reach the mobile API.${localHint}`);
     }
     throw error;
   }

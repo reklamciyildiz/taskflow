@@ -106,7 +106,7 @@ function MobileProductContent({
         />
       ) : null}
       {screen === 'ai' ? (
-        <section className="workspace mobile-product-view mobile-ai-view" aria-label="Axiom AI">
+        <section className="workspace mobile-product-view mobile-ai-view" aria-label="Actiproc AI">
           <AxiomAIChatView
             enabled
             request={mobileAIRequest}
@@ -117,8 +117,14 @@ function MobileProductContent({
       ) : null}
       {screen === 'account' ? (
         <section className="workspace mobile-product-view account-view" aria-labelledby="mobile-account-title">
-          <div className="account-hero"><span className="account-avatar">{initials(session)}</span><p className="eyebrow">Secure session</p><h1 id="mobile-account-title">{session.user.name || 'Axiom account'}</h1><p className="summary">{session.user.email}</p></div>
-          <div className="account-security"><ShieldCheck /><div><strong>Protected on this device</strong><span>Refresh credentials are encrypted by Android Keystore. Workspace access still follows Axiom organization, team, and Process permissions.</span></div></div>
+          <div className="account-hero"><span className="account-avatar">{initials(session)}</span><p className="eyebrow">Secure session</p><h1 id="mobile-account-title">{session.user.name || 'Actiproc account'}</h1><p className="summary">{session.user.email}</p></div>
+          <div className="account-security"><ShieldCheck /><div><strong>Protected on this device</strong><span>Session tokens are encrypted using hardware-backed Android Keystore. Workspace data follows Actiproc team and role permissions.</span></div></div>
+          <div className="account-details" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '1rem', background: 'rgba(255,255,255,0.04)', borderRadius: '0.75rem', fontSize: '0.85rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: '#94a3b8' }}>App Version</span><span>1.0.0-beta (Capacitor)</span></div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: '#94a3b8' }}>Package ID</span><span>com.actiproc.app.dev</span></div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: '#94a3b8' }}>Backend API</span><span>actiproc.com</span></div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: '#94a3b8' }}>Frontend Bundle</span><span>Local Offline Package</span></div>
+          </div>
           <button className="account-logout" type="button" onClick={() => void signOut()} disabled={busy}><LogOut />Log out of this device</button>
         </section>
       ) : null}
@@ -163,7 +169,7 @@ export function App() {
     void Network.getStatus().then((status) => active && setOnline(status.connected));
     const networkHandle = Network.addListener('networkStatusChange', (status) => setOnline(status.connected));
     const linkHandle = NativeApp.addListener('appUrlOpen', ({ url }) => {
-      if (!url.includes('/mobile/auth/callback')) return;
+      if (!url.includes('/mobile/auth/callback') && !url.includes('/auth/callback')) return;
       setBusy(true);
       setError(null);
       void completeGoogleSignIn(url)
@@ -227,7 +233,7 @@ export function App() {
         {screen === 'process' ? (
           <button className="icon-button" type="button" onClick={goBack} aria-label="Go back"><ArrowLeft /></button>
         ) : <span className="brand-mark" aria-hidden="true"><Sparkles /></span>}
-        <div className="brand-copy"><strong>Axiom</strong><span>{authenticated ? 'Mobile workspace' : 'Secure workspace'}</span></div>
+        <div className="brand-copy"><strong>Actiproc Beta</strong><span>{authenticated ? 'Mobile workspace' : 'Secure workspace'}</span></div>
         <span className={`network-status ${online ? 'online' : 'offline'}`} aria-label={online ? 'Online' : 'Offline'}>{online ? <Wifi /> : <CloudOff />}</span>
         {authenticated ? <span className="avatar" title={session?.user.email}>{session ? initials(session) : ''}</span> : null}
       </header>
@@ -241,7 +247,7 @@ export function App() {
           <span className="hero-icon"><LockKeyhole /></span>
           <p className="eyebrow">Secure mobile access</p>
           <h1 id="signin-title">Welcome back</h1>
-          <p className="summary">Sign in with your existing Axiom account. Your workspace permissions stay unchanged.</p>
+          <p className="summary">Sign in with your existing Actiproc account. Your workspace permissions stay unchanged.</p>
           {!mobileApiConfigured() ? <div className="notice error">Mobile API URL is not configured in this development build.</div> : null}
           <form onSubmit={signIn}>
             <label>Email<input name="email" type="email" inputMode="email" autoCapitalize="none" autoComplete="email" required disabled={busy || !online} /></label>
@@ -280,7 +286,7 @@ export function App() {
           <button type="button" className={screen === 'planner' ? 'is-active' : ''} onClick={() => selectRoot('planner')}><CalendarDays /><span>Planner</span></button>
           <button type="button" className={screen === 'knowledge' ? 'is-active' : ''} onClick={() => selectRoot('knowledge')}><BookOpen /><span>Knowledge</span></button>
           <button type="button" className={screen === 'ai' ? 'is-active' : ''} onClick={() => selectRoot('ai')}><Bot /><span>AI</span></button>
-          <button type="button" className={screen === 'account' ? 'is-active' : ''} onClick={() => selectRoot('account')}><UserRound /><span>Account</span></button>
+          <button type="button" className={screen === 'account' ? 'is-active' : ''} onClick={() => selectRoot('account')}><UserRound /><span>Settings</span></button>
         </nav>
       ) : <footer>{Capacitor.getPlatform()} · local bundle</footer>}
     </main>

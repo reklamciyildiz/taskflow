@@ -66,6 +66,7 @@ export async function middleware(request: NextRequest) {
     '/robots.txt',
     '/sitemap.xml',
     '/api/auth',
+    '/mobile/auth/callback',
     // Mobile endpoints authenticate with their own short-lived bearer/session guard.
     // Keeping them out of NextAuth cookie middleware does not make them anonymous:
     // every data route calls authenticateMobileRequest server-side.

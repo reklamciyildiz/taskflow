@@ -31,6 +31,20 @@
                     android:scheme="https"
                     android:host="${axiomAppLinkHost}"
                     android:pathPrefix="/mobile/auth/callback" />
+                <data
+                    android:scheme="https"
+                    android:host="actiproc.com"
+                    android:pathPrefix="/mobile/auth/callback" />
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="actiproc"
+                    android:host="mobile"
+                    android:pathPrefix="/auth/callback" />
             </intent-filter>
 
         </activity>

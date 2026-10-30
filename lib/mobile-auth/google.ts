@@ -25,10 +25,39 @@ export function decryptEphemeral(value: string): string {
   return Buffer.concat([decipher.update(parts[2]), decipher.final()]).toString('utf8');
 }
 
+function canonicalizeRedirectUri(raw?: string): string {
+  const fallback = 'https://www.actiproc.com/api/mobile/auth/google/callback';
+  if (!raw) return fallback;
+  try {
+    const url = new URL(raw);
+    if (url.hostname.includes('getaxiomm.vercel.app') || url.hostname.includes('actiproc.vercel.app')) {
+      url.hostname = 'www.actiproc.com';
+    }
+    return url.toString();
+  } catch {
+    return fallback;
+  }
+}
+
+function canonicalizeAppLink(raw?: string): string {
+  const fallback = 'https://www.actiproc.com/mobile/auth/callback';
+  if (!raw) return fallback;
+  try {
+    const url = new URL(raw);
+    if (url.hostname.includes('getaxiomm.vercel.app') || url.hostname.includes('actiproc.vercel.app')) {
+      url.hostname = 'www.actiproc.com';
+    }
+    return url.toString();
+  } catch {
+    return fallback;
+  }
+}
+
 export function mobileGoogleClient() {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const redirectUri = process.env.MOBILE_GOOGLE_CALLBACK_URL;
+  const rawRedirect = process.env.MOBILE_GOOGLE_CALLBACK_URL || 'https://www.actiproc.com/api/mobile/auth/google/callback';
+  const redirectUri = canonicalizeRedirectUri(rawRedirect);
   if (!clientId || !clientSecret || !redirectUri) throw new MobileAuthError('MOBILE_AUTH_NOT_CONFIGURED', 503, 'Mobile Google OAuth is not configured.');
   const parsedRedirect = new URL(redirectUri);
   if (parsedRedirect.protocol !== 'https:') throw new MobileAuthError('MOBILE_AUTH_NOT_CONFIGURED', 503, 'Mobile Google callback must use HTTPS.');
@@ -50,11 +79,12 @@ export function mobileGoogleAuthConfigured(): boolean {
 }
 
 export function mobileAppLinkUrl(expected?: string): URL {
-  const raw = expected ?? process.env.MOBILE_AUTH_APP_LINK_URL;
+  const configured = canonicalizeAppLink(process.env.MOBILE_AUTH_APP_LINK_URL || 'https://www.actiproc.com/mobile/auth/callback');
+  const raw = expected ? canonicalizeAppLink(expected) : configured;
   if (!raw) throw new MobileAuthError('MOBILE_AUTH_NOT_CONFIGURED', 503, 'Mobile App Link is not configured.');
   const url = new URL(raw);
   if (url.protocol !== 'https:') throw new MobileAuthError('MOBILE_AUTH_NOT_CONFIGURED', 503, 'Mobile App Link must use HTTPS.');
-  if (expected && expected !== process.env.MOBILE_AUTH_APP_LINK_URL) {
+  if (expected && canonicalizeAppLink(expected) !== configured) {
     throw new MobileAuthError('INVALID_OAUTH_STATE', 400, 'OAuth redirect target is no longer valid.');
   }
   return url;

@@ -22,7 +22,7 @@ try {
 
   const result = spawnSync(process.execPath, [join(mobileRoot, 'scripts', 'build-android-debug.mjs'), '--clean'], {
     cwd: mobileRoot,
-    env: { ...process.env, AXIOM_MOBILE_APP_LINK_HOST: 'getaxiomm.vercel.app' },
+    env: { ...process.env, AXIOM_MOBILE_APP_LINK_HOST: 'www.actiproc.com' },
     stdio: 'inherit',
     shell: false,
   });

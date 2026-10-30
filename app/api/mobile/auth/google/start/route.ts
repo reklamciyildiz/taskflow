@@ -1,6 +1,6 @@
 import { createHash } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
-import { encryptEphemeral, mobileGoogleClient } from '@/lib/mobile-auth/google';
+import { encryptEphemeral, mobileAppLinkUrl, mobileGoogleClient } from '@/lib/mobile-auth/google';
 import { consumeMobileAuthRateLimit, hashSecret, mobileAuthEnabled, MobileAuthError, mobileErrorResponse, randomToken } from '@/lib/mobile-auth/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     const expiresAt = new Date(Date.now() + 10 * 60_000).toISOString();
     const { error } = await supabaseAdmin.from('mobile_auth_oauth_attempts').insert({
       state_hash: hashSecret(state), client_state: clientState, code_challenge: codeChallenge,
-      redirect_uri: process.env.MOBILE_AUTH_APP_LINK_URL, platform,
+      redirect_uri: mobileAppLinkUrl().toString(), platform,
       google_verifier_cipher: encryptEphemeral(googleVerifier), nonce_hash: hashSecret(nonce), expires_at: expiresAt,
     });
     if (error) throw error;

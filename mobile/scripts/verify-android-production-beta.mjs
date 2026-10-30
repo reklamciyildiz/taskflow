@@ -7,8 +7,9 @@ const match = /^VITE_AXIOM_API_ORIGIN=(.+)$/m.exec(raw);
 if (!match) throw new Error('VITE_AXIOM_API_ORIGIN is missing from .env.android-production-beta.');
 
 const origin = new URL(match[1].trim());
-if (origin.protocol !== 'https:' || origin.origin !== 'https://getaxiomm.vercel.app') {
-  throw new Error('Production beta must use the reviewed Axiom production HTTPS origin.');
+const allowedOrigins = ['https://www.actiproc.com', 'https://actiproc.com', 'https://getaxiomm.vercel.app'];
+if (origin.protocol !== 'https:' || !allowedOrigins.includes(origin.origin)) {
+  throw new Error('Production beta must use the reviewed Actiproc production HTTPS origin.');
 }
 
 function request(path, { method = 'GET', headers = {} } = {}) {

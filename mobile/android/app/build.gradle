@@ -1,15 +1,15 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace = "com.axiomproductivity.mobile.dev"
+    namespace = "com.actiproc.app.dev"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.axiomproductivity.mobile.dev"
+        applicationId "com.actiproc.app.dev"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
         versionName "1.0"
-        manifestPlaceholders = [axiomAppLinkHost: System.getenv("AXIOM_MOBILE_APP_LINK_HOST") ?: "axiom-mobile-staging.vercel.app"]
+        manifestPlaceholders = [axiomAppLinkHost: System.getenv("AXIOM_MOBILE_APP_LINK_HOST") ?: "www.actiproc.com"]
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
