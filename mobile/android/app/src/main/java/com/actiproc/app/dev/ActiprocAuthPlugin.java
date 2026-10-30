@@ -58,12 +58,29 @@ public class ActiprocAuthPlugin extends Plugin {
 
     @PluginMethod
     public void startGoogleSignIn(PluginCall call) {
-        String currentUrl = bridge.getWebView().getUrl();
-        String callbackPath = safeCallbackPath(call.getString("callbackUrl"));
-        if (!isTrustedWebViewUrl(currentUrl)) {
-            call.reject("Google sign-in is only available from the trusted Actiproc origin.");
+        if (bridge == null || getActivity() == null) {
+            call.reject("Native Google sign-in is unavailable.");
             return;
         }
+
+        // Capacitor dispatches @PluginMethod on "CapacitorPlugins", not the WebView UI thread.
+        bridge.executeOnMainThread(() -> {
+            try {
+                String currentUrl = bridge.getWebView() == null ? null : bridge.getWebView().getUrl();
+                if (!isTrustedWebViewUrl(currentUrl)) {
+                    call.reject("Google sign-in is only available from the trusted Actiproc origin.");
+                    return;
+                }
+                String callbackPath = safeCallbackPath(call.getString("callbackUrl"));
+                // Keep PKCE/Keystore work on the plugin thread, and UI operations on main.
+                bridge.execute(() -> launchGoogleSignIn(call, callbackPath));
+            } catch (Exception error) {
+                call.reject("Could not verify the Google sign-in origin.", error);
+            }
+        });
+    }
+
+    private void launchGoogleSignIn(PluginCall call, String callbackPath) {
         try {
             String verifier = randomUrlSafe(64);
             String state = randomUrlSafe(48);
@@ -94,8 +111,20 @@ public class ActiprocAuthPlugin extends Plugin {
             customTabs.intent.setPackage(targetBrowser);
             customTabs.intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 
-            customTabs.launchUrl(getActivity(), authUrl);
-            call.resolve();
+            bridge.executeOnMainThread(() -> {
+                try {
+                    if (getActivity() == null || getActivity().isFinishing() || getActivity().isDestroyed()) {
+                        clearPendingAuth();
+                        call.reject("Google sign-in activity is no longer available.");
+                        return;
+                    }
+                    customTabs.launchUrl(getActivity(), authUrl);
+                    call.resolve();
+                } catch (Exception error) {
+                    clearPendingAuth();
+                    call.reject("Could not start secure Google sign-in.", error);
+                }
+            });
         } catch (Exception error) {
             clearPendingAuth();
             call.reject("Could not start secure Google sign-in: " + error.getMessage(), error);

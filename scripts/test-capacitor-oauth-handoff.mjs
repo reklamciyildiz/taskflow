@@ -91,4 +91,19 @@ assert.match(sharedSession, /request\.nextUrl\.origin !== canonicalOrigin/);
 assert.match(sharedSession, /value\.length > 2048/);
 assert.doesNotMatch(sharedSession, /getByEmail|form\.get\('email'\)|accessToken/);
 
+
+// A @PluginMethod runs on CapacitorPlugins; WebView URL reads and browser launches
+// must be marshalled to Android's main thread. Keep PKCE/Keystore on the worker.
+const legacyPlugin = await read('mobile/android/app/src/main/java/com/axiomproductivity/mobile/dev/AxiomAuthPlugin.java');
+for (const source of [plugin, legacyPlugin]) {
+  const begin = source.indexOf('public void startGoogleSignIn(PluginCall call)');
+  const end = source.indexOf('private void launchGoogleSignIn(PluginCall call, String callbackPath)');
+  assert.ok(begin >= 0 && end > begin);
+  const entry = source.slice(begin, end);
+  assert.ok(entry.indexOf('bridge.executeOnMainThread(() -> {') < entry.indexOf('bridge.getWebView().getUrl()'));
+  assert.match(entry, /bridge\.execute\(\(\) -> launchGoogleSignIn\(call, callbackPath\)\)/);
+  const launch = source.slice(end, source.indexOf('    @Override\n    protected void handleOnNewIntent', end));
+  assert.match(launch, /bridge\.executeOnMainThread\(\(\) -> \{[\s\S]*?call\.resolve\(\)/);
+}
+
 console.log('Actiproc Capacitor OAuth and NextAuth WebView session handoff contracts passed.');
