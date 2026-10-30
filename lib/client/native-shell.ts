@@ -17,6 +17,7 @@ declare global {
       getPlatform?: () => string;
       Plugins?: {
         AxiomAuth?: CapacitorAuthPlugin;
+        ActiprocAuth?: CapacitorAuthPlugin;
       };
     };
   }
@@ -24,7 +25,7 @@ declare global {
 
 export async function requestNativeGoogleSignIn(callbackUrl: string): Promise<boolean> {
   if (typeof window === 'undefined') return false;
-  const iosHandler = window.webkit?.messageHandlers?.axiomAuth;
+  const iosHandler = window.webkit?.messageHandlers?.axiomAuth || window.webkit?.messageHandlers?.actiprocAuth;
   if (iosHandler) {
     iosHandler.postMessage({ action: 'googleSignIn', callbackUrl });
     return true;
@@ -32,7 +33,7 @@ export async function requestNativeGoogleSignIn(callbackUrl: string): Promise<bo
 
   const capacitor = window.Capacitor;
   const androidAuth = capacitor?.getPlatform?.() === 'android'
-    ? capacitor.Plugins?.AxiomAuth
+    ? (capacitor.Plugins?.ActiprocAuth ?? capacitor.Plugins?.AxiomAuth)
     : undefined;
   if (!androidAuth) return false;
   await androidAuth.startGoogleSignIn({ callbackUrl });

@@ -21,6 +21,7 @@ import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { useOrganizationBilling } from '@/hooks/useOrganizationBilling';
+import { isAndroidTwa } from '@/lib/client/is-android-twa';
 
 type Props = {
   organizationId: string | null;
@@ -94,7 +95,8 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const busy = checkoutBusy !== null;
+  const isAndroid = typeof window !== 'undefined' ? isAndroidTwa() : false;
+  const busy = checkoutBusy !== null || isAndroid;
   const statusLabel = billingStatus.replace('_', ' ');
   const showSeatMeter =
     (billingPlan === 'team' || billingPlan === 'pro') && billingStatus !== 'cancelled';
@@ -127,6 +129,19 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
           </p>
         </div>
       )}
+
+      {isAndroid ? (
+        <div className="flex items-start gap-3 rounded-lg border border-sky-500/30 bg-sky-500/10 px-4 py-3 text-sm text-sky-200">
+          <Shield className="h-4 w-4 shrink-0 mt-0.5 text-sky-400" aria-hidden />
+          <div className="space-y-1">
+            <p className="font-semibold text-white">Google Play Policy Notice</p>
+            <p className="text-xs text-sky-200/90 leading-relaxed">
+              Per Google Play terms, subscription upgrades, tier switches, and seat additions are managed directly on our website.
+              Please open <span className="font-semibold text-white">actiproc.com</span> in your web browser. Features and seats upgraded on the web immediately apply to this app.
+            </p>
+          </div>
+        </div>
+      ) : null}
 
       {checkoutSuccess ? (
         <div className="flex items-center gap-3 rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-700 dark:text-green-400">

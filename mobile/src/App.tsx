@@ -7,6 +7,7 @@ import {
   LockKeyhole, LogOut, UserRound,
   ShieldCheck, Sparkles, Wifi,
 } from 'lucide-react';
+import { SessionProvider } from './platform/next-auth-react';
 import type { MobileSessionTokens } from '../../shared/mobile-contracts';
 import {
   completeGoogleSignIn, credentialsSignIn, ensureDeviceId,
@@ -168,14 +169,27 @@ export function App() {
     void ensureDeviceId().catch(() => setError('Secure device storage is unavailable.'));
     void Network.getStatus().then((status) => active && setOnline(status.connected));
     const networkHandle = Network.addListener('networkStatusChange', (status) => setOnline(status.connected));
-    const linkHandle = NativeApp.addListener('appUrlOpen', ({ url }) => {
+    const handledUrls = new Set<string>();
+    const handleIncomingUrl = (url: string) => {
+      if (!url || handledUrls.has(url)) return;
       if (!url.includes('/mobile/auth/callback') && !url.includes('/auth/callback')) return;
+      handledUrls.add(url);
       setBusy(true);
       setError(null);
       void completeGoogleSignIn(url)
         .then(enterWorkspace)
         .catch((cause) => setError(cause instanceof Error ? cause.message : 'Google sign-in failed.'))
         .finally(() => setBusy(false));
+    };
+
+    void NativeApp.getLaunchUrl().then((launch) => {
+      if (launch?.url) {
+        handleIncomingUrl(launch.url);
+      }
+    });
+
+    const linkHandle = NativeApp.addListener('appUrlOpen', ({ url }) => {
+      handleIncomingUrl(url);
     });
     const backHandle = NativeApp.addListener('backButton', goBack);
     const setScreenFromSharedUi = (event: Event) => {
@@ -228,7 +242,8 @@ export function App() {
   const authenticated = Boolean(session && screen !== 'signin' && screen !== 'booting');
 
   return (
-    <main className={`mobile-shell screen-${screen}`}>
+    <SessionProvider>
+      <main className={`mobile-shell screen-${screen}`}>
       <header className="app-header">
         {screen === 'process' ? (
           <button className="icon-button" type="button" onClick={goBack} aria-label="Go back"><ArrowLeft /></button>
@@ -289,6 +304,7 @@ export function App() {
           <button type="button" className={screen === 'account' ? 'is-active' : ''} onClick={() => selectRoot('account')}><UserRound /><span>Settings</span></button>
         </nav>
       ) : <footer>{Capacitor.getPlatform()} · local bundle</footer>}
-    </main>
+      </main>
+    </SessionProvider>
   );
 }

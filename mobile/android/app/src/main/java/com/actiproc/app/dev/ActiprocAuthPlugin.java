@@ -28,6 +28,15 @@ public class ActiprocAuthPlugin extends Plugin {
     private static final String KEY_VERIFIER = "nativeOauthVerifierV1";
     private static final String KEY_STATE = "nativeOauthStateV1";
     private static final String KEY_CALLBACK = "nativeOauthCallbackPathV1";
+    private static volatile String lastHandledUri = null;
+
+    @Override
+    public void load() {
+        super.load();
+        if (getActivity() != null && getActivity().getIntent() != null) {
+            handleAuthUri(getActivity().getIntent().getData());
+        }
+    }
 
     @PluginMethod
     public void startGoogleSignIn(PluginCall call) {
@@ -64,11 +73,28 @@ public class ActiprocAuthPlugin extends Plugin {
 
     @Override
     protected void handleOnNewIntent(Intent intent) {
-        if (intent == null || intent.getData() == null) return;
-        Uri uri = intent.getData();
-        if (!"https".equals(uri.getScheme()) || !HOST.equals(uri.getHost()) || !CALLBACK_PATH.equals(uri.getPath())) {
+        super.handleOnNewIntent(intent);
+        if (intent != null && intent.getData() != null) {
+            handleAuthUri(intent.getData());
+        }
+    }
+
+    private synchronized void handleAuthUri(Uri uri) {
+        if (uri == null) return;
+        boolean isHttps = "https".equalsIgnoreCase(uri.getScheme())
+                && ("www.actiproc.com".equalsIgnoreCase(uri.getHost()) || "actiproc.com".equalsIgnoreCase(uri.getHost()))
+                && CALLBACK_PATH.equals(uri.getPath());
+        boolean isCustom = "actiproc".equalsIgnoreCase(uri.getScheme())
+                && "mobile".equalsIgnoreCase(uri.getHost())
+                && "/auth/callback".equals(uri.getPath());
+        if (!isHttps && !isCustom) {
             return;
         }
+
+        String uriKey = uri.toString();
+        if (uriKey.equals(lastHandledUri)) return;
+        lastHandledUri = uriKey;
+
         try {
             SecureSessionStore store = new SecureSessionStore(getContext());
             String expectedState = store.get(KEY_STATE);

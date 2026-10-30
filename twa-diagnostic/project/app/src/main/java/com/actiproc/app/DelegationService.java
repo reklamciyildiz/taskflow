@@ -1,4 +1,4 @@
-package com.axiomproductivity.twa.diagnostic;
+package com.actiproc.app;
 
 public class DelegationService extends
         com.google.androidbrowserhelper.trusted.DelegationService {
@@ -7,3 +7,4 @@ public class DelegationService extends
         super.onCreate();
     }
 }
+

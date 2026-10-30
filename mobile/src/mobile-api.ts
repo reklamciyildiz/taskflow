@@ -9,6 +9,30 @@ const apiBase = (
   'https://www.actiproc.com'
 ).replace(/\/$/, '');
 let accessToken: string | null = null;
+let activeSessionTokens: MobileSessionTokens | null = null;
+const sessionListeners = new Set<(session: MobileSessionTokens | null) => void>();
+
+export function getActiveSession(): MobileSessionTokens | null {
+  return activeSessionTokens;
+}
+
+export function subscribeSession(callback: (session: MobileSessionTokens | null) => void): () => void {
+  sessionListeners.add(callback);
+  return () => {
+    sessionListeners.delete(callback);
+  };
+}
+
+function notifySessionListeners(session: MobileSessionTokens | null) {
+  activeSessionTokens = session;
+  for (const listener of sessionListeners) {
+    try {
+      listener(session);
+    } catch {
+      // Listener error must not fail auth pipeline
+    }
+  }
+}
 const platformFetch = globalThis.fetch.bind(globalThis);
 let sharedFetchInstalled = false;
 
@@ -46,6 +70,7 @@ export async function ensureDeviceId(): Promise<string> {
 async function acceptTokens(tokens: MobileSessionTokens) {
   accessToken = tokens.accessToken;
   await secureSession.set('refreshToken', tokens.refreshToken);
+  notifySessionListeners(tokens);
   return tokens;
 }
 
@@ -140,6 +165,7 @@ export async function restoreSession() {
   } catch (error) {
     await secureSession.remove('refreshToken');
     accessToken = null;
+  notifySessionListeners(null);
     throw error;
   }
 }
@@ -185,6 +211,7 @@ export async function loadKnowledge(limit = 30) {
 export async function logout() {
   if (accessToken) await mobileFetch('/api/mobile/auth/logout', { method: 'POST', headers: { Authorization: `Bearer ${accessToken}` } }).catch(() => undefined);
   accessToken = null;
+  notifySessionListeners(null);
   await secureSession.remove('refreshToken');
 }
 

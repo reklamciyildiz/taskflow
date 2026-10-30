@@ -10,6 +10,14 @@ type BillingInterval = 'monthly' | 'yearly';
 
 export async function POST(request: NextRequest) {
   try {
+    const platformCookie = request.cookies.get('actiproc_platform')?.value;
+    if (platformCookie === 'android-twa') {
+      return NextResponse.json(
+        { success: false, error: 'Subscription checkouts cannot be completed directly within the Android app per store policies. Please manage billing at actiproc.com.' },
+        { status: 403 }
+      );
+    }
+
     const authed = await requireOrgAdmin();
     if (authed instanceof NextResponse) return authed;
     const orgId = authed.user.organization_id;

@@ -9,7 +9,7 @@ const [workerSource, offlinePage, providers, middleware, androidManifest, androi
     readFile('app/providers.tsx', 'utf8'),
     readFile('middleware.ts', 'utf8'),
     readFile('twa-diagnostic/project/app/src/main/AndroidManifest.xml', 'utf8'),
-    readFile('twa-diagnostic/project/app/src/main/java/com/axiomproductivity/twa/diagnostic/LauncherActivity.java', 'utf8'),
+    readFile('twa-diagnostic/project/app/src/main/java/com/actiproc/app/LauncherActivity.java', 'utf8'),
     readFile('ios/AxiomIOS/Axiom/AxiomWebViewController.swift', 'utf8'),
   ]);
 

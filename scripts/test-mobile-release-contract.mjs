@@ -10,10 +10,10 @@ const [gradle, twaManifestText, androidBuild, iosPromote, gitignore] = await Pro
 ]);
 const twaManifest = JSON.parse(twaManifestText);
 
-assert.match(gradle, /applicationId "com\.axiomproductivity\.twa\.diagnostic"/);
+assert.match(gradle, /applicationId "com\.actiproc\.app"/);
 assert.match(gradle, /versionCode [5-9]/);
 assert.match(gradle, /versionName "1\.0\.[4-9]"/);
-assert.equal(twaManifest.packageId, 'com.axiomproductivity.twa.diagnostic');
+assert.equal(twaManifest.packageId, 'com.actiproc.app');
 assert.ok(twaManifest.appVersionCode >= 5);
 assert.match(twaManifest.appVersionName, /^1\.0\.[4-9]$/);
 assert.match(androidBuild, /Read-Host 'Android keystore password \(input is hidden\)' -AsSecureString/);

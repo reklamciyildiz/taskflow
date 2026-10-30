@@ -21,7 +21,7 @@ plugins {
 }
 
 def twaManifest = [
-    applicationId: 'com.axiomproductivity.twa.diagnostic',
+    applicationId: 'com.actiproc.app',
     hostName: 'www.actiproc.com', // The domain being opened in the TWA.
     launchUrl: '/', // The start path for the TWA. Must be relative to the domain.
     name: 'Actiproc', // The application name.
@@ -52,13 +52,13 @@ def twaManifest = [
 
 android {
     compileSdkVersion 36
-    namespace "com.axiomproductivity.twa.diagnostic"
+    namespace "com.actiproc.app"
     defaultConfig {
-        applicationId "com.axiomproductivity.twa.diagnostic"
+        applicationId "com.actiproc.app"
         minSdkVersion 24
         targetSdkVersion 36
-        versionCode 6
-        versionName "1.0.5"
+        versionCode 7
+        versionName "1.0.6"
 
         // The name for the application
         resValue "string", "appName", twaManifest.name

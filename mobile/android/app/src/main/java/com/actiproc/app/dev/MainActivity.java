@@ -8,6 +8,7 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(SecureSessionPlugin.class);
         registerPlugin(ActiprocAuthPlugin.class);
+        registerPlugin(AxiomAuthPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }
