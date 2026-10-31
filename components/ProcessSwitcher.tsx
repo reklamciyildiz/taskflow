@@ -52,7 +52,7 @@ export function ProcessSwitcher({
           aria-label="Active process / project"
           aria-expanded={open}
         >
-          <span className="truncate">{selected?.name ?? 'Choose process'}</span>
+          <span className="truncate">{selected?.name ?? 'General Actions'}</span>
           <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-60" aria-hidden />
         </Button>
       </PopoverTrigger>
@@ -61,6 +61,24 @@ export function ProcessSwitcher({
         className="w-[min(22rem,calc(100vw-1rem))] p-1.5"
         onOpenAutoFocus={(event) => event.preventDefault()}
       >
+        <button
+          type="button"
+          aria-current={!value ? 'page' : undefined}
+          className={cn(
+            'mb-1 flex min-h-11 w-full items-center gap-2 rounded-md px-2 text-left text-sm transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
+            !value && 'bg-primary/10 text-primary',
+          )}
+          onClick={() => {
+            onValueChange('');
+            setOpen(false);
+          }}
+        >
+          <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+            {!value ? <Check className="h-4 w-4" aria-hidden /> : null}
+          </span>
+          <span className="font-medium">General Actions</span>
+        </button>
+        <div className="mb-1 border-b border-border/60" role="separator" />
         <DragDropContext onDragEnd={onDragEnd}>
           <Droppable
             droppableId="process-order"
