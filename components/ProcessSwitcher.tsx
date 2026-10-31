@@ -52,7 +52,7 @@ export function ProcessSwitcher({
           aria-label="Active process / project"
           aria-expanded={open}
         >
-          <span className="truncate">{selected?.name ?? 'General Actions'}</span>
+          <span className="truncate">{selected?.name ?? 'Inbox'}</span>
           <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-60" aria-hidden />
         </Button>
       </PopoverTrigger>
@@ -76,7 +76,7 @@ export function ProcessSwitcher({
           <span className="flex h-4 w-4 shrink-0 items-center justify-center">
             {!value ? <Check className="h-4 w-4" aria-hidden /> : null}
           </span>
-          <span className="font-medium">General Actions</span>
+          <span className="font-medium">Inbox</span>
         </button>
         <div className="mb-1 border-b border-border/60" role="separator" />
         <DragDropContext onDragEnd={onDragEnd}>
