@@ -3,11 +3,12 @@ name: Inbox cross-platform pre-release validation
 on:
   push:
     branches:
-      - fix/capacitor-oauth-webview-thread-crash-20261031
+      - main
     paths:
       - '.github/workflows/inbox-cross-platform-validation.yml'
       - 'components/TaskContext.tsx'
       - 'components/TaskBoard.tsx'
+      - 'components/InboxStageRecoveryDialog.tsx'
       - 'components/ProcessSwitcher.tsx'
       - 'components/EditGeneralBoardModal.tsx'
       - 'components/QuickCapture.tsx'
