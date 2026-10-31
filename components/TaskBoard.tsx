@@ -433,7 +433,7 @@ export function TaskBoard() {
             </div>
           </div>
       
-          {boardScope.type === 'general' && inboxBoardStatus !== 'ready' && (
+          {boardScope.type === 'general' && inboxBoardStatus === 'unconfigured' && (
             <section className="rounded-xl border border-border/60 bg-card/40 p-3 text-sm" aria-label="Inbox stage synchronization">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
