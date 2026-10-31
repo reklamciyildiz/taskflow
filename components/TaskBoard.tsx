@@ -58,6 +58,9 @@ export function TaskBoard() {
     boardScope,
     boardProject,
     boardColumns,
+    inboxBoardStatus,
+    inboxCanInitialize,
+    syncInboxStages,
     projects,
     setBoardScope,
     permissions,
@@ -78,6 +81,7 @@ export function TaskBoard() {
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const [editGeneralOpen, setEditGeneralOpen] = useState(false);
   const [assigningStageFor, setAssigningStageFor] = useState<string | null>(null);
+  const [syncingInbox, setSyncingInbox] = useState(false);
   const [statusFilter, setStatusFilter] = useState<TaskStatus | null>(null);
   const [groupBy, setGroupBy] = useState('stage');
   const [mobileGroupId, setMobileGroupId] = useState<string | null>(null);
@@ -429,36 +433,61 @@ export function TaskBoard() {
             </div>
           </div>
       
-          {unresolvedTasks.length > 0 && (
-            <section className="mb-4 space-y-3 rounded-lg border border-amber-500/30 bg-amber-500/[0.035] p-3 text-sm" aria-label="Actions needing stage assignment">
-              <div>
-                <h3 className="font-medium text-foreground">Needs stage assignment ({unresolvedTasks.length})</h3>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                  {boardScope.type === 'general'
-                    ? 'These Actions use stages missing from this device\u2019s General board settings. General stages are currently stored per browser, so they may be valid on web. No Action has been moved or deleted; synchronize the stage definitions before changing statuses.'
-                    : 'These Actions reference a stage missing from this Process. No Action has been moved or deleted. Assign each Action to an existing stage if you have permission.'}
-                </p>
+          {boardScope.type === 'general' && inboxBoardStatus !== 'ready' && (
+            <section className="rounded-xl border border-border/60 bg-card/40 p-3 text-sm" aria-label="Inbox stage synchronization">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="font-medium text-foreground">Inbox · {inboxBoardStatus === 'loading' ? 'Loading' : inboxBoardStatus === 'unavailable' ? 'Sync not enabled' : 'Stage sync required'}</p>
+                  <p className="mt-1 max-w-xl text-xs leading-5 text-muted-foreground">
+                    {inboxBoardStatus === 'unavailable'
+                      ? 'Inbox stage synchronization has not been enabled on the server. No Action was changed.'
+                      : 'Inbox holds Actions not yet assigned to a Process. Import the original browser’s stage configuration before updating existing stages.'}
+                  </p>
+                </div>
+                {inboxCanInitialize && currentUserRole === 'admin' && unresolvedTasks.length === 0 && (
+                  <Button type="button" variant="outline" disabled={syncingInbox} onClick={() => {
+                    setSyncingInbox(true);
+                    void syncInboxStages().then(ok => {
+                      if (ok) toast.success('Inbox stages are now shared by web and mobile.');
+                    }).catch((err: unknown) => {
+                      toast.error(err instanceof Error ? err.message : 'Inbox stage import failed.');
+                    }).finally(() => setSyncingInbox(false));
+                  }}>{syncingInbox ? 'Synchronizing…' : 'Sync Inbox stages'}</Button>
+                )}
               </div>
+            </section>
+          )}
+          {boardScope.type === 'general' && unresolvedTasks.length > 0 && (
+            <details className="rounded-lg border border-amber-500/35 bg-amber-500/[0.035] p-3 text-sm" aria-label="Inbox stages missing on this device">
+              <summary className="cursor-pointer font-medium">{unresolvedTasks.length} Inbox Actions have unknown stage IDs on this device</summary>
+              <p className="my-2 text-xs leading-5 text-muted-foreground">Your original web browser may have valid custom stage IDs. No Action was moved or deleted. Open that browser to synchronize the original Inbox stages.</p>
+              <ul className="space-y-1">
+                {unresolvedTasks.map(task => (
+                  <li key={task.id}>
+                    <button type="button" className="py-1 text-left underline-offset-2 hover:underline" onClick={() => openTaskEditor(task.id)}>{task.title}</button>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+          {boardScope.type === 'project' && unresolvedTasks.length > 0 && (
+            <section className="mb-4 space-y-3 rounded-lg border border-amber-500/30 p-3 text-sm" aria-label="Process Actions needing stage assignment">
+              <h3 className="font-medium">Needs stage assignment ({unresolvedTasks.length})</h3>
+              <p className="text-xs text-muted-foreground">These Actions reference a missing Process stage. Saved Actions have not been moved.</p>
               <div className="space-y-2">
-                {unresolvedTasks.map((task) => {
+                {unresolvedTasks.map(task => {
                   const editable = canEditTask(task.createdBy, task.assigneeId);
                   return (
                     <div key={task.id} className="flex min-w-0 flex-col gap-2 rounded-lg border border-border/50 bg-card/70 p-2.5 sm:flex-row sm:items-center">
-                      <button type="button" className="min-w-0 flex-1 truncate text-left font-medium underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary" onClick={() => openTaskEditor(task.id)}>
-                        {task.title}
-                      </button>
-                      <Select
-                        value={undefined}
-                        disabled={!editable || assigningStageFor !== null || boardScope.type === 'general'}
-                        onValueChange={(stageId) => void assignUnresolvedStage(task.id, stageId)}
-                      >
+                      <button type="button" className="min-w-0 flex-1 truncate text-left font-medium hover:underline" onClick={() => openTaskEditor(task.id)}>{task.title}</button>
+                      <Select value={undefined} disabled={!editable || assigningStageFor !== null}
+                        onValueChange={stageId => void assignUnresolvedStage(task.id, stageId)}>
                         <SelectTrigger aria-label={`Assign a stage to ${task.title}`} className="h-11 w-full shrink-0 sm:w-44">
-                          <SelectValue placeholder={boardScope.type === 'general' ? 'Stage sync needed' : assigningStageFor === task.id ? 'Saving...' : editable ? 'Assign stage' : 'Read-only'} />
+                          <SelectValue placeholder={assigningStageFor === task.id ? 'Saving...' : editable ? 'Assign stage' : 'Read-only'} />
                         </SelectTrigger>
                         <SelectContent>
-                          {boardColumns
-                            .filter((stage) => !stage.isTerminal || canCompleteTask(task.assigneeId))
-                            .map((stage) => <SelectItem key={stage.id} value={stage.id}>{stage.title}</SelectItem>)}
+                          {boardColumns.filter(stage => !stage.isTerminal || canCompleteTask(task.assigneeId))
+                            .map(stage => <SelectItem key={stage.id} value={stage.id}>{stage.title}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
