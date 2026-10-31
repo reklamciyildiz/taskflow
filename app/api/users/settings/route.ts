@@ -1,28 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { userDb } from '@/lib/db';
+import { requireAuthedUser } from '@/lib/server-authz';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 
 // GET - Get user settings
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session?.user?.email) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    const user: any = await userDb.getByEmail(session.user.email);
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'User not found' },
-        { status: 404 }
-      );
-    }
+    const authed = await requireAuthedUser(request);
+    if (authed instanceof NextResponse) return authed;
+    const user = authed.user;
 
     // Get user settings from database or return defaults
     const { data: settings } = await supabaseAdmin
@@ -58,24 +43,29 @@ export async function GET(request: NextRequest) {
 // PATCH - Update user settings
 export async function PATCH(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session?.user?.email) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    const authed = await requireAuthedUser(request);
+    if (authed instanceof NextResponse) return authed;
+    const user = authed.user;
 
-    const user: any = await userDb.getByEmail(session.user.email);
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'User not found' },
-        { status: 404 }
-      );
+    const body: unknown = await request.json().catch(() => null);
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      return NextResponse.json({ success: false, error: 'Invalid settings payload' }, { status: 400 });
     }
-
-    const updates = await request.json();
+    const updates: Record<string, boolean | string | null> = {};
+    const allowedBooleanFields = ['email_notifications', 'push_notifications', 'team_activity', 'compact_view'];
+    for (const [key, value] of Object.entries(body)) {
+      if (allowedBooleanFields.includes(key) && typeof value === 'boolean') updates[key] = value;
+      else if (key === 'time_zone' && (value === null || (typeof value === 'string' && value.length <= 100))) {
+        if (value !== null) {
+          try { new Intl.DateTimeFormat('en-US', { timeZone: value }); }
+          catch { return NextResponse.json({ success: false, error: 'Invalid time zone' }, { status: 400 }); }
+        }
+        updates[key] = value;
+      } else return NextResponse.json({ success: false, error: 'Invalid or unsupported setting' }, { status: 400 });
+    }
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json({ success: false, error: 'No settings provided' }, { status: 400 });
+    }
 
     // Upsert settings
     const { data, error } = await supabaseAdmin
