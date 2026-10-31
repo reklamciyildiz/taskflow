@@ -316,10 +316,11 @@ function ActionPanelSheet({
       >
         <motion.div
           role="dialog"
+          data-action-panel-sheet
           aria-modal="true"
           aria-labelledby="action-panel-title"
           className={cn(
-            "flex w-full flex-col overflow-hidden border border-border/60 bg-background shadow-2xl",
+            "flex w-full min-w-0 max-w-full flex-col overflow-hidden border border-border/60 bg-background shadow-2xl",
             "ring-1 ring-black/5 dark:ring-white/10",
             /*
              * Fixed height (not max-height): the panel is a workspace, so its frame must
@@ -1376,7 +1377,7 @@ function ActionPanelContent({
       <Tabs
         value={tab}
         onValueChange={switchTab}
-        className="flex min-h-0 flex-1 flex-col"
+        className="flex min-h-0 min-w-0 flex-1 flex-col"
       >
         <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/50 px-2 md:px-4">
           <TabsList className="h-auto justify-start gap-0 rounded-none bg-transparent p-0">
@@ -1431,7 +1432,7 @@ function ActionPanelContent({
           ) : null}
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-gutter:stable]">
+        <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain [scrollbar-gutter:stable]">
           <TabsContent
             value="checklist"
             className={cn(
@@ -1496,7 +1497,7 @@ function ActionPanelContent({
             ) : null}
           </TabsContent>
 
-          <TabsContent value="notes" className="mt-0 outline-none">
+          <TabsContent value="notes" className="mt-0 min-w-0 max-w-full overflow-x-hidden outline-none">
             <ActionNotes
               taskId={taskId}
               notes={notes}
