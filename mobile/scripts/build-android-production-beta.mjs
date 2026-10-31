@@ -1,9 +1,26 @@
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, renameSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 const mobileRoot = process.cwd();
+
+const generatedCapacitorConfig = join(mobileRoot, 'android', 'app', 'src', 'main', 'assets', 'capacitor.config.json');
+const bundledIndex = join(mobileRoot, 'android', 'app', 'src', 'main', 'assets', 'public', 'index.html');
+
+// Fail closed: production-beta MUST package the Vite UI instead of silently
+// retaining a diagnostic server.url from an earlier cap sync.
+if (!existsSync(generatedCapacitorConfig) || !existsSync(bundledIndex)) {
+  throw new Error('Local Capacitor assets are missing. Run android:sync:production-beta first.');
+}
+const generatedConfig = JSON.parse(readFileSync(generatedCapacitorConfig, 'utf8'));
+if (generatedConfig.server?.url) {
+  throw new Error('Refusing Android beta build: server.url points to a remote website, not a bundled UI.');
+}
+const indexHtml = readFileSync(bundledIndex, 'utf8');
+if (!indexHtml.includes('id="root"') || indexHtml.includes('Diagnostic shell')) {
+  throw new Error('Refusing Android beta build: bundled UI is missing or still contains diagnostic placeholder assets.');
+}
 const debugRoot = join(mobileRoot, 'android', 'app', 'src', 'debug');
 const localTrustFiles = [
   join(debugRoot, 'AndroidManifest.xml'),
