@@ -22,6 +22,7 @@ export async function middleware(request: NextRequest) {
     /^\/api\/tasks\/[^/]+\/properties$/.test(pathname) ||
     /^\/api\/planner\/(today|upcoming|routines|occurrences)$/.test(pathname) ||
     pathname === '/api/schedules' ||
+    pathname === '/api/inbox/board' ||
     pathname === '/api/knowledge' ||
     pathname === '/api/ai/chat' ||
     pathname === '/api/ai/conversations' ||
