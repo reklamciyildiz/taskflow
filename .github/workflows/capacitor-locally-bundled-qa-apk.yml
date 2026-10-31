@@ -12,6 +12,17 @@ on:
       - mobile/postcss.config.cjs
       - mobile/tailwind.config.ts
       - mobile/scripts/verify-bundled-css.mjs
+      - mobile/src/PlannerRuntimeAdapter.tsx
+      - components/TaskContext.tsx
+      - components/TaskBoard.tsx
+      - components/ProcessSwitcher.tsx
+      - components/EditGeneralBoardModal.tsx
+      - components/QuickCapture.tsx
+      - components/dashboard/DashboardCapture.tsx
+      - app/api/mobile/planner/context/route.ts
+      - lib/inbox-board-server.ts
+      - app/api/inbox/board/route.ts
+      - supabase/migrations/20261031180000_team_inbox_board_canonical.sql
   workflow_dispatch:
 
 permissions:
