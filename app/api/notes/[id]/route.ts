@@ -13,7 +13,7 @@ export async function PATCH(
   { params }: { params: { id: string } },
 ) {
   try {
-    const access = await requireNoteAccess(params.id, { mutate: true });
+    const access = await requireNoteAccess(params.id, { mutate: true }, request);
     if (access instanceof NextResponse) return access;
 
     const body = await request.json();
@@ -69,11 +69,11 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: { id: string } },
 ) {
   try {
-    const access = await requireNoteAccess(params.id, { mutate: true });
+    const access = await requireNoteAccess(params.id, { mutate: true }, request);
     if (access instanceof NextResponse) return access;
 
     const deleted = await noteDb.delete(params.id, {
