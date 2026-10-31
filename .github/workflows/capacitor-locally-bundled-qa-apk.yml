@@ -6,6 +6,8 @@ on:
       - fix/capacitor-oauth-webview-thread-crash-20261031
     paths:
       - .github/workflows/capacitor-locally-bundled-qa-apk.yml
+      - mobile/android/app/src/main/java/com/actiproc/app/dev/ActiprocAuthPlugin.java
+      - scripts/test-capacitor-oauth-handoff.mjs
   workflow_dispatch:
 
 permissions:
