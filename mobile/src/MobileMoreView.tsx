@@ -5,12 +5,12 @@ import {
 import { Browser } from '@capacitor/browser';
 import { useState } from 'react';
 
-type NativeDestination = 'workspace' | 'planner' | 'process' | 'list' | 'knowledge' | 'ai' | 'account';
+type NativeDestination = 'workspace' | 'planner' | 'process' | 'list' | 'knowledge' | 'ai' | 'settings';
 
 const shortcuts = [
   { title: 'Actiproc AI', detail: 'Your workspace assistant', destination: 'ai', Icon: Bot },
   { title: 'List View', detail: 'Search, filter and edit Actions', destination: 'list', Icon: LayoutList },
-  { title: 'Account & security', detail: 'Session and device access', destination: 'account', Icon: Settings2 },
+  { title: 'Settings', detail: 'Profile, account, appearance and workspace', destination: 'settings', Icon: Settings2 },
 ] as const;
 
 const webModules = [
