@@ -490,3 +490,33 @@ html:not(.dark) .planner-check.is-complete { color: #fff; }
     overflow-x: auto;
   }
 }
+
+/* 2026 mobile information architecture: 5 primary tabs, More as the stable
+   last tab. Primary navigation stays reachable one-handed on every screen. */
+.mobile-more-view { max-width: 46rem; min-width: 0; }
+.mobile-more-intro { padding: .35rem 0 0; }
+.mobile-more-eyebrow { margin: 0 0 .3rem; color: var(--mobile-primary); font-size: .65rem; font-weight: 750; letter-spacing: .14em; }
+.mobile-more-intro h1 { margin: 0; font-size: clamp(1.45rem, 5vw, 1.8rem); letter-spacing: -.035em; font-weight: 760; }
+.mobile-more-intro > p:last-child { margin: .35rem 0 0; font-size: .8rem; line-height: 1.5; color: var(--mobile-muted); }
+.mobile-more-section-heading { display: flex; align-items: baseline; justify-content: space-between; gap: .6rem; margin: 1.5rem 0 .6rem; }
+.mobile-more-section-heading h2 { margin: 0; font-size: .88rem; font-weight: 750; }
+.mobile-more-section-heading > span { color: var(--mobile-muted); font-size: .68rem; }
+.mobile-more-shortcuts { display: grid; overflow: hidden; border: 1px solid var(--mobile-border); border-radius: .95rem; background: var(--surface-soft); }
+.mobile-more-shortcut-row { display: flex; width: 100%; min-height: 4.35rem; align-items: center; gap: .85rem; padding: .78rem 1rem; text-align: left; color: var(--mobile-foreground); background: transparent; }
+.mobile-more-shortcut-row + .mobile-more-shortcut-row { border-top: 1px solid var(--mobile-border); }
+.mobile-more-shortcut-row:focus-visible, .mobile-more-shortcut-row:hover { background: var(--primary-soft); }
+.mobile-more-shortcut-icon { display: grid; width: 2.35rem; height: 2.35rem; flex: 0 0 auto; place-items: center; border-radius: .7rem; background: var(--primary-soft); color: var(--mobile-primary); }
+.mobile-more-shortcut-icon svg { width: 1.15rem; height: 1.15rem; }
+.mobile-more-shortcut-row .mobile-more-item-copy strong { font-size: .83rem; }
+.mobile-more-shortcut-row .mobile-more-item-copy small { font-size: .71rem; line-height: 1.35; }
+.mobile-more-chevron { width: 1rem; height: 1rem; flex: 0 0 auto; margin-left: auto; color: var(--mobile-muted); }
+.mobile-more-view .mobile-more-grid { margin-top: .65rem; }
+.mobile-more-view .mobile-more-item { min-height: 4.1rem; padding: .8rem; border-radius: .8rem; }
+.mobile-more-view .mobile-more-note { font-size: .72rem; line-height: 1.5; margin: .15rem 0; }
+.mobile-more-view .mobile-more-item .mobile-more-link-icon { flex: 0 0 auto; }
+@media (max-width: 360px) {
+  .mobile-more-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mobile-more-view .mobile-more-item { padding: .65rem; gap: .45rem; }
+  .mobile-more-view .mobile-more-item-copy strong { font-size: .71rem; }
+  .mobile-more-view .mobile-more-item > svg { width: .9rem; height: .9rem; }
+}
