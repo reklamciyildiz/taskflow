@@ -3,8 +3,8 @@ import { Capacitor } from '@capacitor/core';
 import { App as NativeApp } from '@capacitor/app';
 import { Network } from '@capacitor/network';
 import {
-  ArrowLeft, Bot, BookOpen, CalendarDays, CheckSquare2, CloudOff, Home,
-  LockKeyhole, LogOut, Menu,
+  ArrowLeft, BookOpen, CalendarDays, CheckSquare2, CloudOff, Grid2X2, Home,
+  LockKeyhole, LogOut,
   ShieldCheck, Sparkles, Wifi,
 } from 'lucide-react';
 import { SessionProvider } from './platform/next-auth-react';
@@ -163,7 +163,9 @@ export function App() {
     const event = new CustomEvent('axiom-mobile:back', { cancelable: true });
     window.dispatchEvent(event);
     if (event.defaultPrevented) return;
-    if (screenRef.current === 'process' || screenRef.current === 'more' || screenRef.current === 'list') setScreen('workspace');
+    if (screenRef.current === 'process') setScreen('workspace');
+    else if (['list', 'ai', 'account'].includes(screenRef.current)) setScreen('more');
+    else if (screenRef.current === 'more') setScreen('workspace');
     else void NativeApp.minimizeApp();
   }, []);
 
@@ -253,12 +255,11 @@ export function App() {
     <SessionProvider>
       <main className={`mobile-shell screen-${screen}`}>
       <header className="app-header">
-        {screen === 'process' || screen === 'more' || screen === 'list' ? (
+        {screen === 'process' || screen === 'list' ? (
           <button className="icon-button" type="button" onClick={goBack} aria-label="Go back"><ArrowLeft /></button>
         ) : <span className="brand-mark" aria-hidden="true"><Sparkles /></span>}
         <div className="brand-copy"><strong>Actiproc Beta</strong><span>{authenticated ? 'Mobile workspace' : 'Secure workspace'}</span></div>
         <span className={`network-status ${online ? 'online' : 'offline'}`} aria-label={online ? 'Online' : 'Offline'}>{online ? <Wifi /> : <CloudOff />}</span>
-        {authenticated ? <button type="button" className="icon-button mobile-more-shortcut" aria-label="All features" aria-current={screen === 'more' ? 'page' : undefined} onClick={() => selectRoot('more')}><Menu /></button> : null}
         {authenticated ? <button type="button" className="avatar mobile-account-shortcut" title={session?.user.email} aria-label="Account settings" onClick={() => selectRoot('account')}>{session ? initials(session) : ''}</button> : null}
       </header>
 
@@ -310,7 +311,7 @@ export function App() {
           <button type="button" aria-current={screen === 'planner' ? 'page' : undefined} className={screen === 'planner' ? 'is-active' : ''} onClick={() => selectRoot('planner')}><CalendarDays /><span>Planner</span></button>
           <button type="button" aria-current={screen === 'process' ? 'page' : undefined} className={screen === 'process' ? 'is-active' : ''} onClick={() => setScreen('process')}><CheckSquare2 /><span>Actions</span></button>
           <button type="button" aria-current={screen === 'knowledge' ? 'page' : undefined} className={screen === 'knowledge' ? 'is-active' : ''} onClick={() => selectRoot('knowledge')}><BookOpen /><span>Knowledge</span></button>
-          <button type="button" aria-current={screen === 'ai' ? 'page' : undefined} className={screen === 'ai' ? 'is-active' : ''} onClick={() => selectRoot('ai')}><Bot /><span>AI</span></button>
+          <button type="button" aria-current={['more', 'ai', 'list', 'account'].includes(screen) ? 'page' : undefined} className={['more', 'ai', 'list', 'account'].includes(screen) ? 'is-active' : ''} onClick={() => selectRoot('more')}><Grid2X2 /><span>More</span></button>
         </nav>
       ) : <footer>{Capacitor.getPlatform()} · local bundle</footer>}
       </main>
