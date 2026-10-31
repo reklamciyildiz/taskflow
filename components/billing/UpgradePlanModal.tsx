@@ -8,15 +8,17 @@ import { cn } from '@/lib/utils';
 import { isAndroidTwa } from '@/lib/client/is-android-twa';
 
 type Interval = 'monthly' | 'yearly';
-type UpgradePlan = 'pro' | 'team';
+type UpgradePlan = 'individual' | 'pro' | 'team';
 type UpgradeReason = 'teams' | 'processes' | 'webhooks' | 'seats';
 
 const PRICES = {
+  individual: { monthly: 1, yearly: 12 },
   pro: { monthly: 4 },
   team: { monthly: 6 }
 } as const;
 
 const FEATURES: Record<UpgradePlan, readonly string[]> = {
+  individual: ['1 seat', '1 workspace', 'Up to 3 processes', 'Annual billing'],
   pro: [
     'Up to 3 teams / workspaces',
     'Up to 10 processes',
@@ -68,15 +70,15 @@ export function UpgradePlanModal(props: {
   reason?: UpgradeReason;
 }) {
   const { open, onClose, title, description, recommendedPlan, reason } = props;
-  const interval: Interval = 'monthly'; // Only configured Creem monthly products are offered here.
   const [busy, setBusy] = useState<UpgradePlan | null>(null);
   const isAndroid = typeof window !== 'undefined' ? isAndroidTwa() : false;
 
   const plans: UpgradePlan[] = useMemo(() => {
     // If Team is explicitly required (e.g. user is already on Pro), remove Pro to reduce decision fatigue.
-    if (recommendedPlan === 'team') return ['team'];
-    return ['pro', 'team'];
-  }, [recommendedPlan]);
+    if (recommendedPlan === 'team' || reason === 'webhooks' || reason === 'teams') return ['team'];
+    if (reason === 'seats' || recommendedPlan === 'pro') return ['pro', 'team'];
+    return ['individual', 'pro', 'team'];
+  }, [recommendedPlan, reason]);
 
   const defaultCopy = useMemo(() => {
     const wants = reason ?? 'processes';
@@ -107,7 +109,7 @@ export function UpgradePlanModal(props: {
   const handleUpgrade = async (plan: UpgradePlan) => {
     setBusy(plan);
     try {
-      await openCheckout(plan, interval);
+      await openCheckout(plan, plan === 'individual' ? 'yearly' : 'monthly');
     } finally {
       setBusy(null);
     }
@@ -174,12 +176,12 @@ export function UpgradePlanModal(props: {
           </div>
 
           {/* Right: plans */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             {plans.map((p) => {
               const isRecommended = recommendedPlan === p;
-              const price = PRICES[p].monthly;
-              const suffix = '/seat';
-              const period = '/mo';
+              const price = p === 'individual' ? 12 : PRICES[p].monthly;
+              const suffix = p === 'individual' ? '' : '/seat';
+              const period = p === 'individual' ? '/yr' : '/mo';
               const accent =
                 // Superlist-ish: keep the palette cohesive and premium (violet for both, emerald as a subtle hint).
                 p === 'team'
@@ -201,7 +203,7 @@ export function UpgradePlanModal(props: {
                   <div className="relative flex items-start justify-between gap-3">
                     <div>
                       <div className="flex items-center gap-2">
-                        <p className="text-sm font-semibold text-zinc-50">{p === 'pro' ? 'Pro' : 'Team'}</p>
+                        <p className="text-sm font-semibold text-zinc-50">{p === 'individual' ? 'Individual' : p === 'pro' ? 'Pro' : 'Team'}</p>
                         {p === 'team' ? <Sparkles className="h-4 w-4 text-emerald-400" aria-hidden /> : null}
                         {isRecommended ? (
                           <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-medium text-zinc-100/85">
@@ -210,7 +212,7 @@ export function UpgradePlanModal(props: {
                         ) : null}
                       </div>
                       <p className="mt-1 text-xs leading-snug text-zinc-100/60">
-                        {p === 'pro' ? 'Small teams' : 'Scale + webhooks'}
+                        {p === 'individual' ? 'For yourself' : p === 'pro' ? 'More capacity' : 'Scale + webhooks'}
                       </p>
                     </div>
                     <div className="text-right">
