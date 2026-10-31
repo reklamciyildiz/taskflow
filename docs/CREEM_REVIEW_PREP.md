@@ -5,7 +5,7 @@ This branch does **not** change production Lemon Squeezy subscriptions. Do not m
 ## Agreed public prices
 - Free: $0, **1 process**
 - Individual: **$12/year**, one seat; provisional limit: three processes
-- Pro: **$4/month**, per-seat only when seats are purchased
+- Pro: **$4/seat/month** (per-user billing, same pricing unit as Team)
 - Team: **$6/seat/month**, unlimited processes and workspaces
 
 Creem products must be recurring, USD, SaaS, **exclusive** tax mode, and use respective intervals. Create in **Test Mode first**; never substitute test product IDs for live IDs.

@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
-import { getCreemConfig, creemPlanForProduct } from '@/lib/creem-config';
+import { getCreemConfig, creemPlanForProduct, creemResponseMode } from '@/lib/creem-config';
 import { reconcileCreemSubscription } from '@/lib/creem-subscription';
 export const runtime='nodejs';
 const updateEvents=new Set(['subscription.active','subscription.paid','subscription.canceled','subscription.expired','subscription.trialing','subscription.paused','subscription.update']);
@@ -43,7 +43,7 @@ export async function POST(request:NextRequest) {
    const requestId=String(obj.request_id??'');
    const {data:intent,error}=await (supabaseAdmin as any).from('creem_checkout_intents').select('*').eq('request_id',requestId).single();
    if(error || !intent)throw new Error('Creem checkout missing authorized intent');
-   if(Boolean(intent.test_mode)!==(config.mode==='test') || obj.mode!==config.mode ||
+   if(Boolean(intent.test_mode)!==(config.mode==='test') || obj.mode!==creemResponseMode(config) ||
        String(obj.status)!=='completed' || String(obj.order?.status)!=='paid')
      throw new Error('Checkout state/mode is not verified as paid');
    const productId=objectId(obj.product);

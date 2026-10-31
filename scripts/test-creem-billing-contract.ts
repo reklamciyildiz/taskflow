@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { ACTIPROC_PLANS } from '../lib/billing-plans';
-import { getCreemConfig, creemPlanForProduct, newBillingProvider } from '../lib/creem-config';
+import { getCreemConfig, creemPlanForProduct, creemResponseMode } from '../lib/creem-config';
 import { normalizeCreemSubscription } from '../lib/creem-subscription-contract';
 
 assert.deepEqual([ACTIPROC_PLANS.free.maxProcesses,ACTIPROC_PLANS.individual.maxProcesses,ACTIPROC_PLANS.pro.maxProcesses],[1,3,10]);
@@ -13,6 +13,8 @@ const env = {
 } as NodeJS.ProcessEnv;
 const config=getCreemConfig(env);
 assert.equal(config.baseUrl,'https://test-api.creem.io');
+assert.equal(creemResponseMode(config),'test');
+assert.equal(creemResponseMode({...config,mode:'live'}),'prod');
 assert.equal(creemPlanForProduct('prod_team123',config),'team');
 assert.equal(creemPlanForProduct('prod_wrong',config),null);
 assert.throws(()=>getCreemConfig({...env,VERCEL_ENV:'production'}));

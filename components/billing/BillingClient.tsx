@@ -567,7 +567,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                     <>
                       <p className="text-xs text-muted-foreground">
                         <strong className="text-foreground">${ACTIPROC_PLANS[key].priceUsd}</strong>
-                        {key === 'individual' ? '/year' : key === 'team' ? '/user/month' : '/month'}
+                        {key === 'individual' ? '/year' : key === 'team' || key === 'pro' ? '/user/month' : '/month'}
                       </p>
                       <Button type="button" size="sm" variant={current ? 'secondary' : 'default'} className="w-full"
                         disabled={busy || current || (billingPlan !== 'free' && ['individual','pro','team'].indexOf(key) <= ['individual','pro','team'].indexOf(billingPlan))}

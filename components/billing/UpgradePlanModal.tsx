@@ -55,7 +55,6 @@ async function openCheckout(plan: UpgradePlan, billingInterval: Interval): Promi
   if (existing) { window.location.reload(); return; }
   if (typeof url !== 'string' || !url) throw new Error('Checkout URL missing');
   window.location.assign(url);
-  else window.location.href = url;
 }
 
 export function UpgradePlanModal(props: {

@@ -4,7 +4,7 @@ import { organizationDb } from '@/lib/db';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { getOrganizationSeatUsage } from '@/lib/entitlements';
 import { APP_URL } from '@/lib/site-config';
-import { creemApi, creemProductForPlan, getCreemConfig } from '@/lib/creem-config';
+import { creemApi, creemProductForPlan, getCreemConfig, creemResponseMode } from '@/lib/creem-config';
 import { fetchCreemSubscription, reconcileCreemSubscription } from '@/lib/creem-subscription';
 import { isPaidPlan, type PaidActiprocPlan } from '@/lib/billing-plans';
 
@@ -34,18 +34,27 @@ export async function createCreemCheckout(request:NextRequest, orgId:string, ema
   const seats=Math.max(requested,headcount);
   if(plan==='individual' && seats!==1)
    return NextResponse.json({success:false,error:'Individual supports one person. Choose Pro or Team for multiple members.'},{status:409});
+  // Validate merchant dashboard products before generating any paid checkout.
+  const productId=creemProductForPlan(plan,config);
+  const product=await creemApi<any>(config,'GET','products?product_id='+encodeURIComponent(productId));
+  const expectedCents=plan==='individual'?1200:plan==='pro'?400:600;
+  const expectedPeriod=plan==='individual'?'every-year':'every-month';
+  if(product.id!==productId || product.mode!==creemResponseMode(config) ||
+     product.price!==expectedCents || product.currency!=='USD' || product.billing_type!=='recurring' ||
+     product.billing_period!==expectedPeriod || product.tax_mode!=='exclusive' || product.status!=='active')
+    return NextResponse.json({success:false,error:'Creem product settings do not match Actiproc pricing. Contact support.'},{status:409});
   const requestId=crypto.randomUUID();
   const {error:intentError}=await (supabaseAdmin as any).from('creem_checkout_intents').insert({
    request_id:requestId,organization_id:orgId,plan_name:plan,units:seats,test_mode:config.mode==='test'
   });
   if(intentError)throw intentError;
   const created=await creemApi<any>(config,'POST','checkouts',{
-   product_id:creemProductForPlan(plan,config),units:seats,request_id:requestId,
+   product_id:productId,units:seats,request_id:requestId,
    ...(email?{customer:{email}}:{}),
    success_url:APP_URL+'/settings/billing?checkout=success',
    metadata:{organization_id:orgId,checkout_request_id:requestId},
   });
-  if(created.mode!==config.mode||!/^https:\/\//.test(created.checkout_url??''))
+  if(created.mode!==creemResponseMode(config)||!/^https:\/\//.test(created.checkout_url??''))
    throw new Error('Invalid Creem checkout response or environment');
   const {error:updateError}=await (supabaseAdmin as any).from('creem_checkout_intents').update({checkout_id:created.id}).eq('request_id',requestId);
   if(updateError)throw updateError;

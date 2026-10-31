@@ -1,4 +1,4 @@
-import { creemPlanForProduct, type CreemConfig } from '@/lib/creem-config';
+import { creemPlanForProduct, creemResponseMode, type CreemConfig } from '@/lib/creem-config';
 import type { PaidActiprocPlan } from '@/lib/billing-plans';
 
 export type CreemSnapshot = {
@@ -22,7 +22,7 @@ export function normalizeCreemSubscription(source: any, config: CreemConfig): Cr
  const plan = productId ? creemPlanForProduct(productId,config):null;
  if (!subscriptionId?.startsWith('sub_') || !customerId?.startsWith('cust_') || !productId || !plan)
    throw new Error('Creem subscription references an unexpected product or identifier');
- if (input.mode !== config.mode) throw new Error('Creem subscription test/live mode mismatch');
+ if (input.mode !== creemResponseMode(config)) throw new Error('Creem subscription test/live mode mismatch');
  const seats = Number(input.items?.[0]?.units ?? input.units ?? 1);
  if (!Number.isInteger(seats) || seats<1 || seats>500 || (plan==='individual' && seats!==1))
    throw new Error('Invalid Creem subscription seat count');

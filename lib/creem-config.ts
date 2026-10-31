@@ -1,5 +1,7 @@
 import type { PaidActiprocPlan } from '@/lib/billing-plans';
 export type CreemMode = 'test' | 'live';
+/** Creem API responses use prod, not live, for production mode. */
+export function creemResponseMode(config: Pick<CreemConfig, 'mode'>): 'test' | 'prod' { return config.mode === 'live' ? 'prod' : 'test'; }
 export type CreemConfig = { apiKey: string; secret: string; mode: CreemMode; products: Record<PaidActiprocPlan,string>; baseUrl: string };
 export function newBillingProvider(): 'creem' | 'lemon' { return process.env.NEW_BILLING_PROVIDER === 'creem' ? 'creem' : 'lemon'; }
 export function getCreemConfig(env: NodeJS.ProcessEnv = process.env): CreemConfig {
