@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 
-export type BillingPlan = 'free' | 'pro' | 'team';
+export type BillingPlan = 'free' | 'individual' | 'pro' | 'team';
 export type BillingStatus = 'active' | 'past_due' | 'cancelled' | 'trialing' | 'paused' | 'expired';
 
 type LemonWindow = Window & {
@@ -18,7 +18,8 @@ export function useOrganizationBilling(organizationId: string | null) {
   const [billingPlan, setBillingPlan] = useState<BillingPlan>('free');
   const [billingStatus, setBillingStatus] = useState<BillingStatus>('active');
   const [billingLoading, setBillingLoading] = useState(false);
-  const [checkoutBusy, setCheckoutBusy] = useState<'pro' | 'team' | null>(null);
+  const [checkoutBusy, setCheckoutBusy] = useState<'individual' | 'pro' | 'team' | null>(null);
+  const [billingProvider, setBillingProvider] = useState<'creem' | 'lemon'>('lemon');
   const [seatLimit, setSeatLimit] = useState<number>(Number.POSITIVE_INFINITY);
   const [seatsUsed, setSeatsUsed] = useState(1);
   const [subscriptionId, setSubscriptionId] = useState<string | null>(null);
@@ -36,7 +37,8 @@ export function useOrganizationBilling(organizationId: string | null) {
       if (json?.success && json?.data) {
         const plan = String(json.data.plan ?? 'free').toLowerCase();
         const status = String(json.data.subscriptionStatus ?? 'active').toLowerCase();
-        setBillingPlan(plan === 'team' ? 'team' : plan === 'pro' ? 'pro' : 'free');
+        setBillingPlan(plan === 'team' ? 'team' : plan === 'pro' ? 'pro' : plan === 'individual' ? 'individual' : 'free');
+        setBillingProvider(json.data.billingProvider === 'creem' ? 'creem' : 'lemon');
         setBillingStatus(
           status === 'past_due'
             ? 'past_due'
@@ -143,12 +145,12 @@ export function useOrganizationBilling(organizationId: string | null) {
 
   const openCheckout = useCallback(
     async (
-      plan: 'pro' | 'team',
+      plan: 'individual' | 'pro' | 'team',
       opts?: { billingInterval?: 'monthly' | 'yearly'; seats?: number }
     ) => {
       setCheckoutBusy(plan);
       try {
-        const billingInterval = opts?.billingInterval === 'yearly' ? 'yearly' : 'monthly';
+        const billingInterval = plan === 'individual' ? 'yearly' : opts?.billingInterval === 'yearly' ? 'yearly' : 'monthly';
         const payload: Record<string, unknown> = { plan, billingInterval };
         if (opts?.seats != null && Number.isFinite(opts.seats) && opts.seats >= 1) {
           payload.seats = Math.floor(opts.seats);
@@ -223,7 +225,7 @@ export function useOrganizationBilling(organizationId: string | null) {
   }, []);
 
   const switchPlan = useCallback(
-    async (plan: 'pro' | 'team', opts?: { billingInterval?: 'monthly' | 'yearly' }) => {
+    async (plan: 'individual' | 'pro' | 'team', opts?: { billingInterval?: 'monthly' | 'yearly' }) => {
       setCheckoutBusy(plan);
       try {
         const billingInterval = opts?.billingInterval === 'yearly' ? 'yearly' : 'monthly';
@@ -273,6 +275,7 @@ export function useOrganizationBilling(organizationId: string | null) {
 
   return {
     billingPlan,
+    billingProvider,
     billingStatus,
     billingLoading,
     checkoutBusy,

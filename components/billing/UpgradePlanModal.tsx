@@ -12,8 +12,8 @@ type UpgradePlan = 'pro' | 'team';
 type UpgradeReason = 'teams' | 'processes' | 'webhooks' | 'seats';
 
 const PRICES = {
-  pro: { monthly: 8, yearly: 72 }, // $6/seat/mo billed annually
-  team: { monthly: 15, yearly: 144 }, // $12/seat/mo billed annually
+  pro: { monthly: 4, yearly: 48 }, // display only; yearly checkout not offered by Creem
+  team: { monthly: 6, yearly: 72 }, // display only; yearly checkout not offered by Creem
 } as const;
 
 const FEATURES: Record<UpgradePlan, readonly string[]> = {
@@ -73,9 +73,8 @@ async function openCheckout(plan: UpgradePlan, billingInterval: Interval): Promi
   }
   const url = json?.data?.url;
   if (typeof url !== 'string' || !url) throw new Error('Checkout URL missing');
-  await ensureLemon();
-  const w = window as Window & { LemonSqueezy?: { Url?: { Open?: (u: string) => void } } };
-  if (w.LemonSqueezy?.Url?.Open) w.LemonSqueezy.Url.Open(url);
+  // Use provider-agnostic redirect rather than coupling to Lemon.js.
+  window.location.assign(url);
   else window.location.href = url;
 }
 
