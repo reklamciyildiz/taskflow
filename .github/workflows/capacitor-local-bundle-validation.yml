@@ -42,6 +42,9 @@ jobs:
       - name: Typecheck existing Next.js web product
         run: npx tsc --noEmit
 
+      - name: Build Next.js web product
+        run: npm run build
+
       - name: Build offline-packaged Vite/React frontend
         run: npm --prefix mobile run build
 
