@@ -20,6 +20,17 @@ on:
       - 'mobile/src/PlannerRuntimeAdapter.tsx'
       - 'supabase/migrations/20261031180000_team_inbox_board_canonical.sql'
       - 'scripts/test-capacitor-mobile-shell.mjs'
+      - 'mobile/src/App.tsx'
+      - 'mobile/src/MobileMoreView.tsx'
+      - 'mobile/src/MobileListView.tsx'
+      - 'mobile/src/mobile.css'
+      - 'lib/note-server.ts'
+      - 'lib/attachment-server.ts'
+      - 'middleware.ts'
+      - 'app/api/tasks/[id]/notes/route.ts'
+      - 'app/api/notes/[id]/route.ts'
+      - 'app/api/attachments/route.ts'
+      - 'app/api/attachments/[id]/route.ts'
   workflow_dispatch:
 
 permissions:
