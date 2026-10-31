@@ -8,6 +8,7 @@ on:
       - .github/workflows/capacitor-locally-bundled-qa-apk.yml
       - mobile/android/app/src/main/java/com/actiproc/app/dev/ActiprocAuthPlugin.java
       - scripts/test-capacitor-oauth-handoff.mjs
+      - scripts/test-capacitor-mobile-shell.mjs
   workflow_dispatch:
 
 permissions:
