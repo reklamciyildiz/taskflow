@@ -1,9 +1,24 @@
 [
   {
-    "AllowedOrigins": ["https://getaxiomm.vercel.app"],
-    "AllowedMethods": ["GET", "HEAD", "PUT"],
-    "AllowedHeaders": ["Content-Type", "Content-Length"],
-    "ExposeHeaders": ["ETag", "Content-Length"],
+    "AllowedOrigins": [
+      "https://getaxiomm.vercel.app",
+      "https://www.actiproc.com",
+      "https://actiproc.com",
+      "https://localhost"
+    ],
+    "AllowedMethods": [
+      "GET",
+      "HEAD",
+      "PUT"
+    ],
+    "AllowedHeaders": [
+      "Content-Type",
+      "Content-Length"
+    ],
+    "ExposeHeaders": [
+      "ETag",
+      "Content-Length"
+    ],
     "MaxAgeSeconds": 120
   }
 ]
