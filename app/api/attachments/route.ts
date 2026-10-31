@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request: NextRequest) {
   try {
     const target = { taskId: request.nextUrl.searchParams.get("taskId") ?? "" };
-    const access = await attachmentTargetAccess(target, false);
+    const access = await attachmentTargetAccess(target, false, request);
     if (access instanceof NextResponse) return access;
     if (!attachmentStorageConfigured())
       return NextResponse.json(
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
   try {
     requireAttachmentOrigin(request);
     const body = await request.json();
-    const access = await attachmentTargetAccess(body.target, true);
+    const access = await attachmentTargetAccess(body.target, true, request);
     if (access instanceof NextResponse) return access;
     if (!attachmentStorageConfigured())
       return NextResponse.json(
