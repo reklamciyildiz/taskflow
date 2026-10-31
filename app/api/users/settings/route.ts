@@ -81,13 +81,12 @@ export async function PATCH(request: NextRequest) {
       .single();
 
     if (error) {
-      // If table doesn't exist, just return success (settings stored in localStorage as fallback)
-      // This is expected behavior when user_settings table is not created yet
-      return NextResponse.json({
-        success: true,
-        data: updates,
-        message: 'Settings saved',
-      });
+      // Do not claim cross-device persistence if the shared database write failed.
+      console.error('Update user settings failed:', error);
+      return NextResponse.json(
+        { success: false, error: 'Could not persist settings. Try again.' },
+        { status: 503 },
+      );
     }
 
     return NextResponse.json({
