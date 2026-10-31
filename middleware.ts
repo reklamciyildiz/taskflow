@@ -16,6 +16,7 @@ export async function middleware(request: NextRequest) {
     pathname === '/api/tasks' ||
     /^\/api\/tasks\/[^/]+$/.test(pathname) ||
     /^\/api\/tasks\/[^/]+\/notes$/.test(pathname) ||
+    /^\/api\/tasks\/[^/]+\/comments$/.test(pathname) ||
     /^\/api\/notes\/[^/]+$/.test(pathname) ||
     pathname === '/api/attachments' ||
     /^\/api\/attachments\/[^/]+$/.test(pathname) ||
