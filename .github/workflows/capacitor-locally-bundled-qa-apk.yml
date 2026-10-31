@@ -27,6 +27,9 @@ on:
       - mobile/src/PlannerRuntimeAdapter.tsx
       - components/TaskContext.tsx
       - components/TaskBoard.tsx
+      - components/TaskList.tsx
+      - components/ActionPanel.tsx
+      - components/action/ActionNotes.tsx
       - components/InboxStageRecoveryDialog.tsx
       - components/ProcessSwitcher.tsx
       - components/EditGeneralBoardModal.tsx
