@@ -40,6 +40,10 @@ if (preflight.status !== 204 || preflight.headers['access-control-allow-origin']
 const sharedApiPaths = [
   '/api/knowledge?teamId=00000000-0000-0000-0000-000000000000',
   '/api/ai/conversations',
+  '/api/tasks/00000000-0000-0000-0000-000000000000/notes',
+  '/api/notes/00000000-0000-0000-0000-000000000000',
+  '/api/attachments?taskId=00000000-0000-0000-0000-000000000000',
+  '/api/attachments/00000000-0000-0000-0000-000000000000',
 ];
 for (const path of sharedApiPaths) {
   const sharedPreflight = await request(path, {
