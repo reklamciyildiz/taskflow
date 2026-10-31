@@ -88,4 +88,39 @@ assert.match(taskBoard, /canEditTask\(task\.createdBy, task\.assigneeId\)/);
 assert.match(taskBoard, /stage\.isTerminal && !canCompleteTask\(task\.assigneeId\)/);
 assert.match(taskBoard, /applyTaskUpdates\(\[\{ id: taskId, changes: \{ status: stageId \} \}\]\)/);
 
+// The bundled client must not rely on a NextAuth browser cookie for notes or files.
+const mobileMoreView = read('mobile/src/MobileMoreView.tsx');
+const mobileListView = read('mobile/src/MobileListView.tsx');
+const noteServer = read('lib/note-server.ts');
+const attachmentServer = read('lib/attachment-server.ts');
+const taskNotesRoute = read('app/api/tasks/[id]/notes/route.ts');
+const noteRoute = read('app/api/notes/[id]/route.ts');
+const fileRoutes = [
+  read('app/api/attachments/route.ts'),
+  read('app/api/attachments/[id]/route.ts'),
+];
+const middleware = read('middleware.ts');
+
+for (const path of ['/api/notes/', '/api/attachments']) {
+  assert.ok(middleware.includes(path), 'Mobile bearer/CORS path missing: ' + path);
+}
+assert.match(middleware, /api\\/tasks\\/\[\^\/\]\+\\/notes/);
+assert.match(noteServer, /requireAuthedUser\(request\)/);
+assert.match(taskNotesRoute, /requireTaskNoteAccess\(params.id, \{ mutate: false \}, undefined, request\)/);
+assert.match(taskNotesRoute, /requireTaskNoteAccess\(params.id, \{ mutate: true \}, undefined, request\)/);
+assert.match(noteRoute, /requireNoteAccess\(params.id, \{ mutate: true \}, request\)/);
+assert.match(attachmentServer, /requireTaskNoteAccess\(target.taskId, \{ mutate \}, undefined, request\)/);
+assert.match(attachmentServer, /allowed.includes\(origin\)/);
+for (const route of fileRoutes) {
+  assert.match(route, /request\)/);
+}
+assert.match(mobileApp, /<MobileMoreView/);
+assert.match(mobileApp, /<MobileListView/);
+assert.match(mobileApp, /aria-label="All features"/);
+assert.match(mobileMoreView, /\{ title: 'Customers'/);
+assert.match(mobileMoreView, /\{ title: 'Settings'/);
+assert.match(mobileMoreView, /Your browser may ask you to sign in separately/);
+assert.match(mobileListView, /openTaskEditor\(task.id\)/);
+assert.match(mobileListView, /task.teamId === currentTeam.id/);
+
 console.log('Capacitor navigation, local bundle and OAuth guards passed.');
