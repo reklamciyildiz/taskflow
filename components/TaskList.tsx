@@ -151,7 +151,7 @@ function ScheduleCell({ task, disabled }: { task: Task; disabled: boolean }) {
   );
 }
 
-export function TaskList({ allowProcessAdministration = true }: { allowProcessAdministration?: boolean } = {}) {
+export function TaskList({ allowProcessAdministration = true, mobileCompact = false }: { allowProcessAdministration?: boolean; mobileCompact?: boolean } = {}) {
   const {
     tasks,
     currentTeam,
@@ -176,7 +176,7 @@ export function TaskList({ allowProcessAdministration = true }: { allowProcessAd
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState<OperationalTableFilters>(emptyFilters);
   const [sort, setSort] = useState<OperationalSort>({ field: 'schedule', direction: 'asc' });
-  const [visibleColumns, setVisibleColumns] = useState<ColumnId[]>([...NATIVE_COLUMNS]);
+  const [visibleColumns, setVisibleColumns] = useState<ColumnId[]>(mobileCompact ? ['stage', 'priority', 'schedule'] : [...NATIVE_COLUMNS]);
   const [pendingFields, setPendingFields] = useState<Set<string>>(() => new Set());
   const pendingRef = useRef(new Set<string>());
   const [expandedRows, setExpandedRows] = useState<Set<string>>(() => new Set());
@@ -207,7 +207,7 @@ export function TaskList({ allowProcessAdministration = true }: { allowProcessAd
       ...NATIVE_COLUMNS,
       ...activeProperties.map((property) => `property:${property.id}` as const),
     ]);
-    let next: ColumnId[] = [...available];
+    let next: ColumnId[] = mobileCompact ? ['stage', 'priority', 'schedule'] : [...available];
     if (preferenceKey) {
       try {
         const stored = window.localStorage.getItem(preferenceKey);
@@ -220,7 +220,7 @@ export function TaskList({ allowProcessAdministration = true }: { allowProcessAd
       }
     }
     setVisibleColumns(next);
-  }, [preferenceKey, propertySignature, activeProperties]);
+  }, [preferenceKey, propertySignature, activeProperties, mobileCompact]);
 
   useEffect(() => {
     setFilters((current) => {
@@ -309,7 +309,7 @@ export function TaskList({ allowProcessAdministration = true }: { allowProcessAd
     <div className="h-full min-w-0 max-w-full space-y-3 md:space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-xl md:text-2xl font-bold text-foreground">Action table</h1>
+          <h1 className="text-xl md:text-2xl font-bold text-foreground">{mobileCompact ? 'List View' : 'Action table'}</h1>
           <p className="mt-1 hidden md:block text-sm text-muted-foreground">
             {boardProject ? `${boardProject.name} · edit operational metadata inline` : 'Inbox · edit operational metadata inline'}
           </p>
@@ -379,7 +379,7 @@ export function TaskList({ allowProcessAdministration = true }: { allowProcessAd
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs"><Columns3 className="h-3.5 w-3.5" />Columns</Button></DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuContent align="end" sideOffset={8} className="max-h-[min(52dvh,20rem)] w-56 max-w-[calc(100vw-2rem)] overflow-y-auto">
                 <DropdownMenuLabel>Visible columns</DropdownMenuLabel>
                 <DropdownMenuCheckboxItem checked disabled>Action</DropdownMenuCheckboxItem>
                 {NATIVE_COLUMNS.map((column) => <DropdownMenuCheckboxItem key={column} checked={visibleColumns.includes(column)} onCheckedChange={(checked) => toggleColumn(column, checked === true)}>{headerLabel(column)}</DropdownMenuCheckboxItem>)}
