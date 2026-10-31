@@ -3,7 +3,7 @@ import { Search } from 'lucide-react';
 import { useTaskContext } from '../../components/TaskContext';
 
 export function MobileListView() {
-  const { tasks, currentTeam, projects, boardColumns, generalBoardColumns, openTaskEditor } = useTaskContext();
+  const { tasks, currentTeam, projects, generalBoardColumns, openTaskEditor } = useTaskContext();
   const [query, setQuery] = useState('');
   const visible = useMemo(() => {
     if (!currentTeam) return [];
@@ -25,7 +25,7 @@ export function MobileListView() {
       <div className="mobile-list-items">
         {visible.map(task => {
           const process = task.projectId ? projectById.get(task.projectId) : null;
-          const stages = process?.columnConfig ?? (task.projectId ? boardColumns : generalBoardColumns);
+          const stages = task.projectId ? (process?.columnConfig ?? []) : generalBoardColumns;
           const stage = stages.find(item => item.id === task.status);
           return (
             <button key={task.id} type="button" className="mobile-list-item" onClick={() => openTaskEditor(task.id)}>
