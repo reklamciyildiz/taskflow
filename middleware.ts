@@ -15,6 +15,10 @@ export async function middleware(request: NextRequest) {
   const mobileSharedApi =
     pathname === '/api/tasks' ||
     /^\/api\/tasks\/[^/]+$/.test(pathname) ||
+    /^\/api\/tasks\/[^/]+\/notes$/.test(pathname) ||
+    /^\/api\/notes\/[^/]+$/.test(pathname) ||
+    pathname === '/api/attachments' ||
+    /^\/api\/attachments\/[^/]+$/.test(pathname) ||
     pathname === '/api/projects' ||
     /^\/api\/projects\/[^/]+$/.test(pathname) ||
     /^\/api\/projects\/[^/]+\/members$/.test(pathname) ||
