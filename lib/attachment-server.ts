@@ -4,6 +4,7 @@ import sharp from "sharp";
 import { NextResponse, type NextRequest } from "next/server";
 import { supabaseAdmin as db } from "@/lib/supabase-admin";
 import { requireTaskNoteAccess } from "@/lib/note-server";
+import { requireAuthedUser } from "@/lib/server-authz";
 import {
   signatureMatches,
   validateAttachmentInput,
@@ -182,6 +183,10 @@ export async function attachmentTargetAccess(
   return access;
 }
 export async function attachmentAccess(id: string, mutate: boolean, request?: NextRequest) {
+  // Authenticate before looking up the file, so an unauthenticated caller
+  // cannot infer whether a private attachment ID exists.
+  const authed = await requireAuthedUser(request);
+  if (authed instanceof NextResponse) return authed;
   const file = checked(
     await db.from("attachments").select("*").eq("id", id).maybeSingle(),
   ).data;
