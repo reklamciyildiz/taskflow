@@ -1,0 +1,56 @@
+name: Actiproc web and bundled mobile validation
+
+on:
+  push:
+    branches:
+      - fix/capacitor-oauth-webview-thread-crash-20261031
+    paths:
+      - .github/workflows/capacitor-local-bundle-validation.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  typecheck-and-bundle:
+    name: Validate native navigation, web types and local UI bundle
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            mobile/package-lock.json
+
+      - name: Install web and mobile dependencies
+        run: |
+          npm ci --no-audit --no-fund
+          npm ci --prefix mobile --no-audit --no-fund
+
+      - name: Run native OAuth and mobile navigation tests
+        run: |
+          npm run test:capacitor-oauth
+          node scripts/test-capacitor-mobile-shell.mjs
+
+      - name: Typecheck existing Next.js web product
+        run: npx tsc --noEmit
+
+      - name: Build Next.js web product
+        run: npm run build
+
+      - name: Build offline-packaged Vite/React frontend
+        run: npm --prefix mobile run build
+
+      - name: Inspect local bundle (no remote WebView)
+        run: |
+          test -s mobile/dist/index.html
+          grep -q 'id="root"' mobile/dist/index.html
+          node -e "const fs=require('fs'); const c=fs.readFileSync('mobile/capacitor.config.ts','utf8'); if(!c.includes('webDir: \'dist\'')) process.exit(1)"
+          du -sh mobile/dist

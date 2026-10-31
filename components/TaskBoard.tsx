@@ -58,6 +58,9 @@ export function TaskBoard() {
     boardScope,
     boardProject,
     boardColumns,
+    inboxBoardStatus,
+    inboxCanInitialize,
+    syncInboxStages,
     projects,
     setBoardScope,
     permissions,
@@ -77,6 +80,8 @@ export function TaskBoard() {
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const [editGeneralOpen, setEditGeneralOpen] = useState(false);
+  const [assigningStageFor, setAssigningStageFor] = useState<string | null>(null);
+  const [syncingInbox, setSyncingInbox] = useState(false);
   const [statusFilter, setStatusFilter] = useState<TaskStatus | null>(null);
   const [groupBy, setGroupBy] = useState('stage');
   const [mobileGroupId, setMobileGroupId] = useState<string | null>(null);
@@ -226,6 +231,44 @@ export function TaskBoard() {
     if (filter === 'assignedToMe') return 'Assigned to Me';
     return null;
   };
+
+  // Preserve unresolved persisted statuses. Never silently map historical values
+  // onto a stage by position, label, or terminal semantics.
+  const unresolvedTasks = useMemo(
+    () => filteredTasks.filter((task) => !boardColumns.some((column) => column.id === task.status)),
+    [filteredTasks, boardColumns],
+  );
+
+  const assignUnresolvedStage = useCallback(async (taskId: string, stageId: string) => {
+    const task = unresolvedTasks.find((item) => item.id === taskId);
+    const stage = boardColumns.find((column) => column.id === stageId);
+    if (!task || !stage || assigningStageFor) return;
+    // General stage definitions are currently localStorage-only in the web
+    // product. Mobile cannot verify that a missing status is really orphaned.
+    // Fail closed rather than corrupt a valid cross-device stage assignment.
+    if (boardScope.type === 'general') {
+      toast.error('General stages differ between devices. Reconcile stage definitions on web first.');
+      return;
+    }
+    if (!canEditTask(task.createdBy, task.assigneeId)) {
+      toast.error('You cannot edit this Action.');
+      return;
+    }
+    if (stage.isTerminal && !canCompleteTask(task.assigneeId)) {
+      toast.error('You cannot complete this Action.');
+      return;
+    }
+    setAssigningStageFor(taskId);
+    try {
+      const saved = await applyTaskUpdates([{ id: taskId, changes: { status: stageId } }]);
+      if (!saved) toast.error('Stage was not saved. No change was applied.');
+      else toast.success('Action stage updated.');
+    } catch {
+      toast.error('Could not save the stage. Try again.');
+    } finally {
+      setAssigningStageFor(null);
+    }
+  }, [unresolvedTasks, boardColumns, boardScope.type, assigningStageFor, canEditTask, canCompleteTask, applyTaskUpdates]);
 
   const mobileGroups = groupedProperty && properties.data
     ? groupActionsByProperty(filteredTasks, groupedProperty, properties.data.options, properties.data.values)
@@ -390,20 +433,66 @@ export function TaskBoard() {
             </div>
           </div>
       
-          {filteredTasks.some(task => !boardColumns.some(column => column.id === task.status)) && (
-            <details className="mb-4 rounded-lg border border-amber-500/35 p-3 text-sm">
-              <summary className="cursor-pointer font-medium">
-                {filteredTasks.filter(task => !boardColumns.some(column => column.id === task.status)).length} Actions need stage review
-              </summary>
-              <p className="my-2 text-xs text-muted-foreground">
-                {boardScope.type === 'general'
-                  ? 'Inbox stages are saved per browser until server synchronization is enabled. Existing Actions are unchanged.'
-                  : 'Some Actions reference missing Process stages. No Action has been moved.'}
-              </p>
-              {filteredTasks.filter(task => !boardColumns.some(column => column.id === task.status)).map(task => (
-                <button type="button" key={task.id} className="block py-1 text-left underline" onClick={() => openTaskEditor(task.id)}>{task.title}</button>
-              ))}
+          {boardScope.type === 'general' && inboxBoardStatus === 'unconfigured' && (
+            <section className="rounded-xl border border-border/60 bg-card/40 p-3 text-sm" aria-label="Inbox stage synchronization">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="font-medium text-foreground">Inbox · Stage sync required</p>
+                  <p className="mt-1 max-w-xl text-xs leading-5 text-muted-foreground">
+                    Inbox holds Actions not yet assigned to a Process. Import the original browser’s stage configuration before updating existing stages.
+                  </p>
+                </div>
+                {inboxCanInitialize && currentUserRole === 'admin' && unresolvedTasks.length === 0 && (
+                  <Button type="button" variant="outline" disabled={syncingInbox} onClick={() => {
+                    setSyncingInbox(true);
+                    void syncInboxStages().then(ok => {
+                      if (ok) toast.success('Inbox stages are now shared by web and mobile.');
+                    }).catch((err: unknown) => {
+                      toast.error(err instanceof Error ? err.message : 'Inbox stage import failed.');
+                    }).finally(() => setSyncingInbox(false));
+                  }}>{syncingInbox ? 'Synchronizing…' : 'Sync Inbox stages'}</Button>
+                )}
+              </div>
+            </section>
+          )}
+          {boardScope.type === 'general' && unresolvedTasks.length > 0 && (
+            <details className="rounded-lg border border-amber-500/35 bg-amber-500/[0.035] p-3 text-sm" aria-label="Inbox stages missing on this device">
+              <summary className="cursor-pointer font-medium">{unresolvedTasks.length} Inbox Actions have unknown stage IDs on this device</summary>
+              <p className="my-2 text-xs leading-5 text-muted-foreground">Your original web browser may have valid custom stage IDs. No Action was moved or deleted. Open that browser to synchronize the original Inbox stages.</p>
+              <ul className="space-y-1">
+                {unresolvedTasks.map(task => (
+                  <li key={task.id}>
+                    <button type="button" className="py-1 text-left underline-offset-2 hover:underline" onClick={() => openTaskEditor(task.id)}>{task.title}</button>
+                  </li>
+                ))}
+              </ul>
             </details>
+          )}
+          {boardScope.type === 'project' && unresolvedTasks.length > 0 && (
+            <section className="mb-4 space-y-3 rounded-lg border border-amber-500/30 p-3 text-sm" aria-label="Process Actions needing stage assignment">
+              <h3 className="font-medium">Needs stage assignment ({unresolvedTasks.length})</h3>
+              <p className="text-xs text-muted-foreground">These Actions reference a missing Process stage. Saved Actions have not been moved.</p>
+              <div className="space-y-2">
+                {unresolvedTasks.map(task => {
+                  const editable = canEditTask(task.createdBy, task.assigneeId);
+                  return (
+                    <div key={task.id} className="flex min-w-0 flex-col gap-2 rounded-lg border border-border/50 bg-card/70 p-2.5 sm:flex-row sm:items-center">
+                      <button type="button" className="min-w-0 flex-1 truncate text-left font-medium hover:underline" onClick={() => openTaskEditor(task.id)}>{task.title}</button>
+                      <Select value={undefined} disabled={!editable || assigningStageFor !== null}
+                        onValueChange={stageId => void assignUnresolvedStage(task.id, stageId)}>
+                        <SelectTrigger aria-label={`Assign a stage to ${task.title}`} className="h-11 w-full shrink-0 sm:w-44">
+                          <SelectValue placeholder={assigningStageFor === task.id ? 'Saving...' : editable ? 'Assign stage' : 'Read-only'} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {boardColumns.filter(stage => !stage.isTerminal || canCompleteTask(task.assigneeId))
+                            .map(stage => <SelectItem key={stage.id} value={stage.id}>{stage.title}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
           )}
           {isMobileBoard ? <section className="min-w-0 space-y-3" aria-label="Board actions">
             {mobileGroup && <>

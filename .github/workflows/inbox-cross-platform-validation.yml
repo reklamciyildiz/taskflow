@@ -1,0 +1,67 @@
+name: Inbox cross-platform pre-release validation
+
+on:
+  push:
+    branches:
+      - fix/capacitor-oauth-webview-thread-crash-20261031
+    paths:
+      - '.github/workflows/inbox-cross-platform-validation.yml'
+      - 'components/TaskContext.tsx'
+      - 'components/TaskBoard.tsx'
+      - 'components/ProcessSwitcher.tsx'
+      - 'components/EditGeneralBoardModal.tsx'
+      - 'components/QuickCapture.tsx'
+      - 'components/dashboard/DashboardCapture.tsx'
+      - 'docs/INBOX_WEB_ANDROID_IOS_ROLLOUT.md'
+      - 'lib/inbox-board-server.ts'
+      - 'app/api/inbox/board/route.ts'
+      - 'app/api/mobile/planner/context/route.ts'
+      - 'mobile/src/PlannerRuntimeAdapter.tsx'
+      - 'supabase/migrations/20261031180000_team_inbox_board_canonical.sql'
+      - 'scripts/test-capacitor-mobile-shell.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Web TypeScript + shared Inbox contracts + local Android/iOS UI bundle
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            mobile/package-lock.json
+
+      - name: Install locked dependencies
+        run: |
+          npm ci --no-audit --no-fund
+          npm ci --prefix mobile --no-audit --no-fund
+
+      - name: Test Inbox ACL, data integrity and OAuth contracts
+        run: |
+          node scripts/test-capacitor-mobile-shell.mjs
+          node scripts/test-capacitor-oauth-handoff.mjs
+
+      - name: Typecheck Next.js and mobile shared runtime
+        run: |
+          npx tsc --noEmit
+          npm --prefix mobile exec -- tsc -b --pretty false
+
+      - name: Build locally bundled Capacitor UI
+        run: npm --prefix mobile run build
+
+      - name: Assert native CSS and bundled UI exist
+        working-directory: mobile
+        run: |
+          node scripts/verify-bundled-css.mjs
+          test -s dist/index.html

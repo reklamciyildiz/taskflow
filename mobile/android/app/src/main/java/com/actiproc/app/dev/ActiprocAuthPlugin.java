@@ -58,12 +58,29 @@ public class ActiprocAuthPlugin extends Plugin {
 
     @PluginMethod
     public void startGoogleSignIn(PluginCall call) {
-        String currentUrl = bridge.getWebView().getUrl();
-        String callbackPath = safeCallbackPath(call.getString("callbackUrl"));
-        if (!isTrustedWebViewUrl(currentUrl)) {
-            call.reject("Google sign-in is only available from the trusted Actiproc origin.");
+        if (bridge == null || getActivity() == null) {
+            call.reject("Native Google sign-in is unavailable.");
             return;
         }
+
+        // Capacitor dispatches @PluginMethod on "CapacitorPlugins", not the WebView UI thread.
+        bridge.executeOnMainThread(() -> {
+            try {
+                String currentUrl = bridge.getWebView() == null ? null : bridge.getWebView().getUrl();
+                if (!isTrustedWebViewUrl(currentUrl)) {
+                    call.reject("Google sign-in is only available from the trusted Actiproc origin.");
+                    return;
+                }
+                String callbackPath = safeCallbackPath(call.getString("callbackUrl"));
+                // Keep PKCE/Keystore work on the plugin thread, and UI operations on main.
+                bridge.execute(() -> launchGoogleSignIn(call, callbackPath));
+            } catch (Exception error) {
+                call.reject("Could not verify the Google sign-in origin.", error);
+            }
+        });
+    }
+
+    private void launchGoogleSignIn(PluginCall call, String callbackPath) {
         try {
             String verifier = randomUrlSafe(64);
             String state = randomUrlSafe(48);
@@ -94,8 +111,20 @@ public class ActiprocAuthPlugin extends Plugin {
             customTabs.intent.setPackage(targetBrowser);
             customTabs.intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 
-            customTabs.launchUrl(getActivity(), authUrl);
-            call.resolve();
+            bridge.executeOnMainThread(() -> {
+                try {
+                    if (getActivity() == null || getActivity().isFinishing() || getActivity().isDestroyed()) {
+                        clearPendingAuth();
+                        call.reject("Google sign-in activity is no longer available.");
+                        return;
+                    }
+                    customTabs.launchUrl(getActivity(), authUrl);
+                    call.resolve();
+                } catch (Exception error) {
+                    clearPendingAuth();
+                    call.reject("Could not start secure Google sign-in.", error);
+                }
+            });
         } catch (Exception error) {
             clearPendingAuth();
             call.reject("Could not start secure Google sign-in: " + error.getMessage(), error);
@@ -122,24 +151,37 @@ public class ActiprocAuthPlugin extends Plugin {
             return;
         }
 
+        // There are two independent OAuth clients in this package:
+        // (1) the remote NextAuth diagnostic WebView, which uses nativeOauthStateV1;
+        // (2) the locally bundled Vite client, which uses oauthState and appUrlOpen.
+        // Always identify the owner of the returned state before changing the WebView.
+        // A previous diagnostic login can leave native state in encrypted storage,
+        // so checking only expectedState != null would hijack the bundled flow.
+        SecureSessionStore store = new SecureSessionStore(getContext());
+        String expectedState;
+        try {
+            expectedState = store.get(KEY_STATE);
+        } catch (Exception error) {
+            // An unreadable stale native state must not hijack the JS OAuth callback.
+            store.remove(KEY_STATE);
+            return;
+        }
+        String returnedState = uri.getQueryParameter("state");
+        if (expectedState == null || !STATE.matcher(expectedState).matches()
+                || !secureEqual(expectedState, returnedState)) {
+            // Not our native OAuth attempt. Allow @capacitor/app to deliver it to JS.
+            return;
+        }
+
         String uriKey = uri.toString();
         if (uriKey.equals(lastHandledUri)) return;
         lastHandledUri = uriKey;
 
         try {
-            SecureSessionStore store = new SecureSessionStore(getContext());
-            String expectedState = store.get(KEY_STATE);
             String verifier = store.get(KEY_VERIFIER);
             String callbackPath = safeCallbackPath(store.get(KEY_CALLBACK));
-            String returnedState = uri.getQueryParameter("state");
             String code = uri.getQueryParameter("code");
             String providerError = uri.getQueryParameter("error");
-
-            if (!secureEqual(expectedState, returnedState) || expectedState == null || !STATE.matcher(expectedState).matches()) {
-                clearPendingAuth();
-                loadSignInError("OAuthState");
-                return;
-            }
             if (providerError != null || code == null) {
                 clearPendingAuth();
                 loadSignInError("OAuthCancelled");

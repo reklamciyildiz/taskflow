@@ -1,0 +1,101 @@
+name: Actiproc locally bundled Capacitor QA APK
+
+on:
+  push:
+    branches:
+      - fix/capacitor-oauth-webview-thread-crash-20261031
+    paths:
+      - .github/workflows/capacitor-locally-bundled-qa-apk.yml
+      - mobile/android/app/src/main/java/com/actiproc/app/dev/ActiprocAuthPlugin.java
+      - scripts/test-capacitor-oauth-handoff.mjs
+      - scripts/test-capacitor-mobile-shell.mjs
+      - mobile/postcss.config.cjs
+      - mobile/tailwind.config.ts
+      - mobile/scripts/verify-bundled-css.mjs
+      - mobile/src/PlannerRuntimeAdapter.tsx
+      - components/TaskContext.tsx
+      - components/TaskBoard.tsx
+      - components/ProcessSwitcher.tsx
+      - components/EditGeneralBoardModal.tsx
+      - components/QuickCapture.tsx
+      - components/dashboard/DashboardCapture.tsx
+      - app/api/mobile/planner/context/route.ts
+      - lib/inbox-board-server.ts
+      - app/api/inbox/board/route.ts
+      - supabase/migrations/20261031180000_team_inbox_board_canonical.sql
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android-qa:
+    name: Build locally packaged Android QA APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            mobile/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools'
+
+      - name: Install Android 36 SDK
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools"
+
+      - name: Install dependencies
+        run: |
+          npm ci --no-audit --no-fund
+          npm ci --prefix mobile --no-audit --no-fund
+
+      - name: Verify OAuth, session and navigation contracts
+        run: |
+          npm run test:capacitor-oauth
+          node scripts/test-capacitor-mobile-shell.mjs
+
+      - name: Make Gradle wrapper executable on Ubuntu
+        run: chmod +x mobile/android/gradlew
+
+      - name: Build local-ui production API beta with fail-closed preflight
+        working-directory: mobile
+        run: npm run android:debug:production-beta
+
+      - name: Verify mobile CSS utilities were compiled
+        working-directory: mobile
+        run: node scripts/verify-bundled-css.mjs
+
+      - name: Verify Android contains local UI without server.url
+        run: |
+          test -s mobile/artifacts/axiom-production-beta-debug.apk
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const config = JSON.parse(readFileSync("mobile/android/app/src/main/assets/capacitor.config.json", "utf8"));
+            if (config.server?.url) throw new Error("server.url is forbidden in local production beta");
+            const page = readFileSync("mobile/android/app/src/main/assets/public/index.html", "utf8");
+            if (!page.includes("id=\"root\"") || page.includes("Diagnostic shell")) throw new Error("Bundled UI missing");
+          '
+          unzip -tq mobile/artifacts/axiom-production-beta-debug.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Actiproc-Capacitor-Local-Bundle-QA-APK
+          path: mobile/artifacts/axiom-production-beta-debug.apk
+          if-no-files-found: error
+          retention-days: 7

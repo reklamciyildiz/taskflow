@@ -57,6 +57,22 @@ assert.doesNotMatch(plugin, /addJavascriptInterface|Log\.|System\.out|localStora
 assert.match(plugin, /nativeOauthVerifierV1/);
 assert.doesNotMatch(secureSessionPlugin, /nativeOauthVerifierV1|nativeOauthStateV1|nativeOauthCallbackPathV1/);
 
+// Regression: an older diagnostic login can leave nativeOauthStateV1 stored.
+// A bundled-client callback uses a DIFFERENT state (oauthState). Never redirect
+// the bundled WebView to /auth/signin?error=OAuthState in that situation.
+const handler = plugin.slice(
+  plugin.indexOf('public synchronized void handleAuthUri(Uri uri)'),
+  plugin.indexOf('private void loadSignInError(String code)'),
+);
+const stateOwnerCheck = handler.indexOf('!secureEqual(expectedState, returnedState)');
+const nativeDedup = handler.indexOf('lastHandledUri = uriKey;');
+const nativeVerifier = handler.indexOf('String verifier = store.get(KEY_VERIFIER);');
+assert.ok(stateOwnerCheck > 0 && nativeDedup > stateOwnerCheck && nativeVerifier > stateOwnerCheck,
+  'Native handler must check callback ownership before consuming a bundled OAuth callback');
+assert.match(handler, /if \(expectedState == null \|\| !STATE\.matcher\(expectedState\)\.matches\(\)[\s\S]*?!secureEqual\(expectedState, returnedState\)\) \{[\s\S]*?return;/);
+assert.doesNotMatch(handler, /loadSignInError\("OAuthState"\)/, 'State mismatch belongs to another OAuth client and must not navigate WebView');
+assert.match(handler, /store\.remove\(KEY_STATE\);\s*return;/, 'Unreadable native state must fail closed without navigation');
+
 // AxiomAuthPlugin alias verification: must NOT implement duplicate intent handling
 assert.match(axiomAliasPlugin, /@CapacitorPlugin\(name = "AxiomAuth"\)/);
 assert.match(axiomAliasPlugin, /bridge\.getPlugin\("ActiprocAuth"\)/);
@@ -90,5 +106,20 @@ assert.match(sharedSession, /sameSite: 'lax'/);
 assert.match(sharedSession, /request\.nextUrl\.origin !== canonicalOrigin/);
 assert.match(sharedSession, /value\.length > 2048/);
 assert.doesNotMatch(sharedSession, /getByEmail|form\.get\('email'\)|accessToken/);
+
+
+// A @PluginMethod runs on CapacitorPlugins; WebView URL reads and browser launches
+// must be marshalled to Android's main thread. Keep PKCE/Keystore on the worker.
+const legacyPlugin = await read('mobile/android/app/src/main/java/com/axiomproductivity/mobile/dev/AxiomAuthPlugin.java');
+for (const source of [plugin, legacyPlugin]) {
+  const begin = source.indexOf('public void startGoogleSignIn(PluginCall call)');
+  const end = source.indexOf('private void launchGoogleSignIn(PluginCall call, String callbackPath)');
+  assert.ok(begin >= 0 && end > begin);
+  const entry = source.slice(begin, end);
+  assert.ok(entry.indexOf('bridge.executeOnMainThread(() -> {') < entry.indexOf('bridge.getWebView().getUrl()'));
+  assert.match(entry, /bridge\.execute\(\(\) -> launchGoogleSignIn\(call, callbackPath\)\)/);
+  const launch = source.slice(end, source.indexOf('    @Override\n    protected void handleOnNewIntent', end));
+  assert.match(launch, /bridge\.executeOnMainThread\(\(\) -> \{[\s\S]*?call\.resolve\(\)/);
+}
 
 console.log('Actiproc Capacitor OAuth and NextAuth WebView session handoff contracts passed.');

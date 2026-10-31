@@ -11,6 +11,7 @@ import {
   FALLBACK_BOARD_COLUMNS,
   parseColumnConfigFromJson,
   type Project,
+  type ProjectColumnConfig,
   type Task,
   type TaskUpdateFields,
   type Team,
@@ -20,7 +21,13 @@ import {
 import type { WorkSource } from '../../lib/scheduling-domain';
 import { authenticatedRequest, loadPlannerContext } from './mobile-api';
 
-type ContextPayload = { teams: any[]; team: any | null; projects: any[]; tasks: any[]; user: any };
+type InboxBoardPayload = {
+  configured: boolean; available: boolean; stages: ProjectColumnConfig[] | null; version: number;
+};
+type ContextPayload = {
+  teams: any[]; team: any | null; projects: any[]; tasks: any[]; user: any;
+  inboxBoard?: InboxBoardPayload;
+};
 
 function selectedTeamStorageKey(payload: ContextPayload) {
   const organizationId = payload.user?.organization_id ?? payload.user?.organizationId;
@@ -126,6 +133,18 @@ export function MobilePlannerRuntime({ children, onOpenAction, onError }: {
   const [loading, setLoading] = useState(true);
   const [boardScope, setBoardScopeState] = useState<BoardScope>({ type: 'general' });
   const [generalBoardColumns, setGeneralBoardColumns] = useState(FALLBACK_BOARD_COLUMNS);
+  // Shared server stage definitions are canonical once explicitly imported on web.
+  // A fresh native device cannot recover legacy per-browser stage IDs itself.
+  useEffect(() => {
+    const board = payload?.inboxBoard;
+    setGeneralBoardColumns(board?.configured && Array.isArray(board.stages)
+      ? board.stages : FALLBACK_BOARD_COLUMNS);
+  }, [payload?.team?.id, payload?.inboxBoard]);
+  const inboxBoardStatus: TaskContextType['inboxBoardStatus'] = !payload?.team
+    ? 'loading'
+    : payload.inboxBoard?.configured ? 'ready'
+    : payload.inboxBoard?.available ? 'unconfigured'
+    : 'unavailable';
   const [filter, setFilter] = useState<FilterType>(null);
   const [customerFilter, setCustomerFilter] = useState<string | null>(null);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
@@ -300,6 +319,10 @@ export function MobilePlannerRuntime({ children, onOpenAction, onError }: {
     boardProject,
     boardColumns,
     generalBoardColumns,
+    inboxBoardStatus,
+    inboxBoardVersion: payload?.inboxBoard?.version ?? 0,
+    inboxCanInitialize: false,
+    syncInboxStages: async () => false,
     currentUser,
     currentUserRole: role,
     permissions: getPermissions(role),
@@ -317,7 +340,9 @@ export function MobilePlannerRuntime({ children, onOpenAction, onError }: {
     setCurrentProjectId: (projectId) => setBoardScopeState(projectId ? { type: 'project', projectId } : { type: 'general' }),
     openBoardForProject,
     setBoardScope,
-    setGeneralBoardColumns,
+    // Inbox configurations can only be edited after a canonical server rollout.
+    // Native clients are read-only for stage definitions during the migration.
+    setGeneralBoardColumns: async () => false,
     addTask,
     updateTask,
     applyTaskUpdates: async (items) => {
@@ -361,7 +386,7 @@ export function MobilePlannerRuntime({ children, onOpenAction, onError }: {
       checklistFocus.current = null;
       return id;
     },
-  }), [addTask, boardColumns, boardProject, boardScope, currentTeam, currentUser, customerFilter, editingTaskId, filter, generalBoardColumns, loading, openBoardForProject, openTaskEditor, payload?.user, projects, refreshData, role, runtime, setBoardScope, tasks, teams, unsupported, updateTask]);
+  }), [addTask, boardColumns, boardProject, boardScope, currentTeam, currentUser, customerFilter, editingTaskId, filter, generalBoardColumns, inboxBoardStatus, loading, openBoardForProject, openTaskEditor, payload?.inboxBoard, payload?.user, projects, refreshData, role, runtime, setBoardScope, tasks, teams, unsupported, updateTask]);
 
   const preferencesRuntime = useMemo<PreferencesContextValue>(() => ({
     ...DEFAULT_USER_WORKSPACE_PREFERENCES,
