@@ -85,9 +85,9 @@ export default function TermsPage() {
               <li>Authorize us to charge your payment method on a recurring basis</li>
             </ul>
             <p>
-              Subscription fees are non-refundable except as required by applicable law or as
-              expressly stated in our refund policy. We reserve the right to change pricing with
-              30 days&rsquo; notice to active subscribers.
+              Refund requests are considered under applicable law and the payment provider&rsquo;s terms.
+              See our refund and cancellation information at /refunds. We reserve the right to change
+              pricing with 30 days&rsquo; notice to active subscribers.
             </p>
             <p>
               If a payment fails, we may suspend access to paid features until payment is resolved.

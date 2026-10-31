@@ -29,3 +29,6 @@ Creem products must be recurring, USD, SaaS, **exclusive** tax mode, and use res
 7. Only then create live products/keys, run approved migration, enable production Creem and switch billing copy. Do not remove Lemon records until existing subscribers are resolved.
 
 Important: website text and marketing price cards are not proof of a completed payment. Authoritative subscription data must come from verified Creem responses and webhooks.
+
+## Support and refunds
+The registered review support address is the currently working Gmail mailbox. Verify any Vercel NEXT_PUBLIC_CONTACT_EMAIL override. `/refunds` documents cancellation and the provider-specific refund process without inventing guaranteed refunds.
