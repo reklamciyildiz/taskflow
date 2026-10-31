@@ -44,6 +44,7 @@ for(const required of ['creem_payment_hold','claim_creem_event','apply_creem_sub
 const checkout=fs.readFileSync('app/api/billing/checkout/route.ts','utf8');
 assert.ok(checkout.includes("platformCookie === 'android-twa'"),'Android TWA checkout block missing');
 assert.ok(checkout.includes("newBillingProvider() === 'creem'"),'Creem not isolated from legacy checkout');
+assert.ok(checkout.includes("requestedBody?.plan === 'individual'"),'Legacy Lemon Individual must fail closed');
 const webhook=fs.readFileSync('app/api/webhooks/creem/route.ts','utf8');
 assert.ok(webhook.includes("timingSafeEqual"),'Missing webhook timing-safe verification');
 assert.ok(webhook.includes("checkout.completed") && webhook.includes("hold_creem_subscription"));

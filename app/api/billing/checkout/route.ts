@@ -29,6 +29,11 @@ export async function POST(request: NextRequest) {
 
     if (newBillingProvider() === 'creem') return createCreemCheckout(request, orgId, authed.user.email);
 
+    // The new Individual plan has no Lemon product/variant; never silently charge Pro.
+    const requestedBody = await request.clone().json().catch(() => null);
+    if (requestedBody?.plan === 'individual') {
+      return NextResponse.json({ success: false, error: 'Individual checkout requires the new payment provider. Paid checkout is not enabled yet.' }, { status: 503 });
+    }
     const organization: any = await organizationDb.getById(orgId);
     if (organization?.ls_subscription_id && organization?.subscription_status !== 'expired') {
       return NextResponse.json(
