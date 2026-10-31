@@ -15,6 +15,7 @@ export async function syncLemonSubscriptionQuantityToOrgHeadcount(organizationId
     if (!isPaidActive(ent.subscriptionStatus, ent.endsAt)) return;
 
     const org: any = await organizationDb.getById(organizationId);
+    if (org?.billing_provider === 'creem') return;
     const subId = org?.ls_subscription_id ? String(org.ls_subscription_id) : '';
     if (!subId) return;
 

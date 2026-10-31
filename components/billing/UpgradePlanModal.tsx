@@ -43,7 +43,12 @@ function isHighlightedFeature(reason: UpgradeReason | undefined, plan: UpgradePl
 
 async function openCheckout(plan: UpgradePlan, billingInterval: Interval): Promise<void> {
   const summary = await fetch('/api/billing/summary').then(r => r.json()).catch(() => null);
-  const existing = summary?.data?.subscriptionId && summary?.data?.plan !== 'free';
+  if (!summary?.success) throw new Error('Unable to verify current subscription');
+  const current = String(summary.data?.plan ?? 'free');
+  const existing = Boolean(summary.data?.subscriptionId) && current !== 'free';
+  const order = ['individual','pro','team'];
+  if (existing && order.indexOf(plan) <= order.indexOf(current))
+    throw new Error('Only higher plans can be selected here. Use Billing settings to manage your subscription.');
   const resp = await fetch(existing ? '/api/billing/switch-plan' : '/api/billing/checkout', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

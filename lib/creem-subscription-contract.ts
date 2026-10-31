@@ -34,8 +34,10 @@ export function normalizeCreemSubscription(source: any, config: CreemConfig): Cr
  switch (statusRaw) {
   case 'active': status='active'; break;
   case 'trialing': status='trialing'; break;
-  case 'unpaid': status='past_due'; break;
+  case 'unpaid':
+  case 'past_due': status='past_due'; break;
   case 'scheduled_cancel': status='cancelled'; break;
+  case 'expired': status='expired'; break;
   case 'canceled': status=periodEnd && Date.parse(periodEnd)>Date.now() ? 'cancelled':'expired'; break;
   case 'paused': status='paused'; break;
   default: throw new Error('Unexpected Creem subscription status: '+statusRaw);

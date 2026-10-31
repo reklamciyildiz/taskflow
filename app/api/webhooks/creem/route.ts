@@ -4,7 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase-admin';
 import { getCreemConfig, creemPlanForProduct, creemResponseMode } from '@/lib/creem-config';
 import { reconcileCreemSubscription } from '@/lib/creem-subscription';
 export const runtime='nodejs';
-const updateEvents=new Set(['subscription.active','subscription.paid','subscription.canceled','subscription.expired','subscription.trialing','subscription.paused','subscription.update']);
+const updateEvents=new Set(['subscription.active','subscription.paid','subscription.canceled','subscription.scheduled_cancel','subscription.past_due','subscription.unpaid','subscription.expired','subscription.trialing','subscription.paused','subscription.update']);
 function safeSignature(raw:string, signature:string|null,secret:string):boolean {
  if(!signature || !/^[a-f0-9]{64}$/i.test(signature))return false;
  const computed=crypto.createHmac('sha256',secret).update(raw).digest();
@@ -41,9 +41,11 @@ export async function POST(request:NextRequest) {
   const obj=event.object ?? {};
   if(kind==='checkout.completed'){
    const requestId=String(obj.request_id??'');
+   const checkoutId=objectId(obj.id);
    const {data:intent,error}=await (supabaseAdmin as any).from('creem_checkout_intents').select('*').eq('request_id',requestId).single();
    if(error || !intent)throw new Error('Creem checkout missing authorized intent');
-   if(Boolean(intent.test_mode)!==(config.mode==='test') || obj.mode!==creemResponseMode(config) ||
+   if(!checkoutId || checkoutId!==intent.checkout_id || intent.fulfilled_at ||
+       Boolean(intent.test_mode)!==(config.mode==='test') || obj.mode!==creemResponseMode(config) ||
        String(obj.status)!=='completed' || String(obj.order?.status)!=='paid')
      throw new Error('Checkout state/mode is not verified as paid');
    const productId=objectId(obj.product);

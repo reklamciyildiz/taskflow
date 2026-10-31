@@ -28,6 +28,8 @@ const raw = {
 const snapshot=normalizeCreemSubscription(raw,config);
 assert.equal(snapshot.plan,'pro'); assert.equal(snapshot.seats,3); assert.equal(snapshot.status,'active');
 assert.equal(normalizeCreemSubscription({...raw,status:'unpaid'},config).status,'past_due');
+assert.equal(normalizeCreemSubscription({...raw,status:'past_due'},config).status,'past_due');
+assert.equal(normalizeCreemSubscription({...raw,status:'expired'},config).status,'expired');
 assert.equal(normalizeCreemSubscription({...raw,status:'scheduled_cancel'},config).status,'cancelled');
 assert.equal(normalizeCreemSubscription({...raw,status:'canceled',current_period_end_date:'2000-01-01'},config).status,'expired');
 for (const bad of [
@@ -45,4 +47,8 @@ assert.ok(checkout.includes("newBillingProvider() === 'creem'"),'Creem not isola
 const webhook=fs.readFileSync('app/api/webhooks/creem/route.ts','utf8');
 assert.ok(webhook.includes("timingSafeEqual"),'Missing webhook timing-safe verification');
 assert.ok(webhook.includes("checkout.completed") && webhook.includes("hold_creem_subscription"));
+for (const event of ['subscription.past_due','subscription.unpaid','subscription.scheduled_cancel'])
+ assert.ok(webhook.includes(event), 'Missing Creem lifecycle event ' + event);
+const lemon = fs.readFileSync('lib/lemon-subscription.ts','utf8');
+assert.ok(lemon.includes("organization?.billing_provider === 'creem'"),'Late Lemon webhooks must not overwrite Creem');
 console.log('Creem billing contract checks passed');

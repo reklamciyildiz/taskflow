@@ -60,6 +60,10 @@ export async function reconcileLemonSubscription(input: {
 }): Promise<{ applied: boolean; snapshot: LemonSubscriptionSnapshot }> {
   const config = input.config ?? getLemonBillingConfig();
   const organization: any = await organizationDb.getById(input.organizationId);
+  // Prevent a late Lemon webhook from overwriting an organization already migrated to Creem.
+  if (organization?.billing_provider === 'creem') {
+    throw new LemonQuarantineError('Organization is managed by Creem; reject Lemon updates');
+  }
   const existingSubscriptionId = organization?.ls_subscription_id
     ? String(organization.ls_subscription_id)
     : null;
