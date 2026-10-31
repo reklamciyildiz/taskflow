@@ -239,6 +239,13 @@ export function TaskBoard() {
     const task = unresolvedTasks.find((item) => item.id === taskId);
     const stage = boardColumns.find((column) => column.id === stageId);
     if (!task || !stage || assigningStageFor) return;
+    // General stage definitions are currently localStorage-only in the web
+    // product. Mobile cannot verify that a missing status is really orphaned.
+    // Fail closed rather than corrupt a valid cross-device stage assignment.
+    if (boardScope.type === 'general') {
+      toast.error('General stages differ between devices. Reconcile stage definitions on web first.');
+      return;
+    }
     if (!canEditTask(task.createdBy, task.assigneeId)) {
       toast.error('You cannot edit this Action.');
       return;
@@ -257,7 +264,7 @@ export function TaskBoard() {
     } finally {
       setAssigningStageFor(null);
     }
-  }, [unresolvedTasks, boardColumns, assigningStageFor, canEditTask, canCompleteTask, applyTaskUpdates]);
+  }, [unresolvedTasks, boardColumns, boardScope.type, assigningStageFor, canEditTask, canCompleteTask, applyTaskUpdates]);
 
   const mobileGroups = groupedProperty && properties.data
     ? groupActionsByProperty(filteredTasks, groupedProperty, properties.data.options, properties.data.values)
@@ -427,8 +434,9 @@ export function TaskBoard() {
               <div>
                 <h3 className="font-medium text-foreground">Needs stage assignment ({unresolvedTasks.length})</h3>
                 <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                  These Actions have a saved stage that does not exist on this board. No Action has been moved or deleted.
-                  Select a stage for each Action to resolve it.
+                  {boardScope.type === 'general'
+                    ? 'These Actions use stages missing from this device\u2019s General board settings. General stages are currently stored per browser, so they may be valid on web. No Action has been moved or deleted; synchronize the stage definitions before changing statuses.'
+                    : 'These Actions reference a stage missing from this Process. No Action has been moved or deleted. Assign each Action to an existing stage if you have permission.'}
                 </p>
               </div>
               <div className="space-y-2">
@@ -441,11 +449,11 @@ export function TaskBoard() {
                       </button>
                       <Select
                         value={undefined}
-                        disabled={!editable || assigningStageFor !== null}
+                        disabled={!editable || assigningStageFor !== null || boardScope.type === 'general'}
                         onValueChange={(stageId) => void assignUnresolvedStage(task.id, stageId)}
                       >
                         <SelectTrigger aria-label={`Assign a stage to ${task.title}`} className="h-11 w-full shrink-0 sm:w-44">
-                          <SelectValue placeholder={assigningStageFor === task.id ? 'Saving...' : editable ? 'Assign stage' : 'Read-only'} />
+                          <SelectValue placeholder={boardScope.type === 'general' ? 'Stage sync needed' : assigningStageFor === task.id ? 'Saving...' : editable ? 'Assign stage' : 'Read-only'} />
                         </SelectTrigger>
                         <SelectContent>
                           {boardColumns
