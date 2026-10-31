@@ -41,6 +41,10 @@ assert.match(taskBoard, /Needs stage assignment/);
 assert.match(taskBoard, /filteredTasks\.filter\(\(task\) => !boardColumns\.some/);
 assert.match(taskBoard, /canEditTask\(task\.createdBy, task\.assigneeId\)/);
 assert.match(taskBoard, /stage\.isTerminal && !canCompleteTask\(task\.assigneeId\)/);
+assert.match(taskBoard, /boardScope\.type === 'general'/);
+assert.match(taskBoard, /disabled=\{!editable \|\| assigningStageFor !== null \|\| boardScope\.type === 'general'\}/);
+assert.match(taskBoard, /General stages are currently stored per browser/);
+
 assert.match(taskBoard, /applyTaskUpdates\(\[\{ id: taskId, changes: \{ status: stageId \} \}\]\)/);
 assert.match(taskBoard, /onValueChange=\{\(stageId\) => void assignUnresolvedStage\(task\.id, stageId\)\}/);
 
