@@ -151,7 +151,7 @@ function ScheduleCell({ task, disabled }: { task: Task; disabled: boolean }) {
   );
 }
 
-export function TaskList() {
+export function TaskList({ allowProcessAdministration = true }: { allowProcessAdministration?: boolean } = {}) {
   const {
     tasks,
     currentTeam,
@@ -311,17 +311,17 @@ export function TaskList() {
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-foreground">Action table</h1>
           <p className="mt-1 hidden md:block text-sm text-muted-foreground">
-            {boardProject ? `${boardProject.name} · edit operational metadata inline` : 'General Actions'}
+            {boardProject ? `${boardProject.name} · edit operational metadata inline` : 'Inbox · edit operational metadata inline'}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {projectsForTeam.length > 0 && (
-            <Select value={processId ?? ''} onValueChange={(projectId) => setBoardScope({ type: 'project', projectId })}>
-              <SelectTrigger aria-label="Table process" className="h-9 w-full min-w-[210px] sm:w-auto"><SelectValue placeholder="Choose process" /></SelectTrigger>
-              <SelectContent>{projectsForTeam.map((project) => <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>)}</SelectContent>
+            <Select value={processId ?? '__inbox__'} onValueChange={(value) => setBoardScope(value === '__inbox__' ? { type: 'general' } : { type: 'project', projectId: value })}>
+              <SelectTrigger aria-label="Table process" className="h-11 w-full min-w-0 sm:w-auto sm:min-w-[210px]"><SelectValue placeholder="Choose process" /></SelectTrigger>
+              <SelectContent><SelectItem value="__inbox__">Inbox</SelectItem>{projectsForTeam.map((project) => <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>)}</SelectContent>
             </Select>
           )}
-          {currentUserRole === 'admin' && (
+          {allowProcessAdministration && currentUserRole === 'admin' && (
             <>
               <Button variant="outline" size="sm" className="h-9 gap-2" onClick={() => setIsCreateProjectOpen(true)}><Layers className="h-4 w-4" />New process</Button>
               <Button variant="outline" size="icon" className="h-9 w-9" disabled={!boardProject} onClick={() => setEditingProjectId(boardProject?.id ?? null)} aria-label="Edit selected process"><Settings2 className="h-4 w-4" /></Button>
