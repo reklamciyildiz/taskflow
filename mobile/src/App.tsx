@@ -4,7 +4,7 @@ import { App as NativeApp } from '@capacitor/app';
 import { Network } from '@capacitor/network';
 import {
   ArrowLeft, BookOpen, CalendarDays, CheckSquare2, CloudOff, Grid2X2, Home,
-  LockKeyhole, LogOut,
+  LockKeyhole,
   ShieldCheck, Sparkles, Wifi,
 } from 'lucide-react';
 import { SessionProvider } from './platform/next-auth-react';
@@ -18,6 +18,7 @@ import { PlannerV2View } from '../../components/planner/PlannerV2View';
 import { MobilePlannerRuntime } from './PlannerRuntimeAdapter';
 import { MobileKnowledgeHub } from './MobileKnowledgeHub';
 import { MobileMoreView } from './MobileMoreView';
+import { MobileSettingsView } from './MobileSettingsView';
 import { MobileListView } from './MobileListView';
 import { Toaster } from 'sonner';
 import { AxiomAIChatView } from '../../components/ai/AxiomAIChat';
@@ -27,7 +28,7 @@ import { ActionPanel } from '../../components/ActionPanel';
 import { useTaskContext } from '../../components/TaskContext';
 import { PlannerTeamSwitcher } from '../../components/planner/PlannerTeamSwitcher';
 
-type Screen = 'booting' | 'signin' | 'workspace' | 'planner' | 'knowledge' | 'ai' | 'account' | 'process' | 'more' | 'list';
+type Screen = 'booting' | 'signin' | 'workspace' | 'planner' | 'knowledge' | 'ai' | 'settings' | 'process' | 'more' | 'list';
 function initials(session: MobileSessionTokens): string {
   const source = session.user.name?.trim() || session.user.email;
   return source.split(/\s+|@/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join('');
@@ -48,7 +49,7 @@ function MobileProductContent({
   screen: Screen;
   session: MobileSessionTokens;
   busy: boolean;
-  selectRoot: (screen: Extract<Screen, 'workspace' | 'planner' | 'knowledge' | 'ai' | 'account' | 'more' | 'list'>) => void;
+  selectRoot: (screen: Extract<Screen, 'workspace' | 'planner' | 'knowledge' | 'ai' | 'settings' | 'more' | 'list'>) => void;
   signOut: () => Promise<void>;
 }) {
   const {
@@ -68,6 +69,7 @@ function MobileProductContent({
       if (url.pathname === '/planner') selectRoot('planner');
       else if (url.pathname === '/dashboard/knowledge-hub') selectRoot('knowledge');
       else if (url.pathname === '/list') selectRoot('list');
+      else if (url.pathname.startsWith('/settings')) selectRoot('settings');
       else if (url.pathname === '/ai') selectRoot('ai');
       else if (url.pathname === '/board' || url.pathname === '/dashboard/processes') {
         const projectId = url.searchParams.get('project');
@@ -103,6 +105,7 @@ function MobileProductContent({
       {screen === 'process' ? <section className="workspace mobile-pwa-view mobile-board-view"><TaskBoard /></section> : null}
       {screen === 'planner' ? <PlannerV2View /> : null}
       {screen === 'list' ? <MobileListView /> : null}
+      {screen === 'settings' ? <MobileSettingsView session={session} onSignOut={signOut} /> : null}
       {screen === 'more' ? <MobileMoreView onNavigate={(destination) => {
         if (destination === 'process') window.dispatchEvent(new CustomEvent('axiom-mobile:set-screen', { detail: { screen: 'process' } }));
         else selectRoot(destination);
@@ -122,19 +125,6 @@ function MobileProductContent({
             openTaskEditor={openTaskEditor}
             refreshData={refreshData}
           />
-        </section>
-      ) : null}
-      {screen === 'account' ? (
-        <section className="workspace mobile-product-view account-view" aria-labelledby="mobile-account-title">
-          <div className="account-hero"><span className="account-avatar">{initials(session)}</span><p className="eyebrow">Secure session</p><h1 id="mobile-account-title">{session.user.name || 'Actiproc account'}</h1><p className="summary">{session.user.email}</p></div>
-          <div className="account-security"><ShieldCheck /><div><strong>Protected on this device</strong><span>Session tokens are encrypted using hardware-backed Android Keystore. Workspace data follows Actiproc team and role permissions.</span></div></div>
-          <div className="account-details" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '1rem', background: 'rgba(255,255,255,0.04)', borderRadius: '0.75rem', fontSize: '0.85rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: '#94a3b8' }}>App Version</span><span>1.0.0-beta (Capacitor)</span></div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: '#94a3b8' }}>Package ID</span><span>com.actiproc.app.dev</span></div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: '#94a3b8' }}>Backend API</span><span>actiproc.com</span></div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: '#94a3b8' }}>Frontend Bundle</span><span>Local Offline Package</span></div>
-          </div>
-          <button className="account-logout" type="button" onClick={() => void signOut()} disabled={busy}><LogOut />Log out of this device</button>
         </section>
       ) : null}
       <ActionPanel task={editingTask} open={Boolean(editingTask)} onClose={closeTaskEditor} />
@@ -164,12 +154,12 @@ export function App() {
     window.dispatchEvent(event);
     if (event.defaultPrevented) return;
     if (screenRef.current === 'process') setScreen('workspace');
-    else if (['list', 'ai', 'account'].includes(screenRef.current)) setScreen('more');
+    else if (['list', 'ai', 'settings'].includes(screenRef.current)) setScreen('more');
     else if (screenRef.current === 'more') setScreen('workspace');
     else void NativeApp.minimizeApp();
   }, []);
 
-  const selectRoot = useCallback((next: Extract<Screen, 'workspace' | 'planner' | 'knowledge' | 'ai' | 'account' | 'more' | 'list'>) => {
+  const selectRoot = useCallback((next: Extract<Screen, 'workspace' | 'planner' | 'knowledge' | 'ai' | 'settings' | 'more' | 'list'>) => {
     setScreen(next);
     window.scrollTo({ top: 0 });
   }, []);
@@ -260,7 +250,7 @@ export function App() {
         ) : <span className="brand-mark" aria-hidden="true"><Sparkles /></span>}
         <div className="brand-copy"><strong>Actiproc Beta</strong><span>{authenticated ? 'Mobile workspace' : 'Secure workspace'}</span></div>
         <span className={`network-status ${online ? 'online' : 'offline'}`} aria-label={online ? 'Online' : 'Offline'}>{online ? <Wifi /> : <CloudOff />}</span>
-        {authenticated ? <button type="button" className="avatar mobile-account-shortcut" title={session?.user.email} aria-label="Account settings" onClick={() => selectRoot('account')}>{session ? initials(session) : ''}</button> : null}
+        {authenticated ? <button type="button" className="avatar mobile-account-shortcut" title={session?.user.email} aria-label="Account settings" onClick={() => selectRoot('settings')}>{session ? initials(session) : ''}</button> : null}
       </header>
 
       {!online ? <div className="offline-banner" role="status"><CloudOff />You are offline. Reconnect to continue.</div> : null}
@@ -311,7 +301,7 @@ export function App() {
           <button type="button" aria-current={screen === 'planner' ? 'page' : undefined} className={screen === 'planner' ? 'is-active' : ''} onClick={() => selectRoot('planner')}><CalendarDays /><span>Planner</span></button>
           <button type="button" aria-current={screen === 'process' ? 'page' : undefined} className={screen === 'process' ? 'is-active' : ''} onClick={() => setScreen('process')}><CheckSquare2 /><span>Actions</span></button>
           <button type="button" aria-current={screen === 'knowledge' ? 'page' : undefined} className={screen === 'knowledge' ? 'is-active' : ''} onClick={() => selectRoot('knowledge')}><BookOpen /><span>Knowledge</span></button>
-          <button type="button" aria-current={['more', 'ai', 'list', 'account'].includes(screen) ? 'page' : undefined} className={['more', 'ai', 'list', 'account'].includes(screen) ? 'is-active' : ''} onClick={() => selectRoot('more')}><Grid2X2 /><span>More</span></button>
+          <button type="button" aria-current={['more', 'ai', 'list', 'settings'].includes(screen) ? 'page' : undefined} className={['more', 'ai', 'list', 'settings'].includes(screen) ? 'is-active' : ''} onClick={() => selectRoot('more')}><Grid2X2 /><span>More</span></button>
         </nav>
       ) : <footer>{Capacitor.getPlatform()} · local bundle</footer>}
       </main>
