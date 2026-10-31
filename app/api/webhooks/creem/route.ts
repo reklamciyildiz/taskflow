@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
-import { getCreemConfig, creemPlanForProduct, creemResponseMode } from '@/lib/creem-config';
+import { creemApi, getCreemConfig, creemPlanForProduct, creemResponseMode } from '@/lib/creem-config';
 import { reconcileCreemSubscription } from '@/lib/creem-subscription';
 export const runtime='nodejs';
 const updateEvents=new Set(['subscription.active','subscription.paid','subscription.canceled','subscription.scheduled_cancel','subscription.past_due','subscription.unpaid','subscription.expired','subscription.trialing','subscription.paused','subscription.update']);
@@ -48,12 +48,17 @@ export async function POST(request:NextRequest) {
        Boolean(intent.test_mode)!==(config.mode==='test') || obj.mode!==creemResponseMode(config) ||
        String(obj.status)!=='completed' || String(obj.order?.status)!=='paid')
      throw new Error('Checkout state/mode is not verified as paid');
-   const productId=objectId(obj.product);
+   // Always verify the authoritative checkout: webhook event examples may omit units.
+   const checkout=await creemApi<any>(config,'GET','checkouts?checkout_id='+encodeURIComponent(checkoutId));
+   if(checkout.id!==checkoutId || checkout.request_id!==requestId || checkout.mode!==creemResponseMode(config) ||
+      checkout.status!=='completed' || checkout.order?.status!=='paid')
+     throw new Error('Authoritative Creem checkout has not completed a paid order');
+   const productId=objectId(checkout.product);
    const plan=productId?creemPlanForProduct(productId,config):null;
    if(plan!==intent.plan_name)throw new Error('Checkout product differs from authorized plan');
-   const quantity=Number(obj.units ?? 1);
-   if(quantity!==Number(intent.units))throw new Error('Checkout quantity mismatch');
-   const sid=objectId(obj.subscription);
+   const quantity=Number(checkout.units ?? obj.units);
+   if(!Number.isInteger(quantity) || quantity!==Number(intent.units))throw new Error('Checkout quantity mismatch');
+   const sid=objectId(checkout.subscription);
    if(!sid)throw new Error('Missing subscription in completed checkout');
    const result=await reconcileCreemSubscription(intent.organization_id,sid,config);
    if(!result.applied)throw new Error('Creem checkout subscription not applied');
