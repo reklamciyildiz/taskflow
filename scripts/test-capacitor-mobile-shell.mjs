@@ -53,6 +53,14 @@ assert.match(inboxMigration, /a1_valid_stage_config/);
 assert.match(inboxMigration, /guard_canonical_inbox_task_stage/);
 assert.match(inboxMigration, /t\.project_id IS NULL/);
 assert.match(inboxMigration, /REVOKE ALL ON public\.team_inbox_boards/);
+const quickCapture = read('components/QuickCapture.tsx');
+const dashboardCapture = read('components/dashboard/DashboardCapture.tsx');
+for (const capture of [quickCapture, dashboardCapture]) {
+  assert.match(capture, /projectId: null/, 'Inbox capture must remain unassigned');
+  assert.match(capture, /generalBoardColumns/, 'Inbox capture must use the canonical first actionable stage');
+  assert.doesNotMatch(capture, /ensureInboxProjectId/, 'Capture must not create an artificial Inbox Process');
+}
+
 assert.match(taskBoard, /const unresolvedTasks = useMemo\(/);
 assert.match(taskBoard, /unresolvedTasks\.length > 0/);
 assert.match(taskBoard, /boardScope\.type === 'general'/);
