@@ -53,6 +53,9 @@ jobs:
           npm run test:capacitor-oauth
           node scripts/test-capacitor-mobile-shell.mjs
 
+      - name: Make Gradle wrapper executable on Ubuntu
+        run: chmod +x mobile/android/gradlew
+
       - name: Build local-ui production API beta with fail-closed preflight
         working-directory: mobile
         run: npm run android:debug:production-beta
