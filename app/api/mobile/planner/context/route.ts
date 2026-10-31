@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { projectDb, taskDb, teamDb } from '@/lib/db';
 import { hydrateTasksWithCanonicalSchedules } from '@/lib/scheduling-runtime-server';
+import { readInboxBoard } from '@/lib/inbox-board-server';
 import {
   authenticateMobileRequest,
   mobileErrorResponse,
@@ -44,10 +45,11 @@ export async function GET(request: NextRequest) {
     const rawTasks = await taskDb.getByTeam(String(team.id));
     const visibleTasks = rawTasks.filter((task: any) => !task.project_id || visibleProjectIds.has(String(task.project_id)));
     const tasks = await hydrateTasksWithCanonicalSchedules(visibleTasks);
+    const inboxBoard = await readInboxBoard(String(team.id));
 
     return mobileJson(request, {
       success: true,
-      data: { teams, team, projects: visibleProjects, tasks, user },
+      data: { teams, team, projects: visibleProjects, tasks, user, inboxBoard },
     });
   } catch (error) {
     return mobileErrorResponse(request, error);
