@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireOrgAdmin } from '@/lib/server-authz';
 import { organizationDb } from '@/lib/db';
 import { reconcileLemonSubscription } from '@/lib/lemon-subscription';
+import { reconcileCreemOrg } from '@/lib/creem-billing-operations';
 
 export async function POST() {
   try {
@@ -13,6 +14,7 @@ export async function POST() {
     }
 
     const organization: any = await organizationDb.getById(organizationId);
+    if (organization?.billing_provider === 'creem') return reconcileCreemOrg(organizationId);
     const subscriptionId = organization?.ls_subscription_id
       ? String(organization.ls_subscription_id)
       : null;

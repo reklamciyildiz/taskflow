@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireOrgAdmin } from '@/lib/server-authz';
 import { organizationDb } from '@/lib/db';
 import { getLemonBillingConfig, variantForPlan } from '@/lib/lemon-config';
+import { changeCreemPlan } from '@/lib/creem-billing-operations';
 
 type SwitchPlan = 'pro' | 'team';
 type BillingInterval = 'monthly' | 'yearly';
@@ -22,6 +23,7 @@ export async function POST(request: NextRequest) {
     }
 
     const org: any = await organizationDb.getById(orgId);
+    if (org?.billing_provider === 'creem') return changeCreemPlan(request, orgId);
     const lsSubscriptionId = org?.ls_subscription_id ? String(org.ls_subscription_id) : null;
     if (!lsSubscriptionId) {
       return NextResponse.json(

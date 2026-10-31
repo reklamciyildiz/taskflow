@@ -3,6 +3,7 @@ import { requireOrgAdmin } from '@/lib/server-authz';
 import { organizationDb } from '@/lib/db';
 import { getOrganizationSeatUsage } from '@/lib/entitlements';
 import { getLemonBillingConfig } from '@/lib/lemon-config';
+import { changeCreemSeats } from '@/lib/creem-billing-operations';
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,6 +16,7 @@ export async function POST(request: NextRequest) {
     }
 
     const org: any = await organizationDb.getById(orgId);
+    if (org?.billing_provider === 'creem') return changeCreemSeats(request, orgId);
     const lsSubscriptionId = org?.ls_subscription_id ? String(org.ls_subscription_id) : null;
     if (!lsSubscriptionId) {
       return NextResponse.json({ success: false, error: 'No active subscription found' }, { status: 400 });

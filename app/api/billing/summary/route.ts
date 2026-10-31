@@ -16,7 +16,10 @@ export async function GET(request: NextRequest) {
     const seatsUsed = await getOrganizationSeatUsage(orgId);
 
     const org: any = await organizationDb.getById(orgId);
-    const subscriptionId = org?.ls_subscription_id ? String(org.ls_subscription_id) : null;
+    const billingProvider = org?.billing_provider === 'creem' ? 'creem' : 'lemon';
+    const subscriptionId = billingProvider === 'creem'
+      ? (org?.creem_subscription_id ? String(org.creem_subscription_id) : null)
+      : (org?.ls_subscription_id ? String(org.ls_subscription_id) : null);
 
     return NextResponse.json({
       success: true,
@@ -28,6 +31,7 @@ export async function GET(request: NextRequest) {
         seatLimit: Number.isFinite(ent.seatLimit) ? ent.seatLimit : null,
         seatsUsed,
         subscriptionId,
+        billingProvider,
       },
     });
   } catch (e: any) {

@@ -4,6 +4,8 @@ import { getOrganizationSeatUsage } from '@/lib/entitlements';
 import { organizationDb } from '@/lib/db';
 import { getLemonBillingConfig, variantForPlan } from '@/lib/lemon-config';
 import { APP_URL } from '@/lib/site-config';
+import { newBillingProvider } from '@/lib/creem-config';
+import { createCreemCheckout } from '@/lib/creem-billing-operations';
 
 type CheckoutPlan = 'pro' | 'team';
 type BillingInterval = 'monthly' | 'yearly';
@@ -24,6 +26,8 @@ export async function POST(request: NextRequest) {
     if (!orgId) {
       return NextResponse.json({ success: false, error: 'No organization found' }, { status: 400 });
     }
+
+    if (newBillingProvider() === 'creem') return createCreemCheckout(request, orgId, authed.user.email);
 
     const organization: any = await organizationDb.getById(orgId);
     if (organization?.ls_subscription_id && organization?.subscription_status !== 'expired') {

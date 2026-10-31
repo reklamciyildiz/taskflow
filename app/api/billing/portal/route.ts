@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireOrgAdmin } from '@/lib/server-authz';
 import { organizationDb } from '@/lib/db';
 import { getLemonBillingConfig } from '@/lib/lemon-config';
+import { createCreemPortal } from '@/lib/creem-billing-operations';
 
 export async function GET(_request: NextRequest) {
   try {
@@ -14,6 +15,7 @@ export async function GET(_request: NextRequest) {
     }
 
     const org: any = await organizationDb.getById(orgId);
+    if (org?.billing_provider === 'creem') return createCreemPortal(orgId);
     const subId = org?.ls_subscription_id ? String(org.ls_subscription_id) : '';
     if (!subId) {
       return NextResponse.json({ success: false, error: 'No subscription found for this organization' }, { status: 400 });
