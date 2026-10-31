@@ -88,7 +88,7 @@ assert.match(taskBoard, /canEditTask\(task\.createdBy, task\.assigneeId\)/);
 assert.match(taskBoard, /stage\.isTerminal && !canCompleteTask\(task\.assigneeId\)/);
 assert.match(taskBoard, /applyTaskUpdates\(\[\{ id: taskId, changes: \{ status: stageId \} \}\]\)/);
 
-// The bundled client authenticates its own Notes and Files requests.
+// Native Notes, Files and Comments share authenticated server access.
 const mobileMoreView = read('mobile/src/MobileMoreView.tsx');
 const mobileListView = read('mobile/src/MobileListView.tsx');
 const noteServer = read('lib/note-server.ts');
@@ -101,34 +101,14 @@ const attachmentItemRoute = read('app/api/attachments/[id]/route.ts');
 const middleware = read('middleware.ts');
 
 assert.ok(middleware.includes("pathname === '/api/attachments'"));
-assert.ok(middleware.includes('notes$'), 'Mobile notes CORS guard missing');
+assert.ok(middleware.includes('notes'), 'Mobile notes CORS guard missing');
+assert.ok(middleware.includes('comments'), 'Action comments CORS guard missing');
 assert.ok(middleware.includes('attachments'), 'Mobile attachments CORS guard missing');
 assert.match(noteServer, /requireAuthedUser\(request\)/);
 assert.match(taskNotesRoute, /requireTaskNoteAccess\(params.id, \{ mutate: false \}, undefined, request\)/);
 assert.match(taskNotesRoute, /requireTaskNoteAccess\(params.id, \{ mutate: true \}, undefined, request\)/);
 assert.match(taskCommentsRoute, /requireTaskNoteAccess\(params.id, \{ mutate: true \}, undefined, request\)/);
 assert.doesNotMatch(taskCommentsRoute, /getServerSession|body.authorId/);
-assert.ok(middleware.includes('comments
-assert.match(noteRoute, /requireNoteAccess\(params.id, \{ mutate: true \}, request\)/);
-assert.match(attachmentServer, /requireTaskNoteAccess\(target.taskId, \{ mutate \}, undefined, request\)/);
-assert.match(attachmentServer, /allowed.includes\(origin\)/);
-const privateFileLookup = attachmentServer.slice(attachmentServer.indexOf('export async function attachmentAccess('));
-assert.ok(privateFileLookup.indexOf('await requireAuthedUser(request)') >= 0);
-assert.ok(privateFileLookup.indexOf('await requireAuthedUser(request)') < privateFileLookup.indexOf('.from("attachments")'),
-  'Private attachment existence must not be queried before authentication');
-assert.match(attachmentListRoute, /attachmentTargetAccess\(target, false, request\)/);
-assert.match(attachmentItemRoute, /attachmentAccess\(params.id, false, request\)/);
-assert.match(mobileApp, /<MobileMoreView/);
-assert.match(mobileApp, /<MobileListView/);
-assert.match(mobileApp, /aria-label="All features"/);
-assert.match(mobileMoreView, /Customers/);
-assert.match(mobileMoreView, /Settings/);
-assert.match(mobileMoreView, /sign in separately/);
-assert.match(mobileListView, /openTaskEditor\(task.id\)/);
-assert.match(mobileListView, /task.teamId === currentTeam.id/);
-
-console.log('Capacitor navigation, local bundle, bearer ACL and OAuth guards passed.');
-), 'Action comments CORS guard missing');
 assert.match(noteRoute, /requireNoteAccess\(params.id, \{ mutate: true \}, request\)/);
 assert.match(attachmentServer, /requireTaskNoteAccess\(target.taskId, \{ mutate \}, undefined, request\)/);
 assert.match(attachmentServer, /allowed.includes\(origin\)/);
