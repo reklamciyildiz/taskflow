@@ -239,12 +239,12 @@ export function TaskBoard() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 flex-wrap items-center gap-3">
           <h2 className="sr-only md:not-sr-only md:text-2xl md:font-bold">Panel</h2>
-          {hasProcesses && (
+          {(
             <div className="flex min-w-0 items-center gap-2 w-full sm:w-auto">
               <ProcessSwitcher
                 projects={orderedProjectsForTeam}
                 value={boardScope.type === 'project' ? boardScope.projectId : ''}
-                onValueChange={(projectId) => setBoardScope({ type: 'project', projectId })}
+                onValueChange={(projectId) => setBoardScope(projectId ? { type: 'project', projectId } : { type: 'general' })}
                 onReorder={(projectIds) => {
                   if (currentTeam) void preferences.setProcessOrder(currentTeam.id, projectIds);
                 }}
@@ -321,7 +321,7 @@ export function TaskBoard() {
               </SelectContent>
             </Select>
           )}
-          {hasProcesses && permissions.canCreateTask && (
+          {permissions.canCreateTask && (
             <Button className="h-11 md:h-10" onClick={handleCreateTask}>
               <Plus className="mr-2 h-4 w-4" />
               Yeni aksiyon
@@ -335,7 +335,7 @@ export function TaskBoard() {
         <div className="rounded-lg border border-dashed p-8 text-center space-y-2 bg-muted/10">
           <p className="text-sm text-muted-foreground animate-pulse">Loading processes...</p>
         </div>
-      ) : !hasProcesses ? (
+      ) : !hasProcesses && boardScope.type !== 'general' ? (
         <div className="rounded-lg border border-dashed p-8 text-center space-y-2 bg-muted/30">
           <p className="text-sm font-medium text-foreground">No processes yet</p>
           <p className="text-sm text-muted-foreground">
@@ -390,13 +390,20 @@ export function TaskBoard() {
             </div>
           </div>
       
-          {filteredTasks.some((task) => !boardColumns.some((column) => column.id === task.status)) && (
-            <div className="mb-4 rounded-lg border border-amber-500/40 p-3 text-sm">
-              <p className="mb-2 text-muted-foreground">Unresolved stage — these Actions have not been moved. Open an Action to choose a valid stage.</p>
-              {filteredTasks.filter((task) => !boardColumns.some((column) => column.id === task.status)).map((task) => (
-                <button key={task.id} className="block py-1 text-left underline" onClick={() => openTaskEditor(task.id)}>{task.title}</button>
+          {filteredTasks.some(task => !boardColumns.some(column => column.id === task.status)) && (
+            <details className="mb-4 rounded-lg border border-amber-500/35 p-3 text-sm">
+              <summary className="cursor-pointer font-medium">
+                {filteredTasks.filter(task => !boardColumns.some(column => column.id === task.status)).length} Actions need stage review
+              </summary>
+              <p className="my-2 text-xs text-muted-foreground">
+                {boardScope.type === 'general'
+                  ? 'Inbox stages are saved per browser until server synchronization is enabled. Existing Actions are unchanged.'
+                  : 'Some Actions reference missing Process stages. No Action has been moved.'}
+              </p>
+              {filteredTasks.filter(task => !boardColumns.some(column => column.id === task.status)).map(task => (
+                <button type="button" key={task.id} className="block py-1 text-left underline" onClick={() => openTaskEditor(task.id)}>{task.title}</button>
               ))}
-            </div>
+            </details>
           )}
           {isMobileBoard ? <section className="min-w-0 space-y-3" aria-label="Board actions">
             {mobileGroup && <>

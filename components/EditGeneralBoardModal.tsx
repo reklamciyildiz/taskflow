@@ -95,10 +95,10 @@ export function EditGeneralBoardModal({ open, onClose }: EditGeneralBoardModalPr
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Settings2 className="h-5 w-5" />
-            Edit general action columns
+            Edit Inbox stages
           </DialogTitle>
           <DialogDescription>
-            These columns apply to the “General actions” view (no process). Team: {currentTeam?.name ?? '—'}
+            Inbox stages apply to Actions without a Process. Until server synchronization is enabled, stages are saved in this browser. Team: {currentTeam?.name ?? '—'}
           </DialogDescription>
         </DialogHeader>
 
