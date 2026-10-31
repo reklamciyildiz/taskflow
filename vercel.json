@@ -8,5 +8,8 @@
       "path": "/api/cron/reminders-tick",
       "schedule": "0 20 * * *"
     }
-  ]
+  ],
+  "git": {
+    "deploymentEnabled": false
+  }
 }
