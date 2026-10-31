@@ -60,7 +60,7 @@ export default function PrivacyPage() {
             </p>
             <SubHeading>Billing Information</SubHeading>
             <p>
-              Payment processing is handled entirely by Lemon Squeezy, the merchant of record. We
+              Payment processing for existing subscriptions is handled by Lemon Squeezy. Creem may handle new subscriptions after our payment-provider transition is activated. We
               do not store your payment card details. We receive subscription status, plan type,
               and seat counts from Lemon Squeezy to manage your account entitlements.
             </p>
@@ -71,7 +71,7 @@ export default function PrivacyPage() {
               <li>To provide, maintain, and improve the {APP_NAME} service</li>
               <li>To authenticate your identity and manage your account</li>
               <li>To sync tasks with Google Calendar when you have enabled this integration</li>
-              <li>To process payments and manage your subscription via Lemon Squeezy</li>
+              <li>To process payments and manage subscriptions using the active payment provider (Lemon Squeezy or Creem)</li>
               <li>To send transactional emails (e.g., account verification, password reset, reminders)</li>
               <li>To detect and prevent fraudulent or unauthorized use of the service</li>
               <li>To comply with legal obligations</li>

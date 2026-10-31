@@ -77,8 +77,7 @@ export default function TermsPage() {
 
           <Section title="5. Subscriptions and Billing">
             <p>
-              Actiproc offers free and paid subscription plans. Paid plans are billed through Lemon
-              Squeezy, our payment processor. By subscribing to a paid plan, you agree to:
+              Actiproc offers free and paid subscription plans. Existing paid subscriptions are processed by Lemon Squeezy; new subscriptions may be processed by Creem after the payment-provider transition. The checkout identifies the merchant of record. By subscribing to a paid plan, you agree to:
             </p>
             <ul>
               <li>Pay all applicable fees for your selected plan</li>
@@ -112,7 +111,7 @@ export default function TermsPage() {
 
           <Section title="7. Third-Party Integrations">
             <p>
-              Actiproc integrates with third-party services including Google Calendar and Lemon Squeezy.
+              Actiproc integrates with third-party services including Google Calendar and our applicable payment processor (Lemon Squeezy or Creem).
               Your use of these integrations is subject to the respective third-party terms of service
               and privacy policies. We are not responsible for the practices or content of third-party
               services.

@@ -30,7 +30,7 @@ export function MarketingProductShots() {
             >
               <Image
                 src="/marketing/screens/hero.png"
-                alt="Actiproc product preview (placeholder)"
+                alt="Actiproc interface preview"
                 width={1920}
                 height={1080}
                 sizes="(min-width: 1024px) 960px, 92vw"

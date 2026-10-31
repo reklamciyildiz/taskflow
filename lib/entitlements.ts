@@ -4,7 +4,7 @@ import { isPaidActive, type SubscriptionStatus } from '@/lib/subscription-access
 export { isPaidActive } from '@/lib/subscription-access';
 export type { SubscriptionStatus } from '@/lib/subscription-access';
 
-export type PlanName = 'free' | 'pro' | 'team';
+export type PlanName = 'free' | 'individual' | 'pro' | 'team';
 
 export type OrganizationBilling = {
   id: string;
@@ -13,6 +13,8 @@ export type OrganizationBilling = {
   variant_id: string | null;
   ls_customer_id: string | null;
   ls_subscription_id: string | null;
+  creem_subscription_id?: string | null;
+  billing_provider?: string | null;
   seat_limit?: number | null;
   subscription_ends_at?: string | null;
 };
@@ -35,6 +37,7 @@ function normalizePlan(plan: unknown): PlanName {
   const p = String(plan ?? 'free').trim().toLowerCase();
   if (p === 'team') return 'team';
   if (p === 'pro') return 'pro';
+  if (p === 'individual') return 'individual';
   return 'free';
 }
 
@@ -51,13 +54,14 @@ function normalizeStatus(status: unknown): SubscriptionStatus {
 /** Default seat caps when org row has no stored `seat_limit` (e.g. legacy rows). Paid caps normally come from Lemon webhooks. */
 export function getSeatLimitFromPlan(plan: PlanName): number {
   if (plan === 'free') return 2;
+  if (plan === 'individual') return 1;
   if (plan === 'pro') return 1;
   if (plan === 'team') return Number.POSITIVE_INFINITY;
   return 2;
 }
 
 export function canUseAdvancedReminders(ent: Pick<Entitlements, 'plan' | 'subscriptionStatus' | 'endsAt'>): boolean {
-  if (ent.plan === 'free') return false;
+  if (ent.plan === 'free' || ent.plan === 'individual') return false;
   return isPaidActive(ent.subscriptionStatus, ent.endsAt);
 }
 
@@ -77,8 +81,11 @@ export function getPlanLimits(ent: Pick<Entitlements, 'plan' | 'subscriptionStat
   if (ent.plan === 'pro' && paid) {
     return { maxTeams: 3, maxProcesses: 10, canUseWebhooks: false };
   }
+  if (ent.plan === 'individual' && paid) {
+    return { maxTeams: 1, maxProcesses: 3, canUseWebhooks: false };
+  }
   // Default: Free
-  return { maxTeams: 1, maxProcesses: 2, canUseWebhooks: false };
+  return { maxTeams: 1, maxProcesses: 1, canUseWebhooks: false };
 }
 
 export async function getOrganizationEntitlements(organizationId: string): Promise<Entitlements> {
@@ -90,7 +97,7 @@ export async function getOrganizationEntitlements(organizationId: string): Promi
   const stored = Number(org?.seat_limit);
   const storedOk = Number.isFinite(stored) && stored > 0;
 
-  const hasRealSubscription = !!org?.ls_subscription_id;
+  const hasRealSubscription = !!(org?.ls_subscription_id || org?.creem_subscription_id);
 
   let seatLimit: number;
   if (plan === 'free') {
@@ -103,6 +110,8 @@ export async function getOrganizationEntitlements(organizationId: string): Promi
     seatLimit = hasRealSubscription && storedOk && stored >= 1
       ? Math.floor(stored)
       : Number.POSITIVE_INFINITY;
+  } else if (plan === 'individual') {
+    seatLimit = 1;
   } else if (plan === 'pro') {
     seatLimit = storedOk ? Math.max(1, Math.floor(stored)) : getSeatLimitFromPlan('pro');
   } else {
