@@ -80,7 +80,8 @@ export function EditGeneralBoardModal({ open, onClose }: EditGeneralBoardModalPr
     try {
       const finalColumns = validateStageConfig(normalizedColumns);
       assertStagesRetained(finalColumns, tasks.filter((task) => !task.projectId && task.teamId === currentTeam?.id).map((task) => task.status));
-      setGeneralBoardColumns(finalColumns);
+      const saved = await setGeneralBoardColumns(finalColumns);
+      if (!saved) throw new Error('Inbox stages could not be saved.');
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Save failed');
@@ -95,10 +96,10 @@ export function EditGeneralBoardModal({ open, onClose }: EditGeneralBoardModalPr
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Settings2 className="h-5 w-5" />
-            Edit general action columns
+            Edit Inbox stages
           </DialogTitle>
           <DialogDescription>
-            These columns apply to the “General actions” view (no process). Team: {currentTeam?.name ?? '—'}
+            Inbox contains Actions not assigned to a Process. These stages are shared between web and mobile after the team Inbox is synchronized. Team: {currentTeam?.name ?? '—'}
           </DialogDescription>
         </DialogHeader>
 
