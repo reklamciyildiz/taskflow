@@ -33,6 +33,7 @@ import {
 import { SCHEDULE_CHANGED_EVENT, type ScheduleChangedDetail } from '@/lib/schedule-events';
 import { reminderInstantsFromRules, scheduleToLegacyDueValue } from '@/lib/scheduling-runtime';
 import { OptimisticTaskWrites } from '@/lib/optimistic-task-writes';
+import { validateStageConfig, assertStagesRetained } from '@/lib/stage-lifecycle';
 
 export type {
   Task,
