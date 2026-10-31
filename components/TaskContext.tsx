@@ -107,6 +107,7 @@ export interface TaskContextType {
   /** Server-owned team Inbox stage synchronization. */
   inboxBoardStatus: 'loading' | 'unavailable' | 'unconfigured' | 'ready';
   inboxBoardVersion: number;
+  inboxCanInitialize: boolean;
   syncInboxStages: () => Promise<boolean>;
   currentUser: TeamMember | null;
   currentUserRole: Role;
@@ -1407,6 +1408,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       generalBoardColumns,
       inboxBoardStatus,
       inboxBoardVersion,
+      inboxCanInitialize: inboxBoardStatus === 'unconfigured',
       syncInboxStages,
       currentUser,
       currentUserRole,
