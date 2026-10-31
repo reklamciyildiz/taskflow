@@ -577,16 +577,22 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
 
   const setGeneralBoardColumns = useCallback(async (cols: ProjectColumnConfig[]): Promise<boolean> => {
     const next = cols.map((stage) => ({ ...stage }));
-    if (inboxBoardStatus === 'loading' || inboxBoardStatus === 'unavailable') {
-      throw new Error('Inbox synchronization is not available. No changes were saved.');
-    }
     if (inboxBoardStatus === 'ready') {
       return saveInboxBoard(next, inboxBoardVersion);
     }
-    // Pre-migration local editing is kept only until the first explicit import.
-    // No local data or stage identity is deleted.
-    if (currentTeam?.id) {
+    // When the migration/API is not deployed, keep the existing web experience
+    // functional without claiming that its browser-local stage IDs are synced.
+    // Never fall back to local writes after a canonical team board has loaded.
+    if (inboxBoardStatus === 'loading') {
+      throw new Error('Inbox configuration is loading. Try again when it finishes.');
+    }
+    if (!currentTeam?.id || typeof window === 'undefined') {
+      throw new Error('Inbox workspace is not available.');
+    }
+    try {
       window.localStorage.setItem(`taskflow:generalBoardColumns:${currentTeam.id}`, JSON.stringify(next));
+    } catch {
+      throw new Error('Could not save Inbox stage settings in this browser.');
     }
     setGeneralBoardColumnsState(next);
     return true;
