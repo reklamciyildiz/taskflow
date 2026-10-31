@@ -10,11 +10,11 @@ import {
 } from '@/lib/note-server';
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: { id: string } },
 ) {
   try {
-    const access = await requireTaskNoteAccess(params.id, { mutate: false });
+    const access = await requireTaskNoteAccess(params.id, { mutate: false }, undefined, request);
     if (access instanceof NextResponse) return access;
 
     const notes = await noteDb.getByTask(params.id);
@@ -36,7 +36,7 @@ export async function POST(
   { params }: { params: { id: string } },
 ) {
   try {
-    const access = await requireTaskNoteAccess(params.id, { mutate: true });
+    const access = await requireTaskNoteAccess(params.id, { mutate: true }, undefined, request);
     if (access instanceof NextResponse) return access;
 
     const body = await request.json();
