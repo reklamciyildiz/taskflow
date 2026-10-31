@@ -1,36 +1,36 @@
 import {
-  BarChart3, BookOpen, Bot, CalendarDays, CheckSquare2,
-  ExternalLink, Home, LayoutList, Plug, Settings, Trophy, Users, Building2,
+  BarChart3, Bot, ChevronRight, ExternalLink, LayoutList, Plug,
+  Settings2, Trophy, Users, Building2,
 } from 'lucide-react';
 import { Browser } from '@capacitor/browser';
 import { useState } from 'react';
 
-type NativeDestination = 'workspace' | 'planner' | 'process' | 'list' | 'knowledge' | 'ai';
-const nativeItems: { title: string; subtitle: string; destination: NativeDestination; Icon: typeof Home }[] = [
-  { title: 'Dashboard', subtitle: 'Native', destination: 'workspace', Icon: Home },
-  { title: 'Planner', subtitle: 'Native', destination: 'planner', Icon: CalendarDays },
-  { title: 'Projects / Board', subtitle: 'Native', destination: 'process', Icon: CheckSquare2 },
-  { title: 'List View', subtitle: 'Native', destination: 'list', Icon: LayoutList },
-  { title: 'Knowledge Hub', subtitle: 'Native', destination: 'knowledge', Icon: BookOpen },
-  { title: 'Actiproc AI', subtitle: 'Native', destination: 'ai', Icon: Bot },
-];
-const webItems: { title: string; path: string; Icon: typeof Home }[] = [
+type NativeDestination = 'workspace' | 'planner' | 'process' | 'list' | 'knowledge' | 'ai' | 'account';
+
+const shortcuts = [
+  { title: 'Actiproc AI', detail: 'Your workspace assistant', destination: 'ai', Icon: Bot },
+  { title: 'List View', detail: 'Search, filter and edit Actions', destination: 'list', Icon: LayoutList },
+  { title: 'Account & security', detail: 'Session and device access', destination: 'account', Icon: Settings2 },
+] as const;
+
+const webModules = [
   { title: 'Customers', path: '/customers', Icon: Building2 },
   { title: 'Integrations', path: '/integrations', Icon: Plug },
   { title: 'Analytics', path: '/analytics', Icon: BarChart3 },
   { title: 'Achievements', path: '/achievements', Icon: Trophy },
   { title: 'Team', path: '/team', Icon: Users },
-  { title: 'Settings', path: '/settings', Icon: Settings },
-];
+] as const;
 
 export function MobileMoreView({ onNavigate }: { onNavigate: (destination: NativeDestination) => void }) {
   const [opening, setOpening] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
   async function openWeb(path: string) {
     setOpening(path);
     setError(null);
     try {
-      // Fixed, reviewed Actiproc routes only. Never pass user-supplied URLs.
+      // Only known, fixed first-party feature routes. No billing, checkout,
+      // pricing, external-store or upgrade destination is linked from the APK.
       await Browser.open({ url: `https://www.actiproc.com${path}`, presentationStyle: 'popover' });
     } catch {
       setError('Could not open this web module. Check your connection and try again.');
@@ -38,27 +38,42 @@ export function MobileMoreView({ onNavigate }: { onNavigate: (destination: Nativ
       setOpening(null);
     }
   }
+
   return (
     <section className="workspace mobile-more-view mobile-product-view" aria-label="All Actiproc features">
-      <h1>All features</h1>
-      <p className="mobile-more-subtitle">Your existing workspace, with all modules accessible from one place.</p>
-      <h2>In this app</h2>
-      <div className="mobile-more-grid">
-        {nativeItems.map(({ title, subtitle, destination, Icon }) => (
-          <button type="button" key={destination} onClick={() => onNavigate(destination)} className="mobile-more-item">
-            <Icon aria-hidden="true" /><span className="mobile-more-item-copy"><strong>{title}</strong><small>{subtitle}</small></span>
+      <div className="mobile-more-intro">
+        <p className="mobile-more-eyebrow">WORKSPACE</p>
+        <h1>More</h1>
+        <p>Tools and settings in one place.</p>
+      </div>
+
+      <div className="mobile-more-section-heading">
+        <h2>Quick access</h2>
+        <span>In the app</span>
+      </div>
+      <div className="mobile-more-shortcuts">
+        {shortcuts.map(({ title, detail, destination, Icon }) => (
+          <button type="button" key={destination} onClick={() => onNavigate(destination)} className="mobile-more-shortcut-row">
+            <span className="mobile-more-shortcut-icon"><Icon aria-hidden="true" /></span>
+            <span className="mobile-more-item-copy"><strong>{title}</strong><small>{detail}</small></span>
+            <ChevronRight aria-hidden="true" className="mobile-more-chevron" />
           </button>
         ))}
       </div>
-      <h2>Web modules</h2>
+
+      <div className="mobile-more-section-heading">
+        <h2>Workspace tools</h2>
+        <span>Web</span>
+      </div>
       <p className="mobile-more-note">
-        These modules are available through the Actiproc website while their mobile screens are being built.
-        Your browser may ask you to sign in separately.
+        These tools currently open the Actiproc website. You might need to sign in to the web separately.
       </p>
       <div className="mobile-more-grid">
-        {webItems.map(({ title, path, Icon }) => (
+        {webModules.map(({ title, path, Icon }) => (
           <button type="button" key={path} disabled={opening !== null} onClick={() => void openWeb(path)} className="mobile-more-item">
-            <Icon aria-hidden="true" /><span className="mobile-more-item-copy"><strong>{title}</strong><small>Open web</small></span><ExternalLink aria-hidden="true" className="mobile-more-link-icon" />
+            <Icon aria-hidden="true" />
+            <span className="mobile-more-item-copy"><strong>{title}</strong><small>Open web</small></span>
+            <ExternalLink aria-hidden="true" className="mobile-more-link-icon" />
           </button>
         ))}
       </div>
