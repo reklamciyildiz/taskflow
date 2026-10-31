@@ -9,6 +9,9 @@ on:
       - mobile/android/app/src/main/java/com/actiproc/app/dev/ActiprocAuthPlugin.java
       - scripts/test-capacitor-oauth-handoff.mjs
       - scripts/test-capacitor-mobile-shell.mjs
+      - mobile/postcss.config.cjs
+      - mobile/tailwind.config.ts
+      - mobile/scripts/verify-bundled-css.mjs
   workflow_dispatch:
 
 permissions:
@@ -62,6 +65,10 @@ jobs:
       - name: Build local-ui production API beta with fail-closed preflight
         working-directory: mobile
         run: npm run android:debug:production-beta
+
+      - name: Verify mobile CSS utilities were compiled
+        working-directory: mobile
+        run: node scripts/verify-bundled-css.mjs
 
       - name: Verify Android contains local UI without server.url
         run: |
