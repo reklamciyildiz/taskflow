@@ -108,7 +108,7 @@ export interface TaskContextType {
   inboxBoardStatus: 'loading' | 'unavailable' | 'unconfigured' | 'ready';
   inboxBoardVersion: number;
   inboxCanInitialize: boolean;
-  syncInboxStages: () => Promise<boolean>;
+  syncInboxStages: (approvedStages?: ProjectColumnConfig[]) => Promise<boolean>;
   currentUser: TeamMember | null;
   currentUserRole: Role;
   permissions: Permission;
@@ -564,16 +564,19 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     return true;
   }, [currentTeam?.id]);
 
-  const syncInboxStages = useCallback(async (): Promise<boolean> => {
-    // Deliberate, explicit first import from the current browser. Existing task
-    // statuses must all exist in the proposed config or the database rejects it.
+  const syncInboxStages = useCallback(async (approvedStages?: ProjectColumnConfig[]): Promise<boolean> => {
+    // Import is explicitly approved by the team administrator. Preserve each
+    // persisted status ID; missing labels are reviewed in the recovery dialog.
+    // Database guards recheck all Actions under lock, including concurrent writes.
     if (inboxBoardStatus !== 'unconfigured') return false;
-    try {
-      return await saveInboxBoard(generalBoardColumns, 0);
-    } catch (error) {
-      throw error; // Caller displays a meaningful conflict; never silently remap.
-    }
-  }, [inboxBoardStatus, generalBoardColumns, saveInboxBoard]);
+    if (!currentTeam?.id) throw new Error('Select a workspace first.');
+    const nextStages = validateStageConfig(approvedStages ?? generalBoardColumns);
+    const savedStatuses = tasksRef.current
+      .filter((task) => task.teamId === currentTeam.id && task.projectId == null)
+      .map((task) => task.status);
+    assertStagesRetained(nextStages, savedStatuses);
+    return saveInboxBoard(nextStages, 0);
+  }, [inboxBoardStatus, currentTeam?.id, generalBoardColumns, saveInboxBoard]);
 
   const setGeneralBoardColumns = useCallback(async (cols: ProjectColumnConfig[]): Promise<boolean> => {
     const next = cols.map((stage) => ({ ...stage }));
