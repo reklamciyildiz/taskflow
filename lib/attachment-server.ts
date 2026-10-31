@@ -132,8 +132,13 @@ export function validatePdfStructure(bytes: Buffer): void {
 export function requireAttachmentOrigin(request: NextRequest) {
   const origin = request.headers.get("origin");
   const expected = new URL(process.env.NEXTAUTH_URL || request.url).origin;
-  if (origin && origin !== expected)
-    throw new AttachmentError("Forbidden request origin.", 403);
+  if (!origin || origin === expected) return;
+  // A native bundled client uses https://localhost, but must authenticate
+  // with a mobile Bearer token; never broaden cross-origin web-cookie requests.
+  const allowed = (process.env.MOBILE_AUTH_ALLOWED_ORIGINS ?? "")
+    .split(",").map(value => value.trim()).filter(Boolean);
+  if (allowed.includes(origin) && request.headers.get("authorization")?.startsWith("Bearer ")) return;
+  throw new AttachmentError("Forbidden request origin.", 403);
 }
 function checked<T extends { error: any }>(result: T): T {
   if (result.error)
@@ -146,10 +151,11 @@ function checked<T extends { error: any }>(result: T): T {
 export async function attachmentTargetAccess(
   target: AttachmentTarget,
   mutate: boolean,
+  request?: NextRequest,
 ) {
   if (!target?.taskId || (target.noteId && target.checklistItemId))
     throw new AttachmentError("Invalid file destination.");
-  const access = await requireTaskNoteAccess(target.taskId, { mutate });
+  const access = await requireTaskNoteAccess(target.taskId, { mutate }, undefined, request);
   if (access instanceof NextResponse) return access;
   if (target.noteId) {
     const note = checked(
@@ -175,12 +181,12 @@ export async function attachmentTargetAccess(
   }
   return access;
 }
-export async function attachmentAccess(id: string, mutate: boolean) {
+export async function attachmentAccess(id: string, mutate: boolean, request?: NextRequest) {
   const file = checked(
     await db.from("attachments").select("*").eq("id", id).maybeSingle(),
   ).data;
   if (!file?.task_id) throw new AttachmentError("File not found.", 404);
-  const access = await attachmentTargetAccess({ taskId: file.task_id }, mutate);
+  const access = await attachmentTargetAccess({ taskId: file.task_id }, mutate, request);
   if (access instanceof NextResponse) return access;
   if (
     file.organization_id !== access.task.organization_id ||
