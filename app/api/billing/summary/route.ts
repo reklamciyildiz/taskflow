@@ -3,9 +3,9 @@ import { requireOrgAdmin } from '@/lib/server-authz';
 import { getOrganizationEntitlements, getOrganizationSeatUsage } from '@/lib/entitlements';
 import { organizationDb } from '@/lib/db';
 
-export async function GET(_request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
-    const authed = await requireOrgAdmin();
+    const authed = await requireOrgAdmin(request);
     if (authed instanceof NextResponse) return authed;
     const orgId = authed.user.organization_id;
     if (!orgId) {
