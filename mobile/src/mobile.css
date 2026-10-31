@@ -443,3 +443,15 @@ html:not(.dark) .planner-check.is-complete { color: #fff; }
 .mobile-list-empty { padding: 1.5rem; text-align: center; }
 .screen-more, .screen-list { padding-bottom: calc(6.5rem + env(safe-area-inset-bottom, 0px)); }
 @media (max-width: 360px) { .mobile-more-grid { grid-template-columns: 1fr; } }
+
+/* Keep the More entry reachable on narrow Android handsets without wrapping
+   the header. Network outages still surface via the offline banner. */
+@media (max-width: 400px) {
+  .app-header { gap: .4rem; }
+  .app-header .network-status { display: none; }
+  .app-header .brand-mark { width: 2.15rem; height: 2.15rem; }
+  .app-header .brand-copy strong { font-size: .85rem; }
+  .app-header .brand-copy span { display: none; }
+  .app-header .icon-button { width: 2.35rem; min-width: 2.35rem; height: 2.35rem; }
+  .app-header .avatar { width: 2.2rem; height: 2.2rem; }
+}
