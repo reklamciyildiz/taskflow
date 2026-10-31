@@ -38,6 +38,12 @@ if (preflight.status !== 204 || preflight.headers['access-control-allow-origin']
 }
 
 const sharedApiPaths = [
+  { path: '/api/users/profile', method: 'GET' },
+  { path: '/api/users/profile', method: 'PATCH' },
+  { path: '/api/users/settings', method: 'GET' },
+  { path: '/api/users/settings', method: 'PATCH' },
+  { path: '/api/organizations/00000000-0000-0000-0000-000000000000', method: 'GET' },
+  { path: '/api/billing/summary', method: 'GET' },
   { path: '/api/knowledge?teamId=00000000-0000-0000-0000-000000000000', method: 'GET' },
   { path: '/api/ai/conversations', method: 'GET' },
   { path: '/api/tasks/00000000-0000-0000-0000-000000000000/notes', method: 'GET' },
