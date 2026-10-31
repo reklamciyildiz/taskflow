@@ -10,6 +10,12 @@ import { moveItem } from '@/lib/user-preferences';
 
 type ProcessOption = { id: string; name: string };
 
+// Historical Quick Capture could create a normal Process named Inbox. Keep
+// it visible, but distinguish it from the new unassigned team Inbox.
+const processLabel = (name: string) => name.trim().toLowerCase() === 'inbox'
+  ? 'Inbox (legacy Process)'
+  : name;
+
 export function ProcessSwitcher({
   projects,
   value,
@@ -52,7 +58,7 @@ export function ProcessSwitcher({
           aria-label="Active process / project"
           aria-expanded={open}
         >
-          <span className="truncate">{selected?.name ?? 'Inbox'}</span>
+          <span className="truncate">{selected ? processLabel(selected.name) : 'Inbox'}</span>
           <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-60" aria-hidden />
         </Button>
       </PopoverTrigger>
@@ -97,7 +103,7 @@ export function ProcessSwitcher({
                   <span className="flex h-4 w-4 shrink-0 items-center justify-center">
                     {project?.id === value ? <Check className="h-4 w-4" aria-hidden /> : null}
                   </span>
-                  <span className="min-w-0 flex-1 truncate px-2">{project?.name}</span>
+                  <span className="min-w-0 flex-1 truncate px-2">{project ? processLabel(project.name) : ''}</span>
                   <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                 </div>
               );
@@ -141,7 +147,7 @@ export function ProcessSwitcher({
                           <span className="flex h-4 w-4 shrink-0 items-center justify-center">
                             {project.id === value ? <Check className="h-4 w-4" aria-hidden /> : null}
                           </span>
-                          <span className="truncate">{project.name}</span>
+                          <span className="truncate">{processLabel(project.name)}</span>
                         </button>
                         <div className="mr-1 flex shrink-0 items-center">
                           <button
