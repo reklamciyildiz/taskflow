@@ -17,7 +17,7 @@ export async function GET(
   { params }: { params: { id: string } },
 ) {
   try {
-    const access = await attachmentAccess(params.id, false);
+    const access = await attachmentAccess(params.id, false, request);
     if (access instanceof NextResponse) return access;
     const { file } = access;
     if (file.status !== "ready")
@@ -75,12 +75,12 @@ export async function GET(
   }
 }
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: { id: string } },
 ) {
   try {
-    requireAttachmentOrigin(_request);
-    const access = await attachmentAccess(params.id, true);
+    requireAttachmentOrigin(request);
+    const access = await attachmentAccess(params.id, true, request);
     if (access instanceof NextResponse) return access;
     if (access.file.uploaded_by !== access.user.id)
       throw new AttachmentError(
@@ -98,7 +98,7 @@ export async function PATCH(
 ) {
   try {
     requireAttachmentOrigin(request);
-    const access = await attachmentAccess(params.id, true);
+    const access = await attachmentAccess(params.id, true, request);
     if (access instanceof NextResponse) return access;
     const body = await request.json();
     const filename =
@@ -124,7 +124,7 @@ export async function DELETE(
 ) {
   try {
     requireAttachmentOrigin(request);
-    const access = await attachmentAccess(params.id, true);
+    const access = await attachmentAccess(params.id, true, request);
     if (access instanceof NextResponse) return access;
     if (access.file.status !== "ready") {
       if (access.file.uploaded_by !== access.user.id)
