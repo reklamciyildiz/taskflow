@@ -38,19 +38,19 @@ if (preflight.status !== 204 || preflight.headers['access-control-allow-origin']
 }
 
 const sharedApiPaths = [
-  '/api/knowledge?teamId=00000000-0000-0000-0000-000000000000',
-  '/api/ai/conversations',
-  '/api/tasks/00000000-0000-0000-0000-000000000000/notes',
-  '/api/notes/00000000-0000-0000-0000-000000000000',
-  '/api/attachments?taskId=00000000-0000-0000-0000-000000000000',
-  '/api/attachments/00000000-0000-0000-0000-000000000000',
+  { path: '/api/knowledge?teamId=00000000-0000-0000-0000-000000000000', method: 'GET' },
+  { path: '/api/ai/conversations', method: 'GET' },
+  { path: '/api/tasks/00000000-0000-0000-0000-000000000000/notes', method: 'GET' },
+  { path: '/api/notes/00000000-0000-0000-0000-000000000000', method: 'PATCH' },
+  { path: '/api/attachments?taskId=00000000-0000-0000-0000-000000000000', method: 'GET' },
+  { path: '/api/attachments/00000000-0000-0000-0000-000000000000', method: 'GET' },
 ];
-for (const path of sharedApiPaths) {
+for (const { path, method } of sharedApiPaths) {
   const sharedPreflight = await request(path, {
     method: 'OPTIONS',
     headers: {
       Origin: 'https://localhost',
-      'Access-Control-Request-Method': 'GET',
+      'Access-Control-Request-Method': method,
       'Access-Control-Request-Headers': 'authorization, content-type',
     },
   });
@@ -58,20 +58,22 @@ for (const path of sharedApiPaths) {
     sharedPreflight.status !== 204
     || sharedPreflight.headers['access-control-allow-origin'] !== 'https://localhost'
   ) {
-    throw new Error(`Shared mobile API preflight is not ready for ${path} (HTTP ${sharedPreflight.status ?? 'unknown'}).`);
+    throw new Error(`Shared mobile API preflight is not ready for ${method} ${path} (HTTP ${sharedPreflight.status ?? 'unknown'}).`);
   }
 
   const rejected = await request(path, {
+    method,
     headers: {
       Origin: 'https://localhost',
       Authorization: 'Bearer invalid-production-beta-smoke-token',
+      ...(method === 'PATCH' ? { 'Content-Type': 'application/json' } : {}),
     },
   });
   if (
     rejected.status !== 401
     || rejected.headers['access-control-allow-origin'] !== 'https://localhost'
   ) {
-    throw new Error(`Shared mobile API did not fail closed for ${path} (HTTP ${rejected.status ?? 'unknown'}).`);
+    throw new Error(`Shared mobile API did not reject an invalid bearer for ${method} ${path} (HTTP ${rejected.status ?? 'unknown'}).`);
   }
 }
 
