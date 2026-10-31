@@ -9,6 +9,17 @@ on:
       - mobile/android/app/src/main/java/com/actiproc/app/dev/ActiprocAuthPlugin.java
       - scripts/test-capacitor-oauth-handoff.mjs
       - scripts/test-capacitor-mobile-shell.mjs
+      - mobile/src/App.tsx
+      - mobile/src/MobileMoreView.tsx
+      - mobile/src/MobileListView.tsx
+      - mobile/src/mobile.css
+      - lib/note-server.ts
+      - lib/attachment-server.ts
+      - middleware.ts
+      - app/api/tasks/[id]/notes/route.ts
+      - app/api/notes/[id]/route.ts
+      - app/api/attachments/route.ts
+      - app/api/attachments/[id]/route.ts
       - mobile/postcss.config.cjs
       - mobile/tailwind.config.ts
       - mobile/scripts/verify-bundled-css.mjs
