@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 import { noteDb, projectDb, taskDb, teamMemberDb } from '@/lib/db';
 import {
   canMutateTeamTasks,
@@ -53,8 +53,9 @@ export async function requireTaskNoteAccess(
   taskId: string,
   options: { mutate: boolean },
   existingAuth?: AuthedContext,
+  request?: NextRequest,
 ): Promise<TaskNoteAccess | NextResponse<ApiResponse<null>>> {
-  const authed = existingAuth ?? (await requireAuthedUser());
+  const authed = existingAuth ?? (await requireAuthedUser(request));
   if (authed instanceof NextResponse) return authed;
 
   const task = await taskDb.getById(taskId);
@@ -106,8 +107,9 @@ export async function requireTaskNoteAccess(
 export async function requireNoteAccess(
   noteId: string,
   options: { mutate: boolean },
+  request?: NextRequest,
 ) {
-  const authed = await requireAuthedUser();
+  const authed = await requireAuthedUser(request);
   if (authed instanceof NextResponse) return authed;
 
   const note = await noteDb.getById(noteId);
