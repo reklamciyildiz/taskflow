@@ -455,3 +455,38 @@ html:not(.dark) .planner-check.is-complete { color: #fff; }
   .app-header .icon-button { width: 2.35rem; min-width: 2.35rem; height: 2.35rem; }
   .app-header .avatar { width: 2.2rem; height: 2.2rem; }
 }
+
+/* The canonical web Action table already provides a mobile card layout.
+   Keep the responsive table inside the native viewport, not a second fork. */
+.mobile-operational-list { width: 100%; min-width: 0; max-width: 100%; padding-bottom: calc(6.5rem + env(safe-area-inset-bottom, 0px)); }
+.mobile-operational-list > div { min-width: 0; max-width: 100%; }
+.mobile-operational-list [role="table"] { max-width: 100%; }
+.mobile-operational-list [role="row"] { min-width: 0; }
+.mobile-operational-list [data-radix-select-trigger] { max-width: 100%; }
+
+/* The Action Panel is a fullscreen sheet on narrow devices. Long saved note
+   titles/content must wrap or scroll locally, never widen the whole sheet. */
+@media (max-width: 767px) {
+  .mobile-shell [data-action-panel-sheet] {
+    width: 100vw;
+    max-width: 100vw;
+    min-width: 0;
+    overflow-x: hidden;
+  }
+  .mobile-shell [data-action-panel-sheet] [data-state="active"] {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .mobile-shell [data-action-panel-sheet] .ProseMirror,
+  .mobile-shell [data-action-panel-sheet] .tiptap {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+  .mobile-shell [data-action-panel-sheet] pre,
+  .mobile-shell [data-action-panel-sheet] table {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+}
