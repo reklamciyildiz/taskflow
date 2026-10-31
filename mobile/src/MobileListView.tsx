@@ -11,7 +11,7 @@ import { TaskList } from '../../components/TaskList';
 export function MobileListView() {
   return (
     <section className="workspace mobile-product-view mobile-operational-list" aria-label="Action list">
-      <TaskList allowProcessAdministration={false} />
+      <TaskList allowProcessAdministration={false} mobileCompact />
     </section>
   );
 }
