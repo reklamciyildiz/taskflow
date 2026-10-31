@@ -104,6 +104,10 @@ export interface TaskContextType {
   boardColumns: ProjectColumnConfig[];
   /** Customizable columns for General board (no process), stored per team. */
   generalBoardColumns: ProjectColumnConfig[];
+  /** Server-owned team Inbox stage synchronization. */
+  inboxBoardStatus: 'loading' | 'unavailable' | 'unconfigured' | 'ready';
+  inboxBoardVersion: number;
+  syncInboxStages: () => Promise<boolean>;
   currentUser: TeamMember | null;
   currentUserRole: Role;
   permissions: Permission;
@@ -125,7 +129,7 @@ export interface TaskContextType {
   /** Opens the board and pins the process scope and URL ?project= to this process (so it persists across navigation). */
   openBoardForProject: (projectId: string) => void;
   setBoardScope: (scope: BoardScope) => void;
-  setGeneralBoardColumns: (cols: ProjectColumnConfig[]) => void;
+  setGeneralBoardColumns: (cols: ProjectColumnConfig[]) => Promise<boolean>;
   addTask: (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'attachments' | 'comments' | 'boardPosition' | 'status'> & { status?: string }) => Promise<Task>;
   updateTask: (id: string, updates: TaskUpdateFields) => Promise<boolean>;
   /** Optimistic multi-patch (e.g. kanban reorder); rolls back if any request fails. */
@@ -343,6 +347,8 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   const [generalBoardColumns, setGeneralBoardColumnsState] = useState<ProjectColumnConfig[]>(
     () => FALLBACK_BOARD_COLUMNS.map((c) => ({ ...c }))
   );
+  const [inboxBoardStatus, setInboxBoardStatus] = useState<'loading' | 'unavailable' | 'unconfigured' | 'ready'>('loading');
+  const [inboxBoardVersion, setInboxBoardVersion] = useState(0);
   const [currentUser, setCurrentUser] = useState<TeamMember | null>(null);
   const [organizationName, setOrganizationName] = useState<string>('My Organization');
   const [organizationId, setOrganizationId] = useState<string | null>(null);
@@ -532,21 +538,51 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     [organizationId]
   );
 
-  const setGeneralBoardColumns = useCallback(
-    (cols: ProjectColumnConfig[]) => {
-      const next = Array.isArray(cols) ? cols.map((c) => ({ ...c })) : [];
-      setGeneralBoardColumnsState(next);
-      try {
-        if (typeof window !== 'undefined') {
-          const teamId = currentTeam?.id ?? 'none';
-          window.localStorage.setItem(`taskflow:generalBoardColumns:${teamId}`, JSON.stringify(next));
-        }
-      } catch {
-        // ignore
-      }
-    },
-    [currentTeam?.id]
-  );
+  const saveInboxBoard = useCallback(async (cols: ProjectColumnConfig[], expectedVersion: number) => {
+    if (!currentTeam?.id) throw new Error('Select a workspace first.');
+    const res = await fetch('/api/inbox/board', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ teamId: currentTeam.id, stages: cols, expectedVersion }),
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json?.success) {
+      throw new Error(json?.error ?? 'Inbox stages could not be synchronized.');
+    }
+    const snapshot = json.data as { stages: ProjectColumnConfig[]; version: number };
+    setGeneralBoardColumnsState(snapshot.stages);
+    setInboxBoardVersion(snapshot.version);
+    setInboxBoardStatus('ready');
+    return true;
+  }, [currentTeam?.id]);
+
+  const syncInboxStages = useCallback(async (): Promise<boolean> => {
+    // Deliberate, explicit first import from the current browser. Existing task
+    // statuses must all exist in the proposed config or the database rejects it.
+    if (inboxBoardStatus !== 'unconfigured') return false;
+    try {
+      return await saveInboxBoard(generalBoardColumns, 0);
+    } catch (error) {
+      throw error; // Caller displays a meaningful conflict; never silently remap.
+    }
+  }, [inboxBoardStatus, generalBoardColumns, saveInboxBoard]);
+
+  const setGeneralBoardColumns = useCallback(async (cols: ProjectColumnConfig[]): Promise<boolean> => {
+    const next = cols.map((stage) => ({ ...stage }));
+    if (inboxBoardStatus === 'loading' || inboxBoardStatus === 'unavailable') {
+      throw new Error('Inbox synchronization is not available. No changes were saved.');
+    }
+    if (inboxBoardStatus === 'ready') {
+      return saveInboxBoard(next, inboxBoardVersion);
+    }
+    // Pre-migration local editing is kept only until the first explicit import.
+    // No local data or stage identity is deleted.
+    if (currentTeam?.id) {
+      window.localStorage.setItem(`taskflow:generalBoardColumns:${currentTeam.id}`, JSON.stringify(next));
+    }
+    setGeneralBoardColumnsState(next);
+    return true;
+  }, [currentTeam?.id, inboxBoardStatus, inboxBoardVersion, saveInboxBoard]);
 
   /** Team + org scoped tasks/projects; used on team switch and after workspace refresh (e.g. process deleted). */
   const loadTasksAndProjectsForTeam = useCallback(
@@ -739,6 +775,33 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- should rerun only when team changes
   }, [currentTeam?.id]);
 
+  // Server is canonical after an explicit Inbox import. Until then, preserve
+  // this browser's existing stage IDs and metadata for a safe one-time import.
+  useEffect(() => {
+    const teamId = currentTeam?.id;
+    if (!teamId) { setInboxBoardStatus('loading'); return; }
+    let cancelled = false;
+    setInboxBoardStatus('loading');
+    setInboxBoardVersion(0);
+    const loadInbox = async () => {
+      try {
+        const res = await fetch(`/api/inbox/board?teamId=${encodeURIComponent(teamId)}`, { cache: 'no-store' });
+        const json = await res.json().catch(() => null);
+        if (!res.ok || !json?.success) throw new Error('Inbox sync unavailable');
+        if (cancelled) return;
+        if (!json.data.available) { setInboxBoardStatus('unavailable'); return; }
+        if (!json.data.configured) { setInboxBoardStatus('unconfigured'); return; }
+        setGeneralBoardColumnsState(json.data.stages);
+        setInboxBoardVersion(json.data.version);
+        setInboxBoardStatus('ready');
+      } catch {
+        if (!cancelled) setInboxBoardStatus('unavailable');
+      }
+    };
+    void loadInbox();
+    return () => { cancelled = true; };
+  }, [currentTeam?.id]);
+
   // Restore general board columns per team (defaults to FALLBACK_BOARD_COLUMNS).
   useEffect(() => {
     const teamId = currentTeam?.id;
@@ -761,7 +824,9 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
             isTerminal: x.isTerminal === true,
           }))
           .filter((c) => c.id && c.title);
-        setGeneralBoardColumnsState(cleaned.length ? cleaned : FALLBACK_BOARD_COLUMNS.map((c) => ({ ...c })));
+        // Never overwrite canonical stages once a server snapshot has loaded.
+        setGeneralBoardColumnsState((current) => inboxBoardStatus === 'ready'
+          ? current : cleaned.length ? cleaned : FALLBACK_BOARD_COLUMNS.map((c) => ({ ...c })));
       } else {
         setGeneralBoardColumnsState(FALLBACK_BOARD_COLUMNS.map((c) => ({ ...c })));
       }
@@ -781,21 +846,8 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     }
   }, [boardScope, projects]);
 
-  // Axiom principle: processes are user-designed. If processes exist, avoid defaulting into the legacy
-  // "general actions" scope (unscoped tasks). This keeps first-run behavior focused on selecting/creating a process.
-  useEffect(() => {
-    if (!currentTeam?.id) return;
-    if (projects.length === 0) return;
-    if (boardScope.type !== 'general') return;
-
-    const firstForTeam =
-      projects.find((p) => !p.teamId || p.teamId === currentTeam.id) ?? projects[0] ?? null;
-    if (!firstForTeam) return;
-
-    setBoardScope({ type: 'project', projectId: firstForTeam.id });
-    setCurrentProjectState(firstForTeam);
-    replaceProjectQuery(firstForTeam.id);
-  }, [boardScope.type, currentTeam?.id, projects, replaceProjectQuery, setBoardScope]);
+  // Inbox is a first-class scope. Never force it into the first Process:
+  // users must explicitly decide when a captured Action belongs to a Process.
 
   // Sync current project from ?project= when projects load or URL changes
   useEffect(() => {
@@ -1353,6 +1405,9 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       boardProject,
       boardColumns,
       generalBoardColumns,
+      inboxBoardStatus,
+      inboxBoardVersion,
+      syncInboxStages,
       currentUser,
       currentUserRole,
       permissions,
