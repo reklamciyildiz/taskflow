@@ -13,6 +13,10 @@ export async function middleware(request: NextRequest) {
       .filter(Boolean),
   );
   const mobileSharedApi =
+    pathname === '/api/users/profile' ||
+    pathname === '/api/users/settings' ||
+    pathname === '/api/billing/summary' ||
+    /^\/api\/organizations\/[^/]+$/.test(pathname) ||
     pathname === '/api/tasks' ||
     /^\/api\/tasks\/[^/]+$/.test(pathname) ||
     /^\/api\/tasks\/[^/]+\/notes$/.test(pathname) ||
