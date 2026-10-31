@@ -3,8 +3,8 @@ import { Capacitor } from '@capacitor/core';
 import { App as NativeApp } from '@capacitor/app';
 import { Network } from '@capacitor/network';
 import {
-  ArrowLeft, Bot, BookOpen, CalendarDays, CloudOff, Home,
-  LockKeyhole, LogOut, UserRound,
+  ArrowLeft, Bot, BookOpen, CalendarDays, CheckSquare2, CloudOff, Home,
+  LockKeyhole, LogOut,
   ShieldCheck, Sparkles, Wifi,
 } from 'lucide-react';
 import { SessionProvider } from './platform/next-auth-react';
@@ -250,7 +250,7 @@ export function App() {
         ) : <span className="brand-mark" aria-hidden="true"><Sparkles /></span>}
         <div className="brand-copy"><strong>Actiproc Beta</strong><span>{authenticated ? 'Mobile workspace' : 'Secure workspace'}</span></div>
         <span className={`network-status ${online ? 'online' : 'offline'}`} aria-label={online ? 'Online' : 'Offline'}>{online ? <Wifi /> : <CloudOff />}</span>
-        {authenticated ? <span className="avatar" title={session?.user.email}>{session ? initials(session) : ''}</span> : null}
+        {authenticated ? <button type="button" className="avatar mobile-account-shortcut" title={session?.user.email} aria-label="Account settings" onClick={() => selectRoot('account')}>{session ? initials(session) : ''}</button> : null}
       </header>
 
       {!online ? <div className="offline-banner" role="status"><CloudOff />You are offline. Reconnect to continue.</div> : null}
@@ -297,11 +297,11 @@ export function App() {
       <Toaster richColors position="top-center" />
       {authenticated ? (
         <nav className="mobile-tab-bar" aria-label="Primary navigation">
-          <button type="button" className={screen === 'workspace' ? 'is-active' : ''} onClick={() => selectRoot('workspace')}><Home /><span>Home</span></button>
-          <button type="button" className={screen === 'planner' ? 'is-active' : ''} onClick={() => selectRoot('planner')}><CalendarDays /><span>Planner</span></button>
-          <button type="button" className={screen === 'knowledge' ? 'is-active' : ''} onClick={() => selectRoot('knowledge')}><BookOpen /><span>Knowledge</span></button>
-          <button type="button" className={screen === 'ai' ? 'is-active' : ''} onClick={() => selectRoot('ai')}><Bot /><span>AI</span></button>
-          <button type="button" className={screen === 'account' ? 'is-active' : ''} onClick={() => selectRoot('account')}><UserRound /><span>Settings</span></button>
+          <button type="button" aria-current={screen === 'workspace' ? 'page' : undefined} className={screen === 'workspace' ? 'is-active' : ''} onClick={() => selectRoot('workspace')}><Home /><span>Home</span></button>
+          <button type="button" aria-current={screen === 'planner' ? 'page' : undefined} className={screen === 'planner' ? 'is-active' : ''} onClick={() => selectRoot('planner')}><CalendarDays /><span>Planner</span></button>
+          <button type="button" aria-current={screen === 'process' ? 'page' : undefined} className={screen === 'process' ? 'is-active' : ''} onClick={() => setScreen('process')}><CheckSquare2 /><span>Actions</span></button>
+          <button type="button" aria-current={screen === 'knowledge' ? 'page' : undefined} className={screen === 'knowledge' ? 'is-active' : ''} onClick={() => selectRoot('knowledge')}><BookOpen /><span>Knowledge</span></button>
+          <button type="button" aria-current={screen === 'ai' ? 'page' : undefined} className={screen === 'ai' ? 'is-active' : ''} onClick={() => selectRoot('ai')}><Bot /><span>AI</span></button>
         </nav>
       ) : <footer>{Capacitor.getPlatform()} · local bundle</footer>}
       </main>
