@@ -57,6 +57,22 @@ assert.doesNotMatch(plugin, /addJavascriptInterface|Log\.|System\.out|localStora
 assert.match(plugin, /nativeOauthVerifierV1/);
 assert.doesNotMatch(secureSessionPlugin, /nativeOauthVerifierV1|nativeOauthStateV1|nativeOauthCallbackPathV1/);
 
+// Regression: an older diagnostic login can leave nativeOauthStateV1 stored.
+// A bundled-client callback uses a DIFFERENT state (oauthState). Never redirect
+// the bundled WebView to /auth/signin?error=OAuthState in that situation.
+const handler = plugin.slice(
+  plugin.indexOf('public synchronized void handleAuthUri(Uri uri)'),
+  plugin.indexOf('private void loadSignInError(String code)'),
+);
+const stateOwnerCheck = handler.indexOf('!secureEqual(expectedState, returnedState)');
+const nativeDedup = handler.indexOf('lastHandledUri = uriKey;');
+const nativeVerifier = handler.indexOf('String verifier = store.get(KEY_VERIFIER);');
+assert.ok(stateOwnerCheck > 0 && nativeDedup > stateOwnerCheck && nativeVerifier > stateOwnerCheck,
+  'Native handler must check callback ownership before consuming a bundled OAuth callback');
+assert.match(handler, /if \(expectedState == null \|\| !STATE\.matcher\(expectedState\)\.matches\(\)[\s\S]*?!secureEqual\(expectedState, returnedState\)\) \{[\s\S]*?return;/);
+assert.doesNotMatch(handler, /loadSignInError\("OAuthState"\)/, 'State mismatch belongs to another OAuth client and must not navigate WebView');
+assert.match(handler, /store\.remove\(KEY_STATE\);\s*return;/, 'Unreadable native state must fail closed without navigation');
+
 // AxiomAuthPlugin alias verification: must NOT implement duplicate intent handling
 assert.match(axiomAliasPlugin, /@CapacitorPlugin\(name = "AxiomAuth"\)/);
 assert.match(axiomAliasPlugin, /bridge\.getPlugin\("ActiprocAuth"\)/);
