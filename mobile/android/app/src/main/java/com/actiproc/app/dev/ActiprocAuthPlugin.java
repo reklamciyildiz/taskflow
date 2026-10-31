@@ -151,13 +151,16 @@ public class ActiprocAuthPlugin extends Plugin {
             return;
         }
 
-        String uriKey = uri.toString();
-        if (uriKey.equals(lastHandledUri)) return;
-        lastHandledUri = uriKey;
-
         try {
             SecureSessionStore store = new SecureSessionStore(getContext());
             String expectedState = store.get(KEY_STATE);
+            // The locally bundled client handles its own OAuth PKCE callback
+            // via @capacitor/app, without a native-only pending verifier.
+            // Do not overwrite its WebView with the remote NextAuth session route.
+            if (expectedState == null) return;
+            String uriKey = uri.toString();
+            if (uriKey.equals(lastHandledUri)) return;
+            lastHandledUri = uriKey;
             String verifier = store.get(KEY_VERIFIER);
             String callbackPath = safeCallbackPath(store.get(KEY_CALLBACK));
             String returnedState = uri.getQueryParameter("state");
