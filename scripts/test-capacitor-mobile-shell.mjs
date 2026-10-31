@@ -94,6 +94,7 @@ const mobileListView = read('mobile/src/MobileListView.tsx');
 const noteServer = read('lib/note-server.ts');
 const attachmentServer = read('lib/attachment-server.ts');
 const taskNotesRoute = read('app/api/tasks/[id]/notes/route.ts');
+const taskCommentsRoute = read('app/api/tasks/[id]/comments/route.ts');
 const noteRoute = read('app/api/notes/[id]/route.ts');
 const attachmentListRoute = read('app/api/attachments/route.ts');
 const attachmentItemRoute = read('app/api/attachments/[id]/route.ts');
@@ -105,6 +106,29 @@ assert.ok(middleware.includes('attachments'), 'Mobile attachments CORS guard mis
 assert.match(noteServer, /requireAuthedUser\(request\)/);
 assert.match(taskNotesRoute, /requireTaskNoteAccess\(params.id, \{ mutate: false \}, undefined, request\)/);
 assert.match(taskNotesRoute, /requireTaskNoteAccess\(params.id, \{ mutate: true \}, undefined, request\)/);
+assert.match(taskCommentsRoute, /requireTaskNoteAccess\(params.id, \{ mutate: true \}, undefined, request\)/);
+assert.doesNotMatch(taskCommentsRoute, /getServerSession|body.authorId/);
+assert.ok(middleware.includes('comments
+assert.match(noteRoute, /requireNoteAccess\(params.id, \{ mutate: true \}, request\)/);
+assert.match(attachmentServer, /requireTaskNoteAccess\(target.taskId, \{ mutate \}, undefined, request\)/);
+assert.match(attachmentServer, /allowed.includes\(origin\)/);
+const privateFileLookup = attachmentServer.slice(attachmentServer.indexOf('export async function attachmentAccess('));
+assert.ok(privateFileLookup.indexOf('await requireAuthedUser(request)') >= 0);
+assert.ok(privateFileLookup.indexOf('await requireAuthedUser(request)') < privateFileLookup.indexOf('.from("attachments")'),
+  'Private attachment existence must not be queried before authentication');
+assert.match(attachmentListRoute, /attachmentTargetAccess\(target, false, request\)/);
+assert.match(attachmentItemRoute, /attachmentAccess\(params.id, false, request\)/);
+assert.match(mobileApp, /<MobileMoreView/);
+assert.match(mobileApp, /<MobileListView/);
+assert.match(mobileApp, /aria-label="All features"/);
+assert.match(mobileMoreView, /Customers/);
+assert.match(mobileMoreView, /Settings/);
+assert.match(mobileMoreView, /sign in separately/);
+assert.match(mobileListView, /openTaskEditor\(task.id\)/);
+assert.match(mobileListView, /task.teamId === currentTeam.id/);
+
+console.log('Capacitor navigation, local bundle, bearer ACL and OAuth guards passed.');
+), 'Action comments CORS guard missing');
 assert.match(noteRoute, /requireNoteAccess\(params.id, \{ mutate: true \}, request\)/);
 assert.match(attachmentServer, /requireTaskNoteAccess\(target.taskId, \{ mutate \}, undefined, request\)/);
 assert.match(attachmentServer, /allowed.includes\(origin\)/);
