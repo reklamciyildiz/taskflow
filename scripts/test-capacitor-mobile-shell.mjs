@@ -22,7 +22,7 @@ for (const route of ['/', '/planner', '/board', '/dashboard/knowledge-hub', '/ai
 assert.match(mobileApp, /<CheckSquare2 \/><span>Actions<\/span>/);
 assert.match(mobileApp, /aria-label="Account settings"/);
 assert.match(css, /\.screen-workspace, \.screen-process/);
-assert.match(nativeAuth, /if \(expectedState == null\) return;/, 'Native handler must leave JS OAuth PKCE callbacks intact');
+assert.match(nativeAuth, /!secureEqual\(expectedState, returnedState\)/, 'Native handler must ignore JS-owned OAuth callback state');
 assert.match(nativeAuth, /bridge\.executeOnMainThread\(\(\) -> \{/);
 assert.match(config, /\.\.\.\(diagnosticServerUrl \? \{ url: diagnosticServerUrl, cleartext: false \} : \{\}\)/);
 assert.ok(pkg.scripts['android:sync:production-beta'].includes('build:android-production-beta'));
