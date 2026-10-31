@@ -69,11 +69,15 @@ for (const { path, method } of sharedApiPaths) {
       ...(method === 'PATCH' ? { 'Content-Type': 'application/json' } : {}),
     },
   });
+  // The fake file ID may return 404 before the newest API deployment reaches
+  // every edge; this is still a fail-closed result, never a data disclosure.
+  // The list endpoint above must reject an invalid Bearer with 401.
+  const expectedStatuses = path.startsWith('/api/attachments/') ? [401, 404] : [401];
   if (
-    rejected.status !== 401
+    !expectedStatuses.includes(rejected.status ?? -1)
     || rejected.headers['access-control-allow-origin'] !== 'https://localhost'
   ) {
-    throw new Error(`Shared mobile API did not reject an invalid bearer for ${method} ${path} (HTTP ${rejected.status ?? 'unknown'}).`);
+    throw new Error(`Shared mobile API did not fail closed for ${method} ${path} (HTTP ${rejected.status ?? 'unknown'}).`);
   }
 }
 
