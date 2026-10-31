@@ -24,7 +24,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useTaskContext } from '@/components/TaskContext';
-import { ensureInboxProjectId } from '@/lib/inbox-project';
 import { noteApi } from '@/lib/api';
 import { notifyKnowledgeSourcesChanged } from '@/lib/knowledge-events';
 
@@ -48,7 +47,7 @@ export function DashboardCapture({ open, onOpenChange }: { open: boolean; onOpen
     currentTeam,
     currentUser,
     organizationId,
-    projects,
+    generalBoardColumns,
     tasks,
   } = useTaskContext();
   const [mode, setMode] = useState<CaptureMode>('action');
@@ -81,14 +80,13 @@ export function DashboardCapture({ open, onOpenChange }: { open: boolean; onOpen
     if (!actionTitle || !currentTeam || !organizationId || busy) return;
     setBusy(true);
     try {
-      const inbox = await ensureInboxProjectId({ projects, currentTeam, organizationId });
-      if (!inbox.ok) throw new Error(inbox.error || 'Could not open the Inbox process.');
       await addTask({
         title: actionTitle,
         description: '',
         priority: 'medium',
         teamId: currentTeam.id,
-        projectId: inbox.projectId,
+        projectId: null,
+        status: generalBoardColumns.find(stage => !stage.isTerminal)?.id ?? generalBoardColumns[0]?.id ?? 'todo',
         createdBy: currentUser?.id || '',
         assigneeId: null,
         customerId: null,
@@ -161,7 +159,7 @@ export function DashboardCapture({ open, onOpenChange }: { open: boolean; onOpen
                 placeholder="What needs to be done?"
                 className="h-11"
               />
-              <p className="flex items-center gap-1.5 text-xs text-muted-foreground"><Inbox className="h-3.5 w-3.5" />Saved as an Action in your Inbox process.</p>
+              <p className="flex items-center gap-1.5 text-xs text-muted-foreground"><Inbox className="h-3.5 w-3.5" />Saved as an unassigned Action in your Inbox.</p>
             </div>
           </TabsContent>
 
