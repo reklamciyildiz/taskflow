@@ -23,6 +23,7 @@ on:
       - mobile/postcss.config.cjs
       - mobile/tailwind.config.ts
       - mobile/scripts/verify-bundled-css.mjs
+      - mobile/scripts/verify-android-production-beta.mjs
       - mobile/src/PlannerRuntimeAdapter.tsx
       - components/TaskContext.tsx
       - components/TaskBoard.tsx
