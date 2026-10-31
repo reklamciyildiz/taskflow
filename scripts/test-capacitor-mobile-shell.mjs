@@ -28,24 +28,38 @@ assert.match(config, /\.\.\.\(diagnosticServerUrl \? \{ url: diagnosticServerUrl
 assert.ok(pkg.scripts['android:sync:production-beta'].includes('build:android-production-beta'));
 assert.ok(!pkg.scripts['android:sync:production-beta'].includes('CAPACITOR_WEB_DIAGNOSTIC_URL'));
 
-// General scope must be an explicit destination, even after a user selects a Process.
+// Inbox is the shared home for project_id=NULL Actions, not a fake Process.
 const processSwitcher = read('components/ProcessSwitcher.tsx');
 const taskBoard = read('components/TaskBoard.tsx');
-assert.match(processSwitcher, /General Actions/, 'General board must have a clear name');
-assert.match(processSwitcher, /onValueChange\(''\)/, 'General board must be selectable again');
-assert.match(taskBoard, /projectId \? \{ type: 'project', projectId \} : \{ type: 'general' \}/);
+const webTaskContext = read('components/TaskContext.tsx');
+const mobileRuntime = read('mobile/src/PlannerRuntimeAdapter.tsx');
+const contextRoute = read('app/api/mobile/planner/context/route.ts');
+const inboxApi = read('app/api/inbox/board/route.ts');
+const inboxMigration = read('supabase/migrations/20261031180000_team_inbox_board_canonical.sql');
 
-// Historical stages must never be silently remapped, hidden, or overwritten.
+assert.match(processSwitcher, /Inbox/);
+assert.match(processSwitcher, /onValueChange\(''\)/);
+assert.match(taskBoard, /projectId \? \{ type: 'project', projectId \} : \{ type: 'general' \}/);
+assert.match(webTaskContext, /syncInboxStages/);
+assert.doesNotMatch(webTaskContext, /avoid defaulting into the legacy/);
+assert.match(webTaskContext, /read Inbox|\/api\/inbox\/board/);
+assert.match(mobileRuntime, /inboxBoardStatus/);
+assert.match(contextRoute, /readInboxBoard/);
+assert.match(inboxApi, /requireTeamScopeAccess/);
+assert.match(inboxApi, /requireTeamAdminOrOrgAdmin/);
+assert.match(inboxApi, /expectedVersion/);
+assert.match(inboxMigration, /REFERENCES public\.teams\(id\)/);
+assert.match(inboxMigration, /a1_valid_stage_config/);
+assert.match(inboxMigration, /guard_canonical_inbox_task_stage/);
+assert.match(inboxMigration, /t\.project_id IS NULL/);
+assert.match(inboxMigration, /REVOKE ALL ON public\.team_inbox_boards/);
 assert.match(taskBoard, /const unresolvedTasks = useMemo\(/);
-assert.match(taskBoard, /Needs stage assignment/);
-assert.match(taskBoard, /filteredTasks\.filter\(\(task\) => !boardColumns\.some/);
+assert.match(taskBoard, /unresolvedTasks\.length > 0/);
+assert.match(taskBoard, /boardScope\.type === 'general'/);
+assert.match(taskBoard, /boardScope\.type === 'project'/);
+assert.match(taskBoard, /syncInboxStages/);
 assert.match(taskBoard, /canEditTask\(task\.createdBy, task\.assigneeId\)/);
 assert.match(taskBoard, /stage\.isTerminal && !canCompleteTask\(task\.assigneeId\)/);
-assert.match(taskBoard, /boardScope\.type === 'general'/);
-assert.match(taskBoard, /disabled=\{!editable \|\| assigningStageFor !== null \|\| boardScope\.type === 'general'\}/);
-assert.match(taskBoard, /General stages are currently stored per browser/);
-
 assert.match(taskBoard, /applyTaskUpdates\(\[\{ id: taskId, changes: \{ status: stageId \} \}\]\)/);
-assert.match(taskBoard, /onValueChange=\{\(stageId\) => void assignUnresolvedStage\(task\.id, stageId\)\}/);
 
 console.log('Capacitor navigation, local bundle and OAuth guards passed.');
