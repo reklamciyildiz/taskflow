@@ -96,7 +96,7 @@ function MobileProductContent({
 
   return (
     <>
-      {(screen === 'workspace' || screen === 'process') ? (
+      {(screen === 'workspace' || screen === 'process' || screen === 'list') ? (
         <div className="mobile-workspace-toolbar"><PlannerTeamSwitcher /></div>
       ) : null}
       {screen === 'workspace' ? <section className="workspace mobile-pwa-view"><DashboardV2 /></section> : null}
