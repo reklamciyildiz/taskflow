@@ -41,6 +41,7 @@ const sharedApiPaths = [
   { path: '/api/knowledge?teamId=00000000-0000-0000-0000-000000000000', method: 'GET' },
   { path: '/api/ai/conversations', method: 'GET' },
   { path: '/api/tasks/00000000-0000-0000-0000-000000000000/notes', method: 'GET' },
+  { path: '/api/tasks/00000000-0000-0000-0000-000000000000/comments', method: 'POST' },
   { path: '/api/notes/00000000-0000-0000-0000-000000000000', method: 'PATCH' },
   { path: '/api/attachments?taskId=00000000-0000-0000-0000-000000000000', method: 'GET' },
   { path: '/api/attachments/00000000-0000-0000-0000-000000000000', method: 'GET' },
