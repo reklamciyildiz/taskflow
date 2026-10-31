@@ -120,7 +120,7 @@ assert.match(attachmentListRoute, /attachmentTargetAccess\(target, false, reques
 assert.match(attachmentItemRoute, /attachmentAccess\(params.id, false, request\)/);
 assert.match(mobileApp, /<MobileMoreView/);
 assert.match(mobileApp, /<MobileListView/);
-assert.match(mobileApp, /aria-label="All features"/);
+assert.match(mobileMoreView, /aria-label="All Actiproc features"/);
 assert.match(mobileMoreView, /Customers/);
 assert.match(mobileMoreView, /Account & security/);
 assert.doesNotMatch(mobileMoreView, /path: '\/settings'|path: '\/settings\/billing'/);
