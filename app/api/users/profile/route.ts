@@ -1,21 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { requireAuthedUser } from '@/lib/server-authz';
 import { userDb } from '@/lib/db';
 
 // PATCH - Update user profile
 export async function PATCH(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session?.user?.email) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    const user = await userDb.getByEmail(session.user.email);
+    const authed = await requireAuthedUser(request);
+    if (authed instanceof NextResponse) return authed;
+    const user = await userDb.getById(authed.user.id);
     if (!user) {
       return NextResponse.json(
         { success: false, error: 'User not found' },
@@ -48,16 +40,9 @@ export async function PATCH(request: NextRequest) {
 // GET - Get current user profile
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session?.user?.email) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    const user = await userDb.getByEmail(session.user.email);
+    const authed = await requireAuthedUser(request);
+    if (authed instanceof NextResponse) return authed;
+    const user = await userDb.getById(authed.user.id);
     if (!user) {
       return NextResponse.json(
         { success: false, error: 'User not found' },
