@@ -514,8 +514,8 @@ export function ActionNotes({
     const editorKey = draft?.clientId ?? selectedNote!.id;
     const isDeleting = Boolean(persistedId && deletingId === persistedId);
     return (
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-4 md:px-6">
-        <div className="flex items-center gap-2">
+      <div className="mx-auto flex w-full min-w-0 max-w-3xl flex-col gap-4 px-3 py-4 sm:px-4 md:px-6">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           <Button
             type="button"
             variant="ghost"
@@ -540,7 +540,7 @@ export function ActionNotes({
               }
             }}
           >
-            <SelectTrigger className={cn("h-8 w-[132px] border-0 text-xs", meta.tone)}>
+            <SelectTrigger className={cn("h-9 w-[min(132px,42vw)] min-w-0 border-0 text-xs", meta.tone)}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -617,7 +617,7 @@ export function ActionNotes({
           disabled={!canEdit || isDeleting}
           maxLength={240}
           placeholder="Note title (optional)"
-          className="h-auto border-0 bg-transparent px-0 text-lg font-semibold shadow-none focus-visible:ring-0"
+          className="h-auto min-w-0 border-0 bg-transparent px-0 text-lg font-semibold shadow-none focus-visible:ring-0"
           onChange={(event) => {
             const title = event.target.value;
             if (draft) {
@@ -629,7 +629,7 @@ export function ActionNotes({
           }}
         />
 
-        <div className="rounded-xl border border-border/60 bg-muted/[0.12] px-3 py-2 md:px-4">
+        <div className="min-w-0 max-w-full overflow-x-hidden rounded-xl border border-border/60 bg-muted/[0.12] px-3 py-2 md:px-4">
           <BlockEditor
             key={editorKey}
             taskId={taskId}
@@ -662,7 +662,7 @@ export function ActionNotes({
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-4 md:px-6">
+    <div className="mx-auto flex w-full min-w-0 max-w-3xl flex-col gap-4 px-3 py-4 sm:px-4 md:px-6">
       <div className="rounded-xl border border-border/60 bg-muted/20 p-2">
         <Button
           type="button"
@@ -694,27 +694,27 @@ export function ActionNotes({
                 key={note.id}
                 type="button"
                 onClick={() => openNote(note.id)}
-                className="group w-full rounded-xl border border-border/60 bg-background/40 p-3 text-left transition-colors hover:border-border hover:bg-muted/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                className="group block w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-border/60 bg-background/40 p-3 text-left transition-colors hover:border-border hover:bg-muted/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
               >
-                <div className="flex items-start gap-3">
+                <div className="flex min-w-0 max-w-full items-start gap-3">
                   <span className={cn("mt-0.5 rounded-lg p-1.5", meta.tone)}>
                     <Icon className="h-3.5 w-3.5" aria-hidden />
                   </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="flex items-center justify-between gap-3">
-                      <span className="truncate text-sm font-medium">{noteHeading(note)}</span>
+                  <span className="block min-w-0 max-w-full flex-1">
+                    <span className="flex min-w-0 items-start justify-between gap-2">
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium">{noteHeading(note)}</span>
                       <span className="shrink-0 text-[11px] text-muted-foreground">
                         {noteDate(note.updatedAt)}
                       </span>
                     </span>
-                    <span className="mt-1 line-clamp-2 block text-xs leading-relaxed text-muted-foreground">
+                    <span className="mt-1 line-clamp-2 block min-w-0 break-words text-xs leading-relaxed text-muted-foreground">
                       {notePreview(note)}
                     </span>
-                    <span className="mt-2 flex items-center gap-1.5 text-[10px] text-muted-foreground/80">
+                    <span className="mt-2 flex min-w-0 flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground/80">
                       <span className={cn("rounded px-1.5 py-0.5 font-medium", meta.tone)}>
                         {meta.label}
                       </span>
-                      <span>by {note.authorName}</span>
+                      <span className="min-w-0 break-words">by {note.authorName}</span>
                     </span>
                   </span>
                 </div>
