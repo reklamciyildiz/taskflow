@@ -4,7 +4,7 @@ import { App as NativeApp } from '@capacitor/app';
 import { Network } from '@capacitor/network';
 import {
   ArrowLeft, Bot, BookOpen, CalendarDays, CheckSquare2, CloudOff, Home,
-  LockKeyhole, LogOut,
+  LockKeyhole, LogOut, Menu,
   ShieldCheck, Sparkles, Wifi,
 } from 'lucide-react';
 import { SessionProvider } from './platform/next-auth-react';
@@ -17,6 +17,8 @@ import {
 import { PlannerV2View } from '../../components/planner/PlannerV2View';
 import { MobilePlannerRuntime } from './PlannerRuntimeAdapter';
 import { MobileKnowledgeHub } from './MobileKnowledgeHub';
+import { MobileMoreView } from './MobileMoreView';
+import { MobileListView } from './MobileListView';
 import { Toaster } from 'sonner';
 import { AxiomAIChatView } from '../../components/ai/AxiomAIChat';
 import { DashboardV2 } from '../../components/dashboard/DashboardV2';
@@ -25,7 +27,7 @@ import { ActionPanel } from '../../components/ActionPanel';
 import { useTaskContext } from '../../components/TaskContext';
 import { PlannerTeamSwitcher } from '../../components/planner/PlannerTeamSwitcher';
 
-type Screen = 'booting' | 'signin' | 'workspace' | 'planner' | 'knowledge' | 'ai' | 'account' | 'process';
+type Screen = 'booting' | 'signin' | 'workspace' | 'planner' | 'knowledge' | 'ai' | 'account' | 'process' | 'more' | 'list';
 function initials(session: MobileSessionTokens): string {
   const source = session.user.name?.trim() || session.user.email;
   return source.split(/\s+|@/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join('');
@@ -46,7 +48,7 @@ function MobileProductContent({
   screen: Screen;
   session: MobileSessionTokens;
   busy: boolean;
-  selectRoot: (screen: Extract<Screen, 'workspace' | 'planner' | 'knowledge' | 'ai' | 'account'>) => void;
+  selectRoot: (screen: Extract<Screen, 'workspace' | 'planner' | 'knowledge' | 'ai' | 'account' | 'more' | 'list'>) => void;
   signOut: () => Promise<void>;
 }) {
   const {
@@ -65,6 +67,7 @@ function MobileProductContent({
       const url = new URL(path || '/', 'https://mobile.axiom.local');
       if (url.pathname === '/planner') selectRoot('planner');
       else if (url.pathname === '/dashboard/knowledge-hub') selectRoot('knowledge');
+      else if (url.pathname === '/list') selectRoot('list');
       else if (url.pathname === '/ai') selectRoot('ai');
       else if (url.pathname === '/board' || url.pathname === '/dashboard/processes') {
         const projectId = url.searchParams.get('project');
@@ -99,6 +102,11 @@ function MobileProductContent({
       {screen === 'workspace' ? <section className="workspace mobile-pwa-view"><DashboardV2 /></section> : null}
       {screen === 'process' ? <section className="workspace mobile-pwa-view mobile-board-view"><TaskBoard /></section> : null}
       {screen === 'planner' ? <PlannerV2View /> : null}
+      {screen === 'list' ? <MobileListView /> : null}
+      {screen === 'more' ? <MobileMoreView onNavigate={(destination) => {
+        if (destination === 'process') window.dispatchEvent(new CustomEvent('axiom-mobile:set-screen', { detail: { screen: 'process' } }));
+        else selectRoot(destination);
+      }} /> : null}
       {screen === 'knowledge' ? (
         <MobileKnowledgeHub
           onOpenAction={openTaskEditor}
@@ -155,11 +163,11 @@ export function App() {
     const event = new CustomEvent('axiom-mobile:back', { cancelable: true });
     window.dispatchEvent(event);
     if (event.defaultPrevented) return;
-    if (screenRef.current === 'process') setScreen('workspace');
+    if (screenRef.current === 'process' || screenRef.current === 'more' || screenRef.current === 'list') setScreen('workspace');
     else void NativeApp.minimizeApp();
   }, []);
 
-  const selectRoot = useCallback((next: Extract<Screen, 'workspace' | 'planner' | 'knowledge' | 'ai' | 'account'>) => {
+  const selectRoot = useCallback((next: Extract<Screen, 'workspace' | 'planner' | 'knowledge' | 'ai' | 'account' | 'more' | 'list'>) => {
     setScreen(next);
     window.scrollTo({ top: 0 });
   }, []);
@@ -245,11 +253,12 @@ export function App() {
     <SessionProvider>
       <main className={`mobile-shell screen-${screen}`}>
       <header className="app-header">
-        {screen === 'process' ? (
+        {screen === 'process' || screen === 'more' || screen === 'list' ? (
           <button className="icon-button" type="button" onClick={goBack} aria-label="Go back"><ArrowLeft /></button>
         ) : <span className="brand-mark" aria-hidden="true"><Sparkles /></span>}
         <div className="brand-copy"><strong>Actiproc Beta</strong><span>{authenticated ? 'Mobile workspace' : 'Secure workspace'}</span></div>
         <span className={`network-status ${online ? 'online' : 'offline'}`} aria-label={online ? 'Online' : 'Offline'}>{online ? <Wifi /> : <CloudOff />}</span>
+        {authenticated ? <button type="button" className="icon-button mobile-more-shortcut" aria-label="All features" aria-current={screen === 'more' ? 'page' : undefined} onClick={() => selectRoot('more')}><Menu /></button> : null}
         {authenticated ? <button type="button" className="avatar mobile-account-shortcut" title={session?.user.email} aria-label="Account settings" onClick={() => selectRoot('account')}>{session ? initials(session) : ''}</button> : null}
       </header>
 
