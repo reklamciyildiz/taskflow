@@ -492,6 +492,13 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   const setBoardScope = useCallback(
     (scope: BoardScope) => {
       setBoardScopeState(scope);
+      const nextProjectId = scope.type === 'project' ? scope.projectId : null;
+      // Inbox is a real URL-independent scope. Clear a stale ?project= when
+      // returning to it, so back/reload cannot unexpectedly reopen a Process.
+      if (typeof window !== 'undefined') {
+        const currentProjectId = new URLSearchParams(window.location.search).get('project');
+        if (currentProjectId !== nextProjectId) replaceProjectQuery(nextProjectId);
+      }
       try {
         if (typeof window !== 'undefined') {
           const teamId = currentTeam?.id ?? 'none';
@@ -501,7 +508,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
         // ignore
       }
     },
-    [currentTeam?.id]
+    [currentTeam?.id, replaceProjectQuery]
   );
 
   const openBoardForProject = useCallback(
