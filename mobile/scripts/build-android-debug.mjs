@@ -39,4 +39,8 @@ const result = spawnSync(gradle, tasks, {
   shell: windows,
 });
 
+if (result.error) {
+  console.error('Gradle invocation failed:', result.error);
+  process.exit(1);
+}
 process.exit(result.status ?? 1);
