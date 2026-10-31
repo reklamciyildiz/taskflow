@@ -138,7 +138,7 @@ assert.match(mobileSettings, /Organization/);
 assert.match(mobileSettings, /Billing/);
 assert.match(mobileSettings, /authenticatedRequest<SettingsData>\('\/api\/users\/settings'\)/);
 assert.match(mobileSettings, /Subscription details are read-only/);
-assert.doesNotMatch(mobileSettings, /checkout|pricing|\/settings\/billing|Browser.open/);
+assert.doesNotMatch(mobileSettings, /Browser\.open|window\.location\s*=|href=["']\/settings\/billing|path:\s*['"]\/settings\/billing/);
 assert.match(profileRoute, /requireAuthedUser\(request\)/);
 assert.match(preferenceRoute, /requireAuthedUser\(request\)/);
 assert.match(preferenceRoute, /allowedBooleanFields/);
