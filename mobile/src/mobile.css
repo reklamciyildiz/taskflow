@@ -412,3 +412,34 @@ html:not(.dark) .planner-check.is-complete { color: #fff; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
+
+
+/* Native modules drawer: keep existing five primary tabs and make all
+   other Actiproc destinations reachable without crowding 320px screens. */
+.mobile-more-shortcut { flex: 0 0 auto; display: grid; place-items: center; }
+.mobile-more-shortcut svg { width: 1.3rem; height: 1.3rem; }
+.mobile-more-shortcut[aria-current="page"] { color: var(--mobile-primary); background: var(--primary-soft); }
+.mobile-more-view, .mobile-list-view { width: min(100%, 46rem); }
+.mobile-more-view > h1, .mobile-list-heading h1 { font-size: 1.55rem; font-weight: 750; letter-spacing: -.03em; margin: .6rem 0 .3rem; }
+.mobile-more-view > h2 { font-size: .85rem; font-weight: 750; margin: 1.4rem 0 .65rem; }
+.mobile-more-subtitle, .mobile-more-note { color: var(--mobile-muted); font-size: .78rem; line-height: 1.6; margin: .3rem 0 .75rem; }
+.mobile-more-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .6rem; }
+.mobile-more-item { display: flex; min-width: 0; min-height: 4.25rem; align-items: center; gap: .7rem; padding: .85rem; border: 1px solid var(--border-strong); border-radius: .9rem; background: var(--surface-soft); text-align: left; color: var(--mobile-foreground); }
+.mobile-more-item:focus-visible, .mobile-list-item:focus-visible { outline: 2px solid var(--mobile-primary); outline-offset: 2px; }
+.mobile-more-item > svg { width: 1.15rem; height: 1.15rem; flex-shrink: 0; color: var(--mobile-primary); }
+.mobile-more-item-copy { min-width: 0; display: flex; flex-direction: column; gap: .2rem; }
+.mobile-more-item-copy strong { font-size: .77rem; font-weight: 700; overflow-wrap: anywhere; }
+.mobile-more-item-copy small { font-size: .65rem; color: var(--mobile-muted); }
+.mobile-more-item .mobile-more-link-icon { width: .8rem; height: .8rem; margin-left: auto; color: var(--mobile-muted); }
+.mobile-list-heading { display: flex; align-items: baseline; justify-content: space-between; gap: .8rem; }
+.mobile-list-heading span { font-size: .75rem; color: var(--mobile-muted); }
+.mobile-list-search { display: flex; min-height: 3rem; gap: .5rem; align-items: center; padding: 0 .85rem; margin: 1rem 0; border: 1px solid var(--border-strong); border-radius: .8rem; background: var(--surface-soft); }
+.mobile-list-search svg { width: 1rem; color: var(--mobile-muted); }
+.mobile-list-search input { flex: 1; min-width: 0; background: transparent; border: none; outline: none; font-size: .85rem; color: var(--mobile-foreground); }
+.mobile-list-items { display: grid; gap: .55rem; }
+.mobile-list-item { display: flex; min-height: 4rem; flex-direction: column; justify-content: center; align-items: flex-start; gap: .4rem; padding: .85rem 1rem; border: 1px solid var(--border-strong); border-radius: .85rem; background: var(--surface-soft); text-align: left; color: var(--mobile-foreground); }
+.mobile-list-item strong { font-size: .85rem; font-weight: 700; overflow-wrap: anywhere; }
+.mobile-list-item span, .mobile-list-empty { font-size: .72rem; color: var(--mobile-muted); }
+.mobile-list-empty { padding: 1.5rem; text-align: center; }
+.screen-more, .screen-list { padding-bottom: calc(6.5rem + env(safe-area-inset-bottom, 0px)); }
+@media (max-width: 360px) { .mobile-more-grid { grid-template-columns: 1fr; } }
