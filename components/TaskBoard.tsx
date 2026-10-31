@@ -437,11 +437,9 @@ export function TaskBoard() {
             <section className="rounded-xl border border-border/60 bg-card/40 p-3 text-sm" aria-label="Inbox stage synchronization">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <p className="font-medium text-foreground">Inbox · {inboxBoardStatus === 'loading' ? 'Loading' : inboxBoardStatus === 'unavailable' ? 'Sync not enabled' : 'Stage sync required'}</p>
+                  <p className="font-medium text-foreground">Inbox · Stage sync required</p>
                   <p className="mt-1 max-w-xl text-xs leading-5 text-muted-foreground">
-                    {inboxBoardStatus === 'unavailable'
-                      ? 'Inbox stage synchronization has not been enabled on the server. No Action was changed.'
-                      : 'Inbox holds Actions not yet assigned to a Process. Import the original browser’s stage configuration before updating existing stages.'}
+                    Inbox holds Actions not yet assigned to a Process. Import the original browser’s stage configuration before updating existing stages.
                   </p>
                 </div>
                 {inboxCanInitialize && currentUserRole === 'admin' && unresolvedTasks.length === 0 && (
