@@ -77,6 +77,7 @@ export function TaskBoard() {
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const [editGeneralOpen, setEditGeneralOpen] = useState(false);
+  const [assigningStageFor, setAssigningStageFor] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<TaskStatus | null>(null);
   const [groupBy, setGroupBy] = useState('stage');
   const [mobileGroupId, setMobileGroupId] = useState<string | null>(null);
@@ -227,6 +228,37 @@ export function TaskBoard() {
     return null;
   };
 
+  // Preserve unresolved persisted statuses. Never silently map historical values
+  // onto a stage by position, label, or terminal semantics.
+  const unresolvedTasks = useMemo(
+    () => filteredTasks.filter((task) => !boardColumns.some((column) => column.id === task.status)),
+    [filteredTasks, boardColumns],
+  );
+
+  const assignUnresolvedStage = useCallback(async (taskId: string, stageId: string) => {
+    const task = unresolvedTasks.find((item) => item.id === taskId);
+    const stage = boardColumns.find((column) => column.id === stageId);
+    if (!task || !stage || assigningStageFor) return;
+    if (!canEditTask(task.createdBy, task.assigneeId)) {
+      toast.error('You cannot edit this Action.');
+      return;
+    }
+    if (stage.isTerminal && !canCompleteTask(task.assigneeId)) {
+      toast.error('You cannot complete this Action.');
+      return;
+    }
+    setAssigningStageFor(taskId);
+    try {
+      const saved = await applyTaskUpdates([{ id: taskId, changes: { status: stageId } }]);
+      if (!saved) toast.error('Stage was not saved. No change was applied.');
+      else toast.success('Action stage updated.');
+    } catch {
+      toast.error('Could not save the stage. Try again.');
+    } finally {
+      setAssigningStageFor(null);
+    }
+  }, [unresolvedTasks, boardColumns, assigningStageFor, canEditTask, canCompleteTask, applyTaskUpdates]);
+
   const mobileGroups = groupedProperty && properties.data
     ? groupActionsByProperty(filteredTasks, groupedProperty, properties.data.options, properties.data.values)
     : boardColumns.filter(column => !statusFilter || column.id === statusFilter).map(column => ({
@@ -244,7 +276,7 @@ export function TaskBoard() {
               <ProcessSwitcher
                 projects={orderedProjectsForTeam}
                 value={boardScope.type === 'project' ? boardScope.projectId : ''}
-                onValueChange={(projectId) => setBoardScope({ type: 'project', projectId })}
+                onValueChange={(projectId) => setBoardScope(projectId ? { type: 'project', projectId } : { type: 'general' })}
                 onReorder={(projectIds) => {
                   if (currentTeam) void preferences.setProcessOrder(currentTeam.id, projectIds);
                 }}
@@ -390,13 +422,42 @@ export function TaskBoard() {
             </div>
           </div>
       
-          {filteredTasks.some((task) => !boardColumns.some((column) => column.id === task.status)) && (
-            <div className="mb-4 rounded-lg border border-amber-500/40 p-3 text-sm">
-              <p className="mb-2 text-muted-foreground">Unresolved stage — these Actions have not been moved. Open an Action to choose a valid stage.</p>
-              {filteredTasks.filter((task) => !boardColumns.some((column) => column.id === task.status)).map((task) => (
-                <button key={task.id} className="block py-1 text-left underline" onClick={() => openTaskEditor(task.id)}>{task.title}</button>
-              ))}
-            </div>
+          {unresolvedTasks.length > 0 && (
+            <section className="mb-4 space-y-3 rounded-lg border border-amber-500/30 bg-amber-500/[0.035] p-3 text-sm" aria-label="Actions needing stage assignment">
+              <div>
+                <h3 className="font-medium text-foreground">Needs stage assignment ({unresolvedTasks.length})</h3>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                  These Actions have a saved stage that does not exist on this board. No Action has been moved or deleted.
+                  Select a stage for each Action to resolve it.
+                </p>
+              </div>
+              <div className="space-y-2">
+                {unresolvedTasks.map((task) => {
+                  const editable = canEditTask(task.createdBy, task.assigneeId);
+                  return (
+                    <div key={task.id} className="flex min-w-0 flex-col gap-2 rounded-lg border border-border/50 bg-card/70 p-2.5 sm:flex-row sm:items-center">
+                      <button type="button" className="min-w-0 flex-1 truncate text-left font-medium underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary" onClick={() => openTaskEditor(task.id)}>
+                        {task.title}
+                      </button>
+                      <Select
+                        value={undefined}
+                        disabled={!editable || assigningStageFor !== null}
+                        onValueChange={(stageId) => void assignUnresolvedStage(task.id, stageId)}
+                      >
+                        <SelectTrigger aria-label={`Assign a stage to ${task.title}`} className="h-11 w-full shrink-0 sm:w-44">
+                          <SelectValue placeholder={assigningStageFor === task.id ? 'Saving...' : editable ? 'Assign stage' : 'Read-only'} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {boardColumns
+                            .filter((stage) => !stage.isTerminal || canCompleteTask(task.assigneeId))
+                            .map((stage) => <SelectItem key={stage.id} value={stage.id}>{stage.title}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
           )}
           {isMobileBoard ? <section className="min-w-0 space-y-3" aria-label="Board actions">
             {mobileGroup && <>
