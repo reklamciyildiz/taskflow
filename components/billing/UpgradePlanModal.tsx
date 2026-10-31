@@ -12,8 +12,8 @@ type UpgradePlan = 'pro' | 'team';
 type UpgradeReason = 'teams' | 'processes' | 'webhooks' | 'seats';
 
 const PRICES = {
-  pro: { monthly: 4, yearly: 48 }, // display only; yearly checkout not offered by Creem
-  team: { monthly: 6, yearly: 72 }, // display only; yearly checkout not offered by Creem
+  pro: { monthly: 4 },
+  team: { monthly: 6 }
 } as const;
 
 const FEATURES: Record<UpgradePlan, readonly string[]> = {
@@ -39,30 +39,10 @@ function isHighlightedFeature(reason: UpgradeReason | undefined, plan: UpgradePl
   return false;
 }
 
-async function ensureLemon(): Promise<void> {
-  if (typeof window === 'undefined') return;
-  const w = window as Window & { LemonSqueezy?: { Url?: { Open?: (u: string) => void } }; createLemonSqueezy?: () => void };
-  if (w.LemonSqueezy?.Url?.Open) return;
-  await new Promise<void>((resolve, reject) => {
-    const existing = document.querySelector('script[data-lemonsqueezy="lemonjs"]') as HTMLScriptElement | null;
-    if (existing) {
-      existing.addEventListener('load', () => resolve());
-      existing.addEventListener('error', () => reject(new Error('Failed to load lemon.js')));
-      return;
-    }
-    const s = document.createElement('script');
-    s.src = 'https://app.lemonsqueezy.com/js/lemon.js';
-    s.defer = true;
-    s.dataset.lemonsqueezy = 'lemonjs';
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error('Failed to load lemon.js'));
-    document.head.appendChild(s);
-  });
-  w.createLemonSqueezy?.();
-}
-
 async function openCheckout(plan: UpgradePlan, billingInterval: Interval): Promise<void> {
-  const resp = await fetch('/api/billing/checkout', {
+  const summary = await fetch('/api/billing/summary').then(r => r.json()).catch(() => null);
+  const existing = summary?.data?.subscriptionId && summary?.data?.plan !== 'free';
+  const resp = await fetch(existing ? '/api/billing/switch-plan' : '/api/billing/checkout', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ plan, billingInterval }),
@@ -72,8 +52,8 @@ async function openCheckout(plan: UpgradePlan, billingInterval: Interval): Promi
     throw new Error(json?.error || 'Could not start checkout');
   }
   const url = json?.data?.url;
+  if (existing) { window.location.reload(); return; }
   if (typeof url !== 'string' || !url) throw new Error('Checkout URL missing');
-  // Use provider-agnostic redirect rather than coupling to Lemon.js.
   window.location.assign(url);
   else window.location.href = url;
 }
@@ -89,7 +69,7 @@ export function UpgradePlanModal(props: {
   reason?: UpgradeReason;
 }) {
   const { open, onClose, title, description, recommendedPlan, reason } = props;
-  const [interval, setInterval] = useState<Interval>('monthly');
+  const interval: Interval = 'monthly'; // Only configured Creem monthly products are offered here.
   const [busy, setBusy] = useState<UpgradePlan | null>(null);
   const isAndroid = typeof window !== 'undefined' ? isAndroidTwa() : false;
 
@@ -152,31 +132,6 @@ export function UpgradePlanModal(props: {
         {/* Top bar: close + interval */}
         <div className="relative flex items-center justify-end gap-3 px-6 pt-5">
           <div className="mr-auto" />
-          <div className="inline-flex rounded-full border border-white/10 bg-white/[0.04] p-1">
-            <button
-              type="button"
-              onClick={() => setInterval('monthly')}
-              className={cn(
-                'rounded-full px-4 py-1.5 text-xs font-medium transition-colors',
-                interval === 'monthly' ? 'bg-white/10 text-white' : 'text-zinc-300/70 hover:text-zinc-100'
-              )}
-            >
-              Monthly
-            </button>
-            <button
-              type="button"
-              onClick={() => setInterval('yearly')}
-              className={cn(
-                'rounded-full px-4 py-1.5 text-xs font-medium transition-colors',
-                interval === 'yearly' ? 'bg-white/10 text-white' : 'text-zinc-300/70 hover:text-zinc-100'
-              )}
-            >
-              Yearly
-              <span className="ml-1.5 rounded-md bg-violet-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-violet-200">
-                -20%
-              </span>
-            </button>
-          </div>
           <button
             type="button"
             onClick={onClose}
@@ -223,9 +178,9 @@ export function UpgradePlanModal(props: {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {plans.map((p) => {
               const isRecommended = recommendedPlan === p;
-              const price = interval === 'monthly' ? PRICES[p].monthly : PRICES[p].yearly;
-              const suffix = interval === 'monthly' ? '/seat' : '/seat';
-              const period = interval === 'monthly' ? '/mo' : '/yr';
+              const price = PRICES[p].monthly;
+              const suffix = '/seat';
+              const period = '/mo';
               const accent =
                 // Superlist-ish: keep the palette cohesive and premium (violet for both, emerald as a subtle hint).
                 p === 'team'
