@@ -108,6 +108,10 @@ assert.match(taskNotesRoute, /requireTaskNoteAccess\(params.id, \{ mutate: true 
 assert.match(noteRoute, /requireNoteAccess\(params.id, \{ mutate: true \}, request\)/);
 assert.match(attachmentServer, /requireTaskNoteAccess\(target.taskId, \{ mutate \}, undefined, request\)/);
 assert.match(attachmentServer, /allowed.includes\(origin\)/);
+const privateFileLookup = attachmentServer.slice(attachmentServer.indexOf('export async function attachmentAccess('));
+assert.ok(privateFileLookup.indexOf('await requireAuthedUser(request)') >= 0);
+assert.ok(privateFileLookup.indexOf('await requireAuthedUser(request)') < privateFileLookup.indexOf('.from("attachments")'),
+  'Private attachment existence must not be queried before authentication');
 assert.match(attachmentListRoute, /attachmentTargetAccess\(target, false, request\)/);
 assert.match(attachmentItemRoute, /attachmentAccess\(params.id, false, request\)/);
 assert.match(mobileApp, /<MobileMoreView/);
