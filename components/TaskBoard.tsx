@@ -282,7 +282,7 @@ export function TaskBoard() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 flex-wrap items-center gap-3">
           <h2 className="sr-only md:not-sr-only md:text-2xl md:font-bold">Panel</h2>
-          {hasProcesses && (
+          {(
             <div className="flex min-w-0 items-center gap-2 w-full sm:w-auto">
               <ProcessSwitcher
                 projects={orderedProjectsForTeam}
@@ -364,7 +364,7 @@ export function TaskBoard() {
               </SelectContent>
             </Select>
           )}
-          {hasProcesses && permissions.canCreateTask && (
+          {permissions.canCreateTask && (
             <Button className="h-11 md:h-10" onClick={handleCreateTask}>
               <Plus className="mr-2 h-4 w-4" />
               Yeni aksiyon
@@ -378,7 +378,7 @@ export function TaskBoard() {
         <div className="rounded-lg border border-dashed p-8 text-center space-y-2 bg-muted/10">
           <p className="text-sm text-muted-foreground animate-pulse">Loading processes...</p>
         </div>
-      ) : !hasProcesses ? (
+      ) : !hasProcesses && boardScope.type !== 'general' ? (
         <div className="rounded-lg border border-dashed p-8 text-center space-y-2 bg-muted/30">
           <p className="text-sm font-medium text-foreground">No processes yet</p>
           <p className="text-sm text-muted-foreground">
