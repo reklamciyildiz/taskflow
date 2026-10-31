@@ -22,6 +22,7 @@ import { isTerminalBoardColumn } from '@/lib/types';
 import { orderedColumnTasks, computeBoardDropPatches } from '@/lib/board-reorder';
 import { CreateProjectModal } from '@/components/CreateProjectModal';
 import { EditGeneralBoardModal } from '@/components/EditGeneralBoardModal';
+import { InboxStageRecoveryDialog } from '@/components/InboxStageRecoveryDialog';
 import { useProcessProperties } from '@/hooks/useProcessProperties';
 import { PropertyBoard } from '@/components/PropertyBoard';
 import { PROPERTY_COLOR_CLASSES, selectedPropertyOptionsForTask, groupActionsByProperty } from '@/lib/process-properties';
@@ -60,7 +61,6 @@ export function TaskBoard() {
     boardColumns,
     inboxBoardStatus,
     inboxCanInitialize,
-    syncInboxStages,
     projects,
     setBoardScope,
     permissions,
@@ -81,7 +81,7 @@ export function TaskBoard() {
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const [editGeneralOpen, setEditGeneralOpen] = useState(false);
   const [assigningStageFor, setAssigningStageFor] = useState<string | null>(null);
-  const [syncingInbox, setSyncingInbox] = useState(false);
+  const [inboxRecoveryOpen, setInboxRecoveryOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<TaskStatus | null>(null);
   const [groupBy, setGroupBy] = useState('stage');
   const [mobileGroupId, setMobileGroupId] = useState<string | null>(null);
@@ -434,38 +434,29 @@ export function TaskBoard() {
           </div>
       
           {boardScope.type === 'general' && inboxBoardStatus === 'unconfigured' && (
-            <section className="rounded-xl border border-border/60 bg-card/40 p-3 text-sm" aria-label="Inbox stage synchronization">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <p className="font-medium text-foreground">Inbox · Stage sync required</p>
-                  <p className="mt-1 max-w-xl text-xs leading-5 text-muted-foreground">
-                    Inbox holds Actions not yet assigned to a Process. Import the original browser’s stage configuration before updating existing stages.
-                  </p>
-                </div>
-                {inboxCanInitialize && currentUserRole === 'admin' && unresolvedTasks.length === 0 && (
-                  <Button type="button" variant="outline" disabled={syncingInbox} onClick={() => {
-                    setSyncingInbox(true);
-                    void syncInboxStages().then(ok => {
-                      if (ok) toast.success('Inbox stages are now shared by web and mobile.');
-                    }).catch((err: unknown) => {
-                      toast.error(err instanceof Error ? err.message : 'Inbox stage import failed.');
-                    }).finally(() => setSyncingInbox(false));
-                  }}>{syncingInbox ? 'Synchronizing…' : 'Sync Inbox stages'}</Button>
-                )}
+            <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 bg-card/40 p-3 text-sm" aria-label="Inbox synchronization">
+              <div className="min-w-0 flex-1">
+                <p className="font-medium">Inbox stages are not yet synchronized</p>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                  Existing Action stages remain unchanged. Review saved stage IDs before sharing these stages across web and Android.
+                  {tasks.filter(task => task.teamId === currentTeam?.id && task.projectId == null && !boardColumns.some(stage => stage.id === task.status)).length > 0
+                    ? ' Some saved stage IDs need recovery.' : ''}
+                </p>
               </div>
+              {inboxCanInitialize && currentUserRole === 'admin'
+                ? <Button type="button" variant="outline" onClick={() => setInboxRecoveryOpen(true)}>Review &amp; sync stages</Button>
+                : <span className="text-xs text-muted-foreground">Ask a team administrator to synchronize stages.</span>}
             </section>
           )}
-          {boardScope.type === 'general' && unresolvedTasks.length > 0 && (
-            <details className="rounded-lg border border-amber-500/35 bg-amber-500/[0.035] p-3 text-sm" aria-label="Inbox stages missing on this device">
-              <summary className="cursor-pointer font-medium">{unresolvedTasks.length} Inbox Actions have unknown stage IDs on this device</summary>
-              <p className="my-2 text-xs leading-5 text-muted-foreground">Your original web browser may have valid custom stage IDs. No Action was moved or deleted. Open that browser to synchronize the original Inbox stages.</p>
-              <ul className="space-y-1">
-                {unresolvedTasks.map(task => (
-                  <li key={task.id}>
-                    <button type="button" className="py-1 text-left underline-offset-2 hover:underline" onClick={() => openTaskEditor(task.id)}>{task.title}</button>
-                  </li>
-                ))}
-              </ul>
+          {boardScope.type === 'general' && inboxBoardStatus !== 'unconfigured' && unresolvedTasks.length > 0 && (
+            <details className="rounded-lg border border-amber-500/35 p-3 text-sm" aria-label="Actions with unmatched stage IDs">
+              <summary className="cursor-pointer font-medium">{unresolvedTasks.length} Inbox Actions have unrecognized stage IDs</summary>
+              <p className="my-2 text-xs leading-5 text-muted-foreground">
+                No Actions were moved or deleted. Review the saved stage IDs on the original browser before making changes.
+              </p>
+              {unresolvedTasks.map(task => (
+                <button type="button" key={task.id} className="block py-1 text-left underline-offset-2 hover:underline" onClick={() => openTaskEditor(task.id)}>{task.title}</button>
+              ))}
             </details>
           )}
           {boardScope.type === 'project' && unresolvedTasks.length > 0 && (
@@ -582,6 +573,7 @@ export function TaskBoard() {
       />
       <CreateProjectModal open={isCreateProjectOpen} onClose={() => setIsCreateProjectOpen(false)} />
       <EditGeneralBoardModal open={editGeneralOpen} onClose={() => setEditGeneralOpen(false)} />
+      <InboxStageRecoveryDialog open={inboxRecoveryOpen} onClose={() => setInboxRecoveryOpen(false)} />
       {editingProjectId && (
         <CreateProjectModal
           open={!!editingProjectId}
