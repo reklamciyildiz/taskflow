@@ -151,27 +151,37 @@ public class ActiprocAuthPlugin extends Plugin {
             return;
         }
 
+        // There are two independent OAuth clients in this package:
+        // (1) the remote NextAuth diagnostic WebView, which uses nativeOauthStateV1;
+        // (2) the locally bundled Vite client, which uses oauthState and appUrlOpen.
+        // Always identify the owner of the returned state before changing the WebView.
+        // A previous diagnostic login can leave native state in encrypted storage,
+        // so checking only expectedState != null would hijack the bundled flow.
+        SecureSessionStore store = new SecureSessionStore(getContext());
+        String expectedState;
         try {
-            SecureSessionStore store = new SecureSessionStore(getContext());
-            String expectedState = store.get(KEY_STATE);
-            // The locally bundled client handles its own OAuth PKCE callback
-            // via @capacitor/app, without a native-only pending verifier.
-            // Do not overwrite its WebView with the remote NextAuth session route.
-            if (expectedState == null) return;
-            String uriKey = uri.toString();
-            if (uriKey.equals(lastHandledUri)) return;
-            lastHandledUri = uriKey;
+            expectedState = store.get(KEY_STATE);
+        } catch (Exception error) {
+            // An unreadable stale native state must not hijack the JS OAuth callback.
+            store.remove(KEY_STATE);
+            return;
+        }
+        String returnedState = uri.getQueryParameter("state");
+        if (expectedState == null || !STATE.matcher(expectedState).matches()
+                || !secureEqual(expectedState, returnedState)) {
+            // Not our native OAuth attempt. Allow @capacitor/app to deliver it to JS.
+            return;
+        }
+
+        String uriKey = uri.toString();
+        if (uriKey.equals(lastHandledUri)) return;
+        lastHandledUri = uriKey;
+
+        try {
             String verifier = store.get(KEY_VERIFIER);
             String callbackPath = safeCallbackPath(store.get(KEY_CALLBACK));
-            String returnedState = uri.getQueryParameter("state");
             String code = uri.getQueryParameter("code");
             String providerError = uri.getQueryParameter("error");
-
-            if (!secureEqual(expectedState, returnedState) || expectedState == null || !STATE.matcher(expectedState).matches()) {
-                clearPendingAuth();
-                loadSignInError("OAuthState");
-                return;
-            }
             if (providerError != null || code == null) {
                 clearPendingAuth();
                 loadSignInError("OAuthCancelled");
