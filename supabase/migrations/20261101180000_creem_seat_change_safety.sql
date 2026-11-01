@@ -107,3 +107,69 @@ REVOKE ALL ON FUNCTION public.confirm_creem_seat_change(UUID,TEXT,INTEGER,TEXT)
  FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.confirm_creem_seat_change(UUID,TEXT,INTEGER,TEXT)
  TO service_role;
+
+
+-- Seat-count enforcement on the actual membership insert is essential:
+-- two separate admins can pass an application-level count check concurrently.
+-- This trigger locks the org row and counts distinct organization members.
+-- Scoped to organizations with a linked Creem subscription, leaving existing
+-- manual/free/legacy accounts unchanged.
+CREATE OR REPLACE FUNCTION public.guard_creem_team_member_seat()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
+DECLARE target_org UUID;
+DECLARE user_org UUID;
+DECLARE o public.organizations%ROWTYPE;
+DECLARE current_used INTEGER;
+DECLARE allowed_seats INTEGER;
+DECLARE pending_previous INTEGER;
+DECLARE paid BOOLEAN;
+BEGIN
+ SELECT organization_id INTO target_org FROM public.teams WHERE id=NEW.team_id;
+ SELECT organization_id INTO user_org FROM public.users WHERE id=NEW.user_id;
+ IF target_org IS NULL OR user_org IS DISTINCT FROM target_org
+ THEN RAISE EXCEPTION 'Organization membership mismatch' USING ERRCODE='23514'; END IF;
+ SELECT * INTO o FROM public.organizations WHERE id=target_org FOR UPDATE;
+ IF NOT FOUND THEN RAISE EXCEPTION 'Organization unavailable' USING ERRCODE='23514'; END IF;
+ IF o.billing_provider IS DISTINCT FROM 'creem' OR o.creem_subscription_id IS NULL
+ THEN RETURN NEW; END IF;
+
+ -- Adding an already counted user to a second team must NOT use another seat.
+ IF EXISTS (
+  SELECT 1 FROM public.team_members tm
+  JOIN public.teams t ON t.id=tm.team_id
+  WHERE t.organization_id=target_org AND tm.user_id=NEW.user_id
+ ) THEN RETURN NEW; END IF;
+
+ paid=(o.creem_payment_hold IS FALSE AND (
+   o.subscription_status IN ('active','trialing')
+   OR (o.subscription_status='cancelled' AND o.subscription_ends_at>NOW())
+ ));
+ IF NOT paid THEN
+  allowed_seats=2;
+ ELSIF o.plan_name='individual' THEN
+  allowed_seats=1;
+ ELSIF o.plan_name IN ('pro','team') THEN
+  allowed_seats=GREATEST(1,COALESCE(o.seat_limit,1));
+ ELSE
+  allowed_seats=2;
+ END IF;
+
+ SELECT MIN(previous_seats) INTO pending_previous
+ FROM public.creem_seat_changes
+ WHERE organization_id=target_org AND status IN ('pending','awaiting_sync','review')
+   AND desired_seats>previous_seats;
+ IF pending_previous IS NOT NULL
+ THEN allowed_seats=LEAST(allowed_seats,pending_previous); END IF;
+
+ SELECT COUNT(DISTINCT tm.user_id)::INTEGER INTO current_used
+ FROM public.team_members tm JOIN public.teams t ON t.id=tm.team_id
+ WHERE t.organization_id=target_org;
+ IF current_used>=allowed_seats
+ THEN RAISE EXCEPTION 'Creem seat limit reached' USING ERRCODE='23514'; END IF;
+ RETURN NEW;
+END $$;
+REVOKE ALL ON FUNCTION public.guard_creem_team_member_seat() FROM PUBLIC, anon, authenticated;
+DROP TRIGGER IF EXISTS trg_guard_creem_team_member_seat ON public.team_members;
+CREATE TRIGGER trg_guard_creem_team_member_seat
+ BEFORE INSERT ON public.team_members
+ FOR EACH ROW EXECUTE FUNCTION public.guard_creem_team_member_seat();
