@@ -10,7 +10,7 @@ export function useOrganizationBilling(organizationId: string | null) {
   const [billingPlan, setBillingPlan] = useState<BillingPlan>('free');
   const [billingStatus, setBillingStatus] = useState<BillingStatus>('active');
   const [billingLoading, setBillingLoading] = useState(false);
-  const [checkoutBusy, setCheckoutBusy] = useState<'individual' | 'pro' | 'team' | null>(null);
+  const [checkoutBusy, setCheckoutBusy] = useState<'individual' | 'pro' | 'team' | 'resume' | null>(null);
   const billingProvider = 'creem' as const;
   const [seatLimit, setSeatLimit] = useState<number>(Number.POSITIVE_INFINITY);
   const [seatsUsed, setSeatsUsed] = useState(1);
@@ -175,6 +175,25 @@ export function useOrganizationBilling(organizationId: string | null) {
     []
   );
 
+  const resumeSubscription = useCallback(async () => {
+    setCheckoutBusy('resume');
+    try {
+      const response=await fetch('/api/billing/resume',{method:'POST'});
+      const result=await response.json().catch(()=>null);
+      if(!response.ok||!result?.success)throw new Error(result?.error||'Unable to resume billing');
+      await refreshBillingRef.current();
+      setTimeout(()=>void refreshBillingRef.current(),2500);
+      setTimeout(()=>void refreshBillingRef.current(),8000);
+      toast.success(result?.data?.pending
+        ? 'Creem is processing the request. Refresh to confirm renewal status.'
+        : 'Renewal is active. You can now upgrade your plan.');
+    } catch(e:unknown) {
+      toast.error(e instanceof Error?e.message:'Unable to resume subscription');
+    } finally {
+      setCheckoutBusy(null);
+    }
+  }, []);
+
   const openSeatUpgrade = useCallback(async () => {
     try {
       const resp = await fetch('/api/billing/portal');
@@ -209,5 +228,6 @@ export function useOrganizationBilling(organizationId: string | null) {
     openSeatUpgrade,
     switchPlan,
     updateSeats,
+    resumeSubscription,
   };
 }
