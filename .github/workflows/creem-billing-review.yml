@@ -28,5 +28,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run test:creem
-      - run: npm run test:twa
+      - run: npm run test:mobile-web
+      - run: npm run test:capacitor-oauth
+      - run: node scripts/test-capacitor-mobile-shell.mjs
       - run: npx tsc --noEmit

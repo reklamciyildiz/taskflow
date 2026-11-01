@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+const manifest=JSON.parse(await readFile('public/manifest.webmanifest','utf8'));
+const middleware=await readFile('middleware.ts','utf8');
+const links=await readFile('app/.well-known/assetlinks.json/route.ts','utf8');
+const native=await readFile('lib/client/is-capacitor-native.ts','utf8');
+const mobileSettings=await readFile('mobile/src/MobileSettingsView.tsx','utf8');
+assert.equal(manifest.name,'Actiproc - Team & Personal Productivity');
+assert.equal(manifest.short_name,'Actiproc');
+assert.equal(manifest.display,'standalone');
+for(const a of ['manifest.webmanifest','sw.js','robots.txt','sitemap.xml'])assert.ok(middleware.includes(a),a+' must remain public');
+assert.ok(links.includes('com.actiproc.app') && links.includes('com.actiproc.app.dev'),'Capacitor app links must be retained');
+assert.ok(!links.includes('legacyTwa'),'Obsolete verifier should not be published');
+assert.ok(native.includes('isNativePlatform') && native.includes('getPlatform'),'Native app detection must use Capacitor');
+assert.ok(mobileSettings.includes('No purchase, upgrade, checkout or external payment link is offered here'),'Native app must remain consumption-only');
+console.log('Capacitor mobile-web contract checks passed.');

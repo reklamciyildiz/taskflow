@@ -4,7 +4,7 @@ import { createCreemCheckout } from '@/lib/creem-billing-operations';
 import { creemCheckoutEnvironmentSafe } from '@/lib/creem-config';
 
 export async function POST(request: NextRequest) {
-  if (request.cookies.get('actiproc_platform')?.value === 'android-twa')
+  if (request.cookies.get('actiproc_platform')?.value === 'capacitor-native')
     return NextResponse.json({success:false,error:'Subscriptions must be managed in the web application.'},{status:403});
   if (!creemCheckoutEnvironmentSafe())
     return NextResponse.json({success:false,error:'Checkout is not available yet.'},{status:503});

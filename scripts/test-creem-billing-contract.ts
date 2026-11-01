@@ -152,7 +152,7 @@ for (const [remoteStatus,expected] of Object.entries(cases))
   assert.equal(creemResumeEligibility(remoteStatus),expected,'Creem resume eligibility for '+remoteStatus);
 const resumeRoute=fs.readFileSync('app/api/billing/resume/route.ts','utf8');
 assert.ok(resumeRoute.includes('requireOrgAdmin') && resumeRoute.includes('resumeCreemBilling'),'Resume must be admin-authorized');
-assert.ok(resumeRoute.includes('android-twa'),'Resume must respect TWA purchase restrictions');
+assert.ok(resumeRoute.includes('capacitor-native'),'Resume must block native app payment changes');
 const operations=fs.readFileSync('lib/creem-billing-operations.ts','utf8');
 assert.ok(operations.includes('creemResumeEligibility') && operations.includes("creem_payment_hold"),'Resume must check Creem state and payment holds');
 assert.ok(operations.includes("+'/resume'") && operations.includes('reconcileCreemSubscription(orgId,org.creem_subscription_id,config)'),
@@ -169,3 +169,6 @@ const resumeServer=fs.readFileSync('lib/creem-billing-operations.ts','utf8');
 assert.ok(resumeRoute.includes('export async function GET') && resumeRoute.includes('getCreemResumeAvailability'), 'Resume eligibility must be checked via authenticated read-only endpoint');
 assert.ok(resumeServer.includes("creemResumeEligibility(String(remote?.status??''))==='resume'"), 'Only remotely resumable statuses may show the action');
 assert.ok(resumeServer.includes("customerId===org.creem_customer_id") && resumeServer.includes("productId===org.creem_product_id"), 'Remote eligibility must verify ownership and product');
+
+const nativeCheckout=fs.readFileSync('app/api/billing/checkout/route.ts','utf8');
+assert.ok(nativeCheckout.includes('capacitor-native'),'Capacitor native app must not start Creem checkout');

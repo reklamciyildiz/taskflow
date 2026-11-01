@@ -26,7 +26,7 @@ import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { useOrganizationBilling } from '@/hooks/useOrganizationBilling';
-import { isAndroidTwa } from '@/lib/client/is-android-twa';
+import { isCapacitorNative } from '@/lib/client/is-capacitor-native';
 import { ACTIPROC_PLANS } from '@/lib/billing-plans';
 
 type Props = {
@@ -103,14 +103,14 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const isAndroid = typeof window !== 'undefined' ? isAndroidTwa() : false;
+  const isNativeApp = typeof window !== 'undefined' ? isCapacitorNative() : false;
   const hasPaidSubscription = billingPlan !== 'free' && Boolean(subscriptionId);
   const canUpgrade = billingPlan === 'free' || (billingStatus === 'active' && hasPaidSubscription);
   const planTitle = billingPlan.charAt(0).toUpperCase() + billingPlan.slice(1);
   const formattedEnd = endsAt && Number.isFinite(Date.parse(endsAt))
     ? new Date(endsAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})
     : null;
-  const busy = checkoutBusy !== null || isAndroid;
+  const busy = checkoutBusy !== null || isNativeApp;
 
   const statusLabel = billingStatus.replace('_', ' ');
   const showSeatMeter =
@@ -152,14 +152,14 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
         </div>
       </header>
 
-      {isAndroid ? (
+      {isNativeApp ? (
         <div className="flex items-start gap-3 rounded-lg border border-sky-500/30 bg-sky-500/10 px-4 py-3 text-sm text-sky-200">
           <Shield className="h-4 w-4 shrink-0 mt-0.5 text-sky-400" aria-hidden />
           <div className="space-y-1">
             <p className="font-semibold text-white">Google Play Policy Notice</p>
             <p className="text-xs text-sky-200/90 leading-relaxed">
-              Per Google Play terms, subscription upgrades, tier switches, and seat additions are managed directly on our website.
-              Please open <span className="font-semibold text-white">actiproc.com</span> in your web browser. Features and seats upgraded on the web immediately apply to this app.
+              This Capacitor app displays your existing subscription. Purchasing, upgrading and changing paid seats are unavailable in the native application.
+              Your account's existing paid entitlements are synchronized across devices.
             </p>
           </div>
         </div>

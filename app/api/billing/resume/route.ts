@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireOrgAdmin } from '@/lib/server-authz';
 import { resumeCreemBilling, getCreemResumeAvailability } from '@/lib/creem-billing-operations';
 export async function POST(request:NextRequest){
-  if(request.cookies.get('actiproc_platform')?.value==='android-twa')
+  if(request.cookies.get('actiproc_platform')?.value==='capacitor-native')
     return NextResponse.json({success:false,error:'Manage billing on the web.'},{status:403});
   const authed=await requireOrgAdmin(request);
   if(authed instanceof NextResponse)return authed;

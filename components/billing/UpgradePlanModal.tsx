@@ -5,7 +5,7 @@ import { Check, Sparkles, X } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { isAndroidTwa } from '@/lib/client/is-android-twa';
+import { isCapacitorNative } from '@/lib/client/is-capacitor-native';
 
 type Interval = 'monthly' | 'yearly';
 type UpgradePlan = 'individual' | 'pro' | 'team';
@@ -76,7 +76,7 @@ export function UpgradePlanModal(props: {
 }) {
   const { open, onClose, title, description, recommendedPlan, reason } = props;
   const [busy, setBusy] = useState<UpgradePlan | null>(null);
-  const isAndroid = typeof window !== 'undefined' ? isAndroidTwa() : false;
+  const isNativeApp = typeof window !== 'undefined' ? isCapacitorNative() : false;
 
   const plans: UpgradePlan[] = useMemo(() => {
     // If Team is explicitly required (e.g. user is already on Pro), remove Pro to reduce decision fatigue.
@@ -231,9 +231,9 @@ export function UpgradePlanModal(props: {
                     </div>
                   </div>
 
-                  {isAndroid ? (
+                  {isNativeApp ? (
                     <div className="relative mt-4 rounded-xl border border-sky-500/20 bg-sky-500/10 p-2.5 text-center text-xs text-sky-200">
-                      Manage your subscription at <span className="font-semibold text-white">actiproc.com</span> in your web browser. Features unlock here automatically.
+                      Purchases and plan upgrades are unavailable in the native app. Existing account entitlements remain synchronized.
                     </div>
                   ) : (
                     <Button

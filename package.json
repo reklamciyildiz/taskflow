@@ -25,7 +25,7 @@
     "test:planner:staging": "node scripts/test-planner-v2-staging.mjs",
     "test:planner:visual": "node scripts/test-planner-v2-visual.cjs",
     "test:editor": "tsx scripts/test-editor-slash-commands.ts",
-    "test:twa": "node scripts/test-twa-pwa-contract.mjs",
+    "test:mobile-web": "node scripts/test-mobile-web-contract.mjs",
     "test:ios-shell": "node scripts/test-ios-shell-contract.mjs",
     "test:ios-auth": "node scripts/test-ios-auth-security.mjs",
     "test:ios-ci": "node scripts/test-ios-ci-workflow.mjs",
@@ -35,8 +35,6 @@
     "test:creem": "tsx scripts/test-creem-billing-contract.ts",
     "creem:verify-products": "tsx scripts/verify-creem-products.ts",
     "test:capacitor-oauth": "node scripts/test-capacitor-oauth-handoff.mjs",
-    "test:android-twa-lifecycle": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-android-twa-lifecycle.ps1 -IncludeOffline",
-    "build:android:beta": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-android-beta.ps1",
     "migrate:auth": "tsx scripts/migrate-users-to-supabase-auth.ts",
     "ios:check": "npm run test:ios-shell && npm run test:ios-auth && npm run test:ios-ci && npm run test:ios-device-ci"
   },
