@@ -99,6 +99,13 @@ for(const item of [
  'FOR UPDATE','FROM public.creem_seat_changes','FROM public.creem_plan_changes',
  'GRANT EXECUTE ON FUNCTION public.reserve_creem_plan_change',
 ])assert.ok(sql.includes(item),'Missing plan SQL safety contract: '+item);
+for(const route of ['app/api/billing/update-seats/route.ts','app/api/billing/switch-plan/route.ts']) {
+ const code=fs.readFileSync(route,'utf8');
+ assert.ok(code.includes("request.cookies.get('actiproc_platform')") &&
+    code.includes('NATIVE_BILLING_DISABLED') &&
+    code.indexOf("NATIVE_BILLING_DISABLED")<code.indexOf('requireOrgAdmin'),
+    'Native paid billing action must be server-blocked before authorization at '+route);
+}
 const operations=fs.readFileSync('lib/creem-billing-operations.ts','utf8');
 const entitlements=fs.readFileSync('lib/entitlements.ts','utf8');
 const webhook=fs.readFileSync('app/api/webhooks/creem/route.ts','utf8');
