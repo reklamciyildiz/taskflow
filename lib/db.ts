@@ -1693,13 +1693,15 @@ export async function joinOrganizationViaInvitation(
     if(paid && invitedOrg.plan_name==='individual') allowed=1;
     else if(paid && ['pro','team'].includes(invitedOrg.plan_name))
       allowed=Math.max(1,Number(invitedOrg.seat_limit)||1);
-    const {data:pending,error:pendingError}=await (db as any).from('creem_seat_changes')
-      .select('previous_seats,desired_seats')
-      .eq('organization_id',invitation.organization_id)
-      .in('status',['pending','awaiting_sync','review']);
-    if(pendingError)throw pendingError;
-    for(const p of pending??[])if(Number(p.desired_seats)>Number(p.previous_seats))
-      allowed=Math.min(allowed,Number(p.previous_seats));
+    if(process.env.CREEM_SEAT_MUTATIONS_ENABLED==='true') {
+      const {data:pending,error:pendingError}=await (db as any).from('creem_seat_changes')
+        .select('previous_seats,desired_seats')
+        .eq('organization_id',invitation.organization_id)
+        .in('status',['pending','awaiting_sync','review']);
+      if(pendingError)throw pendingError;
+      for(const p of pending??[])if(Number(p.desired_seats)>Number(p.previous_seats))
+        allowed=Math.min(allowed,Number(p.previous_seats));
+    }
     if(currentSeats>=allowed)
       throw new Error('SEAT_LIMIT_REACHED: This organization has reached its purchased seat quota. Ask the admin to add seats.');
   }
