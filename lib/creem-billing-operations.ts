@@ -119,6 +119,10 @@ export async function reconcileCreemOrg(orgId:string) {
 }
 export async function changeCreemSeats(request:NextRequest, orgId:string) {
  try {
+  // Release-gated until the single-flight seat migration is installed.
+  if(process.env.CREEM_SEAT_MUTATIONS_ENABLED!=='true')
+   return NextResponse.json({success:false,code:'SEAT_CHANGES_DISABLED',
+     error:'Seat management is temporarily disabled until billing safety checks are configured.'},{status:503});
   const org:any=await organizationDb.getById(orgId);
   if(!org || org?.billing_provider!=='creem' || !org.creem_subscription_id)
    return NextResponse.json({success:false,error:'No Creem subscription found',code:'NO_SUBSCRIPTION'},{status:404});
@@ -152,21 +156,92 @@ export async function changeCreemSeats(request:NextRequest, orgId:string) {
   if(desired===current.units)return NextResponse.json({success:true,data:{changed:false,seats:desired}});
 
   const increased=desired>current.units;
-  // Creem API applies 'proration-none' changes immediately, without a refund.
-  const update=await creemApi<any>(config,'POST','subscriptions/'+encodeURIComponent(current.id),
-    seatUpdatePayload(current.itemId,desired,increased?'proration-charge-immediately':'proration-none'));
+  // Reserve a single mutation per organization in Postgres, not in React state.
+  // Multiple tabs or concurrent admin requests can never issue two seat charges.
+  const {data:reservation,error:reserveError}=await (supabaseAdmin as any)
+    .rpc('reserve_creem_seat_change',{
+      p_org:orgId,p_subscription:current.id,p_previous:current.units,
+      p_desired:desired,p_test:config.mode==='test'
+    });
+  if(reserveError) {
+    console.error('[creem] seat reserve SQL not ready',{code:reserveError.code});
+    return NextResponse.json({success:false,code:'SEAT_DATABASE_NOT_READY',
+      error:'Seat billing safety migration is missing or inaccessible.'},{status:503});
+  }
+  if(typeof reservation!=='string')
+   return NextResponse.json({success:false,code:'SEAT_CHANGE_IN_PROGRESS',
+     error:'A previous seat change is still being verified. Refresh Billing before requesting another charge.'},{status:409});
 
-  // Do not use response data from an unchecked mutation to increase entitlements.
-  // The verified subscription is reconciled via signed webhook / normal Refresh.
-  // Payment may still be pending even when Creem accepted the mutation.
+  const transition=async(from:'pending'|'awaiting_sync'|'review',to:'awaiting_sync'|'review'|'failed')=>{
+    const {data,error}=await (supabaseAdmin as any).rpc('transition_creem_seat_change',{
+      p_id:reservation,p_from:from,p_to:to
+    });
+    if(error||data!==true)console.error('[creem] seat mutation transition unsuccessful',
+      {code:error?.code??'STATE_CONFLICT',from,to});
+    return !error&&data===true;
+  };
+
+  let update:any;
+  try {
+    update=await creemApi<any>(config,'POST','subscriptions/'+encodeURIComponent(current.id),
+      seatUpdatePayload(current.itemId,desired,increased?'proration-charge-immediately':'proration-none'));
+  } catch(e) {
+    // Unknown responses / provider timeouts may have charged the card.
+    // Keep the request locked for review; never automatically charge a second time.
+    const definitive=e instanceof CreemApiError && [400,404,422].includes(e.status);
+    await transition('pending',definitive?'failed':'review');
+    throw e;
+  }
+  await transition('pending','awaiting_sync');
   const returned=update?.subscription??update;
-  const responseUnits=Number(returned?.items?.[0]?.units);
-  if(returned?.id && returned.id!==current.id)
-   throw new SeatValidationError('IDENTITY_MISMATCH');
+  if(returned?.id && returned.id!==current.id){
+    await transition('awaiting_sync','review');
+    throw new SeatValidationError('IDENTITY_MISMATCH');
+  }
+
+  // A successful API response is not automatically proof of a captured charge.
+  // Query Creem again; increase entitlement only after paid transaction or webhook.
+  let verified=false;
+  try {
+    const latest=await creemApi<any>(config,'GET','subscriptions?subscription_id='+encodeURIComponent(current.id));
+    const after=parseCreemSeatState(latest,{
+      subscriptionId:current.id,customerId:current.customerId,
+      productId:current.productId,mode:creemResponseMode(config)
+    });
+    if(after.status==='active'&&after.units===desired){
+      let paid=!increased;
+      if(increased){
+        const beforeTransaction=(remote?.subscription??remote)?.last_transaction_id;
+        const afterTransaction=(latest?.subscription??latest)?.last_transaction_id;
+        if(typeof afterTransaction==='string' && afterTransaction.startsWith('tran_') &&
+           afterTransaction!==beforeTransaction){
+          const transaction=await creemApi<any>(config,'GET',
+            'transactions?transaction_id='+encodeURIComponent(afterTransaction));
+          const t=transaction?.transaction??transaction;
+          const sub=typeof t?.subscription==='string'?t.subscription:t?.subscription?.id;
+          paid=t?.id===afterTransaction && sub===current.id && t?.status==='paid';
+        }
+      }
+      if(paid){
+        const applied=await reconcileCreemSubscription(orgId,current.id,config);
+        if(applied.applied){
+          const {error:settleError}=await (supabaseAdmin as any).rpc('confirm_creem_seat_change',{
+            p_org:orgId,p_subscription:current.id,p_current_units:desired,
+            p_event:increased?'subscription.paid':'subscription.update'
+          });
+          if(settleError)throw settleError;
+          verified=true;
+        }
+      }
+    }
+  }catch(verifyError) {
+    // The update may already be charged: do not reissue it on a read failure.
+    console.warn('[creem] seat mutation awaiting authoritative payment verification',
+      verifyError instanceof Error ? verifyError.name : 'unknown');
+  }
   return NextResponse.json({success:true,data:{
     changed:true,desiredSeats:desired,previousSeats:current.units,
-    providerReportedSeats:Number.isSafeInteger(responseUnits)?responseUnits:null,
-    pendingVerification:true,direction:increased?'increase':'decrease'
+    pendingVerification:!verified,direction:increased?'increase':'decrease'
   }});
  } catch(e) {
   if(e instanceof SeatValidationError) {
