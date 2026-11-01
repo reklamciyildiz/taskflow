@@ -340,6 +340,9 @@ export async function changeCreemPlan(request:NextRequest,orgId:string) {
   const previous=org.plan_name as PaidActiprocPlan;
   if(ordered.indexOf(plan)<=ordered.indexOf(previous))
    return NextResponse.json({success:false,error:'Downgrades and interval changes must be arranged in the customer portal or with support.'},{status:409});
+  if(org.creem_payment_hold || org.subscription_status!=='active' ||
+     Boolean(org.creem_test_mode)!==(config.mode==='test'))
+    return NextResponse.json({success:false,error:'Subscription payment or environment is not current.'},{status:409});
   if((await getOrganizationSeatUsage(orgId))>1 && plan==='individual')
    return NextResponse.json({success:false,error:'Individual requires one member'},{status:409});
   if(process.env.CREEM_SEAT_MUTATIONS_ENABLED==='true') {
@@ -351,7 +354,35 @@ export async function changeCreemPlan(request:NextRequest,orgId:string) {
       error:'Finish or reconcile the pending seat change before upgrading your plan.'},{status:409});
   }
   const snapshot=await fetchCreemSubscription(org.creem_subscription_id,config);
-  if(snapshot.status!=='active')return NextResponse.json({success:false,error:'Only active subscriptions can be upgraded'},{status:409});
+  if(snapshot.status!=='active' || snapshot.customerId!==org.creem_customer_id ||
+     snapshot.productId!==org.creem_product_id || snapshot.plan!==previous ||
+     snapshot.testMode!==Boolean(org.creem_test_mode))
+    return NextResponse.json({success:false,error:'The Creem subscription changed. Refresh billing before upgrading.'},{status:409});
+  const raw=await creemApi<any>(config,'GET','subscriptions?subscription_id='+encodeURIComponent(snapshot.subscriptionId));
+  const seatState=parseCreemSeatState(raw,{
+    subscriptionId:snapshot.subscriptionId,customerId:snapshot.customerId,
+    productId:snapshot.productId,mode:creemResponseMode(config)
+  });
+  if(seatState.status!=='active' || Number(org.seat_limit)!==seatState.units)
+    return NextResponse.json({success:false,error:'Subscription seat quantity changed. Refresh billing.'},{status:409});
+  const sub=raw?.subscription??raw;
+  const consentState:BillingConsentState={
+    operation:'upgrade',organizationId:orgId,subscriptionId:snapshot.subscriptionId,
+    fromPlan:previous,toPlan:plan,fromSeats:seatState.units,toSeats:seatState.units,
+    mode:creemResponseMode(config),lastTransactionId:typeof sub?.last_transaction_id==='string'?sub.last_transaction_id:null,
+    updatedAt:seatState.updatedAt
+  };
+  if(body?.action==='preview') {
+    return NextResponse.json({success:true,data:{
+      consentToken:issueBillingConsent(consentState,config.secret),
+      fromPlan:previous,toPlan:plan,seats:seatState.units,
+      nextMonthlyUsd:seatState.units*(plan==='team'?6:plan==='pro'?4:0),
+      exactChargeAvailable:false
+    }});
+  }
+  if(body?.action!=='confirm' || !verifyBillingConsent(body?.consentToken,consentState,config.secret))
+    return NextResponse.json({success:false,code:'CONSENT_REQUIRED',
+      error:'Payment approval expired or subscription details changed. Review the upgrade again.'},{status:409});
   await creemApi(config,'POST','subscriptions/'+encodeURIComponent(snapshot.subscriptionId)+'/upgrade',{
    product_id:creemProductForPlan(plan,config),update_behavior:'proration-charge-immediately'
   });
