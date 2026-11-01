@@ -155,6 +155,9 @@ export function useOrganizationBilling(organizationId: string | null) {
     consentToken: string; previousSeats: number; desiredSeats: number;
     direction: 'increase' | 'decrease'; currentMonthlyUsd: number; nextMonthlyUsd: number;
     exactChargeAvailable: false;
+    currentNextChargeAt: string|null; currentPeriodEndAt: string|null;
+    billingCyclePolicy: 'new-cycle-on-immediate-charge'|'no-immediate-proration';
+    nextChargeAfterChangeAt: null;
   }> => {
     const response = await fetch('/api/billing/update-seats', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
