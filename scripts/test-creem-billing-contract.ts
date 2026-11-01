@@ -129,3 +129,9 @@ assert.equal(creemCheckoutEnvironmentSafe({...primary,VERCEL_ENV:'production'}),
 assert.equal(creemCheckoutEnvironmentSafe({...primary,NODE_ENV:'production'}),false);
 assert.equal(creemCheckoutEnvironmentSafe({...primary,NEXT_PUBLIC_SUPABASE_URL:'https://malicious.example'}),false);
 assert.equal(creemCheckoutEnvironmentSafe({...primary,CREEM_CHECKOUT_ENABLED:'false'}),false);
+
+const billingUi=fs.readFileSync('components/billing/BillingClient.tsx','utf8');
+assert.ok(billingUi.includes('canUpgrade') && billingUi.includes('hasPaidSubscription'),'Cancelled plans must block unsupported plan upgrades');
+assert.ok(!billingUi.includes('Checkout returned — verifying subscription payment'),'Stale checkout banner must be removed');
+assert.ok(!billingUi.includes('setBillingInterval('),'Unsupported billing interval toggle must not appear');
+assert.ok(billingUi.includes('Secured by Creem') && billingUi.includes('Choose how your team grows'),'Billing dashboard design missing');
