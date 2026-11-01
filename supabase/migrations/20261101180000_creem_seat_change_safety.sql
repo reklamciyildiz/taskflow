@@ -125,13 +125,15 @@ DECLARE pending_previous INTEGER;
 DECLARE paid BOOLEAN;
 BEGIN
  SELECT organization_id INTO target_org FROM public.teams WHERE id=NEW.team_id;
- SELECT organization_id INTO user_org FROM public.users WHERE id=NEW.user_id;
- IF target_org IS NULL OR user_org IS DISTINCT FROM target_org
- THEN RAISE EXCEPTION 'Organization membership mismatch' USING ERRCODE='23514'; END IF;
  SELECT * INTO o FROM public.organizations WHERE id=target_org FOR UPDATE;
  IF NOT FOUND THEN RAISE EXCEPTION 'Organization unavailable' USING ERRCODE='23514'; END IF;
+ -- Avoid surprising legacy/manual organizations: the new quota gate is scoped
+ -- exclusively to organizations with an actual linked Creem subscription.
  IF o.billing_provider IS DISTINCT FROM 'creem' OR o.creem_subscription_id IS NULL
  THEN RETURN NEW; END IF;
+ SELECT organization_id INTO user_org FROM public.users WHERE id=NEW.user_id;
+ IF user_org IS DISTINCT FROM target_org
+ THEN RAISE EXCEPTION 'Organization membership mismatch' USING ERRCODE='23514'; END IF;
 
  -- Adding an already counted user to a second team must NOT use another seat.
  IF EXISTS (
