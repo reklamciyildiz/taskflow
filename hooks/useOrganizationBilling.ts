@@ -15,6 +15,7 @@ export function useOrganizationBilling(organizationId: string | null) {
   const [seatLimit, setSeatLimit] = useState<number>(Number.POSITIVE_INFINITY);
   const [seatsUsed, setSeatsUsed] = useState(1);
   const [seatChange, setSeatChange] = useState<{status:string;previousSeats:number;desiredSeats:number}|null>(null);
+  const [planChange,setPlanChange] = useState<{status:string;previousPlan:string;desiredPlan:string}|null>(null);
   const [subscriptionId, setSubscriptionId] = useState<string | null>(null);
   const [billingCycle, setBillingCycle] = useState<{
     currentPeriodStartAt: string|null; currentPeriodEndAt:string|null;
@@ -68,6 +69,8 @@ export function useOrganizationBilling(organizationId: string | null) {
             currentPeriodEndAt:cycle.currentPeriodEndAt??null,
             nextChargeAt:cycle.nextChargeAt??null,
             nextChargeVerified:cycle.nextChargeVerified===true } : null);
+        setPlanChange(json.data.planChange && typeof json.data.planChange.desiredPlan==='string'
+          ? json.data.planChange : null);
         setSeatChange(json.data.seatChange && Number.isSafeInteger(json.data.seatChange.desiredSeats)
           ? json.data.seatChange : null);
         const sid = json.data.subscriptionId;
@@ -229,7 +232,11 @@ export function useOrganizationBilling(organizationId: string | null) {
         // Webhook will update DB; poll twice to catch it
         setTimeout(() => void refreshBillingRef.current(), 2500);
         setTimeout(() => void refreshBillingRef.current(), 8000);
-        toast.message('Creem accepted the upgrade. Billing will refresh after provider verification.');
+        toast.message(json?.data?.review === true
+          ? 'The Creem payment status is uncertain. Do not retry; contact billing support.'
+          : json?.data?.pending === true
+            ? 'Plan upgrade is pending payment verification. Your previous access is retained.'
+            : 'Upgrade paid and verified. Billing is refreshing.');
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : 'Plan switch failed';
         toast.error(msg);
@@ -288,6 +295,7 @@ export function useOrganizationBilling(organizationId: string | null) {
     seatLimit,
     seatsUsed,
     seatChange,
+    planChange,
     subscriptionId,
     endsAt,
     refreshBilling,
