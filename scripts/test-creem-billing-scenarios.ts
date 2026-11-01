@@ -65,6 +65,7 @@ for(const [label,sub] of [
 ]){
  assert.equal(matchesPaidPlanUpgrade(upgrade,sub,paid,'test'),false,'Plan: '+label);
 }
+async function runProviderScenarios():Promise<void>{
 const originalFetch=globalThis.fetch;
 let calls:string[]=[];
 try {
@@ -113,3 +114,6 @@ assert.ok(webhook.includes('reconcilePendingCreemPlanChange')&&
  settlement.includes('verifyCreemPlanUpgradePayment')&&
  settlement.includes("rpc('confirm_creem_plan_change'"));
 console.log('PASS: 3->5 and plan upgrade, 15 rejected invoice scenarios, mocked provider GET, cross-mutation SQL, entitlement guards');
+
+}
+runProviderScenarios().catch(error=>{console.error(error);process.exitCode=1;});
