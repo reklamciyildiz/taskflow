@@ -6,6 +6,7 @@ import { normalizeCreemSubscription } from '../lib/creem-subscription-contract';
 import { validCreemEventId, verifyCreemSignature, paidCreemCheckoutMatches } from '../lib/creem-webhook-contract';
 import crypto from 'node:crypto';
 import { isPaidActive } from '../lib/subscription-access';
+import { creemResumeEligibility } from '../lib/creem-lifecycle';
 
 assert.deepEqual([ACTIPROC_PLANS.free.maxProcesses,ACTIPROC_PLANS.individual.maxProcesses,ACTIPROC_PLANS.pro.maxProcesses],[1,3,10]);
 assert.deepEqual([ACTIPROC_PLANS.individual.priceUsd,ACTIPROC_PLANS.pro.priceUsd,ACTIPROC_PLANS.team.priceUsd],[12,4,6]);
@@ -135,3 +136,28 @@ assert.ok(billingUi.includes('canUpgrade') && billingUi.includes('hasPaidSubscri
 assert.ok(!billingUi.includes('Checkout returned — verifying subscription payment'),'Stale checkout banner must be removed');
 assert.ok(!billingUi.includes('setBillingInterval('),'Unsupported billing interval toggle must not appear');
 assert.ok(billingUi.includes('Secured by Creem') && billingUi.includes('Choose how your team grows'),'Billing dashboard design missing');
+
+const cases = {
+  scheduled_cancel:'resume',
+  paused:'resume',
+  canceled:'terminal',
+  expired:'terminal',
+  active:'already-active',
+  trialing:'already-active',
+  unpaid:'blocked',
+  past_due:'blocked',
+  unknown:'blocked',
+} as const;
+for (const [remoteStatus,expected] of Object.entries(cases))
+  assert.equal(creemResumeEligibility(remoteStatus),expected,'Creem resume eligibility for '+remoteStatus);
+const resumeRoute=fs.readFileSync('app/api/billing/resume/route.ts','utf8');
+assert.ok(resumeRoute.includes('requireOrgAdmin') && resumeRoute.includes('resumeCreemBilling'),'Resume must be admin-authorized');
+assert.ok(resumeRoute.includes('android-twa'),'Resume must respect TWA purchase restrictions');
+const operations=fs.readFileSync('lib/creem-billing-operations.ts','utf8');
+assert.ok(operations.includes('creemResumeEligibility') && operations.includes("creem_payment_hold"),'Resume must check Creem state and payment holds');
+assert.ok(operations.includes("+'/resume'") && operations.includes('reconcileCreemSubscription(orgId,org.creem_subscription_id,config)'),
+  'Resume must call Creem and refresh authoritative subscription');
+const hookCode=fs.readFileSync('hooks/useOrganizationBilling.ts','utf8');
+const clientCode=fs.readFileSync('components/billing/BillingClient.tsx','utf8');
+assert.ok(hookCode.includes("fetch('/api/billing/resume'") && clientCode.includes('resumeSubscription()'), 'Resume action must be wired to Billing UI');
+assert.ok(clientCode.includes('Resume billing first'), 'Cancelled-plan pricing must explain next step');
