@@ -282,6 +282,14 @@ export async function changeCreemPlan(request:NextRequest,orgId:string) {
    return NextResponse.json({success:false,error:'Downgrades and interval changes must be arranged in the customer portal or with support.'},{status:409});
   if((await getOrganizationSeatUsage(orgId))>1 && plan==='individual')
    return NextResponse.json({success:false,error:'Individual requires one member'},{status:409});
+  if(process.env.CREEM_SEAT_MUTATIONS_ENABLED==='true') {
+    const {data:open,error}=await (supabaseAdmin as any).from('creem_seat_changes')
+      .select('id').eq('organization_id',orgId)
+      .in('status',['pending','awaiting_sync','review']).maybeSingle();
+    if(error)throw error;
+    if(open)return NextResponse.json({success:false,code:'SEAT_CHANGE_IN_PROGRESS',
+      error:'Finish or reconcile the pending seat change before upgrading your plan.'},{status:409});
+  }
   const snapshot=await fetchCreemSubscription(org.creem_subscription_id,config);
   if(snapshot.status!=='active')return NextResponse.json({success:false,error:'Only active subscriptions can be upgraded'},{status:409});
   await creemApi(config,'POST','subscriptions/'+encodeURIComponent(snapshot.subscriptionId)+'/upgrade',{

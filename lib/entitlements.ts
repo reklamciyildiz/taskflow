@@ -1,5 +1,6 @@
 import { organizationDb, teamMemberDb } from '@/lib/db';
 import { isPaidActive, type SubscriptionStatus } from '@/lib/subscription-access';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 
 export { isPaidActive } from '@/lib/subscription-access';
 export type { SubscriptionStatus } from '@/lib/subscription-access';
@@ -110,9 +111,8 @@ export async function getOrganizationEntitlements(organizationId: string): Promi
     seatLimit = getSeatLimitFromPlan('free');
   } else if (plan === 'team') {
     // No active paid subscription = manually upgraded (developer / owner account): treat as unlimited.
-    seatLimit = hasRealSubscription && storedOk && stored >= 1
-      ? Math.floor(stored)
-      : Number.POSITIVE_INFINITY;
+    // A missing seat quantity on a real subscription must never mean unlimited paid seats.
+    seatLimit = hasRealSubscription ? (storedOk ? Math.floor(stored) : 1) : Number.POSITIVE_INFINITY;
   } else if (plan === 'individual') {
     seatLimit = 1;
   } else if (plan === 'pro') {
@@ -121,6 +121,22 @@ export async function getOrganizationEntitlements(organizationId: string): Promi
     seatLimit = getSeatLimitFromPlan('free');
   }
 
+  if (process.env.CREEM_SEAT_MUTATIONS_ENABLED==='true' &&
+      org?.billing_provider==='creem' && org.creem_subscription_id &&
+      (plan==='pro'||plan==='team') && paid) {
+    // Provider may update units before completing the payment. Keep the
+    // *previous purchased cap* until payment confirmation closes the lease.
+    const {data:open,error}=await (supabaseAdmin as any).from('creem_seat_changes')
+      .select('previous_seats,desired_seats')
+      .eq('organization_id',organizationId)
+      .in('status',['pending','awaiting_sync','review']).maybeSingle();
+    if(error) {
+      console.error('[creem] could not verify active seat mutation',{code:error.code});
+      seatLimit=Math.min(seatLimit,1); // fail closed, never grant unverified seats
+    } else if(open && Number(open.desired_seats)>Number(open.previous_seats)) {
+      seatLimit=Math.min(seatLimit,Math.max(1,Number(open.previous_seats)));
+    }
+  }
   return { plan, subscriptionStatus, seatLimit, endsAt };
 }
 

@@ -107,7 +107,15 @@ export async function POST(request:NextRequest) {
      }
      throw new Error('Creem subscription event arrived before checkout mapping');
    }
-   await reconcileCreemSubscription(org.id,sid,config);
+   const result=await reconcileCreemSubscription(org.id,sid,config);
+   if(process.env.CREEM_SEAT_MUTATIONS_ENABLED==='true' &&
+      result.applied && result.snapshot.status==='active' &&
+      (kind==='subscription.paid'||kind==='subscription.update')) {
+     const {error:seatError}=await (supabaseAdmin as any).rpc('confirm_creem_seat_change',{
+       p_org:org.id,p_subscription:sid,p_current_units:result.snapshot.seats,p_event:kind
+     });
+     if(seatError)throw seatError;
+   }
   }else if(kind==='refund.created' || kind==='dispute.created'){
    const sid=objectId(obj.subscription) ?? objectId(obj.transaction?.subscription);
    if(!sid)throw new Error('Payment reversal missing subscription mapping - manual review needed');
