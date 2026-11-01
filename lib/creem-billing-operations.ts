@@ -443,10 +443,47 @@ export async function changeCreemPlan(request:NextRequest,orgId:string) {
   if(body?.action!=='confirm' || !verifyBillingConsent(body?.consentToken,consentState,config.secret))
     return NextResponse.json({success:false,code:'CONSENT_REQUIRED',
       error:'Payment approval expired or subscription details changed. Review the upgrade again.'},{status:409});
-  await creemApi(config,'POST','subscriptions/'+encodeURIComponent(snapshot.subscriptionId)+'/upgrade',{
-   product_id:creemProductForPlan(plan,config),update_behavior:'proration-charge-immediately'
+  const targetProduct=creemProductForPlan(plan,config);
+  const {data:reservation,error:reserveError}=await (supabaseAdmin as any).rpc('reserve_creem_plan_change',{
+    p_org:orgId,p_subscription:snapshot.subscriptionId,p_previous:previous,p_desired:plan,
+    p_previous_product:snapshot.productId,p_desired_product:targetProduct,
+    p_previous_transaction:beforeTransaction,p_seats:seatState.units,
+    p_customer:snapshot.customerId,p_test:config.mode==='test'
   });
-  return NextResponse.json({success:true});
+  if(reserveError)return NextResponse.json({success:false,code:'PLAN_DATABASE_NOT_READY',
+    error:'Atomic plan billing migration is missing. No charge was requested.'},{status:503});
+  if(typeof reservation!=='string')
+   return NextResponse.json({success:false,code:'BILLING_CHANGE_IN_PROGRESS',
+      error:'Another seat or plan change is in progress. No second payment was requested.'},{status:409});
+  const transition=async(from:'pending'|'awaiting_sync'|'review',to:'awaiting_sync'|'review'|'failed')=>{
+    const {data,error}=await (supabaseAdmin as any).rpc('transition_creem_plan_change',{
+       p_id:reservation,p_from:from,p_to:to
+    });
+    if(error||data!==true)
+      console.error('[creem] plan mutation transition failed',{code:error?.code??'STATE_CONFLICT'});
+  };
+  try {
+    await creemApi(config,'POST','subscriptions/'+encodeURIComponent(snapshot.subscriptionId)+'/upgrade',{
+      product_id:targetProduct,update_behavior:'proration-charge-immediately'
+    });
+  }catch(e) {
+    // Even a provider HTTP error can follow a submitted charge; keep the lock.
+    await transition('pending','review');
+    return NextResponse.json({success:true,data:{pending:true,review:true,
+      message:'Creem payment status is uncertain. Refresh billing; do not retry the charge.'}},{status:202});
+  }
+  await transition('pending','awaiting_sync');
+  try {
+    const applied=await reconcileCreemSubscription(orgId,snapshot.subscriptionId,config);
+    const settlement=await reconcilePendingCreemPlanChange(orgId,applied.snapshot,config);
+    return NextResponse.json({success:true,data:{pending:!settlement.settled,
+      verified:settlement.settled}});
+  }catch(e) {
+    // Provider might have charged. The pending SQL lease blocks duplicate calls.
+    console.warn('[creem] plan upgrade awaiting invoice verification',
+      e instanceof Error?e.name:'unknown');
+    return NextResponse.json({success:true,data:{pending:true,verified:false}},{status:202});
+  }
  }catch(e){return errorResponse(e,'switch-plan')}
 }
 
