@@ -68,6 +68,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
     openCustomerPortal,
     switchPlan,
     updateSeats,
+    resumeSubscription,
   } = useOrganizationBilling(organizationId);
 
   const requestedPlan = useMemo(() => {
@@ -250,6 +251,12 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                   Manage seats
                 </Button>
               ) : null}
+              {(billingStatus === 'cancelled' || billingStatus === 'paused') && hasPaidSubscription ? (
+                <Button type="button" size="sm" disabled={busy}
+                  onClick={() => void resumeSubscription()}>
+                  {checkoutBusy === 'resume' ? 'Checking Creem…' : 'Resume billing'}
+                </Button>
+              ) : null}
               {billingPlan === 'free' ? (
                 <Button
                   type="button"
@@ -260,13 +267,14 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                   {busy ? 'Opening…' : 'Upgrade to Individual'}
                 </Button>
               ) : billingPlan === 'individual' ? (
-                <Button type="button" size="sm" disabled={!canUpgrade || busy} onClick={() => void switchPlan('pro', { billingInterval: 'monthly' })}>Upgrade to Pro</Button>
+                <Button type="button" size="sm" disabled={!canUpgrade || busy} title={!canUpgrade ? 'Resume billing first to upgrade' : undefined} onClick={() => void switchPlan('pro', { billingInterval: 'monthly' })}>Upgrade to Pro</Button>
               ) : billingPlan === 'pro' ? (
                 // Upgrade the existing Creem subscription, not a second checkout.
                 <Button
                   type="button"
                   size="sm"
                   disabled={!canUpgrade || busy}
+                  title={!canUpgrade ? 'Resume billing first to upgrade' : undefined}
                   onClick={() => void switchPlan('team', { billingInterval: 'monthly' })}
                 >
                   {busy ? 'Switching…' : 'Upgrade to Team'}
@@ -317,7 +325,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
             <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm">
               Cancellation confirmed. Your premium access continues until{' '}
               <strong>{new Date(endsAt).toLocaleDateString()}</strong>. You can resume it from the customer portal
-              before that date.
+              before that date. Select <strong>Resume billing</strong> to restore renewal when Creem allows it. Permanently cancelled subscriptions require a separate re-subscription.
             </div>
           ) : null}
 
@@ -551,7 +559,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                         onClick={() => billingPlan === 'free'
                           ? void openCheckout(key, {billingInterval:key === 'individual' ? 'yearly' : 'monthly'})
                           : void switchPlan(key, {billingInterval:'monthly'})}>
-                        {current ? 'Current plan' : 'Choose ' + title}
+                        {current ? 'Current plan' : !canUpgrade ? 'Resume billing first' : 'Choose ' + title}
                       </Button>
                     </>
                   )}
@@ -561,7 +569,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
           })}
         </div>
         <p className="mt-3 text-center text-[11px] text-muted-foreground">
-          USD prices: Individual $12/year, Pro $4/seat/month, Team $6/seat/month. Creem includes applicable taxes in the listed price; verify the final amount at checkout.
+          Individual $12/year, Pro $4/seat/month, Team $6/seat/month. Applicable taxes are included; upgrades may incur an immediate prorated charge.
         </p>
       </div>
 
