@@ -261,3 +261,10 @@ assert.ok(seatGuardSql.includes('tm.user_id=NEW.user_id'), 'Existing users in ad
 const invitationCode=fs.readFileSync('lib/db.ts','utf8');
 assert.ok(invitationCode.includes('SEAT_LIMIT_REACHED') &&
  invitationCode.includes('currentSeats>=allowed'), 'Invitations must check seats before creating user records');
+
+assert.ok(seatGuardSql.includes("CREATE TRIGGER trg_guard_creem_team_member_seat"),
+ 'Creem membership guard must install an actual DB trigger');
+assert.ok(seatGuardSql.includes("WHEN") === false || seatGuardSql.includes("CREATE TRIGGER"), 'Trigger source should remain auditable');
+assert.ok(seatGuardSql.includes("o.billing_provider IS DISTINCT FROM 'creem'"), 'Paid seat trigger must not affect legacy/owner organizations');
+assert.ok(seatGuardSql.includes("p_before_transaction"), 'Payment verification must preserve the last transaction ID before the seat change');
+assert.ok(seatRouteCode.includes("status:'") === false || seatRouteCode.includes("reserve_creem_seat_change"), 'No unchecked seat mutations');

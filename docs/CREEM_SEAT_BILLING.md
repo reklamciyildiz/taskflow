@@ -29,3 +29,23 @@ Individual: fixed 1 paid seat, $12/year. Pro: $4/seat/month. Team: $6/seat/month
 - \`CREEM_REJECTED\`, \`PAYMENT_REQUIRED\`, \`CREEM_UNAVAILABLE\`: provider failed, check safe server logs; optional trace ID may help Creem support.
 - \`SEAT_CHANGE_IN_PROGRESS\`: previous seat operation unconfirmed; inspect Creem + journal before attempting another charge.
 Do not delete pending journal rows or reset paid seats manually to force a test to pass.
+
+## Membership and invitation enforcement
+A database trigger on `public.team_members` (scoped to organizations with a Creem subscription) serializes membership additions using an organization-row lock, counts *distinct users* across teams, enforces an active/cancelled-paid-through cap and prevents pending increases from granting unpaid seats. An existing member joining a second team does not pay twice. The invitation-accept flow also prechecks the cap before creating the new user, although the trigger is the final concurrent source of truth. These safeguards become active only after the migration has been executed on the primary Supabase project.
+
+## Read-only primary Supabase verification
+Run in the **primary** project's SQL Editor after reviewing/applying the seat migration:
+```sql
+SELECT
+  to_regclass('public.creem_seat_changes') IS NOT NULL AS seat_journal,
+  to_regprocedure('public.reserve_creem_seat_change(uuid,text,integer,integer,boolean,text)') IS NOT NULL AS reservation_rpc,
+  to_regprocedure('public.transition_creem_seat_change(uuid,text,text)') IS NOT NULL AS transition_rpc,
+  to_regprocedure('public.confirm_creem_seat_change(uuid,text,integer,text)') IS NOT NULL AS confirmation_rpc,
+  EXISTS (
+    SELECT 1 FROM pg_trigger
+    WHERE tgname = 'trg_guard_creem_team_member_seat' AND NOT tgisinternal
+  ) AS membership_trigger;
+```
+All five values must be `true` before enabling the seat mutation flag.
+
+The original generic 502 error was not diagnosable from a screenshot. The improved server logs include the provider HTTP status and, if available, a safe Creem trace ID; they do not expose API keys. If the failure recurs, record only the logged HTTP status, provider code and trace ID.
