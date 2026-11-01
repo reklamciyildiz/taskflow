@@ -69,7 +69,7 @@ async function runProviderScenarios():Promise<void>{
 const originalFetch=globalThis.fetch;
 let calls:string[]=[];
 try {
- const remoteReplies:Map<string,any>=new Map([
+ const remoteReplies:Map<string,any>=new Map<string,any>([
   ['subscriptions?subscription_id=sub_scenario',subBase],
   ['transactions?transaction_id=tran_current',paid],
  ]);
