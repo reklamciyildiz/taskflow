@@ -61,6 +61,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
     checkoutBusy,
     seatLimit,
     seatsUsed,
+    seatChange,
     subscriptionId,
     endsAt,
     refreshBilling,
@@ -85,7 +86,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
   const [addSeatsOpen, setAddSeatsOpen] = useState(false);
   const [seatReductionAcknowledged, setSeatReductionAcknowledged] = useState(false);
   const [desiredSeats, setDesiredSeats] = useState(1);
-  const [addSeatsError, setAddSeatsError] = useState<{ message: string; code?: string } | null>(null);
+  const [addSeatsError, setAddSeatsError] = useState<{ message: string; code?: string; traceId?: string } | null>(null);
   const proRef = useRef<HTMLDivElement | null>(null);
   const teamRef = useRef<HTMLDivElement | null>(null);
 
@@ -265,7 +266,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                   type="button"
                   variant="outline"
                   size="sm"
-                  disabled={busy || billingStatus === 'cancelled'}
+                  disabled={busy || billingStatus !== 'active' || Boolean(seatChange)}
                   onClick={() => {
                     setDesiredSeats(seatLimit);
                     setAddSeatsError(null);
@@ -361,6 +362,13 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
             </div>
           ) : null}
 
+          {seatChange ? (
+            <div role="status" className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-xs text-foreground">
+              Creem is verifying your request for <strong>{seatChange.desiredSeats}</strong> seats.
+              {seatChange.status === 'review' ? ' Billing review is needed before a new change.' : ' Another charge cannot start until it is verified.'}
+              Use Refresh to check again.
+            </div>
+          ) : null}
           {showSeatMeter ? (
             <div className="space-y-2 rounded-xl border bg-card p-4">
               <div className="flex items-center justify-between text-sm">
@@ -457,7 +465,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                   <div className="flex flex-col gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2.5">
                     <div className="flex items-start gap-2 text-xs text-red-700 dark:text-red-400">
                       <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-                      <span>{addSeatsError.message}</span>
+                      <span>{addSeatsError.message}{addSeatsError.traceId ? ' (Creem reference: '+addSeatsError.traceId+')' : ''}</span>
                     </div>
                     {addSeatsError.code === 'PAYMENT_REQUIRED' ? (
                       <p className="text-xs text-muted-foreground">
@@ -479,7 +487,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                 <Button
                   type="button"
                   size="sm"
-                  disabled={busy || !isValid}
+                  disabled={busy || Boolean(seatChange) || !isValid}
                   onClick={async () => {
                     setAddSeatsError(null);
                     try {
@@ -487,7 +495,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                       setAddSeatsOpen(false);
                     } catch (e: unknown) {
                       const err = e as Error & { code?: string };
-                      setAddSeatsError({ message: err?.message || 'Seat update failed', code: err?.code });
+                      setAddSeatsError({ message: err?.message || 'Seat update failed', code: err?.code, traceId:(err as Error & {traceId?:string})?.traceId });
                     }
                   }}
                 >

@@ -14,6 +14,7 @@ export function useOrganizationBilling(organizationId: string | null) {
   const billingProvider = 'creem' as const;
   const [seatLimit, setSeatLimit] = useState<number>(Number.POSITIVE_INFINITY);
   const [seatsUsed, setSeatsUsed] = useState(1);
+  const [seatChange, setSeatChange] = useState<{status:string;previousSeats:number;desiredSeats:number}|null>(null);
   const [subscriptionId, setSubscriptionId] = useState<string | null>(null);
   const [endsAt, setEndsAt] = useState<string | null>(null);
   // Default to no resume action until Creem confirms eligibility for this subscription.
@@ -55,6 +56,8 @@ export function useOrganizationBilling(organizationId: string | null) {
             : Number(json.data.seatLimit) || 1
         );
         setSeatsUsed(Number(json.data.seatsUsed ?? 1) || 1);
+        setSeatChange(json.data.seatChange && Number.isSafeInteger(json.data.seatChange.desiredSeats)
+          ? json.data.seatChange : null);
         const sid = json.data.subscriptionId;
         setSubscriptionId(typeof sid === 'string' && sid ? sid : null);
         const end = json.data.endsAt;
@@ -236,6 +239,7 @@ export function useOrganizationBilling(organizationId: string | null) {
     checkoutBusy,
     seatLimit,
     seatsUsed,
+    seatChange,
     subscriptionId,
     endsAt,
     refreshBilling,
