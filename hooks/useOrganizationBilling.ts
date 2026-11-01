@@ -212,10 +212,11 @@ export function useOrganizationBilling(organizationId: string | null) {
         // Webhook will update DB; poll twice to catch it
         setTimeout(() => void refreshBillingRef.current(), 2500);
         setTimeout(() => void refreshBillingRef.current(), 8000);
-        toast.success('Plan updated — refreshing billing…');
+        toast.message('Creem accepted the upgrade. Billing will refresh after provider verification.');
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : 'Plan switch failed';
         toast.error(msg);
+        throw e;
       } finally {
         setCheckoutBusy(null);
       }
