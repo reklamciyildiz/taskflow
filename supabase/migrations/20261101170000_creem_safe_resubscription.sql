@@ -17,6 +17,9 @@ REVOKE ALL ON TABLE public.creem_subscription_history FROM PUBLIC, anon, authent
 GRANT SELECT, INSERT ON TABLE public.creem_subscription_history TO service_role;
 
 -- Lock the organization: only one outstanding renewal checkout may exist.
+-- Do not use an arbitrary 24-hour cutoff: an older Creem checkout could
+-- still be payable and produce a second charge. Abandoned checkouts require
+-- explicit reconciliation/closure before a new checkout is created.
 CREATE OR REPLACE FUNCTION public.reserve_creem_resubscription(
  p_org UUID, p_request UUID, p_previous TEXT, p_plan TEXT, p_seats INTEGER, p_test BOOLEAN
 ) RETURNS BOOLEAN LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
@@ -36,8 +39,7 @@ BEGIN
    OR current_org.subscription_status NOT IN ('cancelled','expired')
  THEN RETURN FALSE; END IF;
  IF EXISTS (SELECT 1 FROM public.creem_checkout_intents
-   WHERE organization_id=p_org AND fulfilled_at IS NULL
-     AND created_at > NOW()-INTERVAL '24 hours') THEN RETURN FALSE; END IF;
+   WHERE organization_id=p_org AND fulfilled_at IS NULL) THEN RETURN FALSE; END IF;
  INSERT INTO public.creem_checkout_intents(
   request_id,organization_id,plan_name,units,test_mode,previous_subscription_id)
  VALUES(p_request,p_org,p_plan,p_seats,p_test,p_previous);
