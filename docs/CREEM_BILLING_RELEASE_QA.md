@@ -39,7 +39,9 @@ Never run these directly against production or shared customer accounts. Record 
 ## Product and provider limitations
 Creem's examined public API reference documents `proration-charge-immediately` but not a reliable pre-mutation exact-charge quotation endpoint. Our UI **must not** present monthly list price as the exact immediate charge. The signed confirmation explicitly acknowledges that the provider computes the final prorated charge. If the business requires *exact* payable amount before purchase, **do not enable the immediate saved-card mutation in production** until a provider-backed quote or hosted checkout is available.
 
-Plan upgrades do not yet have the same persisted single-flight mutation ledger as seat increases. The subscription API and webhook can race. Do not claim that concurrent plan upgrades or paid-plan entitlement changes are fully certified.
+Plan upgrades now have a *proposed* persisted single-flight SQL ledger, shared with seat reservations. It must be applied to the test database, enabled via CREEM_PLAN_MUTATIONS_ENABLED=true, and verified with actual concurrent requests before claiming protection. By default paid plan upgrades fail closed (disabled), rather than risking duplicate card charges.
 
 ## Release decision
-**DO NOT MERGE OR DEPLOY as a claim of complete billing verification** until live Test Mode evidence covers the pending rows and unresolved provider-quote / plan-upgrade concurrency risks are handled. Current draft PR is safe to inspect and run CI without touching real customer billing.
+**DO NOT DEPLOY as a claim of complete billing verification** until live Test Mode evidence covers the pending rows and unresolved provider-quote / plan-upgrade concurrency risks are handled. Current draft PR is safe to inspect and run CI without touching real customer billing.
+
+See [the executable Test Mode acceptance matrix](CREEM_BILLING_E2E_ACCEPTANCE.md) for rollout prerequisites and 23 provider-level scenarios. The assistant has not applied SQL or called Creem Test Mode on your behalf.
