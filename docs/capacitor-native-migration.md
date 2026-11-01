@@ -9,7 +9,7 @@ The native callback handler must not consume JavaScript-managed PKCE callbacks f
 
 ## Navigation
 
-- The Next.js shell renders the bottom bar only when Capacitor explicitly reports a native Android/iOS environment and viewport width below 1024 px. Ordinary web browsers and TWA are unaffected. As this code belongs to the web app, the diagnostic APK does **not** gain the bar until the web deployment includes it; no deployment is authorized here.
+- The Next.js shell renders the bottom bar only when Capacitor explicitly reports a native Android/iOS environment and viewport width below 1024 px. Ordinary web browsers and PWAs are unaffected. As this code belongs to the web app, the diagnostic APK does **not** gain the bar until the web deployment includes it; no deployment is authorized here.
 - The locally bundled client already has screen-state tabs. They now use **Home, Planner, Actions, Knowledge, AI**; account access remains in the header. Safe-area clearance prevents bottom content clipping. Feature parity must still be verified.
 
 ## Required pre-release checks
@@ -22,4 +22,7 @@ The native callback handler must not consume JavaScript-managed PKCE callbacks f
 6. Before a Play update check matching package ID, signing key and incremented versionCode. Debug package `com.actiproc.app.dev` is not automatically an update to the current Play Store application.
 7. Review subscription and payment platform compliance prior to production distribution.
 
-No `main` merge, web deployment, production database migration, Play Store submission, or TWA replacement was done in this branch.
+The standalone Capacitor Android app under `mobile/` is the only Play Store candidate. Removing retired diagnostic wrappers from the repository does not publish an AAB or affect an already installed release.
+
+## Canonical distribution target
+The legacy diagnostic wrapper was removed in favor of the bundled `mobile/android` Capacitor app. Do **not** use root-level legacy Android build scripts. A Play release requires a **signed release AAB** from `mobile/android` after the correct production package ID, versionCode, signing configuration and production server origin have been verified. The checked-in Android Gradle default is currently `com.actiproc.app.dev` and `versionCode 1`; this is **not** a validated production artifact or evidence that it can update an existing Play listing. The locally bundled mobile Billing view is read-only; it does not embed Creem checkout or outbound purchase links.
