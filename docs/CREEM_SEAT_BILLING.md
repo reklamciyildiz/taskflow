@@ -49,3 +49,17 @@ SELECT
 All five values must be `true` before enabling the seat mutation flag.
 
 The original generic 502 error was not diagnosable from a screenshot. The improved server logs include the provider HTTP status and, if available, a safe Creem trace ID; they do not expose API keys. If the failure recurs, record only the logged HTTP status, provider code and trace ID.
+
+## Current 404 investigation, November 2026
+The real Creem Test Mode subscription GET confirmed `active`, matching Pro product,
+one `sitem_` item and `units:1`, but omitted `price_id`. This is **not**
+evidence of a broken subscription: Creem's documented `POST /v1/subscriptions/{id}`
+quantity update uses `{items:[{id,units}],update_behavior}`. The previous
+mandatory `price_id` check was a local false negative. The 404 on the earlier POST
+remains **unresolved**: it occurred with the documented minimal body, before the
+mandatory price guard was introduced. Do not claim changing the body fixes the
+404 without a successful external call. If it recurs, send Creem support the
+test request's HTTP status and trace ID; keep the subscription/account information
+private. Until the provider confirms seat updates, do not enable the flag for
+production. Do not substitute a new checkout for seat increments; that creates a
+second subscription and different billing semantics.

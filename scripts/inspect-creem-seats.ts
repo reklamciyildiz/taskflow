@@ -22,12 +22,17 @@ async function main() {
    mode:obj.mode,status:obj.status,subscriptionMatched:true,
    isConfiguredPro:typeof obj.product==='string'?obj.product===expectedProduct:obj.product?.id===expectedProduct,
    itemCount:items.length,
+   priceIdRequiredForSeatChange: false,
+   seatUpdateFieldsReady:obj.status==='active' && items.length===1 &&
+     typeof items[0]?.id==='string' && items[0].id.startsWith('sitem_') &&
+     items[0]?.product_id===(typeof obj.product==='string'?obj.product:obj.product?.id) &&
+     Number.isSafeInteger(Number(items[0]?.units)) && Number(items[0].units)>=1,
    items:items.map((item:any)=>({
      itemPrefix:typeof item?.id==='string'?item.id.split('_')[0]:'missing',
      hasItemId:typeof item?.id==='string',
      productMatchesSubscription:typeof item?.product_id==='string' &&
        item.product_id===(typeof obj.product==='string'?obj.product:obj.product?.id),
-     hasPriceId:typeof item?.price_id==='string'&&item.price_id.startsWith('price_'),
+     priceIdPresent:typeof item?.price_id==='string' && item.price_id.length>0,
      units:item.units
    })),
    lastTransactionPresent:typeof obj?.last_transaction_id==='string',

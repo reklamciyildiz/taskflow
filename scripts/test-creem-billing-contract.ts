@@ -195,30 +195,34 @@ assert.ok(billingNew.includes('acceptNewCharge') && billingNew.includes('canResu
 assert.ok(!webhookRe.includes('claim_old_subscription'), 'Do not invent unsupported Creem event claim');
 
 const expectedSeatIdentity={subscriptionId:'sub_abc123',customerId:'cust_abc123',productId:'prod_pro123',mode:'test' as const};
-const seatExample={...raw,items:[{id:'sitem_good',product_id:'prod_pro123',price_id:'price_good',units:2}]};
-const seatDetails=parseCreemSeatState(seatExample,expectedSeatIdentity);
+const completeSeat={...raw,items:[{id:'sitem_good',product_id:'prod_pro123',price_id:'pprice_example',units:2}]};
+const minimalSeat={...raw,items:[{id:'sitem_good',product_id:'prod_pro123',units:1}]};
+const seatDetails=parseCreemSeatState(completeSeat,expectedSeatIdentity);
 assert.equal(seatDetails.itemId,'sitem_good');
-assert.equal(seatDetails.priceId,'price_good');
+assert.equal(seatDetails.priceId,'pprice_example');
 assert.equal(seatDetails.units,2);
-assert.equal(parseCreemSeatState({subscription:seatExample},expectedSeatIdentity).units,2);
+const minimal=parseCreemSeatState(minimalSeat,expectedSeatIdentity);
+assert.equal(minimal.priceId,null,'price_id is optional in Creem subscription items');
+assert.equal(minimal.units,1);
+assert.equal(parseCreemSeatState({subscription:minimalSeat},expectedSeatIdentity).units,1);
 for(const invalid of [
- {...seatExample,mode:'prod'}, {...seatExample,customer:{id:'cust_other'}},
- {...seatExample,product:{id:'prod_team123'}}, {...seatExample,items:[]},
- {...seatExample,items:[{id:'sitem_good',product_id:'prod_wrong',price_id:'price_good',units:2}]},
- {...seatExample,items:[{id:'sitem_good',product_id:'prod_pro123',units:2}]},
- {...seatExample,items:[{id:'wrong',product_id:'prod_pro123',price_id:'price_good',units:2}]},
- {...seatExample,items:[{id:'sitem_good',product_id:'prod_pro123',price_id:'price_good',units:0}]},
- {...seatExample,items:[{id:'sitem_good',product_id:'prod_pro123',price_id:'price_good',units:1.5}]},
+ {...minimalSeat,mode:'prod'}, {...minimalSeat,customer:{id:'cust_other'}},
+ {...minimalSeat,product:{id:'prod_team123'}}, {...minimalSeat,items:[]},
+ {...minimalSeat,items:[{id:'sitem_good',product_id:'prod_wrong',units:2}]},
+ {...minimalSeat,items:[{id:'wrong',product_id:'prod_pro123',units:2}]},
+ {...minimalSeat,items:[{id:'sitem_good',product_id:'prod_pro123',units:0}]},
+ {...minimalSeat,items:[{id:'sitem_good',product_id:'prod_pro123',units:1.5}]},
 ])assert.throws(()=>parseCreemSeatState(invalid,expectedSeatIdentity),SeatValidationError);
-assert.deepEqual(seatUpdatePayload(seatDetails,5,'proration-charge-immediately'),{
- items:[{id:'sitem_good',product_id:'prod_pro123',price_id:'price_good',units:5}],
- update_behavior:'proration-charge-immediately'
-});
-assert.deepEqual(seatUpdatePayload(seatDetails,1,'proration-none'),{
- items:[{id:'sitem_good',product_id:'prod_pro123',price_id:'price_good',units:1}],
- update_behavior:'proration-none'
-});
-assert.throws(()=>seatUpdatePayload(seatDetails,501,'proration-none'),SeatValidationError);
+for(const value of [minimal,seatDetails]) {
+ assert.deepEqual(seatUpdatePayload(value,5,'proration-charge-immediately'),{
+   items:[{id:'sitem_good',units:5}],update_behavior:'proration-charge-immediately'
+ });
+ assert.deepEqual(seatUpdatePayload(value,1,'proration-none'),{
+   items:[{id:'sitem_good',units:1}],update_behavior:'proration-none'
+ });
+}
+assert.throws(()=>seatUpdatePayload(minimal,501,'proration-none'),SeatValidationError);
+assert.throws(()=>seatUpdatePayload({itemId:'wrong',productId:'prod_pro123'},5,'proration-none'),SeatValidationError);
 const seatRouteCode=fs.readFileSync('lib/creem-billing-operations.ts','utf8');
 assert.ok(seatRouteCode.includes('parseCreemSeatState') && seatRouteCode.includes('STALE_SEAT_STATE') &&
  seatRouteCode.includes('pendingVerification:!verified'), 'Seat changes must require identity and payment verification');
@@ -282,3 +286,11 @@ const readOnlyInspector=fs.readFileSync('scripts/inspect-creem-seats.ts','utf8')
 assert.ok(readOnlyInspector.includes("'GET'") && !readOnlyInspector.includes("'POST'"),'CLI must never mutate subscription seats');
 assert.ok(readOnlyInspector.includes('price_id') && readOnlyInspector.includes('product_id'),'CLI must surface safe item field availability');
 assert.ok(seatRouteCode.includes('CREEM_RESOURCE_NOT_FOUND'),'Creem 404 must not be described as a declined card');
+
+const inspector=fs.readFileSync('scripts/inspect-creem-seats.ts','utf8');
+assert.ok(inspector.includes('seatUpdateFieldsReady') && inspector.includes('priceIdRequiredForSeatChange: false'),
+  'Read-only inspector should distinguish optional price ID from update capability');
+assert.ok(seatRouteCode.includes('seatUpdatePayload(current,desired'), 'Seat-change flow must use the minimal documented payload');
+const seatModule=fs.readFileSync('lib/creem-seats.ts','utf8');
+assert.ok(!seatModule.includes('price_id:item.priceId') && !seatModule.includes('!item.price_id'),
+  'A missing price ID must never block a valid quantity update');
