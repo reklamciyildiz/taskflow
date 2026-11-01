@@ -103,7 +103,7 @@ for(const route of ['app/api/billing/update-seats/route.ts','app/api/billing/swi
  const code=fs.readFileSync(route,'utf8');
  assert.ok(code.includes("request.cookies.get('actiproc_platform')") &&
     code.includes('NATIVE_BILLING_DISABLED') &&
-    code.indexOf("NATIVE_BILLING_DISABLED")<code.indexOf('requireOrgAdmin'),
+    code.indexOf("NATIVE_BILLING_DISABLED")<code.indexOf('const authed=await requireOrgAdmin'),
     'Native paid billing action must be server-blocked before authorization at '+route);
 }
 const operations=fs.readFileSync('lib/creem-billing-operations.ts','utf8');
