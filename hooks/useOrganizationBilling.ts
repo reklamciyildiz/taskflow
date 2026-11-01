@@ -172,6 +172,8 @@ export function useOrganizationBilling(organizationId: string | null) {
   const previewPlanUpgrade = useCallback(async (plan: 'pro' | 'team'): Promise<{
     consentToken: string; fromPlan: string; toPlan: string; seats: number;
     nextMonthlyUsd: number; exactChargeAvailable: false;
+    currentNextChargeAt: string|null; currentPeriodEndAt:string|null;
+    billingCyclePolicy: 'new-cycle-on-immediate-charge'; nextChargeAfterChangeAt:null;
   }> => {
     const response = await fetch('/api/billing/switch-plan', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
