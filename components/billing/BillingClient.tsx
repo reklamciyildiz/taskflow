@@ -51,7 +51,6 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
   const searchParams = useSearchParams();
   const {
     billingPlan,
-    billingProvider,
     billingStatus,
     billingLoading,
     checkoutBusy,
@@ -88,7 +87,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
     el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, [requestedPlan]);
 
-  // After Lemon redirects back with ?checkout=success, poll billing twice to catch the webhook.
+  // After checkout return, reconcile after verified Creem webhook delivery.
   useEffect(() => {
     if (!checkoutSuccess) return;
     void refreshBilling();
@@ -100,7 +99,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
 
   const isAndroid = typeof window !== 'undefined' ? isAndroidTwa() : false;
   const busy = checkoutBusy !== null || isAndroid;
-  const isCreem = billingProvider === 'creem';
+
   const statusLabel = billingStatus.replace('_', ' ');
   const showSeatMeter =
     (billingPlan === 'team' || billingPlan === 'pro') && billingStatus !== 'cancelled';
@@ -120,7 +119,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Billing & plan</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Subscriptions are processed by {isCreem ? 'Creem' : 'Lemon Squeezy'} (merchant of record). Invoices, payment methods, and
+              Subscriptions are processed by Creem (merchant of record). Invoices, payment methods, and
               cancellations live in the customer portal.
             </p>
           </div>
@@ -129,7 +128,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
         <div>
           <h2 className="text-xl font-semibold tracking-tight">Billing & plan</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Manage your organization subscription, seats, and {isCreem ? 'Creem' : 'Lemon Squeezy'} customer portal.
+            Manage your organization subscription, seats, and Creem customer portal.
           </p>
         </div>
       )}
@@ -179,7 +178,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                 <button
                   type="button"
                   onClick={() => setBillingInterval('yearly')}
-                  disabled={isCreem}
+                  disabled
                   className={cn(
                     'rounded-full px-3 py-1 text-[11px] font-medium transition-colors',
                     billingInterval === 'yearly' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
@@ -193,7 +192,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
               <Button
                 type="button"
                 disabled={busy || selectedPlan === billingPlan || (billingPlan !== 'free' && ['individual','pro','team'].indexOf(selectedPlan) <= ['individual','pro','team'].indexOf(billingPlan))}
-                onClick={() => billingPlan === 'free' ? void openCheckout(selectedPlan, { billingInterval: selectedPlan === 'individual' ? 'yearly' : isCreem ? 'monthly' : billingInterval }) : void switchPlan(selectedPlan, { billingInterval: isCreem ? 'monthly' : billingInterval })}
+                onClick={() => billingPlan === 'free' ? void openCheckout(selectedPlan, { billingInterval: selectedPlan === 'individual' ? 'yearly' : 'monthly' }) : void switchPlan(selectedPlan, { billingInterval: 'monthly' })}
               >
                 Continue to checkout
               </Button>
@@ -256,15 +255,14 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                   type="button"
                   size="sm"
                   disabled={busy}
-                  onClick={() => void openCheckout(isCreem ? 'individual' : 'pro', { billingInterval: isCreem ? 'yearly' : billingInterval })}
+                  onClick={() => void openCheckout('individual', { billingInterval: 'yearly' })}
                 >
-                  {busy ? 'Opening…' : isCreem ? 'Upgrade to Individual' : 'Upgrade to Pro'}
+                  {busy ? 'Opening…' : 'Upgrade to Individual'}
                 </Button>
               ) : billingPlan === 'individual' ? (
                 <Button type="button" size="sm" disabled={busy} onClick={() => void switchPlan('pro', { billingInterval: 'monthly' })}>Upgrade to Pro</Button>
               ) : billingPlan === 'pro' ? (
-                // Existing subscriber: PATCH variant via API so Lemon prorates correctly.
-                // Creating a new checkout would open a second subscription.
+                // Upgrade the existing Creem subscription, not a second checkout.
                 <Button
                   type="button"
                   size="sm"
@@ -349,14 +347,14 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                 </p>
               ) : (
                 <p className="text-xs text-muted-foreground">
-                  Seat count syncs after {isCreem ? 'Creem' : 'Lemon Squeezy'} webhook events.
+                  Seat count syncs after Creem webhook events.
                 </p>
               )}
             </div>
           ) : null}
 
           {addSeatsOpen && Number.isFinite(seatLimit) ? (() => {
-            const pricePerSeat = isCreem ? (billingPlan === 'team' ? 6 : 4) : (billingPlan === 'team' ? 15 : 8);
+            const pricePerSeat = (billingPlan === 'team' ? 6 : 4);
             const monthlyTotal = desiredSeats * pricePerSeat;
             const isIncrease = desiredSeats > seatLimit;
             const isDecrease = desiredSeats < seatLimit;
@@ -472,7 +470,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
           <div className="flex items-start gap-2 rounded-lg border border-border/60 bg-muted/20 p-3 text-xs text-muted-foreground">
             <Shield className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
             <span>
-              Tax, chargebacks, and receipts are handled by {isCreem ? 'Creem' : 'Lemon Squeezy'}. Open <strong>Invoices & portal</strong> for
+              Tax, chargebacks, and receipts are handled by Creem. Open <strong>Invoices & portal</strong> for
               PDF invoices, card updates, and cancellation.
             </span>
           </div>
@@ -497,7 +495,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
             <button
               type="button"
               onClick={() => setBillingInterval('yearly')}
-                  disabled={isCreem}
+                  disabled
               className={cn(
                 'rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
                 billingInterval === 'yearly' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
@@ -572,8 +570,8 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                       <Button type="button" size="sm" variant={current ? 'secondary' : 'default'} className="w-full"
                         disabled={busy || current || (billingPlan !== 'free' && ['individual','pro','team'].indexOf(key) <= ['individual','pro','team'].indexOf(billingPlan))}
                         onClick={() => billingPlan === 'free'
-                          ? void openCheckout(key, {billingInterval:key === 'individual' ? 'yearly' : isCreem ? 'monthly' : billingInterval})
-                          : void switchPlan(key, {billingInterval:isCreem ? 'monthly' : billingInterval})}>
+                          ? void openCheckout(key, {billingInterval:key === 'individual' ? 'yearly' : 'monthly'})
+                          : void switchPlan(key, {billingInterval:'monthly'})}>
                         {current ? 'Current plan' : 'Choose ' + title}
                       </Button>
                     </>
@@ -595,8 +593,8 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
         </CardHeader>
         <CardContent>
           <Button type="button" variant="link" className="h-auto p-0 text-sm" asChild>
-            <a href={isCreem ? 'https://docs.creem.io' : 'https://docs.lemonsqueezy.com/help'} target="_blank" rel="noopener noreferrer">
-              {isCreem ? 'Creem help center' : 'Lemon Squeezy help center'}
+            <a href={'https://docs.creem.io'} target="_blank" rel="noopener noreferrer">
+              {'Creem help center'}
               <ExternalLink className="ml-1 inline h-3 w-3" aria-hidden />
             </a>
           </Button>

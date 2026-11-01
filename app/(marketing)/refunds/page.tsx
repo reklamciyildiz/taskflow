@@ -19,7 +19,7 @@ export default function RefundPolicyPage() {
     <p className="text-zinc-400">Contact <a className="text-emerald-300 underline" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a> with the purchase date, email used at checkout and a description of the issue. Do not send card numbers or passwords. Refund eligibility is assessed under applicable consumer law, the applicable checkout terms and the merchant-of-record&rsquo;s procedures. This page does not restrict statutory refund rights.</p>
    </section>
    <section className="space-y-3"><h2 className="text-xl font-semibold">Who processes the refund?</h2>
-    <p className="text-zinc-400">Existing paid subscriptions may be processed by Lemon Squeezy; new subscriptions may be handled by Creem after transition. The actual merchant of record is shown at checkout and on your receipt. Any approved refunds are processed by that provider, not by an unverified personal bank transfer.</p>
+    <p className="text-zinc-400">Subscriptions will be processed by Creem once checkout is activated. The merchant of record is shown at checkout and on your receipt. Any approved refunds are processed by that provider, not by an unverified personal bank transfer.</p>
    </section>
    <nav className="flex gap-6 border-t border-white/10 pt-6 text-sm"><Link href="/terms" className="text-emerald-300">Terms</Link><Link href="/privacy" className="text-emerald-300">Privacy</Link></nav>
   </article>

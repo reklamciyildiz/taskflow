@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { teamMemberDb, userDb } from '@/lib/db';
 import { ApiResponse } from '@/lib/types';
 import { requireAuthedUser, requireTeamAdminOrOrgAdmin } from '@/lib/server-authz';
-import { syncLemonSubscriptionQuantityToOrgHeadcount } from '@/lib/lemon-sync-seats';
 
 // PATCH /api/teams/[id]/members/[memberId] - Update a team member
 export async function PATCH(
@@ -126,7 +125,7 @@ export async function DELETE(
         organization_id: null, // Properly remove from organization
         role: 'member', // Reset role to member
       });
-      await syncLemonSubscriptionQuantityToOrgHeadcount(organizationIdLeft);
+      // Purchased seats remain until the organization admin changes them in Billing.
     }
 
     return NextResponse.json<ApiResponse<null>>({

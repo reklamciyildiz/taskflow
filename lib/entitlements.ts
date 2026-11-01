@@ -51,7 +51,7 @@ function normalizeStatus(status: unknown): SubscriptionStatus {
   return 'active';
 }
 
-/** Default seat caps when org row has no stored `seat_limit` (e.g. legacy rows). Paid caps normally come from Lemon webhooks. */
+/** Default seat caps when org row has no stored `seat_limit` (e.g. legacy rows). Paid caps normally come from payment webhooks. */
 export function getSeatLimitFromPlan(plan: PlanName): number {
   if (plan === 'free') return 2;
   if (plan === 'individual') return 1;
@@ -109,7 +109,7 @@ export async function getOrganizationEntitlements(organizationId: string): Promi
     // Cancelled / inactive paid plan: align invite caps with Free until they resubscribe.
     seatLimit = getSeatLimitFromPlan('free');
   } else if (plan === 'team') {
-    // No Lemon subscription = manually upgraded (developer / owner account): treat as unlimited.
+    // No active paid subscription = manually upgraded (developer / owner account): treat as unlimited.
     seatLimit = hasRealSubscription && storedOk && stored >= 1
       ? Math.floor(stored)
       : Number.POSITIVE_INFINITY;
