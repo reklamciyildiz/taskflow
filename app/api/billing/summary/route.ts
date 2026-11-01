@@ -44,6 +44,15 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    let planChange:{status:string;previousPlan:string;desiredPlan:string}|null=null;
+    if(process.env.CREEM_PLAN_MUTATIONS_ENABLED==='true' && subscriptionId){
+      const {data,error}=await (supabaseAdmin as any).from('creem_plan_changes')
+        .select('status,previous_plan,desired_plan').eq('organization_id',orgId)
+        .in('status',['pending','awaiting_sync','review']).maybeSingle();
+      if(error)throw error; // fail closed, do not return a misleading billing summary
+      if(data)planChange={status:String(data.status),
+        previousPlan:String(data.previous_plan),desiredPlan:String(data.desired_plan)};
+    }
     let seatChange:{status:string;previousSeats:number;desiredSeats:number}|null=null;
     if(process.env.CREEM_SEAT_MUTATIONS_ENABLED==='true' && subscriptionId) {
       const {data,error}=await (supabaseAdmin as any).from('creem_seat_changes')
@@ -65,6 +74,7 @@ export async function GET(request: NextRequest) {
         subscriptionId,
         billingProvider,
         seatChange,
+        planChange,
         billingCycle,
       },
     });
