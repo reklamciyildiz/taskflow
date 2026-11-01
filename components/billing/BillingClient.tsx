@@ -70,6 +70,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
     updateSeats,
     resumeSubscription,
     canResume,
+    canResubscribe,
   } = useOrganizationBilling(organizationId);
 
   const requestedPlan = useMemo(() => {
@@ -80,6 +81,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
   const checkoutSuccess = searchParams.get('checkout') === 'success';
 
   const [selectedPlan, setSelectedPlan] = useState<'individual' | 'pro' | 'team' | null>(null);
+  const [acceptNewCharge, setAcceptNewCharge] = useState(false);
   const [addSeatsOpen, setAddSeatsOpen] = useState(false);
   const [desiredSeats, setDesiredSeats] = useState(1);
   const [addSeatsError, setAddSeatsError] = useState<{ message: string; code?: string } | null>(null);
@@ -105,7 +107,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
 
   const isNativeApp = typeof window !== 'undefined' ? isCapacitorNative() : false;
   const hasPaidSubscription = billingPlan !== 'free' && Boolean(subscriptionId);
-  const canUpgrade = billingPlan === 'free' || (billingStatus === 'active' && hasPaidSubscription);
+  const canUpgrade = billingPlan === 'free' || (billingStatus === 'active' && hasPaidSubscription) || canResubscribe;
   const planTitle = billingPlan.charAt(0).toUpperCase() + billingPlan.slice(1);
   const formattedEnd = endsAt && Number.isFinite(Date.parse(endsAt))
     ? new Date(endsAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})
@@ -177,6 +179,22 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
         </div>
       ) : null}
 
+      {canResubscribe ? (
+        <div className="space-y-3 rounded-2xl border border-amber-400/30 bg-amber-400/[0.08] p-4 text-sm">
+          <p className="font-semibold">Start a new subscription</p>
+          <p className="text-muted-foreground">
+            Your previous Creem subscription was permanently cancelled. A new purchase starts
+            a separate paid subscription immediately. Any unused time on the previous term
+            is <strong>not automatically credited or refunded</strong>.
+          </p>
+          <label className="flex cursor-pointer items-start gap-3 font-medium">
+            <input type="checkbox" className="mt-1 h-4 w-4 accent-blue-600"
+              checked={acceptNewCharge} onChange={(event) => setAcceptNewCharge(event.target.checked)} />
+            <span>I understand that a new charge will be made now, even if I have paid access remaining.</span>
+          </label>
+        </div>
+      ) : null}
+
       {selectedPlan ? (
         <Card className="rounded-2xl border-border/80 bg-card shadow-sm">
           <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -193,8 +211,13 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <Button
                 type="button"
-                disabled={busy || !canUpgrade || selectedPlan === billingPlan || (billingPlan !== 'free' && ['individual','pro','team'].indexOf(selectedPlan) <= ['individual','pro','team'].indexOf(billingPlan))}
-                onClick={() => billingPlan === 'free' ? void openCheckout(selectedPlan, { billingInterval: selectedPlan === 'individual' ? 'yearly' : 'monthly' }) : void switchPlan(selectedPlan, { billingInterval: 'monthly' })}
+                disabled={busy || !canUpgrade || (canResubscribe && !acceptNewCharge) ||
+                  (!canResubscribe && (selectedPlan === billingPlan || (billingPlan !== 'free' && ['individual','pro','team'].indexOf(selectedPlan) <= ['individual','pro','team'].indexOf(billingPlan))))}
+                onClick={() => canResubscribe
+                  ? void openCheckout(selectedPlan, { billingInterval: selectedPlan === 'individual' ? 'yearly' : 'monthly', resubscribe: true, acceptNewCharge })
+                  : billingPlan === 'free'
+                    ? void openCheckout(selectedPlan, { billingInterval: selectedPlan === 'individual' ? 'yearly' : 'monthly' })
+                    : void switchPlan(selectedPlan, { billingInterval: 'monthly' })}
               >
                 Continue to checkout
               </Button>
@@ -267,9 +290,9 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                 >
                   {busy ? 'Opening…' : 'Upgrade to Individual'}
                 </Button>
-              ) : billingPlan === 'individual' ? (
+              ) : billingPlan === 'individual' && !canResubscribe ? (
                 <Button type="button" size="sm" disabled={!canUpgrade || busy} title={!canUpgrade ? 'Plan upgrades are unavailable while the subscription is cancelled or paused' : undefined} onClick={() => void switchPlan('pro', { billingInterval: 'monthly' })}>Upgrade to Pro</Button>
-              ) : billingPlan === 'pro' ? (
+              ) : billingPlan === 'pro' && !canResubscribe ? (
                 // Upgrade the existing Creem subscription, not a second checkout.
                 <Button
                   type="button"
@@ -326,7 +349,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
             <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm">
               Cancellation confirmed. Your premium access continues until{' '}
               <strong>{new Date(endsAt).toLocaleDateString()}</strong>. Automatic renewal is off.
-              {canResume ? ' Creem allows you to restore renewal using the action above.' : ' This cancelled subscription cannot be upgraded. You keep your paid benefits through the displayed date.'}
+              {canResume ? ' Creem allows you to restore renewal using the action above.' : canResubscribe ? ' You can start a separate new subscription below after acknowledging the new charge.' : ' You keep your paid benefits through the displayed date.'}
             </div>
           ) : null}
 
@@ -556,11 +579,14 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                         {key === 'individual' ? '/year' : key === 'team' || key === 'pro' ? '/user/month' : '/month'}
                       </p>
                       <Button type="button" size="sm" variant={current ? 'secondary' : 'default'} className="h-10 w-full rounded-xl"
-                        disabled={busy || !canUpgrade || current || (billingPlan !== 'free' && ['individual','pro','team'].indexOf(key) <= ['individual','pro','team'].indexOf(billingPlan))}
-                        onClick={() => billingPlan === 'free'
-                          ? void openCheckout(key, {billingInterval:key === 'individual' ? 'yearly' : 'monthly'})
-                          : void switchPlan(key, {billingInterval:'monthly'})}>
-                        {current ? 'Current plan' : !canUpgrade ? billingStatus === 'cancelled' ? 'Not available after cancellation' : 'Unavailable for this subscription' : 'Choose ' + title}
+                        disabled={busy || !canUpgrade || (canResubscribe && !acceptNewCharge) ||
+                          (!canResubscribe && (current || (billingPlan !== 'free' && ['individual','pro','team'].indexOf(key) <= ['individual','pro','team'].indexOf(billingPlan))))}
+                        onClick={() => canResubscribe
+                          ? void openCheckout(key, {billingInterval:key === 'individual' ? 'yearly' : 'monthly', resubscribe:true, acceptNewCharge})
+                          : billingPlan === 'free'
+                            ? void openCheckout(key, {billingInterval:key === 'individual' ? 'yearly' : 'monthly'})
+                            : void switchPlan(key, {billingInterval:'monthly'})}>
+                        {canResubscribe ? 'Subscribe to ' + title : current ? 'Current plan' : !canUpgrade ? billingStatus === 'cancelled' ? 'Not available after cancellation' : 'Unavailable for this subscription' : 'Choose ' + title}
                       </Button>
                     </>
                   )}
@@ -571,7 +597,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
         </div>
         <p className="mt-3 text-center text-[11px] text-muted-foreground">
           Individual $12/year, Pro $4/seat/month, Team $6/seat/month. Applicable taxes are included; upgrades may incur an immediate prorated charge.
-          {billingStatus === 'cancelled' ? ' Pro and Team remain available for new Free organizations. Switching a terminally cancelled organization requires a separate re-subscription process.' : ''}
+          {billingStatus === 'cancelled' && !canResubscribe ? ' New purchases for this organization will become available only after billing eligibility and database migration are verified.' : ''}
         </p>
       </div>
 
