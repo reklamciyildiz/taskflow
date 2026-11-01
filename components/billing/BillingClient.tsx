@@ -28,6 +28,12 @@ import { cn } from '@/lib/utils';
 import { useOrganizationBilling } from '@/hooks/useOrganizationBilling';
 import { isCapacitorNative } from '@/lib/client/is-capacitor-native';
 import { ACTIPROC_PLANS } from '@/lib/billing-plans';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { toast } from 'sonner';
+type BillingReview =
+ | {kind:'seats';token:string;previousSeats:number;desiredSeats:number;direction:'increase'|'decrease';nextMonthlyUsd:number}
+ | {kind:'plan';token:string;fromPlan:string;toPlan:'pro'|'team';seats:number;nextMonthlyUsd:number};
+
 
 type Props = {
   organizationId: string | null;
@@ -69,6 +75,8 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
     openCustomerPortal,
     switchPlan,
     updateSeats,
+    previewSeatChange,
+    previewPlanUpgrade,
     resumeSubscription,
     canResume,
     canResubscribe,
@@ -87,6 +95,11 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
   const [seatReductionAcknowledged, setSeatReductionAcknowledged] = useState(false);
   const [desiredSeats, setDesiredSeats] = useState(1);
   const [addSeatsError, setAddSeatsError] = useState<{ message: string; code?: string; traceId?: string } | null>(null);
+  const [billingReview,setBillingReview] = useState<BillingReview|null>(null);
+  const [reviewAcknowledged,setReviewAcknowledged] = useState(false);
+  const [reviewBusy,setReviewBusy] = useState(false);
+  const [reviewLoading,setReviewLoading] = useState(false);
+  const [reviewError,setReviewError] = useState<string|null>(null);
   const proRef = useRef<HTMLDivElement | null>(null);
   const teamRef = useRef<HTMLDivElement | null>(null);
 
@@ -114,8 +127,48 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
   const formattedEnd = endsAt && Number.isFinite(Date.parse(endsAt))
     ? new Date(endsAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})
     : null;
-  const busy = checkoutBusy !== null || isNativeApp;
+  const busy = checkoutBusy !== null || isNativeApp || reviewLoading;
 
+  async function requestSeatReview(target:number) {
+    setReviewLoading(true);setAddSeatsError(null);
+    try {
+      const p=await previewSeatChange(target);
+      setBillingReview({kind:'seats',token:p.consentToken,previousSeats:p.previousSeats,
+        desiredSeats:p.desiredSeats,direction:p.direction,nextMonthlyUsd:p.nextMonthlyUsd});
+      setReviewAcknowledged(false);setReviewError(null);
+    } catch(e) {
+      setAddSeatsError({message:e instanceof Error?e.message:'Unable to review seat change.'});
+    } finally {setReviewLoading(false);}
+  }
+  async function requestPlanReview(plan:'individual'|'pro'|'team') {
+    if(plan!=='pro'&&plan!=='team')return;
+    setReviewLoading(true);
+    try {
+      const p=await previewPlanUpgrade(plan);
+      setBillingReview({kind:'plan',token:p.consentToken,fromPlan:p.fromPlan,
+        toPlan:plan,seats:p.seats,nextMonthlyUsd:p.nextMonthlyUsd});
+      setReviewAcknowledged(false);setReviewError(null);
+    } catch(e) {
+      toast.error(e instanceof Error?e.message:'Unable to review upgrade.');
+    } finally {setReviewLoading(false);}
+  }
+  async function applyReviewedChange(){
+    if(!billingReview||!reviewAcknowledged||reviewBusy||busy)return;
+    setReviewBusy(true);setReviewError(null);
+    try {
+      if(billingReview.kind==='seats'){
+        await updateSeats(billingReview.desiredSeats,billingReview.token);
+        setAddSeatsOpen(false);
+      } else {
+        await switchPlan(billingReview.toPlan,{billingInterval:'monthly',consentToken:billingReview.token});
+      }
+      setBillingReview(null);setReviewAcknowledged(false);
+    } catch(e) {
+      setReviewAcknowledged(false);
+      setReviewError((e instanceof Error?e.message:'Payment could not be verified.')+
+        ' Refresh billing and request a new review. Do not repeat a charge without checking its status.');
+    } finally {setReviewBusy(false);}
+  }
   const statusLabel = billingStatus.replace('_', ' ');
   const showSeatMeter =
     (billingPlan === 'team' || billingPlan === 'pro') && Boolean(subscriptionId);
