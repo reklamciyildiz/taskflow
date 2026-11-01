@@ -32,3 +32,18 @@ Important: website text and marketing price cards are not proof of a completed p
 
 ## Support and refunds
 The registered review support address is the currently working Gmail mailbox. Verify any Vercel NEXT_PUBLIC_CONTACT_EMAIL override. `/refunds` documents cancellation and the provider-specific refund process without inventing guaranteed refunds.
+
+## Product IDs and local environment
+Three Test Mode products were created in the Creem dashboard on 2026-11-01:
+Individual USD 12/year, Pro USD 4/month per purchased seat and Team USD 6/month per purchased seat.
+Copy each **Product ID** from the Product detail panel into the corresponding `.env.local` key:
+`CREEM_PRODUCT_INDIVIDUAL`, `CREEM_PRODUCT_PRO`, `CREEM_PRODUCT_TEAM`.
+Product IDs are not API keys. Verify the exact strings via the dashboard's copy button rather than manually transcribing screenshots.
+
+Do not replace the existing contents of `.env.local` and do not upload that file.
+The API key and webhook secret must be generated from Creem's **Test Mode** settings; these cannot be inferred from Product IDs.
+Use `CREEM_MODE=test` and initially keep `NEW_BILLING_PROVIDER=lemon`.
+After a Test Mode API key is saved locally, run `npm run creem:verify-products`.
+The command checks price, recurrence, tax mode, test environment and activity directly against Creem without printing any credentials.
+Only enable `NEW_BILLING_PROVIDER=creem` against a migrated **staging database**, never against an unmigrated production database.
+Checkout callback and webhook delivery need an accessible test origin, not a local-only localhost callback.
