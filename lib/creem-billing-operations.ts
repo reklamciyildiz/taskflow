@@ -7,6 +7,7 @@ import { APP_URL } from '@/lib/site-config';
 import { creemApi, creemProductForPlan, getCreemConfig, creemResponseMode } from '@/lib/creem-config';
 import { fetchCreemSubscription, reconcileCreemSubscription } from '@/lib/creem-subscription';
 import { CREEM_EXPECTED_TAX_MODE, isPaidPlan, type PaidActiprocPlan } from '@/lib/billing-plans';
+import { creemResumeEligibility } from '@/lib/creem-lifecycle';
 
 function errorResponse(e: unknown, operation: string) {
  console.error('[creem] ' + operation, e instanceof Error ? e.message : 'unexpected');
@@ -134,4 +135,39 @@ export async function changeCreemPlan(request:NextRequest,orgId:string) {
   });
   return NextResponse.json({success:true});
  }catch(e){return errorResponse(e,'switch-plan')}
+}
+
+/** Only resume Creem's scheduled cancellation / pause; terminal cancellation is not reversible. */
+export async function resumeCreemBilling(orgId: string) {
+ try {
+  const config=getCreemConfig();
+  const org:any=await organizationDb.getById(orgId);
+  if(!org || org.billing_provider!=='creem' || !org.creem_subscription_id || !org.creem_customer_id)
+   return NextResponse.json({success:false,error:'No Creem subscription to resume.'},{status:404});
+  if(org.creem_payment_hold)
+   return NextResponse.json({success:false,error:'This subscription requires payment review before resuming.'},{status:409});
+  if(Boolean(org.creem_test_mode)!==(config.mode==='test'))
+   return NextResponse.json({success:false,error:'Billing environment mismatch.'},{status:409});
+  if(org.subscription_status!=='cancelled' && org.subscription_status!=='paused')
+   return NextResponse.json({success:false,error:'Subscription is not cancelled or paused.'},{status:409});
+  const raw=await creemApi<any>(config,'GET','subscriptions?subscription_id='+encodeURIComponent(org.creem_subscription_id));
+  const remote=raw?.subscription??raw;
+  const cust=typeof remote?.customer==='string'?remote.customer:remote?.customer?.id;
+  const product=typeof remote?.product==='string'?remote.product:remote?.product?.id;
+  if(remote?.id!==org.creem_subscription_id || cust!==org.creem_customer_id ||
+     product!==org.creem_product_id || remote?.mode!==creemResponseMode(config))
+   return NextResponse.json({success:false,error:'Subscription identity cannot be verified.'},{status:409});
+  const action=creemResumeEligibility(String(remote?.status??''));
+  if(action==='terminal')
+   return NextResponse.json({success:false,error:'Creem has permanently cancelled this subscription. It cannot be resumed; no payment was taken. Contact support to arrange a new subscription.'},{status:409});
+  if(action==='blocked')
+   return NextResponse.json({success:false,error:'Unresolved payment status. Manage this subscription in the Creem portal.'},{status:409});
+  if(action==='already-active') {
+   await reconcileCreemSubscription(orgId,org.creem_subscription_id,config);
+   return NextResponse.json({success:true,data:{alreadyActive:true}});
+  }
+  await creemApi(config,'POST','subscriptions/'+encodeURIComponent(org.creem_subscription_id)+'/resume');
+  const confirmed=await reconcileCreemSubscription(orgId,org.creem_subscription_id,config);
+  return NextResponse.json({success:true,data:{resumed:confirmed.snapshot.status==='active',pending:confirmed.snapshot.status!=='active'}});
+ } catch(e) {return errorResponse(e,'resume')}
 }
