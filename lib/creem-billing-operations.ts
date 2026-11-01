@@ -171,3 +171,36 @@ export async function resumeCreemBilling(orgId: string) {
   return NextResponse.json({success:true,data:{resumed:confirmed.snapshot.status==='active',pending:confirmed.snapshot.status!=='active'}});
  } catch(e) {return errorResponse(e,'resume')}
 }
+
+/**
+ * Read-only remote eligibility check. A local "cancelled" subscription may
+ * refer to either a reversible scheduled cancellation or a terminal cancellation.
+ * Fail closed: never offer an action without confirming Creem's live status.
+ */
+export async function getCreemResumeAvailability(orgId: string) {
+ try {
+  const org:any=await organizationDb.getById(orgId);
+  if(!org || org.billing_provider!=='creem' || !org.creem_subscription_id ||
+     !org.creem_customer_id || org.creem_payment_hold ||
+     (org.subscription_status!=='cancelled' && org.subscription_status!=='paused'))
+   return NextResponse.json({success:true,data:{canResume:false}});
+  const config=getCreemConfig();
+  if(Boolean(org.creem_test_mode)!==(config.mode==='test'))
+   return NextResponse.json({success:true,data:{canResume:false}});
+  const raw=await creemApi<any>(config,'GET','subscriptions?subscription_id='+encodeURIComponent(org.creem_subscription_id));
+  const remote=raw?.subscription??raw;
+  const customerId=typeof remote?.customer==='string'?remote.customer:remote?.customer?.id;
+  const productId=typeof remote?.product==='string'?remote.product:remote?.product?.id;
+  const matches=remote?.id===org.creem_subscription_id &&
+   customerId===org.creem_customer_id &&
+   productId===org.creem_product_id &&
+   remote?.mode===creemResponseMode(config);
+  return NextResponse.json({success:true,data:{
+   canResume:matches && creemResumeEligibility(String(remote?.status??''))==='resume'
+  }},{headers:{'Cache-Control':'no-store'}});
+ } catch {
+  // Network failures must not result in an action that will just return an error.
+  return NextResponse.json({success:true,data:{canResume:false}},
+   {headers:{'Cache-Control':'no-store'}});
+ }
+}
