@@ -66,3 +66,6 @@ assert.ok(bootstrap.includes('pendingMigrations: pending.map('), 'Read-only stag
 const inspection=fs.readFileSync('scripts/inspect-staging-billing.mjs','utf8');
 assert.ok(inspection.includes("BEGIN READ ONLY"),'Billing audit must be read-only');
 assert.ok(inspection.includes('creem_webhook_events') && inspection.includes('claim_creem_event'),'Billing audit must check Creem storage and RPC');
+
+const dashboardProbe=fs.readFileSync('scripts/inspect-staging-billing.mjs','utf8');
+assert.ok(dashboardProbe.includes('stagingSqlEditor:') && dashboardProbe.includes("to_regclass('public.creem_checkout_intents')"), 'Staging inspection must check actual connected database and point to the configured staging SQL editor');

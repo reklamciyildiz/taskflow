@@ -83,6 +83,48 @@ async function fn(signature,requiredBody = []) {
 try {
   await client.connect();
   await client.query('BEGIN READ ONLY');
+  // Resolve the actual catalog on THIS connection; SQL Editor may have been
+  // opened on a different Supabase project. Never infer a migration is applied
+  // from a different connection's query output.
+  const {rows: inventoryRows} = await client.query(`
+    SELECT current_database() AS database_name,
+           current_user AS database_role,
+           to_regclass('public.organizations') IS NOT NULL AS organizations,
+           to_regclass('public.lemon_webhook_events') IS NOT NULL AS lemon_events,
+           to_regclass('public.creem_checkout_intents') IS NOT NULL AS creem_checkout,
+           to_regclass('public.creem_webhook_events') IS NOT NULL AS creem_events,
+           to_regprocedure('public.claim_creem_event(text,text,text)') IS NOT NULL AS creem_rpc,
+           EXISTS(SELECT 1 FROM pg_attribute
+                  WHERE attrelid=to_regclass('public.organizations')
+                    AND attname='billing_provider' AND NOT attisdropped) AS creem_org_column,
+           EXISTS(SELECT 1 FROM pg_attribute
+                  WHERE attrelid=to_regclass('public.organizations')
+                    AND attname='ls_store_id' AND NOT attisdropped) AS lemon_org_column
+  `);
+  const inventory = inventoryRows[0];
+  console.log(JSON.stringify({
+    stagingSqlEditor: 'https://supabase.com/dashboard/project/' + expected + '/sql/new',
+    databaseName: inventory.database_name,
+    databaseRole: inventory.database_role,
+    catalog: {
+      organizations: inventory.organizations,
+      lemonEvents: inventory.lemon_events,
+      creemCheckout: inventory.creem_checkout,
+      creemEvents: inventory.creem_events,
+      creemRpc: inventory.creem_rpc,
+      creemOrganizationColumn: inventory.creem_org_column,
+      lemonOrganizationColumn: inventory.lemon_org_column,
+    },
+    databaseWrites: false,
+  }));
+  if (!inventory.creem_checkout || !inventory.creem_events || !inventory.creem_rpc ||
+      !inventory.creem_org_column || !inventory.lemon_org_column) {
+    throw new Error(
+      'Expected billing migrations are absent from the configured staging DATABASE. ' +
+      'Open the printed stagingSqlEditor URL and compare its project identity with ' +
+      'the SQL Editor previously used. Do not apply SQL or repair migration history yet.'
+    );
+  }
   await columns('organizations',[
     'ls_store_id','ls_product_id','subscription_ends_at','subscription_pause_mode',
     'subscription_test_mode','lemon_subscription_updated_at',
