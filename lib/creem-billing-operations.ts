@@ -16,6 +16,19 @@ function errorResponse(e: unknown, operation: string) {
  console.error('[creem] ' + operation, e instanceof Error ? e.message : 'unexpected');
  return NextResponse.json({success:false,error:'Unable to complete billing operation. Please try again.'},{status:502});
 }
+async function assertCreemProductMatchesPublicPrice(config:ReturnType<typeof getCreemConfig>,plan:PaidActiprocPlan) {
+ const productId=creemProductForPlan(plan,config);
+ const product=await creemApi<any>(config,'GET','products?product_id='+encodeURIComponent(productId));
+ const cents=plan==='individual'?1200:plan==='pro'?400:600;
+ const period=plan==='individual'?'every-year':'every-month';
+ if(product?.id!==productId || product?.mode!==creemResponseMode(config) ||
+    product?.price!==cents || product?.currency!=='USD' ||
+    product?.billing_type!=='recurring' || product?.billing_period!==period ||
+    product?.tax_mode!==CREEM_EXPECTED_TAX_MODE || product?.tax_category!=='saas' ||
+    product?.status!=='active')
+   throw new Error('Creem product pricing differs from the approved Actiproc list price. No billing change is permitted.');
+}
+
 function isExistingSubscription(org:any) {
  // An expired subscription id still prevents assigning a different id in the
  // database RPC. Never collect payment for a new subscription we cannot grant.
@@ -180,6 +193,7 @@ export async function changeCreemSeats(request:NextRequest, orgId:string) {
   if(current.status!=='active')throw new SeatValidationError('NOT_ACTIVE');
   // Fail closed if our current quota diverged. Never charge against stale UI state.
   if(Number(org.seat_limit)!==current.units)throw new SeatValidationError('STALE_SEAT_STATE');
+  await assertCreemProductMatchesPublicPrice(config,org.plan_name as PaidActiprocPlan);
   if(desired===current.units)return NextResponse.json({success:true,data:{changed:false,seats:desired}});
 
   const increased=desired>current.units;
@@ -354,6 +368,7 @@ export async function changeCreemPlan(request:NextRequest,orgId:string) {
       error:'Finish or reconcile the pending seat change before upgrading your plan.'},{status:409});
   }
   const snapshot=await fetchCreemSubscription(org.creem_subscription_id,config);
+  await assertCreemProductMatchesPublicPrice(config,plan);
   if(snapshot.status!=='active' || snapshot.customerId!==org.creem_customer_id ||
      snapshot.productId!==org.creem_product_id || snapshot.plan!==previous ||
      snapshot.testMode!==Boolean(org.creem_test_mode))
