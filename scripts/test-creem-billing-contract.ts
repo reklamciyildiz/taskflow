@@ -9,6 +9,7 @@ import { isPaidActive } from '../lib/subscription-access';
 import { creemResumeEligibility } from '../lib/creem-lifecycle';
 import { parseCreemSeatState, seatUpdatePayload, SeatValidationError } from '../lib/creem-seats';
 import { matchesPaidSeatIncrease } from '../lib/creem-seat-payment';
+import { issueBillingConsent, verifyBillingConsent, type BillingConsentState } from '../lib/creem-billing-consent';
 
 assert.deepEqual([ACTIPROC_PLANS.free.maxProcesses,ACTIPROC_PLANS.individual.maxProcesses,ACTIPROC_PLANS.pro.maxProcesses],[1,3,10]);
 assert.deepEqual([ACTIPROC_PLANS.individual.priceUsd,ACTIPROC_PLANS.pro.priceUsd,ACTIPROC_PLANS.team.priceUsd],[12,4,6]);
@@ -328,3 +329,50 @@ const paymentOps=fs.readFileSync('lib/creem-billing-operations.ts','utf8');
 assert.ok(paymentOps.includes('verifyCreemSeatIncreasePayment(config,{') &&
  paymentOps.includes('getCreemConfig(),change as PendingSeatIncrease'),
  'Both immediate and delayed reconciliation must validate a fresh paid transaction');
+
+
+const consentState:BillingConsentState={
+ operation:'seats',organizationId:'org_test',subscriptionId:'sub_test',
+ fromPlan:'pro',toPlan:'pro',fromSeats:3,toSeats:4,mode:'test',
+ lastTransactionId:'tran_before',updatedAt:'2026-11-01T20:10:00.000Z'
+};
+const signingSecret='creem-webhook-secret-for-consent-tests-only-123';
+const issuedAt=Date.UTC(2026,10,1,20,10);
+const consentToken=issueBillingConsent(consentState,signingSecret,issuedAt);
+assert.equal(verifyBillingConsent(consentToken,consentState,signingSecret,issuedAt+1000),true,
+ 'Current approved payment state should be accepted');
+for (const altered of [
+ {...consentState,toSeats:5}, {...consentState,fromSeats:2},
+ {...consentState,organizationId:'org_other'}, {...consentState,subscriptionId:'sub_other'},
+ {...consentState,mode:'prod' as const}, {...consentState,lastTransactionId:'tran_after'},
+ {...consentState,updatedAt:'2026-11-01T20:11:00.000Z'},
+ {...consentState,operation:'upgrade' as const}, {...consentState,toPlan:'team'}
+])assert.equal(verifyBillingConsent(consentToken,altered,signingSecret,issuedAt+1000),false,
+ 'Never reuse paid consent for changed billing state');
+assert.equal(verifyBillingConsent(consentToken,consentState,signingSecret,issuedAt+300001),false,
+ 'Expired confirmation may not charge');
+assert.equal(verifyBillingConsent(consentToken+'x',consentState,signingSecret,issuedAt+1000),false,
+ 'Tampered consent may not charge');
+assert.equal(verifyBillingConsent('garbage',consentState,signingSecret,issuedAt+1000),false);
+assert.equal(verifyBillingConsent(consentToken,consentState,'different-secret-with-enough-entropy',issuedAt+1000),false);
+const upgradeConsent={...consentState,operation:'upgrade' as const,fromPlan:'pro',toPlan:'team',fromSeats:3,toSeats:3};
+const upgradeToken=issueBillingConsent(upgradeConsent,signingSecret,issuedAt);
+assert.equal(verifyBillingConsent(upgradeToken,upgradeConsent,signingSecret,issuedAt+1000),true);
+assert.equal(verifyBillingConsent(upgradeToken,consentState,signingSecret,issuedAt+1000),false);
+const consentOperations=fs.readFileSync('lib/creem-billing-operations.ts','utf8');
+const seatEndpoint=fs.readFileSync('app/api/billing/update-seats/route.ts','utf8');
+const planEndpoint=fs.readFileSync('app/api/billing/switch-plan/route.ts','utf8');
+const consentUI=fs.readFileSync('components/billing/BillingClient.tsx','utf8');
+const consentHook=fs.readFileSync('hooks/useOrganizationBilling.ts','utf8');
+assert.ok(consentOperations.includes("body?.action==='preview'") &&
+ consentOperations.includes("body?.action!=='confirm'") &&
+ consentOperations.includes('verifyBillingConsent') &&
+ consentOperations.includes('issueBillingConsent'), 'Both paid change endpoints must enforce signed preview and confirmation');
+assert.ok(seatEndpoint.includes('requireOrgAdmin') && planEndpoint.includes('requireOrgAdmin'),
+ 'Billing endpoints must require organizational admin');
+assert.ok(consentHook.includes("action: 'preview'") && consentHook.includes("action: 'confirm'"),
+ 'UI must separate review and charge requests');
+assert.ok(consentUI.includes('Authorize charge & confirm') &&
+ consentUI.includes('reviewAcknowledged') && consentUI.includes('requestSeatReview') &&
+ consentUI.includes('requestPlanReview'), 'Explicit modal approval must precede saved-card charges');
+console.log('Creem explicit billing-consent tests passed');
