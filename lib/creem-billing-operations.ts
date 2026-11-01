@@ -161,7 +161,7 @@ export async function changeCreemSeats(request:NextRequest, orgId:string) {
   const {data:reservation,error:reserveError}=await (supabaseAdmin as any)
     .rpc('reserve_creem_seat_change',{
       p_org:orgId,p_subscription:current.id,p_previous:current.units,
-      p_desired:desired,p_test:config.mode==='test'
+      p_desired:desired,p_test:config.mode==='test',p_before_transaction:((remote?.subscription??remote)?.last_transaction_id??null)
     });
   if(reserveError) {
     console.error('[creem] seat reserve SQL not ready',{code:reserveError.code});

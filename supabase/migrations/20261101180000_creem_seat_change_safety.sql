@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS public.creem_seat_changes (
   previous_seats INTEGER NOT NULL CHECK (previous_seats BETWEEN 1 AND 500),
   desired_seats INTEGER NOT NULL CHECK (desired_seats BETWEEN 1 AND 500),
   test_mode BOOLEAN NOT NULL,
+  previous_transaction_id TEXT,
   status TEXT NOT NULL DEFAULT 'pending'
     CHECK (status IN ('pending','awaiting_sync','review','confirmed','failed')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -22,7 +23,7 @@ REVOKE ALL ON public.creem_seat_changes FROM PUBLIC, anon, authenticated;
 GRANT SELECT, INSERT, UPDATE ON public.creem_seat_changes TO service_role;
 
 CREATE OR REPLACE FUNCTION public.reserve_creem_seat_change(
-  p_org UUID,p_subscription TEXT,p_previous INTEGER,p_desired INTEGER,p_test BOOLEAN
+  p_org UUID,p_subscription TEXT,p_previous INTEGER,p_desired INTEGER,p_test BOOLEAN,p_before_transaction TEXT
 ) RETURNS UUID LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
 DECLARE current_org public.organizations%ROWTYPE;
 DECLARE token UUID;
@@ -43,14 +44,14 @@ BEGIN
    WHERE organization_id=p_org AND status IN ('pending','awaiting_sync','review'))
  THEN RETURN NULL; END IF;
  INSERT INTO public.creem_seat_changes
-   (organization_id,subscription_id,previous_seats,desired_seats,test_mode)
- VALUES (p_org,p_subscription,p_previous,p_desired,p_test)
+   (organization_id,subscription_id,previous_seats,desired_seats,test_mode,previous_transaction_id)
+ VALUES (p_org,p_subscription,p_previous,p_desired,p_test,p_before_transaction)
  RETURNING id INTO token;
  RETURN token;
 EXCEPTION WHEN unique_violation THEN
  RETURN NULL;
 END $$;
-REVOKE ALL ON FUNCTION public.reserve_creem_seat_change(UUID,TEXT,INTEGER,INTEGER,BOOLEAN)
+REVOKE ALL ON FUNCTION public.reserve_creem_seat_change(UUID,TEXT,INTEGER,INTEGER,BOOLEAN,TEXT)
  FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.reserve_creem_seat_change(UUID,TEXT,INTEGER,INTEGER,BOOLEAN)
  TO service_role;
