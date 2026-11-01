@@ -8,6 +8,7 @@ import crypto from 'node:crypto';
 import { isPaidActive } from '../lib/subscription-access';
 import { creemResumeEligibility } from '../lib/creem-lifecycle';
 import { parseCreemSeatState, seatUpdatePayload, SeatValidationError } from '../lib/creem-seats';
+import { matchesPaidSeatIncrease } from '../lib/creem-seat-payment';
 
 assert.deepEqual([ACTIPROC_PLANS.free.maxProcesses,ACTIPROC_PLANS.individual.maxProcesses,ACTIPROC_PLANS.pro.maxProcesses],[1,3,10]);
 assert.deepEqual([ACTIPROC_PLANS.individual.priceUsd,ACTIPROC_PLANS.pro.priceUsd,ACTIPROC_PLANS.team.priceUsd],[12,4,6]);
@@ -298,3 +299,29 @@ assert.ok(seatRouteCode.includes('seatUpdatePayload(current,desired'), 'Seat-cha
 const seatModule=fs.readFileSync('lib/creem-seats.ts','utf8');
 assert.ok(seatModule.includes('price_id:(item as CreemSeatState).priceId') && !seatModule.includes('!item.price_id'),
   'Use verified optional price ID without enforcing an arbitrary prefix');
+
+const paymentChange={subscription_id:'sub_paid',previous_seats:1,desired_seats:3,
+ previous_transaction_id:'tran_old',created_at:'2026-11-01T17:02:57.000Z'};
+const paymentSubscription={id:'sub_paid',mode:'test',status:'active',
+ items:[{id:'sitem_1',units:3}],last_transaction_id:'tran_new'};
+const paymentTransaction={id:'tran_new',mode:'test',status:'paid',amount_paid:800,
+ subscription:'sub_paid',created_at:1793552600000};
+assert.equal(matchesPaidSeatIncrease(paymentChange,paymentSubscription,paymentTransaction,'test'),true);
+for(const [change,sub,tx] of [
+ [{...paymentChange,previous_transaction_id:'tran_new'},paymentSubscription,paymentTransaction],
+ [paymentChange,{...paymentSubscription,last_transaction_id:'tran_old'},paymentTransaction],
+ [paymentChange,{...paymentSubscription,items:[{units:1}]},paymentTransaction],
+ [paymentChange,paymentSubscription,{...paymentTransaction,status:'pending'}],
+ [paymentChange,paymentSubscription,{...paymentTransaction,amount_paid:0}],
+ [paymentChange,paymentSubscription,{...paymentTransaction,mode:'prod'}],
+ [paymentChange,paymentSubscription,{...paymentTransaction,subscription:'sub_other'}],
+ [paymentChange,paymentSubscription,{...paymentTransaction,created_at:1793550000000}],
+ ] as any[])assert.equal(matchesPaidSeatIncrease(change,sub,tx,'test'),false);
+const paymentWebhook=fs.readFileSync('app/api/webhooks/creem/route.ts','utf8');
+assert.ok(paymentWebhook.includes('verifyCreemSeatIncreasePayment(config,change') &&
+ !paymentWebhook.includes("if(process.env.CREEM_SEAT_MUTATIONS_ENABLED==='true' &&\n      result.applied && result.snapshot.status==='active' &&\n      (kind==='subscription.paid'||kind==='subscription.update')) {\n     const {error:seatError}"),
+ 'Subscription.paid without verified seat transaction must not settle an increase');
+const paymentOps=fs.readFileSync('lib/creem-billing-operations.ts','utf8');
+assert.ok(paymentOps.includes('verifyCreemSeatIncreasePayment(config,{') &&
+ paymentOps.includes('getCreemConfig(),change as PendingSeatIncrease'),
+ 'Both immediate and delayed reconciliation must validate a fresh paid transaction');

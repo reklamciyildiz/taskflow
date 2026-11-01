@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { creemApi, getCreemConfig, creemPlanForProduct, creemResponseMode } from '@/lib/creem-config';
 import { reconcileCreemSubscription, fetchCreemSubscription } from '@/lib/creem-subscription';
+import { verifyCreemSeatIncreasePayment, type PendingSeatIncrease } from '@/lib/creem-seat-payment';
 import { validCreemEventId, verifyCreemSignature, paidCreemCheckoutMatches } from '@/lib/creem-webhook-contract';
 export const runtime='nodejs';
 const updateEvents=new Set(['subscription.active','subscription.paid','subscription.canceled','subscription.scheduled_cancel','subscription.past_due','subscription.unpaid','subscription.expired','subscription.trialing','subscription.paused','subscription.update']);
@@ -111,10 +112,34 @@ export async function POST(request:NextRequest) {
    if(process.env.CREEM_SEAT_MUTATIONS_ENABLED==='true' &&
       result.applied && result.snapshot.status==='active' &&
       (kind==='subscription.paid'||kind==='subscription.update')) {
-     const {error:seatError}=await (supabaseAdmin as any).rpc('confirm_creem_seat_change',{
-       p_org:org.id,p_subscription:sid,p_current_units:result.snapshot.seats,p_event:kind
-     });
-     if(seatError)throw seatError;
+     const {data:change,error:changeError}=await (supabaseAdmin as any)
+       .from('creem_seat_changes')
+       .select('subscription_id,previous_seats,desired_seats,previous_transaction_id,created_at')
+       .eq('organization_id',org.id)
+       .in('status',['pending','awaiting_sync','review']).maybeSingle();
+     if(changeError)throw changeError;
+     if(change && change.subscription_id===sid &&
+        Number(change.desired_seats)===result.snapshot.seats) {
+       const increasing=Number(change.desired_seats)>Number(change.previous_seats);
+       // A subscription.paid event may be a renewal, not a seat-change charge.
+       // Never confirm an increase merely because Creem sent this event.
+       let canSettle=!increasing;
+       if(increasing && kind==='subscription.paid') {
+         try {
+           canSettle=await verifyCreemSeatIncreasePayment(config,change as PendingSeatIncrease);
+         } catch (verificationError) {
+           console.warn('[creem] seat-payment webhook verification pending',
+             verificationError instanceof Error?verificationError.name:'unknown');
+         }
+       }
+       if(canSettle) {
+         const {error:seatError}=await (supabaseAdmin as any).rpc('confirm_creem_seat_change',{
+           p_org:org.id,p_subscription:sid,p_current_units:result.snapshot.seats,
+           p_event:increasing?'subscription.paid':'subscription.update'
+         });
+         if(seatError)throw seatError;
+       }
+     }
    }
   }else if(kind==='refund.created' || kind==='dispute.created'){
    const sid=objectId(obj.subscription) ?? objectId(obj.transaction?.subscription);

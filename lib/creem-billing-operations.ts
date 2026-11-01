@@ -6,6 +6,7 @@ import { getOrganizationSeatUsage } from '@/lib/entitlements';
 import { APP_URL } from '@/lib/site-config';
 import { creemApi, CreemApiError, creemProductForPlan, getCreemConfig, creemResponseMode } from '@/lib/creem-config';
 import { parseCreemSeatState, seatUpdatePayload, SeatValidationError } from '@/lib/creem-seats';
+import { verifyCreemSeatIncreasePayment, type PendingSeatIncrease } from '@/lib/creem-seat-payment';
 import { fetchCreemSubscription, reconcileCreemSubscription } from '@/lib/creem-subscription';
 import { CREEM_EXPECTED_TAX_MODE, isPaidPlan, type PaidActiprocPlan } from '@/lib/billing-plans';
 import { creemResumeEligibility } from '@/lib/creem-lifecycle';
@@ -117,7 +118,7 @@ export async function reconcileCreemOrg(orgId:string) {
   let seatChangePending=false;
   if(process.env.CREEM_SEAT_MUTATIONS_ENABLED==='true') {
     const {data:change,error:changeError}=await (supabaseAdmin as any).from('creem_seat_changes')
-      .select('id,subscription_id,previous_seats,desired_seats,previous_transaction_id')
+      .select('id,subscription_id,previous_seats,desired_seats,previous_transaction_id,created_at')
       .eq('organization_id',orgId)
       .in('status',['pending','awaiting_sync','review']).maybeSingle();
     if(changeError)throw changeError;
@@ -126,20 +127,8 @@ export async function reconcileCreemOrg(orgId:string) {
        change.subscription_id===result.snapshot.subscriptionId &&
        Number(change.desired_seats)===result.snapshot.seats) {
       let paid=Number(change.desired_seats)<Number(change.previous_seats);
-      if(!paid) {
-        const config=getCreemConfig();
-        const latest=await creemApi<any>(config,'GET',
-          'subscriptions?subscription_id='+encodeURIComponent(change.subscription_id));
-        const actual=latest?.subscription??latest;
-        const transactionId=actual?.last_transaction_id;
-        if(typeof transactionId==='string' && transactionId!==change.previous_transaction_id &&
-           transactionId.startsWith('tran_')){
-          const response=await creemApi<any>(config,'GET','transactions?transaction_id='+encodeURIComponent(transactionId));
-          const t=response?.transaction??response;
-          const matchingSubscription=typeof t?.subscription==='string'?t.subscription:t?.subscription?.id;
-          paid=t?.id===transactionId && matchingSubscription===change.subscription_id && t?.status==='paid';
-        }
-      }
+      if(!paid)paid=await verifyCreemSeatIncreasePayment(
+        getCreemConfig(),change as PendingSeatIncrease);
       if(paid){
         const {data:settled,error:settleError}=await (supabaseAdmin as any).rpc('confirm_creem_seat_change',{
           p_org:orgId,p_subscription:change.subscription_id,
@@ -218,6 +207,9 @@ export async function changeCreemSeats(request:NextRequest, orgId:string) {
     return !error&&data===true;
   };
 
+  // This timestamp precedes the provider mutation and guards against using
+  // an older paid invoice to activate new seats.
+  const requestedAt=new Date().toISOString();
   let update:any;
   try {
     update=await creemApi<any>(config,'POST','subscriptions/'+encodeURIComponent(current.id),
@@ -247,17 +239,12 @@ export async function changeCreemSeats(request:NextRequest, orgId:string) {
     });
     if(after.status==='active'&&after.units===desired){
       let paid=!increased;
-      if(increased){
-        const beforeTransaction=(remote?.subscription??remote)?.last_transaction_id;
-        const afterTransaction=(latest?.subscription??latest)?.last_transaction_id;
-        if(typeof afterTransaction==='string' && afterTransaction.startsWith('tran_') &&
-           afterTransaction!==beforeTransaction){
-          const transaction=await creemApi<any>(config,'GET',
-            'transactions?transaction_id='+encodeURIComponent(afterTransaction));
-          const t=transaction?.transaction??transaction;
-          const sub=typeof t?.subscription==='string'?t.subscription:t?.subscription?.id;
-          paid=t?.id===afterTransaction && sub===current.id && t?.status==='paid';
-        }
+      if(increased) {
+        paid=await verifyCreemSeatIncreasePayment(config,{
+          subscription_id:current.id,previous_seats:current.units,desired_seats:desired,
+          previous_transaction_id:((remote?.subscription??remote)?.last_transaction_id??null),
+          created_at:requestedAt
+        });
       }
       if(paid){
         const applied=await reconcileCreemSubscription(orgId,current.id,config);
