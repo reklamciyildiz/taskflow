@@ -260,7 +260,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                   {busy ? 'Opening…' : 'Upgrade to Individual'}
                 </Button>
               ) : billingPlan === 'individual' ? (
-                <Button type="button" size="sm" disabled={busy} disabled={!canUpgrade || busy} onClick={() => void switchPlan('pro', { billingInterval: 'monthly' })}>Upgrade to Pro</Button>
+                <Button type="button" size="sm" disabled={!canUpgrade || busy} onClick={() => void switchPlan('pro', { billingInterval: 'monthly' })}>Upgrade to Pro</Button>
               ) : billingPlan === 'pro' ? (
                 // Upgrade the existing Creem subscription, not a second checkout.
                 <Button
