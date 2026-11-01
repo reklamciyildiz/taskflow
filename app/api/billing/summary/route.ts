@@ -3,6 +3,8 @@ import { requireOrgAdmin } from '@/lib/server-authz';
 import { getOrganizationEntitlements, getOrganizationSeatUsage } from '@/lib/entitlements';
 import { organizationDb } from '@/lib/db';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { creemApi, getCreemConfig, creemResponseMode } from '@/lib/creem-config';
+import { readCreemBillingCycle, type CreemBillingCycle } from '@/lib/creem-billing-cycle';
 
 export async function GET(request: NextRequest) {
   try {
@@ -19,6 +21,28 @@ export async function GET(request: NextRequest) {
     const org: any = await organizationDb.getById(orgId);
     const billingProvider = 'creem';
     const subscriptionId = org?.creem_subscription_id ? String(org.creem_subscription_id) : null;
+
+    // Live read: billing dates never come from an assumed 30-day interval or
+    // cached organization period_end. Do not present dates if verification fails.
+    let billingCycle: CreemBillingCycle | null=null;
+    if (org?.billing_provider==='creem' && org?.creem_subscription_id && org?.creem_customer_id) {
+      try {
+        const config=getCreemConfig();
+        if (Boolean(org.creem_test_mode)===(config.mode==='test')) {
+          const remote=await creemApi<any>(config,'GET','subscriptions?subscription_id='+
+            encodeURIComponent(org.creem_subscription_id));
+          const sub=remote?.subscription??remote;
+          const id=typeof sub?.id==='string'?sub.id:null;
+          const customerId=typeof sub?.customer==='string'?sub.customer:sub?.customer?.id;
+          const productId=typeof sub?.product==='string'?sub.product:sub?.product?.id;
+          if (id===org.creem_subscription_id && customerId===org.creem_customer_id &&
+              productId===org.creem_product_id && sub?.mode===creemResponseMode(config))
+            billingCycle=readCreemBillingCycle(remote);
+        }
+      } catch(e) {
+        console.warn('[creem] renewal calendar unavailable', e instanceof Error ? e.name : 'unknown');
+      }
+    }
 
     let seatChange:{status:string;previousSeats:number;desiredSeats:number}|null=null;
     if(process.env.CREEM_SEAT_MUTATIONS_ENABLED==='true' && subscriptionId) {
@@ -41,6 +65,7 @@ export async function GET(request: NextRequest) {
         subscriptionId,
         billingProvider,
         seatChange,
+        billingCycle,
       },
     });
   } catch (e: any) {
