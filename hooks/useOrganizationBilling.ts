@@ -139,13 +139,42 @@ export function useOrganizationBilling(organizationId: string | null) {
     }
   }, []);
 
-  const updateSeats = useCallback(async (seats: number) => {
+  const previewSeatChange = useCallback(async (seats: number): Promise<{
+    consentToken: string; previousSeats: number; desiredSeats: number;
+    direction: 'increase' | 'decrease'; currentMonthlyUsd: number; nextMonthlyUsd: number;
+    exactChargeAvailable: false;
+  }> => {
+    const response = await fetch('/api/billing/update-seats', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ seats, action: 'preview' }),
+    });
+    const json = await response.json().catch(() => null);
+    if (!response.ok || !json?.success || typeof json?.data?.consentToken !== 'string')
+      throw new Error(json?.error || 'Could not review this seat change.');
+    return json.data;
+  }, []);
+
+  const previewPlanUpgrade = useCallback(async (plan: 'pro' | 'team'): Promise<{
+    consentToken: string; fromPlan: string; toPlan: string; seats: number;
+    nextMonthlyUsd: number; exactChargeAvailable: false;
+  }> => {
+    const response = await fetch('/api/billing/switch-plan', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ plan, action: 'preview' }),
+    });
+    const json = await response.json().catch(() => null);
+    if (!response.ok || !json?.success || typeof json?.data?.consentToken !== 'string')
+      throw new Error(json?.error || 'Could not review this plan upgrade.');
+    return json.data;
+  }, []);
+
+  const updateSeats = useCallback(async (seats: number, consentToken: string) => {
     setCheckoutBusy('seats');
     try {
       const resp = await fetch('/api/billing/update-seats', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ seats }),
+        body: JSON.stringify({ seats, action: 'confirm', consentToken }),
       });
       const json = await resp.json().catch(() => null);
       if (!resp.ok || !json?.success) {
@@ -169,24 +198,25 @@ export function useOrganizationBilling(organizationId: string | null) {
   }, []);
 
   const switchPlan = useCallback(
-    async (plan: 'individual' | 'pro' | 'team', opts?: { billingInterval?: 'monthly' | 'yearly' }) => {
+    async (plan: 'individual' | 'pro' | 'team', opts?: { billingInterval?: 'monthly' | 'yearly'; consentToken?: string }) => {
       setCheckoutBusy(plan);
       try {
         const billingInterval = opts?.billingInterval === 'yearly' ? 'yearly' : 'monthly';
         const resp = await fetch('/api/billing/switch-plan', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ plan, billingInterval }),
+          body: JSON.stringify({ plan, billingInterval, action: 'confirm', consentToken: opts?.consentToken }),
         });
         const json = await resp.json();
         if (!resp.ok || !json?.success) throw new Error(json?.error || 'Plan switch failed');
         // Webhook will update DB; poll twice to catch it
         setTimeout(() => void refreshBillingRef.current(), 2500);
         setTimeout(() => void refreshBillingRef.current(), 8000);
-        toast.success('Plan updated — refreshing billing…');
+        toast.message('Creem accepted the upgrade. Billing will refresh after provider verification.');
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : 'Plan switch failed';
         toast.error(msg);
+        throw e;
       } finally {
         setCheckoutBusy(null);
       }
@@ -248,6 +278,8 @@ export function useOrganizationBilling(organizationId: string | null) {
     openSeatUpgrade,
     switchPlan,
     updateSeats,
+    previewSeatChange,
+    previewPlanUpgrade,
     resumeSubscription,
     canResume,
     canResubscribe,

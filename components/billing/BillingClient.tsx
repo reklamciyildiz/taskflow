@@ -28,6 +28,12 @@ import { cn } from '@/lib/utils';
 import { useOrganizationBilling } from '@/hooks/useOrganizationBilling';
 import { isCapacitorNative } from '@/lib/client/is-capacitor-native';
 import { ACTIPROC_PLANS } from '@/lib/billing-plans';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { toast } from 'sonner';
+type BillingReview =
+ | {kind:'seats';token:string;previousSeats:number;desiredSeats:number;direction:'increase'|'decrease';nextMonthlyUsd:number}
+ | {kind:'plan';token:string;fromPlan:string;toPlan:'pro'|'team';seats:number;nextMonthlyUsd:number};
+
 
 type Props = {
   organizationId: string | null;
@@ -69,6 +75,8 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
     openCustomerPortal,
     switchPlan,
     updateSeats,
+    previewSeatChange,
+    previewPlanUpgrade,
     resumeSubscription,
     canResume,
     canResubscribe,
@@ -87,6 +95,11 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
   const [seatReductionAcknowledged, setSeatReductionAcknowledged] = useState(false);
   const [desiredSeats, setDesiredSeats] = useState(1);
   const [addSeatsError, setAddSeatsError] = useState<{ message: string; code?: string; traceId?: string } | null>(null);
+  const [billingReview,setBillingReview] = useState<BillingReview|null>(null);
+  const [reviewAcknowledged,setReviewAcknowledged] = useState(false);
+  const [reviewBusy,setReviewBusy] = useState(false);
+  const [reviewLoading,setReviewLoading] = useState(false);
+  const [reviewError,setReviewError] = useState<string|null>(null);
   const proRef = useRef<HTMLDivElement | null>(null);
   const teamRef = useRef<HTMLDivElement | null>(null);
 
@@ -114,8 +127,48 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
   const formattedEnd = endsAt && Number.isFinite(Date.parse(endsAt))
     ? new Date(endsAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})
     : null;
-  const busy = checkoutBusy !== null || isNativeApp;
+  const busy = checkoutBusy !== null || isNativeApp || reviewLoading;
 
+  async function requestSeatReview(target:number) {
+    setReviewLoading(true);setAddSeatsError(null);
+    try {
+      const p=await previewSeatChange(target);
+      setBillingReview({kind:'seats',token:p.consentToken,previousSeats:p.previousSeats,
+        desiredSeats:p.desiredSeats,direction:p.direction,nextMonthlyUsd:p.nextMonthlyUsd});
+      setReviewAcknowledged(false);setReviewError(null);
+    } catch(e) {
+      setAddSeatsError({message:e instanceof Error?e.message:'Unable to review seat change.'});
+    } finally {setReviewLoading(false);}
+  }
+  async function requestPlanReview(plan:'individual'|'pro'|'team') {
+    if(plan!=='pro'&&plan!=='team')return;
+    setReviewLoading(true);
+    try {
+      const p=await previewPlanUpgrade(plan);
+      setBillingReview({kind:'plan',token:p.consentToken,fromPlan:p.fromPlan,
+        toPlan:plan,seats:p.seats,nextMonthlyUsd:p.nextMonthlyUsd});
+      setReviewAcknowledged(false);setReviewError(null);
+    } catch(e) {
+      toast.error(e instanceof Error?e.message:'Unable to review upgrade.');
+    } finally {setReviewLoading(false);}
+  }
+  async function applyReviewedChange(){
+    if(!billingReview||!reviewAcknowledged||reviewBusy||busy)return;
+    setReviewBusy(true);setReviewError(null);
+    try {
+      if(billingReview.kind==='seats'){
+        await updateSeats(billingReview.desiredSeats,billingReview.token);
+        setAddSeatsOpen(false);
+      } else {
+        await switchPlan(billingReview.toPlan,{billingInterval:'monthly',consentToken:billingReview.token});
+      }
+      setBillingReview(null);setReviewAcknowledged(false);
+    } catch(e) {
+      setReviewAcknowledged(false);
+      setReviewError((e instanceof Error?e.message:'Payment could not be verified.')+
+        ' Refresh billing and request a new review. Do not repeat a charge without checking its status.');
+    } finally {setReviewBusy(false);}
+  }
   const statusLabel = billingStatus.replace('_', ' ');
   const showSeatMeter =
     (billingPlan === 'team' || billingPlan === 'pro') && Boolean(subscriptionId);
@@ -124,6 +177,53 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-7 pb-12">
+
+      <Dialog open={Boolean(billingReview)} onOpenChange={open=>{if(!open&&!reviewBusy){setBillingReview(null);setReviewError(null);setReviewAcknowledged(false);}}}>
+        <DialogContent className="max-w-md rounded-2xl p-6 shadow-2xl" hideClose={reviewBusy}>
+          <DialogHeader>
+            <DialogTitle className="text-xl">Review billing change</DialogTitle>
+            <DialogDescription>Nothing will be charged or changed until you approve.</DialogDescription>
+          </DialogHeader>
+          {billingReview ? <div className="space-y-4">
+            <div className="rounded-xl border bg-muted/30 p-4 text-sm space-y-2">
+              {billingReview.kind==='seats' ? <>
+                <div className="flex justify-between"><span>Current seats</span><strong>{billingReview.previousSeats}</strong></div>
+                <div className="flex justify-between"><span>New seats</span><strong>{billingReview.desiredSeats}</strong></div>
+              </> : <>
+                <div className="flex justify-between"><span>Current plan</span><strong className="capitalize">{billingReview.fromPlan}</strong></div>
+                <div className="flex justify-between"><span>New plan</span><strong className="capitalize">{billingReview.toPlan}</strong></div>
+                <div className="flex justify-between"><span>Seats</span><strong>{billingReview.seats}</strong></div>
+              </>}
+              <div className="flex justify-between gap-3 border-t pt-2"><span>New monthly list price</span><strong className="tabular-nums">${billingReview.nextMonthlyUsd.toFixed(2)}/mo</strong></div>
+            </div>
+            {billingReview.kind==='seats' && billingReview.direction==='decrease' ?
+              <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs leading-relaxed">The reduction may take effect immediately. Unused prepaid time is not automatically refunded.</p> :
+              <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs leading-relaxed">
+                <strong>Immediate payment:</strong> Creem will automatically charge your saved card when you approve.
+                The exact prorated amount is not available through this integration and may differ from the monthly price shown above.
+                The monthly price is NOT a quote for today's charge.
+              </p>
+            }
+            <label className="flex items-start gap-3 rounded-xl border p-3 text-xs leading-relaxed cursor-pointer">
+              <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0" checked={reviewAcknowledged}
+                disabled={reviewBusy||Boolean(reviewError)} onChange={e=>setReviewAcknowledged(e.target.checked)} />
+              <span>{billingReview.kind==='seats'&&billingReview.direction==='decrease'
+                ? 'I approve reducing my seat count immediately, without an automatic refund.'
+                : 'I authorize the immediate prorated charge to my saved card, understand that its exact amount is unavailable here, and accept the new monthly subscription price.'}</span>
+            </label>
+            {reviewError?<p role="alert" className="rounded-lg bg-destructive/10 p-3 text-xs text-destructive">{reviewError}</p>:null}
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button type="button" variant="outline" disabled={reviewBusy}
+                onClick={()=>{setBillingReview(null);setReviewAcknowledged(false);setReviewError(null);}}>Cancel</Button>
+              <Button type="button" disabled={!reviewAcknowledged||reviewBusy||Boolean(reviewError)||busy}
+                onClick={()=>void applyReviewedChange()}>
+                {reviewBusy?'Submitting…':billingReview.kind==='seats'&&billingReview.direction==='decrease'?'Approve reduction':'Authorize charge & confirm'}
+              </Button>
+            </div>
+          </div>:null}
+        </DialogContent>
+      </Dialog>
+
       <header className="relative isolate overflow-hidden rounded-[28px] border border-slate-800 bg-[#101c30] px-6 py-7 text-white shadow-[0_22px_60px_-38px_rgba(15,23,42,0.7)] sm:px-8">
         <div aria-hidden="true" className="pointer-events-none absolute -right-12 -top-28 h-72 w-72 rounded-full bg-blue-500/25 blur-[85px]" />
         <div aria-hidden="true" className="pointer-events-none absolute -bottom-40 left-12 h-64 w-72 rounded-full bg-violet-500/15 blur-[70px]" />
@@ -219,7 +319,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                   ? void openCheckout(selectedPlan, { billingInterval: selectedPlan === 'individual' ? 'yearly' : 'monthly', resubscribe: true, acceptNewCharge })
                   : billingPlan === 'free'
                     ? void openCheckout(selectedPlan, { billingInterval: selectedPlan === 'individual' ? 'yearly' : 'monthly' })
-                    : void switchPlan(selectedPlan, { billingInterval: 'monthly' })}
+                    : void requestPlanReview(selectedPlan)}
               >
                 Continue to checkout
               </Button>
@@ -293,7 +393,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                   {busy ? 'Opening…' : 'Upgrade to Individual'}
                 </Button>
               ) : billingPlan === 'individual' && !canResubscribe ? (
-                <Button type="button" size="sm" disabled={!canUpgrade || busy} title={!canUpgrade ? 'Plan upgrades are unavailable while the subscription is cancelled or paused' : undefined} onClick={() => void switchPlan('pro', { billingInterval: 'monthly' })}>Upgrade to Pro</Button>
+                <Button type="button" size="sm" disabled={!canUpgrade || busy} title={!canUpgrade ? 'Plan upgrades are unavailable while the subscription is cancelled or paused' : undefined} onClick={() => void requestPlanReview('pro')}>Upgrade to Pro</Button>
               ) : billingPlan === 'pro' && !canResubscribe ? (
                 // Upgrade the existing Creem subscription, not a second checkout.
                 <Button
@@ -301,7 +401,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                   size="sm"
                   disabled={!canUpgrade || busy}
                   title={!canUpgrade ? 'Plan upgrades are unavailable while the subscription is cancelled or paused' : undefined}
-                  onClick={() => void switchPlan('team', { billingInterval: 'monthly' })}
+                  onClick={() => void requestPlanReview('team')}
                 >
                   {busy ? 'Switching…' : 'Upgrade to Team'}
                 </Button>
@@ -491,8 +591,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                   onClick={async () => {
                     setAddSeatsError(null);
                     try {
-                      await updateSeats(desiredSeats);
-                      setAddSeatsOpen(false);
+                      await requestSeatReview(desiredSeats);
                     } catch (e: unknown) {
                       const err = e as Error & { code?: string };
                       setAddSeatsError({ message: err?.message || 'Seat update failed', code: err?.code, traceId:(err as Error & {traceId?:string})?.traceId });
@@ -502,8 +601,8 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                   {busy
                     ? 'Saving…'
                     : isDecrease
-                      ? `Confirm — reduce to ${desiredSeats} seats`
-                      : `Confirm — ${desiredSeats} seats`}
+                      ? `Review reduction to ${desiredSeats} seats`
+                      : `Review payment for ${desiredSeats} seats`}
                 </Button>
               </div>
             );
@@ -603,7 +702,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                           ? void openCheckout(key, {billingInterval:key === 'individual' ? 'yearly' : 'monthly', resubscribe:true, acceptNewCharge})
                           : billingPlan === 'free'
                             ? void openCheckout(key, {billingInterval:key === 'individual' ? 'yearly' : 'monthly'})
-                            : void switchPlan(key, {billingInterval:'monthly'})}>
+                            : void requestPlanReview(key)}>
                         {canResubscribe ? 'Subscribe to ' + title : current ? 'Current plan' : !canUpgrade ? billingStatus === 'cancelled' ? 'Not available after cancellation' : 'Unavailable for this subscription' : 'Choose ' + title}
                       </Button>
                     </>

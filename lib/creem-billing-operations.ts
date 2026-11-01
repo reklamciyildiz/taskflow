@@ -7,6 +7,7 @@ import { APP_URL } from '@/lib/site-config';
 import { creemApi, CreemApiError, creemProductForPlan, getCreemConfig, creemResponseMode } from '@/lib/creem-config';
 import { parseCreemSeatState, seatUpdatePayload, SeatValidationError } from '@/lib/creem-seats';
 import { verifyCreemSeatIncreasePayment, type PendingSeatIncrease } from '@/lib/creem-seat-payment';
+import { issueBillingConsent, verifyBillingConsent, type BillingConsentState } from '@/lib/creem-billing-consent';
 import { fetchCreemSubscription, reconcileCreemSubscription } from '@/lib/creem-subscription';
 import { CREEM_EXPECTED_TAX_MODE, isPaidPlan, type PaidActiprocPlan } from '@/lib/billing-plans';
 import { creemResumeEligibility } from '@/lib/creem-lifecycle';
@@ -15,6 +16,19 @@ function errorResponse(e: unknown, operation: string) {
  console.error('[creem] ' + operation, e instanceof Error ? e.message : 'unexpected');
  return NextResponse.json({success:false,error:'Unable to complete billing operation. Please try again.'},{status:502});
 }
+async function assertCreemProductMatchesPublicPrice(config:ReturnType<typeof getCreemConfig>,plan:PaidActiprocPlan) {
+ const productId=creemProductForPlan(plan,config);
+ const product=await creemApi<any>(config,'GET','products?product_id='+encodeURIComponent(productId));
+ const cents=plan==='individual'?1200:plan==='pro'?400:600;
+ const period=plan==='individual'?'every-year':'every-month';
+ if(product?.id!==productId || product?.mode!==creemResponseMode(config) ||
+    product?.price!==cents || product?.currency!=='USD' ||
+    product?.billing_type!=='recurring' || product?.billing_period!==period ||
+    product?.tax_mode!==CREEM_EXPECTED_TAX_MODE || product?.tax_category!=='saas' ||
+    product?.status!=='active')
+   throw new Error('Creem product pricing differs from the approved Actiproc list price. No billing change is permitted.');
+}
+
 function isExistingSubscription(org:any) {
  // An expired subscription id still prevents assigning a different id in the
  // database RPC. Never collect payment for a new subscription we cannot grant.
@@ -179,15 +193,49 @@ export async function changeCreemSeats(request:NextRequest, orgId:string) {
   if(current.status!=='active')throw new SeatValidationError('NOT_ACTIVE');
   // Fail closed if our current quota diverged. Never charge against stale UI state.
   if(Number(org.seat_limit)!==current.units)throw new SeatValidationError('STALE_SEAT_STATE');
+  await assertCreemProductMatchesPublicPrice(config,org.plan_name as PaidActiprocPlan);
   if(desired===current.units)return NextResponse.json({success:true,data:{changed:false,seats:desired}});
 
   const increased=desired>current.units;
+  const remoteSub=remote?.subscription??remote;
+  const beforeTransaction=typeof remoteSub?.last_transaction_id==='string'?remoteSub.last_transaction_id:null;
+  // Without a baseline, a later paid renewal cannot prove the extra-seat charge.
+  if(increased && !/^tran_[A-Za-z0-9_-]+$/.test(beforeTransaction??''))
+    return NextResponse.json({success:false,code:'PAYMENT_BASELINE_MISSING',
+      error:'Subscription payment history is unavailable. Contact support before increasing seats.'},{status:409});
+  const consentState:BillingConsentState={
+    operation:'seats',organizationId:orgId,subscriptionId:current.id,
+    fromPlan:org.plan_name,toPlan:org.plan_name,
+    fromSeats:current.units,toSeats:desired,
+    mode:creemResponseMode(config),lastTransactionId:beforeTransaction,
+    updatedAt:current.updatedAt
+  };
+  if(body?.action==='preview') {
+    const {data:open,error:openError}=await (supabaseAdmin as any).from('creem_seat_changes')
+      .select('id').eq('organization_id',orgId)
+      .in('status',['pending','awaiting_sync','review']).maybeSingle();
+    if(openError)throw openError;
+    if(open)return NextResponse.json({success:false,code:'SEAT_CHANGE_IN_PROGRESS',
+      error:'A previous billing change is still being verified.'},{status:409});
+    return NextResponse.json({success:true,data:{
+      consentToken:issueBillingConsent(consentState,config.secret),
+      previousSeats:current.units,desiredSeats:desired,
+      direction:increased?'increase':'decrease',
+      currentMonthlyUsd:current.units*(org.plan_name==='team'?6:4),
+      nextMonthlyUsd:desired*(org.plan_name==='team'?6:4),
+      exactChargeAvailable:false,
+      chargeBehavior:increased?'proration-charge-immediately':'proration-none'
+    }});
+  }
+  if(body?.action!=='confirm' || !verifyBillingConsent(body?.consentToken,consentState,config.secret))
+    return NextResponse.json({success:false,code:'CONSENT_REQUIRED',
+      error:'Billing approval expired or subscription details changed. Review the charge again.'},{status:409});
   // Reserve a single mutation per organization in Postgres, not in React state.
   // Multiple tabs or concurrent admin requests can never issue two seat charges.
   const {data:reservation,error:reserveError}=await (supabaseAdmin as any)
     .rpc('reserve_creem_seat_change',{
       p_org:orgId,p_subscription:current.id,p_previous:current.units,
-      p_desired:desired,p_test:config.mode==='test',p_before_transaction:((remote?.subscription??remote)?.last_transaction_id??null)
+      p_desired:desired,p_test:config.mode==='test',p_before_transaction:beforeTransaction
     });
   if(reserveError) {
     console.error('[creem] seat reserve SQL not ready',{code:reserveError.code});
@@ -242,7 +290,7 @@ export async function changeCreemSeats(request:NextRequest, orgId:string) {
       if(increased) {
         paid=await verifyCreemSeatIncreasePayment(config,{
           subscription_id:current.id,previous_seats:current.units,desired_seats:desired,
-          previous_transaction_id:((remote?.subscription??remote)?.last_transaction_id??null),
+          previous_transaction_id:beforeTransaction,
           created_at:requestedAt
         });
       }
@@ -306,6 +354,9 @@ export async function changeCreemPlan(request:NextRequest,orgId:string) {
   const previous=org.plan_name as PaidActiprocPlan;
   if(ordered.indexOf(plan)<=ordered.indexOf(previous))
    return NextResponse.json({success:false,error:'Downgrades and interval changes must be arranged in the customer portal or with support.'},{status:409});
+  if(org.creem_payment_hold || org.subscription_status!=='active' ||
+     Boolean(org.creem_test_mode)!==(config.mode==='test'))
+    return NextResponse.json({success:false,error:'Subscription payment or environment is not current.'},{status:409});
   if((await getOrganizationSeatUsage(orgId))>1 && plan==='individual')
    return NextResponse.json({success:false,error:'Individual requires one member'},{status:409});
   if(process.env.CREEM_SEAT_MUTATIONS_ENABLED==='true') {
@@ -317,7 +368,36 @@ export async function changeCreemPlan(request:NextRequest,orgId:string) {
       error:'Finish or reconcile the pending seat change before upgrading your plan.'},{status:409});
   }
   const snapshot=await fetchCreemSubscription(org.creem_subscription_id,config);
-  if(snapshot.status!=='active')return NextResponse.json({success:false,error:'Only active subscriptions can be upgraded'},{status:409});
+  await assertCreemProductMatchesPublicPrice(config,plan);
+  if(snapshot.status!=='active' || snapshot.customerId!==org.creem_customer_id ||
+     snapshot.productId!==org.creem_product_id || snapshot.plan!==previous ||
+     snapshot.testMode!==Boolean(org.creem_test_mode))
+    return NextResponse.json({success:false,error:'The Creem subscription changed. Refresh billing before upgrading.'},{status:409});
+  const raw=await creemApi<any>(config,'GET','subscriptions?subscription_id='+encodeURIComponent(snapshot.subscriptionId));
+  const seatState=parseCreemSeatState(raw,{
+    subscriptionId:snapshot.subscriptionId,customerId:snapshot.customerId,
+    productId:snapshot.productId,mode:creemResponseMode(config)
+  });
+  if(seatState.status!=='active' || Number(org.seat_limit)!==seatState.units)
+    return NextResponse.json({success:false,error:'Subscription seat quantity changed. Refresh billing.'},{status:409});
+  const sub=raw?.subscription??raw;
+  const consentState:BillingConsentState={
+    operation:'upgrade',organizationId:orgId,subscriptionId:snapshot.subscriptionId,
+    fromPlan:previous,toPlan:plan,fromSeats:seatState.units,toSeats:seatState.units,
+    mode:creemResponseMode(config),lastTransactionId:typeof sub?.last_transaction_id==='string'?sub.last_transaction_id:null,
+    updatedAt:seatState.updatedAt
+  };
+  if(body?.action==='preview') {
+    return NextResponse.json({success:true,data:{
+      consentToken:issueBillingConsent(consentState,config.secret),
+      fromPlan:previous,toPlan:plan,seats:seatState.units,
+      nextMonthlyUsd:seatState.units*(plan==='team'?6:plan==='pro'?4:0),
+      exactChargeAvailable:false
+    }});
+  }
+  if(body?.action!=='confirm' || !verifyBillingConsent(body?.consentToken,consentState,config.secret))
+    return NextResponse.json({success:false,code:'CONSENT_REQUIRED',
+      error:'Payment approval expired or subscription details changed. Review the upgrade again.'},{status:409});
   await creemApi(config,'POST','subscriptions/'+encodeURIComponent(snapshot.subscriptionId)+'/upgrade',{
    product_id:creemProductForPlan(plan,config),update_behavior:'proration-charge-immediately'
   });
