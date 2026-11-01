@@ -16,6 +16,10 @@ export function useOrganizationBilling(organizationId: string | null) {
   const [seatsUsed, setSeatsUsed] = useState(1);
   const [seatChange, setSeatChange] = useState<{status:string;previousSeats:number;desiredSeats:number}|null>(null);
   const [subscriptionId, setSubscriptionId] = useState<string | null>(null);
+  const [billingCycle, setBillingCycle] = useState<{
+    currentPeriodStartAt: string|null; currentPeriodEndAt:string|null;
+    nextChargeAt:string|null; nextChargeVerified:boolean;
+  }|null>(null);
   const [endsAt, setEndsAt] = useState<string | null>(null);
   // Default to no resume action until Creem confirms eligibility for this subscription.
   const [canResume, setCanResume] = useState(false);
@@ -56,6 +60,14 @@ export function useOrganizationBilling(organizationId: string | null) {
             : Number(json.data.seatLimit) || 1
         );
         setSeatsUsed(Number(json.data.seatsUsed ?? 1) || 1);
+        const cycle=json.data.billingCycle;
+        setBillingCycle(cycle && typeof cycle==='object' &&
+          (typeof cycle.nextChargeAt==='string' || cycle.nextChargeAt===null) &&
+          (typeof cycle.currentPeriodEndAt==='string' || cycle.currentPeriodEndAt===null) ?
+          { currentPeriodStartAt:cycle.currentPeriodStartAt??null,
+            currentPeriodEndAt:cycle.currentPeriodEndAt??null,
+            nextChargeAt:cycle.nextChargeAt??null,
+            nextChargeVerified:cycle.nextChargeVerified===true } : null);
         setSeatChange(json.data.seatChange && Number.isSafeInteger(json.data.seatChange.desiredSeats)
           ? json.data.seatChange : null);
         const sid = json.data.subscriptionId;
@@ -143,6 +155,9 @@ export function useOrganizationBilling(organizationId: string | null) {
     consentToken: string; previousSeats: number; desiredSeats: number;
     direction: 'increase' | 'decrease'; currentMonthlyUsd: number; nextMonthlyUsd: number;
     exactChargeAvailable: false;
+    currentNextChargeAt: string|null; currentPeriodEndAt: string|null;
+    billingCyclePolicy: 'new-cycle-on-immediate-charge'|'no-immediate-proration';
+    nextChargeAfterChangeAt: null;
   }> => {
     const response = await fetch('/api/billing/update-seats', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -157,6 +172,8 @@ export function useOrganizationBilling(organizationId: string | null) {
   const previewPlanUpgrade = useCallback(async (plan: 'pro' | 'team'): Promise<{
     consentToken: string; fromPlan: string; toPlan: string; seats: number;
     nextMonthlyUsd: number; exactChargeAvailable: false;
+    currentNextChargeAt: string|null; currentPeriodEndAt:string|null;
+    billingCyclePolicy: 'new-cycle-on-immediate-charge'; nextChargeAfterChangeAt:null;
   }> => {
     const response = await fetch('/api/billing/switch-plan', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -266,6 +283,7 @@ export function useOrganizationBilling(organizationId: string | null) {
     billingProvider,
     billingStatus,
     billingLoading,
+    billingCycle,
     checkoutBusy,
     seatLimit,
     seatsUsed,

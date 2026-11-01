@@ -30,9 +30,19 @@ import { isCapacitorNative } from '@/lib/client/is-capacitor-native';
 import { ACTIPROC_PLANS } from '@/lib/billing-plans';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+type CyclePreview = {
+  currentNextChargeAt:string|null; currentPeriodEndAt:string|null;
+  billingCyclePolicy:'new-cycle-on-immediate-charge'|'no-immediate-proration';
+};
+function utcBillingDate(input:string|null):string {
+  if(!input || !Number.isFinite(Date.parse(input))) return 'Not available from Creem';
+  return new Intl.DateTimeFormat('en-US',{
+    dateStyle:'medium',timeStyle:'short',timeZone:'UTC'
+  }).format(new Date(input))+' UTC';
+}
 type BillingReview =
- | {kind:'seats';token:string;previousSeats:number;desiredSeats:number;direction:'increase'|'decrease';nextMonthlyUsd:number}
- | {kind:'plan';token:string;fromPlan:string;toPlan:'pro'|'team';seats:number;nextMonthlyUsd:number};
+ | (CyclePreview & {kind:'seats';token:string;previousSeats:number;desiredSeats:number;direction:'increase'|'decrease';nextMonthlyUsd:number})
+ | (CyclePreview & {kind:'plan';token:string;fromPlan:string;toPlan:'pro'|'team';seats:number;nextMonthlyUsd:number});
 
 
 type Props = {
@@ -64,6 +74,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
     billingPlan,
     billingStatus,
     billingLoading,
+    billingCycle,
     checkoutBusy,
     seatLimit,
     seatsUsed,
@@ -134,7 +145,9 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
     try {
       const p=await previewSeatChange(target);
       setBillingReview({kind:'seats',token:p.consentToken,previousSeats:p.previousSeats,
-        desiredSeats:p.desiredSeats,direction:p.direction,nextMonthlyUsd:p.nextMonthlyUsd});
+        desiredSeats:p.desiredSeats,direction:p.direction,nextMonthlyUsd:p.nextMonthlyUsd,
+        currentNextChargeAt:p.currentNextChargeAt,currentPeriodEndAt:p.currentPeriodEndAt,
+        billingCyclePolicy:p.billingCyclePolicy});
       setReviewAcknowledged(false);setReviewError(null);
     } catch(e) {
       setAddSeatsError({message:e instanceof Error?e.message:'Unable to review seat change.'});
@@ -146,7 +159,9 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
     try {
       const p=await previewPlanUpgrade(plan);
       setBillingReview({kind:'plan',token:p.consentToken,fromPlan:p.fromPlan,
-        toPlan:plan,seats:p.seats,nextMonthlyUsd:p.nextMonthlyUsd});
+        toPlan:plan,seats:p.seats,nextMonthlyUsd:p.nextMonthlyUsd,
+        currentNextChargeAt:p.currentNextChargeAt,currentPeriodEndAt:p.currentPeriodEndAt,
+        billingCyclePolicy:p.billingCyclePolicy});
       setReviewAcknowledged(false);setReviewError(null);
     } catch(e) {
       toast.error(e instanceof Error?e.message:'Unable to review upgrade.');
@@ -195,21 +210,25 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                 <div className="flex justify-between"><span>Seats</span><strong>{billingReview.seats}</strong></div>
               </>}
               <div className="flex justify-between gap-3 border-t pt-2"><span>New monthly list price</span><strong className="tabular-nums">${billingReview.nextMonthlyUsd.toFixed(2)}/mo</strong></div>
+              <div className="flex justify-between gap-3"><span className="text-muted-foreground">Current Creem renewal date</span><strong className="text-right text-xs">{utcBillingDate(billingReview.currentNextChargeAt)}</strong></div>
             </div>
             {billingReview.kind==='seats' && billingReview.direction==='decrease' ?
-              <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs leading-relaxed">The reduction may take effect immediately. Unused prepaid time is not automatically refunded.</p> :
+              <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs leading-relaxed">Creem may apply this reduction at the next billing cycle. No immediate refund is promised. Verify the effective seat count after provider synchronization.</p> :
               <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs leading-relaxed">
                 <strong>Immediate payment:</strong> Creem will automatically charge your saved card when you approve.
                 The exact prorated amount is not available through this integration and may differ from the monthly price shown above.
                 The monthly price is NOT a quote for today's charge.
+                <strong className="mt-2 block">Renewal calendar change:</strong>
+                The immediate-charge option starts a new billing cycle. Your existing renewal date shown above
+                is not guaranteed to remain unchanged. The exact next charge date will be displayed only after Creem confirms the update.
               </p>
             }
             <label className="flex items-start gap-3 rounded-xl border p-3 text-xs leading-relaxed cursor-pointer">
               <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0" checked={reviewAcknowledged}
                 disabled={reviewBusy||Boolean(reviewError)} onChange={e=>setReviewAcknowledged(e.target.checked)} />
               <span>{billingReview.kind==='seats'&&billingReview.direction==='decrease'
-                ? 'I approve reducing my seat count immediately, without an automatic refund.'
-                : 'I authorize the immediate prorated charge to my saved card, understand that its exact amount is unavailable here, and accept the new monthly subscription price.'}</span>
+                ? 'I approve the seat reduction, understand it may take effect at the next billing cycle, and do not expect an automatic refund.'
+                : 'I authorize the immediate Creem-calculated charge to my saved card, accept the new monthly price, and understand the renewal date can reset.'}</span>
             </label>
             {reviewError?<p role="alert" className="rounded-lg bg-destructive/10 p-3 text-xs text-destructive">{reviewError}</p>:null}
             <div className="flex flex-wrap justify-end gap-2">
@@ -255,6 +274,40 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
           </div>
         </div>
       </header>
+
+      {hasPaidSubscription ? (
+        <Card className="rounded-2xl border-border/70 bg-card">
+          <CardContent className="grid gap-3 py-4 text-sm sm:grid-cols-3">
+            <div>
+              <p className="text-xs text-muted-foreground">Next scheduled card charge (Creem)</p>
+              <p className="mt-1 font-medium">{billingStatus==='cancelled'
+                ? 'Automatic renewal disabled'
+                : billingCycle?.nextChargeVerified
+                  ? utcBillingDate(billingCycle.nextChargeAt)
+                  : 'Not verified — check Creem portal'}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Current billing period ends</p>
+              <p className="mt-1 font-medium">{utcBillingDate(billingCycle?.currentPeriodEndAt??null)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Last verified access list price</p>
+              <p className="mt-1 font-medium">{seatChange ? 'Seat change under verification' :
+                billingPlan==='individual'?'$12/year':
+                billingPlan==='pro' || billingPlan==='team'
+                  ? Number.isFinite(seatLimit)
+                    ? '$'+(seatLimit*(billingPlan==='team'?6:4)).toFixed(2)+'/month'
+                    : 'Check Creem portal'
+                  : 'Check Creem portal'}</p>
+              <p className="mt-1 text-[11px] text-muted-foreground">List price for verified access, not a tax/discount-adjusted invoice quote.</p>
+            </div>
+          </CardContent>
+          <p className="px-6 pb-4 text-xs text-muted-foreground">
+            Immediate paid upgrades start a new billing cycle. Dates are sourced from Creem,
+            never calculated from the original sign-up day. Refresh after a change to see the confirmed new date.
+          </p>
+        </Card>
+      ) : null}
 
       {isNativeApp ? (
         <div className="flex items-start gap-3 rounded-lg border border-sky-500/30 bg-sky-500/10 px-4 py-3 text-sm text-sky-200">

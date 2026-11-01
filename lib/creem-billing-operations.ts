@@ -8,6 +8,7 @@ import { creemApi, CreemApiError, creemProductForPlan, getCreemConfig, creemResp
 import { parseCreemSeatState, seatUpdatePayload, SeatValidationError } from '@/lib/creem-seats';
 import { verifyCreemSeatIncreasePayment, type PendingSeatIncrease } from '@/lib/creem-seat-payment';
 import { issueBillingConsent, verifyBillingConsent, type BillingConsentState } from '@/lib/creem-billing-consent';
+import { readCreemBillingCycle, CREEM_IMMEDIATE_CYCLE_POLICY } from '@/lib/creem-billing-cycle';
 import { fetchCreemSubscription, reconcileCreemSubscription } from '@/lib/creem-subscription';
 import { CREEM_EXPECTED_TAX_MODE, isPaidPlan, type PaidActiprocPlan } from '@/lib/billing-plans';
 import { creemResumeEligibility } from '@/lib/creem-lifecycle';
@@ -198,6 +199,7 @@ export async function changeCreemSeats(request:NextRequest, orgId:string) {
 
   const increased=desired>current.units;
   const remoteSub=remote?.subscription??remote;
+  const cycleBefore=readCreemBillingCycle(remote);
   const beforeTransaction=typeof remoteSub?.last_transaction_id==='string'?remoteSub.last_transaction_id:null;
   // Without a baseline, a later paid renewal cannot prove the extra-seat charge.
   if(increased && !/^tran_[A-Za-z0-9_-]+$/.test(beforeTransaction??''))
@@ -208,7 +210,9 @@ export async function changeCreemSeats(request:NextRequest, orgId:string) {
     fromPlan:org.plan_name,toPlan:org.plan_name,
     fromSeats:current.units,toSeats:desired,
     mode:creemResponseMode(config),lastTransactionId:beforeTransaction,
-    updatedAt:current.updatedAt
+    updatedAt:current.updatedAt,
+    periodEndAt:cycleBefore.currentPeriodEndAt,
+    nextChargeAt:cycleBefore.nextChargeAt
   };
   if(body?.action==='preview') {
     const {data:open,error:openError}=await (supabaseAdmin as any).from('creem_seat_changes')
@@ -224,7 +228,11 @@ export async function changeCreemSeats(request:NextRequest, orgId:string) {
       currentMonthlyUsd:current.units*(org.plan_name==='team'?6:4),
       nextMonthlyUsd:desired*(org.plan_name==='team'?6:4),
       exactChargeAvailable:false,
-      chargeBehavior:increased?'proration-charge-immediately':'proration-none'
+      chargeBehavior:increased?'proration-charge-immediately':'proration-none',
+      currentNextChargeAt:cycleBefore.nextChargeAt,
+      currentPeriodEndAt:cycleBefore.currentPeriodEndAt,
+      billingCyclePolicy:increased?CREEM_IMMEDIATE_CYCLE_POLICY:'no-immediate-proration',
+      nextChargeAfterChangeAt:null
     }});
   }
   if(body?.action!=='confirm' || !verifyBillingConsent(body?.consentToken,consentState,config.secret))
@@ -381,18 +389,25 @@ export async function changeCreemPlan(request:NextRequest,orgId:string) {
   if(seatState.status!=='active' || Number(org.seat_limit)!==seatState.units)
     return NextResponse.json({success:false,error:'Subscription seat quantity changed. Refresh billing.'},{status:409});
   const sub=raw?.subscription??raw;
+  const cycleBefore=readCreemBillingCycle(raw);
   const consentState:BillingConsentState={
     operation:'upgrade',organizationId:orgId,subscriptionId:snapshot.subscriptionId,
     fromPlan:previous,toPlan:plan,fromSeats:seatState.units,toSeats:seatState.units,
     mode:creemResponseMode(config),lastTransactionId:typeof sub?.last_transaction_id==='string'?sub.last_transaction_id:null,
-    updatedAt:seatState.updatedAt
+    updatedAt:seatState.updatedAt,
+    periodEndAt:cycleBefore.currentPeriodEndAt,
+    nextChargeAt:cycleBefore.nextChargeAt
   };
   if(body?.action==='preview') {
     return NextResponse.json({success:true,data:{
       consentToken:issueBillingConsent(consentState,config.secret),
       fromPlan:previous,toPlan:plan,seats:seatState.units,
       nextMonthlyUsd:seatState.units*(plan==='team'?6:plan==='pro'?4:0),
-      exactChargeAvailable:false
+      exactChargeAvailable:false,
+      currentNextChargeAt:cycleBefore.nextChargeAt,
+      currentPeriodEndAt:cycleBefore.currentPeriodEndAt,
+      billingCyclePolicy:CREEM_IMMEDIATE_CYCLE_POLICY,
+      nextChargeAfterChangeAt:null
     }});
   }
   if(body?.action!=='confirm' || !verifyBillingConsent(body?.consentToken,consentState,config.secret))
