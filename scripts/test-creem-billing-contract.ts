@@ -167,8 +167,28 @@ assert.ok(hookCode.includes("fetch('/api/billing/resume',{cache:'no-store'})"), 
 
 const resumeServer=fs.readFileSync('lib/creem-billing-operations.ts','utf8');
 assert.ok(resumeRoute.includes('export async function GET') && resumeRoute.includes('getCreemResumeAvailability'), 'Resume eligibility must be checked via authenticated read-only endpoint');
-assert.ok(resumeServer.includes("creemResumeEligibility(String(remote?.status??''))==='resume'"), 'Only remotely resumable statuses may show the action');
+assert.ok(resumeServer.includes("creemResumeEligibility(remoteStatus)==='resume'"), 'Only remotely resumable statuses may show the action');
 assert.ok(resumeServer.includes("customerId===org.creem_customer_id") && resumeServer.includes("productId===org.creem_product_id"), 'Remote eligibility must verify ownership and product');
 
 const nativeCheckout=fs.readFileSync('app/api/billing/checkout/route.ts','utf8');
 assert.ok(nativeCheckout.includes('capacitor-native'),'Capacitor native app must not start Creem checkout');
+
+const reSql=fs.readFileSync('supabase/migrations/20261101170000_creem_safe_resubscription.sql','utf8');
+const webhookRe=fs.readFileSync('app/api/webhooks/creem/route.ts','utf8');
+const checkoutRe=fs.readFileSync('lib/creem-billing-operations.ts','utf8');
+assert.ok(reSql.includes('CREATE OR REPLACE FUNCTION public.reserve_creem_resubscription') &&
+ reSql.includes('FOR UPDATE'), 'Replacement checkout must reserve atomically');
+assert.ok(reSql.includes('CREATE OR REPLACE FUNCTION public.apply_creem_resubscription') &&
+ reSql.includes('creem_subscription_history') &&
+ reSql.includes('fulfilled_at=NOW()'), 'Paid replacement must update plan + checkout completion in one transaction');
+assert.ok(reSql.includes('REVOKE ALL ON FUNCTION public.apply_creem_resubscription') &&
+ reSql.includes('TO service_role'), 'Replacement RPC must be server only');
+assert.ok(checkoutRe.includes("CREEM_RESUBSCRIPTION_ENABLED") &&
+ checkoutRe.includes("payload?.acceptNewCharge") &&
+ checkoutRe.includes("['canceled','expired']"), 'Re-subscription must require explicit consent + terminal Creem state');
+assert.ok(webhookRe.includes('intent.previous_subscription_id') &&
+ webhookRe.includes("rpc('apply_creem_resubscription'") &&
+ webhookRe.includes("'superseded-subscription'"), 'Webhook must guard historical subscriptions');
+const billingNew=fs.readFileSync('components/billing/BillingClient.tsx','utf8');
+assert.ok(billingNew.includes('acceptNewCharge') && billingNew.includes('canResubscribe'), 'Billing must ask for new-charge consent');
+assert.ok(!webhookRe.includes('claim_old_subscription'), 'Do not invent unsupported Creem event claim');

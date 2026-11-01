@@ -106,3 +106,8 @@ Safety: `CREEM_TEST_ON_PRIMARY_DB=true` is ignored on Vercel (preview and produc
 in production NODE_ENV, without an explicit checkout flag, or unless NEXTAUTH_URL
 is localhost. Production requires separately approved Creem live credentials,
 CREEM_MODE=live, VERCEL_ENV=production, and deliberate checkout activation.
+
+## Replacement checkout for terminal Creem cancellations (feature-gated)
+Code support is present, but **no production migration was run**. The primary database requires the **reviewed** `supabase/migrations/20261101170000_creem_safe_resubscription.sql` migration, executed only after explicit approval. This adds a historical subscription-ID mapping and privileged, transactionally guarded RPCs; it does not modify existing subscriptions at installation.
+
+Default `CREEM_RESUBSCRIPTION_ENABLED=false`. Only turn it on *locally* after verifying that the SQL has been applied. A new subscription requires the customer to explicitly acknowledge a new, immediate charge and the lack of automatic credit for unused earlier time. It creates an authorized checkout tied to the **existing Creem customer ID**. A paid, validated checkout then atomically archives the old subscription ID and assigns the new one; late events from the superseded ID cannot modify the new subscription. Test purchase, duplicate webhook delivery, post-cancellation renewals, refunds, and actual Plan/Seat entitlements before enabling the feature in production.
