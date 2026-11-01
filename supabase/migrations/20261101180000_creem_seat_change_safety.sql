@@ -33,6 +33,7 @@ BEGIN
     p_previous NOT BETWEEN 1 AND 500 OR p_desired NOT BETWEEN 1 AND 500 OR
     p_previous=p_desired OR p_test IS NULL OR
     current_org.billing_provider IS DISTINCT FROM 'creem' OR
+    current_org.ls_subscription_id IS NOT NULL OR
     current_org.plan_name NOT IN ('pro','team') OR
     current_org.subscription_status IS DISTINCT FROM 'active' OR
     current_org.creem_payment_hold IS DISTINCT FROM FALSE OR

@@ -217,5 +217,37 @@ assert.deepEqual(seatUpdatePayload('sitem_good',1,'proration-none'),{
 assert.throws(()=>seatUpdatePayload('sitem_good',501,'proration-none'),SeatValidationError);
 const seatRouteCode=fs.readFileSync('lib/creem-billing-operations.ts','utf8');
 assert.ok(seatRouteCode.includes('parseCreemSeatState') && seatRouteCode.includes('STALE_SEAT_STATE') &&
- seatRouteCode.includes('pendingVerification:true'), 'Seat changes must require remote identity and avoid optimistic grants');
+ seatRouteCode.includes('pendingVerification:!verified'), 'Seat changes must require identity and payment verification');
 assert.ok(seatRouteCode.includes("org.subscription_status!=='active'"),'Seat changes must not modify cancelled or unpaid subscriptions');
+
+const seatSafetySql=fs.readFileSync('supabase/migrations/20261101180000_creem_seat_change_safety.sql','utf8');
+for (const marker of [
+  'uq_creem_seat_changes_open','reserve_creem_seat_change',
+  'transition_creem_seat_change','confirm_creem_seat_change',
+  "status IN ('pending','awaiting_sync','review')",'previous_transaction_id'
+]) assert.ok(seatSafetySql.includes(marker),'Missing atomic Creem seat safety: '+marker);
+assert.ok(seatSafetySql.includes('FOR UPDATE'),'Seat reservations must lock org row');
+assert.ok(seatSafetySql.includes('current_org.creem_subscription_id IS DISTINCT FROM p_subscription'),
+ 'Seat reservation must verify ownership');
+assert.ok(seatSafetySql.includes("p_event='subscription.paid' OR sc.desired_seats<sc.previous_seats"),
+ 'Increases must not settle on an unpaid update event');
+assert.ok(seatSafetySql.includes('REVOKE ALL ON FUNCTION public.reserve_creem_seat_change'),
+ 'Seat reservation RPC must be service-role only');
+const entSource=fs.readFileSync('lib/entitlements.ts','utf8');
+assert.ok(entSource.includes('creem_seat_changes') && entSource.includes('Math.min(seatLimit'),
+ 'Pending increases must not grant seats');
+assert.ok(entSource.includes('hasRealSubscription ? (storedOk ? Math.floor(stored) : 1)'),
+ 'Missing paid seat count must not grant infinity');
+const seatUi=fs.readFileSync('components/billing/BillingClient.tsx','utf8');
+assert.ok(seatUi.includes('seatReductionAcknowledged') && seatUi.includes('Boolean(seatChange)'),
+ 'Seat change must show clear reduction consent and block concurrent mutations');
+const seatHook=fs.readFileSync('hooks/useOrganizationBilling.ts','utf8');
+assert.ok(seatHook.includes("setCheckoutBusy('seats')"), 'Seat updates must use their own busy state');
+assert.ok(seatRouteCode.includes("CREEM_SEAT_MUTATIONS_ENABLED") && seatRouteCode.includes('reserve_creem_seat_change'),
+ 'Seat update must be disabled until atomic guard is available');
+assert.ok(seatRouteCode.includes('CREEM_UNAVAILABLE') && seatRouteCode.includes('traceId'),
+ 'Provider failures must have actionable, sanitized diagnostic codes');
+const subscriptionWebhook=fs.readFileSync('app/api/webhooks/creem/route.ts','utf8');
+assert.ok(subscriptionWebhook.includes("confirm_creem_seat_change"),
+ 'Signed paid/update webhook must verify pending seat mutations');
+assert.ok(seatRouteCode.includes("transactions?transaction_id="), 'Immediate paid transaction must be verified');
