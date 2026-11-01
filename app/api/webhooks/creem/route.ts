@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { creemApi, getCreemConfig, creemPlanForProduct, creemResponseMode } from '@/lib/creem-config';
-import { reconcileCreemSubscription } from '@/lib/creem-subscription';
+import { reconcileCreemSubscription, fetchCreemSubscription } from '@/lib/creem-subscription';
 import { validCreemEventId, verifyCreemSignature, paidCreemCheckoutMatches } from '@/lib/creem-webhook-contract';
 export const runtime='nodejs';
 const updateEvents=new Set(['subscription.active','subscription.paid','subscription.canceled','subscription.scheduled_cancel','subscription.past_due','subscription.unpaid','subscription.expired','subscription.trialing','subscription.paused','subscription.update']);
@@ -62,6 +62,25 @@ export async function POST(request:NextRequest) {
         linked.creem_subscription_id!==sid ||
         Boolean(linked.creem_test_mode)!==(config.mode==='test'))
        throw new Error('Fulfilled checkout is not linked to its original subscription');
+   } else if(intent.previous_subscription_id) {
+     // Old subscription is retained until this *paid* checkout is verified.
+     // The RPC atomically archives its ID, swaps to the new one, and fulfills the intent.
+     if(process.env.CREEM_RESUBSCRIPTION_ENABLED!=='true')
+       throw new Error('Re-subscription was not enabled for this checkout');
+     const snapshot=await fetchCreemSubscription(sid,config);
+     if(snapshot.status!=='active' || snapshot.customerId!==checkout.customer?.id ||
+        snapshot.productId!==expectedProductId || snapshot.plan!==intent.plan_name ||
+        snapshot.seats!==Number(intent.units) || snapshot.testMode!==Boolean(intent.test_mode))
+       throw new Error('New subscription mismatches completed paid checkout');
+     const {data:applied,error:applyError}=await (supabaseAdmin as any).rpc('apply_creem_resubscription',{
+       p_request:requestId,p_org:intent.organization_id,
+       p_previous:intent.previous_subscription_id,p_new:snapshot.subscriptionId,
+       p_customer:snapshot.customerId,p_product:snapshot.productId,
+       p_plan:snapshot.plan,p_status:snapshot.status,p_seats:snapshot.seats,
+       p_end:snapshot.periodEnd,p_test:snapshot.testMode,p_updated:snapshot.updatedAt
+     });
+     if(applyError)throw applyError;
+     if(applied!==true)throw new Error('Atomic re-subscription activation was rejected by database');
    } else {
      const result=await reconcileCreemSubscription(intent.organization_id,sid,config);
      if(!result.applied)throw new Error('Creem checkout subscription not applied');
@@ -75,14 +94,38 @@ export async function POST(request:NextRequest) {
    const {data:org,error}=await (supabaseAdmin as any).from('organizations').select('id').eq('creem_subscription_id',sid).maybeSingle();
    if(error)throw error;
    // Initial events can arrive before checkout.completed. Retrying lets checkout link the owner.
-   if(!org)throw new Error('Creem subscription event arrived before checkout mapping');
+   if(!org) {
+     if(process.env.CREEM_RESUBSCRIPTION_ENABLED==='true') {
+       const {data:historical,error:historyError}=await (supabaseAdmin as any)
+         .from('creem_subscription_history').select('subscription_id')
+         .eq('subscription_id',sid).maybeSingle();
+       if(historyError)throw historyError;
+       if(historical) {
+         await logEvent(eventId,'completed');
+         return NextResponse.json({ok:true,ignored:'superseded-subscription'});
+       }
+     }
+     throw new Error('Creem subscription event arrived before checkout mapping');
+   }
    await reconcileCreemSubscription(org.id,sid,config);
   }else if(kind==='refund.created' || kind==='dispute.created'){
    const sid=objectId(obj.subscription) ?? objectId(obj.transaction?.subscription);
    if(!sid)throw new Error('Payment reversal missing subscription mapping - manual review needed');
    const {data, error}=await (supabaseAdmin as any).rpc('hold_creem_subscription',{p_subscription_id:sid,p_reason:kind});
    if(error)throw error;
-   if(!data)throw new Error('Reversed subscription has no known organization');
+   if(!data) {
+     if(process.env.CREEM_RESUBSCRIPTION_ENABLED==='true') {
+       const {data:historical,error:historyError}=await (supabaseAdmin as any)
+         .from('creem_subscription_history').select('subscription_id')
+         .eq('subscription_id',sid).maybeSingle();
+       if(historyError)throw historyError;
+       if(historical) {
+         await logEvent(eventId,'completed');
+         return NextResponse.json({ok:true,ignored:'superseded-subscription'});
+       }
+     }
+     throw new Error('Reversed subscription has no known organization');
+   }
   }else{
    await logEvent(eventId,'completed');
    return NextResponse.json({ok:true,ignored:true});
