@@ -7,6 +7,7 @@ import { validCreemEventId, verifyCreemSignature, paidCreemCheckoutMatches } fro
 import crypto from 'node:crypto';
 import { isPaidActive } from '../lib/subscription-access';
 import { creemResumeEligibility } from '../lib/creem-lifecycle';
+import { parseCreemSeatState, seatUpdatePayload, SeatValidationError } from '../lib/creem-seats';
 
 assert.deepEqual([ACTIPROC_PLANS.free.maxProcesses,ACTIPROC_PLANS.individual.maxProcesses,ACTIPROC_PLANS.pro.maxProcesses],[1,3,10]);
 assert.deepEqual([ACTIPROC_PLANS.individual.priceUsd,ACTIPROC_PLANS.pro.priceUsd,ACTIPROC_PLANS.team.priceUsd],[12,4,6]);
@@ -192,3 +193,29 @@ assert.ok(webhookRe.includes('intent.previous_subscription_id') &&
 const billingNew=fs.readFileSync('components/billing/BillingClient.tsx','utf8');
 assert.ok(billingNew.includes('acceptNewCharge') && billingNew.includes('canResubscribe'), 'Billing must ask for new-charge consent');
 assert.ok(!webhookRe.includes('claim_old_subscription'), 'Do not invent unsupported Creem event claim');
+
+const expectedSeatIdentity={subscriptionId:'sub_abc123',customerId:'cust_abc123',productId:'prod_pro123',mode:'test' as const};
+const seatExample={...raw,items:[{id:'sitem_good',product_id:'prod_pro123',units:2}]};
+const seatDetails=parseCreemSeatState(seatExample,expectedSeatIdentity);
+assert.equal(seatDetails.itemId,'sitem_good');
+assert.equal(seatDetails.units,2);
+assert.equal(parseCreemSeatState({subscription:seatExample},expectedSeatIdentity).units,2);
+for(const invalid of [
+ {...seatExample,mode:'prod'}, {...seatExample,customer:{id:'cust_other'}},
+ {...seatExample,product:{id:'prod_team123'}}, {...seatExample,items:[]},
+ {...seatExample,items:[{id:'sitem_good',product_id:'prod_wrong',units:2}]},
+ {...seatExample,items:[{id:'wrong',units:2}]},
+ {...seatExample,items:[{id:'sitem_good',units:0}]},
+ {...seatExample,items:[{id:'sitem_good',units:1.5}]},
+])assert.throws(()=>parseCreemSeatState(invalid,expectedSeatIdentity),SeatValidationError);
+assert.deepEqual(seatUpdatePayload('sitem_good',5,'proration-charge-immediately'),{
+ items:[{id:'sitem_good',units:5}],update_behavior:'proration-charge-immediately'
+});
+assert.deepEqual(seatUpdatePayload('sitem_good',1,'proration-none'),{
+ items:[{id:'sitem_good',units:1}],update_behavior:'proration-none'
+});
+assert.throws(()=>seatUpdatePayload('sitem_good',501,'proration-none'),SeatValidationError);
+const seatRouteCode=fs.readFileSync('lib/creem-billing-operations.ts','utf8');
+assert.ok(seatRouteCode.includes('parseCreemSeatState') && seatRouteCode.includes('STALE_SEAT_STATE') &&
+ seatRouteCode.includes('pendingVerification:true'), 'Seat changes must require remote identity and avoid optimistic grants');
+assert.ok(seatRouteCode.includes("org.subscription_status!=='active'"),'Seat changes must not modify cancelled or unpaid subscriptions');

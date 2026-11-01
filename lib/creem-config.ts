@@ -57,6 +57,13 @@ export function creemProductForPlan(plan: PaidActiprocPlan, config: CreemConfig)
 export function creemPlanForProduct(productId: string, config: CreemConfig): PaidActiprocPlan | null {
   return (Object.entries(config.products).find(([, id]) => id === productId)?.[0] ?? null) as PaidActiprocPlan | null;
 }
+export class CreemApiError extends Error {
+  constructor(public readonly status:number, public readonly operation:string,
+    public readonly providerCode:string|null, public readonly traceId:string|null) {
+    super('Creem API request failed (' + status + ')');
+    this.name='CreemApiError';
+  }
+}
 export async function creemApi<T = any>(config: CreemConfig, method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
   const response = await fetch(config.baseUrl + '/v1/' + path, {
     method, cache: 'no-store',
@@ -65,8 +72,14 @@ export async function creemApi<T = any>(config: CreemConfig, method: 'GET' | 'PO
   });
   const value = await response.json().catch(() => null);
   if (!response.ok) {
-    console.error('[creem] API request failed', { operation: path.split('?')[0], status: response.status });
-    throw new Error('Creem payment service error (' + response.status + ')');
+    // The Creem trace ID and standardized error code are safe to log and expose;
+    // never echo raw provider bodies, card data, headers or API keys.
+    const operation=path.split('?')[0].replace(/sub_[A-Za-z0-9_-]+/g,'{subscription}');
+    const providerCode=typeof value?.error?.code==='string'?value.error.code:
+      typeof value?.code==='string'?value.code:null;
+    const traceId=typeof value?.trace_id==='string'?value.trace_id:null;
+    console.error('[creem] API request failed', {operation,status:response.status,providerCode,traceId});
+    throw new CreemApiError(response.status,operation,providerCode?.slice(0,60)??null,traceId?.slice(0,100)??null);
   }
   if (!value || typeof value !== 'object') throw new Error('Invalid Creem API response');
   return value as T;

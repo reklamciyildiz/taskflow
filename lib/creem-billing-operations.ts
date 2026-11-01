@@ -4,7 +4,8 @@ import { organizationDb } from '@/lib/db';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { getOrganizationSeatUsage } from '@/lib/entitlements';
 import { APP_URL } from '@/lib/site-config';
-import { creemApi, creemProductForPlan, getCreemConfig, creemResponseMode } from '@/lib/creem-config';
+import { creemApi, CreemApiError, creemProductForPlan, getCreemConfig, creemResponseMode } from '@/lib/creem-config';
+import { parseCreemSeatState, seatUpdatePayload, SeatValidationError } from '@/lib/creem-seats';
 import { fetchCreemSubscription, reconcileCreemSubscription } from '@/lib/creem-subscription';
 import { CREEM_EXPECTED_TAX_MODE, isPaidPlan, type PaidActiprocPlan } from '@/lib/billing-plans';
 import { creemResumeEligibility } from '@/lib/creem-lifecycle';
@@ -116,33 +117,82 @@ export async function reconcileCreemOrg(orgId:string) {
   return NextResponse.json({success:true,data:{reconciled:result.applied}});
  }catch(e){return errorResponse(e,'reconcile')}
 }
-export async function changeCreemSeats(request:NextRequest,orgId:string) {
- try{
-  const config=getCreemConfig(),org:any=await organizationDb.getById(orgId);
-  if(org?.billing_provider!=='creem'||!org.creem_subscription_id)
-   return NextResponse.json({success:false,error:'No Creem subscription found'},{status:404});
+export async function changeCreemSeats(request:NextRequest, orgId:string) {
+ try {
+  const org:any=await organizationDb.getById(orgId);
+  if(!org || org?.billing_provider!=='creem' || !org.creem_subscription_id)
+   return NextResponse.json({success:false,error:'No Creem subscription found',code:'NO_SUBSCRIPTION'},{status:404});
   if(org.plan_name!=='pro' && org.plan_name!=='team')
-   return NextResponse.json({success:false,error:'Individual has one fixed seat'},{status:400});
-  const {seats}=await request.json().catch(()=>({seats:null}));
-  const requested=Number(seats);
-  if(!Number.isInteger(requested)||requested<1||requested>500)
-   return NextResponse.json({success:false,error:'Invalid seat count'},{status:400});
-  if(requested < await getOrganizationSeatUsage(orgId))
-   return NextResponse.json({success:false,error:'Cannot reduce below current active members'},{status:409});
+   return NextResponse.json({success:false,error:'Only Pro and Team have paid seats.',code:'PLAN_NOT_SUPPORTED'},{status:409});
+  if(org.creem_payment_hold || org.subscription_status!=='active')
+   return NextResponse.json({success:false,error:'Subscription must be active and payment must be current.',code:'INACTIVE_SUBSCRIPTION'},{status:409});
+
+  const config=getCreemConfig();
+  if(Boolean(org.creem_test_mode)!==(config.mode==='test'))
+   return NextResponse.json({success:false,error:'Billing environment mismatch',code:'MODE_MISMATCH'},{status:409});
+
+  const body=await request.json().catch(()=>null);
+  // No coercion of empty or floating-point input into a billable quantity.
+  const desired=body?.seats;
+  if(typeof desired!=='number'||!Number.isSafeInteger(desired)||desired<1||desired>500)
+   return NextResponse.json({success:false,error:'Enter a whole seat count from 1 to 500.',code:'INVALID_SEATS'},{status:400});
+
+  const activeMembers=Math.max(1,await getOrganizationSeatUsage(orgId));
+  if(desired<activeMembers)
+   return NextResponse.json({success:false,error:'Remove members before reducing seats below current usage.',code:'SEATS_IN_USE'},{status:409});
+
   const remote=await creemApi<any>(config,'GET','subscriptions?subscription_id='+encodeURIComponent(org.creem_subscription_id));
-  const item=remote.items?.[0];
-  const snapshot=await fetchCreemSubscription(org.creem_subscription_id,config);
-  if(snapshot.status!=='active' || !item?.id)
-   return NextResponse.json({success:false,error:'Subscription must be active and have an item to change seats'},{status:409});
-  if(requested===snapshot.seats)return NextResponse.json({success:true,reduced:false});
-  const reduced=requested<snapshot.seats;
-  await creemApi(config,'POST','subscriptions/'+encodeURIComponent(snapshot.subscriptionId),{
-   items:[{id:item.id,units:requested}],
-   update_behavior:reduced?'proration-none':'proration-charge-immediately'
+  const current=parseCreemSeatState(remote,{
+    subscriptionId:org.creem_subscription_id,customerId:org.creem_customer_id,
+    productId:org.creem_product_id,mode:creemResponseMode(config)
   });
-  return NextResponse.json({success:true,reduced});
- }catch(e){return errorResponse(e,'update-seats')}
+  if(current.status!=='active')throw new SeatValidationError('NOT_ACTIVE');
+  // Fail closed if our current quota diverged. Never charge against stale UI state.
+  if(Number(org.seat_limit)!==current.units)throw new SeatValidationError('STALE_SEAT_STATE');
+  if(desired===current.units)return NextResponse.json({success:true,data:{changed:false,seats:desired}});
+
+  const increased=desired>current.units;
+  // Creem API applies 'proration-none' changes immediately, without a refund.
+  const update=await creemApi<any>(config,'POST','subscriptions/'+encodeURIComponent(current.id),
+    seatUpdatePayload(current.itemId,desired,increased?'proration-charge-immediately':'proration-none'));
+
+  // Do not use response data from an unchecked mutation to increase entitlements.
+  // The verified subscription is reconciled via signed webhook / normal Refresh.
+  // Payment may still be pending even when Creem accepted the mutation.
+  const returned=update?.subscription??update;
+  const responseUnits=Number(returned?.items?.[0]?.units);
+  if(returned?.id && returned.id!==current.id)
+   throw new SeatValidationError('IDENTITY_MISMATCH');
+  return NextResponse.json({success:true,data:{
+    changed:true,desiredSeats:desired,previousSeats:current.units,
+    providerReportedSeats:Number.isSafeInteger(responseUnits)?responseUnits:null,
+    pendingVerification:true,direction:increased?'increase':'decrease'
+  }});
+ } catch(e) {
+  if(e instanceof SeatValidationError) {
+   const names={
+     IDENTITY_MISMATCH:'Creem subscription ownership could not be verified. No seat update was requested.',
+     ITEM_MISMATCH:'Creem did not return a valid per-seat subscription item. No seat update was requested.',
+     INVALID_UNITS:'Creem seat quantity is not valid. No seat update was requested.',
+     STALE_SEAT_STATE:'Our seat count differs from Creem. Refresh Billing before making changes.',
+     NOT_ACTIVE:'The Creem subscription is not active. Manage payment details in the customer portal.',
+   };
+   return NextResponse.json({success:false,code:e.code,error:names[e.code]},{status:409});
+  }
+  if(e instanceof CreemApiError) {
+   const code=e.status===402?'PAYMENT_REQUIRED':
+     e.status===429?'RATE_LIMITED':
+     e.status>=500?'CREEM_UNAVAILABLE':
+     e.status>=400&&e.status<500?'CREEM_REJECTED':'CREEM_ERROR';
+   const error=code==='PAYMENT_REQUIRED'?'Creem could not collect the seat-change payment. Update the payment method in your customer portal.':
+     code==='CREEM_REJECTED'?'Creem rejected this seat change. Check the payment method or subscription settings.':
+     'Creem did not confirm the seat change. Refresh your billing status before trying again.';
+   return NextResponse.json({success:false,code,error,traceId:e.traceId??undefined},{status:code==='PAYMENT_REQUIRED'?402:code==='RATE_LIMITED'?429:code==='CREEM_REJECTED'?409:503});
+  }
+  return errorResponse(e,'update-seats');
+ }
 }
+
 export async function changeCreemPlan(request:NextRequest,orgId:string) {
  try{
   const config=getCreemConfig(),org:any=await organizationDb.getById(orgId);
