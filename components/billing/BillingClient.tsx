@@ -83,6 +83,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
   const [selectedPlan, setSelectedPlan] = useState<'individual' | 'pro' | 'team' | null>(null);
   const [acceptNewCharge, setAcceptNewCharge] = useState(false);
   const [addSeatsOpen, setAddSeatsOpen] = useState(false);
+  const [seatReductionAcknowledged, setSeatReductionAcknowledged] = useState(false);
   const [desiredSeats, setDesiredSeats] = useState(1);
   const [addSeatsError, setAddSeatsError] = useState<{ message: string; code?: string } | null>(null);
   const proRef = useRef<HTMLDivElement | null>(null);
@@ -390,7 +391,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
             const monthlyTotal = desiredSeats * pricePerSeat;
             const isIncrease = desiredSeats > seatLimit;
             const isDecrease = desiredSeats < seatLimit;
-            const isValid = desiredSeats !== seatLimit && desiredSeats >= seatsUsed && desiredSeats >= 1 && desiredSeats <= 500;
+            const isValid = Number.isSafeInteger(desiredSeats) && desiredSeats !== seatLimit && desiredSeats >= seatsUsed && desiredSeats >= 1 && desiredSeats <= 500 && (!isDecrease || seatReductionAcknowledged);
             return (
               <div className="rounded-2xl border border-primary/20 bg-card p-5 shadow-sm space-y-4">
                 <div className="flex items-center justify-between">
@@ -423,6 +424,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                         const v = Math.floor(Number(e.target.value));
                         setDesiredSeats(Number.isFinite(v) ? Math.max(1, v) : 1);
                         setAddSeatsError(null);
+                        setSeatReductionAcknowledged(false);
                       }}
                       className="w-full rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
                     />
@@ -433,11 +435,19 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                     Monthly plan: <span className="font-medium text-foreground">{desiredSeats} seats × ${pricePerSeat} = ${monthlyTotal}/mo</span>
                   </p>
                   {isIncrease ? (
-                    <p>A prorated charge for the current billing period will be applied immediately.</p>
+                    <p>Creem will calculate the prorated amount due now. The exact charge may differ from the full monthly total shown above.</p>
                   ) : isDecrease ? (
-                    <p>Reduction takes effect at your next billing cycle — no refund for the current period.</p>
+                    <p>Creem can reduce seat quantity immediately without automatically refunding prepaid time. Review this before confirming.</p>
                   ) : null}
                 </div>
+                {isDecrease ? (
+                  <label className="flex items-start gap-2.5 rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-xs">
+                    <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0"
+                      checked={seatReductionAcknowledged}
+                      onChange={event => setSeatReductionAcknowledged(event.target.checked)} />
+                    <span>I understand that reducing seats may apply immediately and does not automatically refund unused subscription time.</span>
+                  </label>
+                ) : null}
                 {desiredSeats < seatsUsed ? (
                   <p className="text-xs text-amber-600 dark:text-amber-400">
                     Cannot go below {seatsUsed} — that is your current active member count. Remove members first.
@@ -462,7 +472,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                       onClick={() => void openCustomerPortal()}
                     >
                       <CreditCard className="mr-1.5 h-3 w-3" aria-hidden />
-                      {addSeatsError.code === 'PAYMENT_REQUIRED' ? 'Add payment method' : 'Manage billing'}
+                      {addSeatsError.code === 'PAYMENT_REQUIRED' ? 'Add payment method' : 'Review in Creem'}
                     </Button>
                   </div>
                 ) : null}

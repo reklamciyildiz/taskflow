@@ -10,7 +10,7 @@ export function useOrganizationBilling(organizationId: string | null) {
   const [billingPlan, setBillingPlan] = useState<BillingPlan>('free');
   const [billingStatus, setBillingStatus] = useState<BillingStatus>('active');
   const [billingLoading, setBillingLoading] = useState(false);
-  const [checkoutBusy, setCheckoutBusy] = useState<'individual' | 'pro' | 'team' | 'resume' | null>(null);
+  const [checkoutBusy, setCheckoutBusy] = useState<'individual' | 'pro' | 'team' | 'resume' | 'seats' | null>(null);
   const billingProvider = 'creem' as const;
   const [seatLimit, setSeatLimit] = useState<number>(Number.POSITIVE_INFINITY);
   const [seatsUsed, setSeatsUsed] = useState(1);
@@ -137,29 +137,28 @@ export function useOrganizationBilling(organizationId: string | null) {
   }, []);
 
   const updateSeats = useCallback(async (seats: number) => {
-    setCheckoutBusy('pro'); // reuse busy flag to disable buttons
+    setCheckoutBusy('seats');
     try {
       const resp = await fetch('/api/billing/update-seats', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ seats }),
       });
-      const json = await resp.json();
+      const json = await resp.json().catch(() => null);
       if (!resp.ok || !json?.success) {
-        const err = new Error(json?.error || 'Seat update failed') as Error & { code?: string };
+        const err = new Error(json?.error || 'Seat change was not confirmed by Creem.') as Error & { code?: string; traceId?: string };
         if (json?.code) err.code = json.code;
+        if (json?.traceId) err.traceId = json.traceId;
         throw err;
       }
+      await refreshBillingRef.current();
       setTimeout(() => void refreshBillingRef.current(), 2500);
       setTimeout(() => void refreshBillingRef.current(), 8000);
-      toast.success(
-        json?.reduced
-          ? 'Seats reduced — takes effect at your next billing cycle.'
-          : 'Seats updated — syncing…'
-      );
+      toast.message(json?.data?.changed === false
+        ? 'The seat quantity is already up to date.'
+        : 'Creem accepted the request. Seats will update after billing confirmation.');
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Seat update failed';
-      toast.error(msg);
+      // The inline seat editor owns error feedback; do not emit a second toast.
       throw e;
     } finally {
       setCheckoutBusy(null);
