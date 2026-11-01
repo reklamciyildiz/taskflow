@@ -7,6 +7,7 @@ import { APP_URL } from '@/lib/site-config';
 import { creemApi, CreemApiError, creemProductForPlan, getCreemConfig, creemResponseMode } from '@/lib/creem-config';
 import { parseCreemSeatState, seatUpdatePayload, SeatValidationError } from '@/lib/creem-seats';
 import { verifyCreemSeatIncreasePayment, type PendingSeatIncrease } from '@/lib/creem-seat-payment';
+import { issueBillingConsent, verifyBillingConsent, type BillingConsentState } from '@/lib/creem-billing-consent';
 import { fetchCreemSubscription, reconcileCreemSubscription } from '@/lib/creem-subscription';
 import { CREEM_EXPECTED_TAX_MODE, isPaidPlan, type PaidActiprocPlan } from '@/lib/billing-plans';
 import { creemResumeEligibility } from '@/lib/creem-lifecycle';
@@ -182,12 +183,45 @@ export async function changeCreemSeats(request:NextRequest, orgId:string) {
   if(desired===current.units)return NextResponse.json({success:true,data:{changed:false,seats:desired}});
 
   const increased=desired>current.units;
+  const remoteSub=remote?.subscription??remote;
+  const beforeTransaction=typeof remoteSub?.last_transaction_id==='string'?remoteSub.last_transaction_id:null;
+  // Without a baseline, a later paid renewal cannot prove the extra-seat charge.
+  if(increased && !/^tran_[A-Za-z0-9_-]+$/.test(beforeTransaction??''))
+    return NextResponse.json({success:false,code:'PAYMENT_BASELINE_MISSING',
+      error:'Subscription payment history is unavailable. Contact support before increasing seats.'},{status:409});
+  const consentState:BillingConsentState={
+    operation:'seats',organizationId:orgId,subscriptionId:current.id,
+    fromPlan:org.plan_name,toPlan:org.plan_name,
+    fromSeats:current.units,toSeats:desired,
+    mode:creemResponseMode(config),lastTransactionId:beforeTransaction,
+    updatedAt:current.updatedAt
+  };
+  if(body?.action==='preview') {
+    const {data:open,error:openError}=await (supabaseAdmin as any).from('creem_seat_changes')
+      .select('id').eq('organization_id',orgId)
+      .in('status',['pending','awaiting_sync','review']).maybeSingle();
+    if(openError)throw openError;
+    if(open)return NextResponse.json({success:false,code:'SEAT_CHANGE_IN_PROGRESS',
+      error:'A previous billing change is still being verified.'},{status:409});
+    return NextResponse.json({success:true,data:{
+      consentToken:issueBillingConsent(consentState,config.secret),
+      previousSeats:current.units,desiredSeats:desired,
+      direction:increased?'increase':'decrease',
+      currentMonthlyUsd:current.units*(org.plan_name==='team'?6:4),
+      nextMonthlyUsd:desired*(org.plan_name==='team'?6:4),
+      exactChargeAvailable:false,
+      chargeBehavior:increased?'proration-charge-immediately':'proration-none'
+    }});
+  }
+  if(body?.action!=='confirm' || !verifyBillingConsent(body?.consentToken,consentState,config.secret))
+    return NextResponse.json({success:false,code:'CONSENT_REQUIRED',
+      error:'Billing approval expired or subscription details changed. Review the charge again.'},{status:409});
   // Reserve a single mutation per organization in Postgres, not in React state.
   // Multiple tabs or concurrent admin requests can never issue two seat charges.
   const {data:reservation,error:reserveError}=await (supabaseAdmin as any)
     .rpc('reserve_creem_seat_change',{
       p_org:orgId,p_subscription:current.id,p_previous:current.units,
-      p_desired:desired,p_test:config.mode==='test',p_before_transaction:((remote?.subscription??remote)?.last_transaction_id??null)
+      p_desired:desired,p_test:config.mode==='test',p_before_transaction:beforeTransaction
     });
   if(reserveError) {
     console.error('[creem] seat reserve SQL not ready',{code:reserveError.code});
@@ -242,7 +276,7 @@ export async function changeCreemSeats(request:NextRequest, orgId:string) {
       if(increased) {
         paid=await verifyCreemSeatIncreasePayment(config,{
           subscription_id:current.id,previous_seats:current.units,desired_seats:desired,
-          previous_transaction_id:((remote?.subscription??remote)?.last_transaction_id??null),
+          previous_transaction_id:beforeTransaction,
           created_at:requestedAt
         });
       }
