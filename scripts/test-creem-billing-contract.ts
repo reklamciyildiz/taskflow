@@ -263,7 +263,10 @@ assert.ok(seatRouteCode.includes('CREEM_UNAVAILABLE') && seatRouteCode.includes(
 const subscriptionWebhook=fs.readFileSync('app/api/webhooks/creem/route.ts','utf8');
 assert.ok(subscriptionWebhook.includes("confirm_creem_seat_change"),
  'Signed paid/update webhook must verify pending seat mutations');
-assert.ok(seatRouteCode.includes("transactions?transaction_id="), 'Immediate paid transaction must be verified');
+const seatPaymentHelper=fs.readFileSync('lib/creem-seat-payment.ts','utf8');
+assert.ok(seatRouteCode.includes('verifyCreemSeatIncreasePayment') &&
+ seatPaymentHelper.includes("transactions?transaction_id="),
+ 'Immediate and delayed paid seat transaction verification must use the shared helper');
 
 const seatGuardSql=fs.readFileSync('supabase/migrations/20261101180000_creem_seat_change_safety.sql','utf8');
 assert.ok(seatGuardSql.includes('guard_creem_team_member_seat') &&
