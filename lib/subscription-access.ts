@@ -6,12 +6,13 @@ export type SubscriptionStatus =
   | 'paused'
   | 'expired';
 
+/** A stale or failed payment must never preserve paid access indefinitely. */
 export function isPaidActive(status: SubscriptionStatus, endsAt?: string | null): boolean {
-  // Preserve access during Lemon's retry/dunning window and administrative pauses.
-  if (status === 'active' || status === 'trialing' || status === 'past_due' || status === 'paused') {
-    return true;
-  }
-  // Cancellation is end-of-period; Lemon's authoritative ends_at controls access.
-  if (status === 'cancelled' && endsAt) return Date.parse(endsAt) > Date.now();
+  const parsedEnd = endsAt ? Date.parse(endsAt) : null;
+  if (endsAt && (!Number.isFinite(parsedEnd) || (parsedEnd as number) <= Date.now())) return false;
+  if (status === 'active' || status === 'trialing') return true;
+  // Customer-requested cancellation remains paid until the verified period ends.
+  if (status === 'cancelled') return parsedEnd !== null && Number.isFinite(parsedEnd) && parsedEnd > Date.now();
+  // Paused, past-due and expired subscriptions must not grant premium access.
   return false;
 }

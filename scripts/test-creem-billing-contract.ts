@@ -5,6 +5,7 @@ import { getCreemConfig, creemPlanForProduct, creemResponseMode, creemCheckoutEn
 import { normalizeCreemSubscription } from '../lib/creem-subscription-contract';
 import { validCreemEventId, verifyCreemSignature, paidCreemCheckoutMatches } from '../lib/creem-webhook-contract';
 import crypto from 'node:crypto';
+import { isPaidActive } from '../lib/subscription-access';
 
 assert.deepEqual([ACTIPROC_PLANS.free.maxProcesses,ACTIPROC_PLANS.individual.maxProcesses,ACTIPROC_PLANS.pro.maxProcesses],[1,3,10]);
 assert.deepEqual([ACTIPROC_PLANS.individual.priceUsd,ACTIPROC_PLANS.pro.priceUsd,ACTIPROC_PLANS.team.priceUsd],[12,4,6]);
@@ -100,3 +101,14 @@ assert.ok(operationSource.includes('org?.creem_payment_hold'),'A payment hold mu
 assert.ok(operationSource.includes('org?.creem_subscription_id'),'An expired linked subscription must block duplicate checkout');
 assert.ok(webhook.includes('if(intent.fulfilled_at)') && webhook.includes('creem_subscription_id!==sid'),
  'A previously fulfilled checkout must be safely acknowledged after verifying the same subscription');
+
+const future='2099-01-01T00:00:00.000Z';
+assert.equal(isPaidActive('active',future),true);
+assert.equal(isPaidActive('active','2020-01-01T00:00:00.000Z'),false);
+assert.equal(isPaidActive('active','not-a-date'),false);
+assert.equal(isPaidActive('active',null),true); // Legacy manually granted account without term.
+assert.equal(isPaidActive('cancelled',future),true);
+assert.equal(isPaidActive('cancelled',null),false);
+assert.equal(isPaidActive('past_due',future),false);
+assert.equal(isPaidActive('paused',future),false);
+assert.equal(isPaidActive('expired',future),false);
