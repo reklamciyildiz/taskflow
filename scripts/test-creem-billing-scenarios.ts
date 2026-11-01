@@ -13,7 +13,7 @@ const config=getCreemConfig({
  CREEM_PRODUCT_INDIVIDUAL:'prod_individual123',
  CREEM_PRODUCT_PRO:'prod_pro123',CREEM_PRODUCT_TEAM:'prod_team123',
  VERCEL_ENV:'preview',
-} as NodeJS.ProcessEnv);
+} as unknown as NodeJS.ProcessEnv);
 const subBase={
  id:'sub_scenario',mode:'test',status:'active',
  customer:{id:'cust_scenario'},last_transaction_id:'tran_current',
@@ -69,7 +69,7 @@ async function runProviderScenarios():Promise<void>{
 const originalFetch=globalThis.fetch;
 let calls:string[]=[];
 try {
- const remoteReplies=new Map([
+ const remoteReplies:Map<string,any>=new Map([
   ['subscriptions?subscription_id=sub_scenario',subBase],
   ['transactions?transaction_id=tran_current',paid],
  ]);
