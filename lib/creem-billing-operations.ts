@@ -114,7 +114,44 @@ export async function reconcileCreemOrg(orgId:string) {
   if(org?.billing_provider!=='creem'||!org?.creem_subscription_id)
    return NextResponse.json({success:true,data:{reconciled:false}});
   const result=await reconcileCreemSubscription(orgId,org.creem_subscription_id);
-  return NextResponse.json({success:true,data:{reconciled:result.applied}});
+  let seatChangePending=false;
+  if(process.env.CREEM_SEAT_MUTATIONS_ENABLED==='true') {
+    const {data:change,error:changeError}=await (supabaseAdmin as any).from('creem_seat_changes')
+      .select('id,subscription_id,previous_seats,desired_seats,previous_transaction_id')
+      .eq('organization_id',orgId)
+      .in('status',['pending','awaiting_sync','review']).maybeSingle();
+    if(changeError)throw changeError;
+    seatChangePending=Boolean(change);
+    if(change && result.applied && result.snapshot.status==='active' &&
+       change.subscription_id===result.snapshot.subscriptionId &&
+       Number(change.desired_seats)===result.snapshot.seats) {
+      let paid=Number(change.desired_seats)<Number(change.previous_seats);
+      if(!paid) {
+        const config=getCreemConfig();
+        const latest=await creemApi<any>(config,'GET',
+          'subscriptions?subscription_id='+encodeURIComponent(change.subscription_id));
+        const actual=latest?.subscription??latest;
+        const transactionId=actual?.last_transaction_id;
+        if(typeof transactionId==='string' && transactionId!==change.previous_transaction_id &&
+           transactionId.startsWith('tran_')){
+          const response=await creemApi<any>(config,'GET','transactions?transaction_id='+encodeURIComponent(transactionId));
+          const t=response?.transaction??response;
+          const matchingSubscription=typeof t?.subscription==='string'?t.subscription:t?.subscription?.id;
+          paid=t?.id===transactionId && matchingSubscription===change.subscription_id && t?.status==='paid';
+        }
+      }
+      if(paid){
+        const {data:settled,error:settleError}=await (supabaseAdmin as any).rpc('confirm_creem_seat_change',{
+          p_org:orgId,p_subscription:change.subscription_id,
+          p_current_units:Number(change.desired_seats),
+          p_event:Number(change.desired_seats)>Number(change.previous_seats)?'subscription.paid':'subscription.update'
+        });
+        if(settleError)throw settleError;
+        if(settled===true)seatChangePending=false;
+      }
+    }
+  }
+  return NextResponse.json({success:true,data:{reconciled:result.applied,seatChangePending}});
  }catch(e){return errorResponse(e,'reconcile')}
 }
 export async function changeCreemSeats(request:NextRequest, orgId:string) {
