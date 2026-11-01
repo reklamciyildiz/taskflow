@@ -34,7 +34,7 @@ export class SeatValidationError extends Error {
 }
 /** Downshifts are immediate unless Creem independently supports a scheduled change. */
 export function seatUpdatePayload(
-  item: Pick<CreemSeatState,'itemId'|'productId'>,
+  item: Pick<CreemSeatState,'itemId'|'productId'|'priceId'>,
   seats:number,
   behavior:'proration-charge-immediately'|'proration-none',
 ) {
@@ -42,7 +42,14 @@ export function seatUpdatePayload(
     throw new SeatValidationError('ITEM_MISMATCH');
   if(!Number.isSafeInteger(seats) || seats<1 || seats>500)
     throw new SeatValidationError('INVALID_UNITS');
-  // Use Creem's documented quantity-only mutation request. Requiring or
-  // supplying an undocumented price ID can reject otherwise valid subscriptions.
-  return {items:[{id:item.itemId,units:seats}],update_behavior:behavior};
+  // Creem's detailed update reference includes product_id and price_id, while
+  // its condensed reference only includes id and units. Reuse real IDs if present
+  // in the verified subscription item. Never invent a price or require its prefix.
+  return {items:[{
+    id:item.itemId,product_id:item.productId,
+    ...(typeof (item as CreemSeatState).priceId==='string' &&
+         (item as CreemSeatState).priceId!.length>0
+      ? {price_id:(item as CreemSeatState).priceId} : {}),
+    units:seats,
+  }],update_behavior:behavior};
 }

@@ -33,6 +33,7 @@ async function main() {
      productMatchesSubscription:typeof item?.product_id==='string' &&
        item.product_id===(typeof obj.product==='string'?obj.product:obj.product?.id),
      priceIdPresent:typeof item?.price_id==='string' && item.price_id.length>0,
+     priceIdPrefix:typeof item?.price_id==='string' ? item.price_id.split('_')[0] : null,
      units:item.units
    })),
    lastTransactionPresent:typeof obj?.last_transaction_id==='string',

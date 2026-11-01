@@ -63,3 +63,12 @@ test request's HTTP status and trace ID; keep the subscription/account informati
 private. Until the provider confirms seat updates, do not enable the flag for
 production. Do not substitute a new checkout for seat increments; that creates a
 second subscription and different billing semantics.
+
+## Verified API update request shape
+As of November 1, 2026, Creem's detailed subscription update API reference
+shows `id`, `product_id`, `price_id`, and `units`, while its condensed
+reference shows only `id` and `units`. Our implementation now includes
+the verified subscription item's `product_id` and the real `price_id`
+when supplied by Creem. A missing `price_id` does not block the update or
+cause any synthetic ID creation. This is a compatibility correction, **not
+proof** that Creem's previously observed HTTP 404 is resolved.

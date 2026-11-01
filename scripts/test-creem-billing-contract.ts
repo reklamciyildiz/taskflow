@@ -213,14 +213,18 @@ for(const invalid of [
  {...minimalSeat,items:[{id:'sitem_good',product_id:'prod_pro123',units:0}]},
  {...minimalSeat,items:[{id:'sitem_good',product_id:'prod_pro123',units:1.5}]},
 ])assert.throws(()=>parseCreemSeatState(invalid,expectedSeatIdentity),SeatValidationError);
-for(const value of [minimal,seatDetails]) {
- assert.deepEqual(seatUpdatePayload(value,5,'proration-charge-immediately'),{
-   items:[{id:'sitem_good',units:5}],update_behavior:'proration-charge-immediately'
- });
- assert.deepEqual(seatUpdatePayload(value,1,'proration-none'),{
-   items:[{id:'sitem_good',units:1}],update_behavior:'proration-none'
- });
-}
+assert.deepEqual(seatUpdatePayload(minimal,5,'proration-charge-immediately'),{
+  items:[{id:'sitem_good',product_id:'prod_pro123',units:5}],
+  update_behavior:'proration-charge-immediately'
+});
+assert.deepEqual(seatUpdatePayload(seatDetails,5,'proration-charge-immediately'),{
+  items:[{id:'sitem_good',product_id:'prod_pro123',price_id:'pprice_example',units:5}],
+  update_behavior:'proration-charge-immediately'
+});
+assert.deepEqual(seatUpdatePayload(seatDetails,1,'proration-none'),{
+  items:[{id:'sitem_good',product_id:'prod_pro123',price_id:'pprice_example',units:1}],
+  update_behavior:'proration-none'
+});
 assert.throws(()=>seatUpdatePayload(minimal,501,'proration-none'),SeatValidationError);
 assert.throws(()=>seatUpdatePayload({itemId:'wrong',productId:'prod_pro123'},5,'proration-none'),SeatValidationError);
 const seatRouteCode=fs.readFileSync('lib/creem-billing-operations.ts','utf8');
@@ -292,5 +296,5 @@ assert.ok(inspector.includes('seatUpdateFieldsReady') && inspector.includes('pri
   'Read-only inspector should distinguish optional price ID from update capability');
 assert.ok(seatRouteCode.includes('seatUpdatePayload(current,desired'), 'Seat-change flow must use the minimal documented payload');
 const seatModule=fs.readFileSync('lib/creem-seats.ts','utf8');
-assert.ok(!seatModule.includes('price_id:item.priceId') && !seatModule.includes('!item.price_id'),
-  'A missing price ID must never block a valid quantity update');
+assert.ok(seatModule.includes('price_id:(item as CreemSeatState).priceId') && !seatModule.includes('!item.price_id'),
+  'Use verified optional price ID without enforcing an arbitrary prefix');
