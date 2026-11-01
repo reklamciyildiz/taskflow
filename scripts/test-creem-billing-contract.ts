@@ -251,3 +251,13 @@ const subscriptionWebhook=fs.readFileSync('app/api/webhooks/creem/route.ts','utf
 assert.ok(subscriptionWebhook.includes("confirm_creem_seat_change"),
  'Signed paid/update webhook must verify pending seat mutations');
 assert.ok(seatRouteCode.includes("transactions?transaction_id="), 'Immediate paid transaction must be verified');
+
+const seatGuardSql=fs.readFileSync('supabase/migrations/20261101180000_creem_seat_change_safety.sql','utf8');
+assert.ok(seatGuardSql.includes('guard_creem_team_member_seat') &&
+ seatGuardSql.includes('FOR UPDATE') &&
+ seatGuardSql.includes('COUNT(DISTINCT tm.user_id)') &&
+ seatGuardSql.includes('BEFORE INSERT ON public.team_members'), 'DB must prevent concurrent paid seat over-allocation');
+assert.ok(seatGuardSql.includes('tm.user_id=NEW.user_id'), 'Existing users in additional teams must not consume extra seats');
+const invitationCode=fs.readFileSync('lib/db.ts','utf8');
+assert.ok(invitationCode.includes('SEAT_LIMIT_REACHED') &&
+ invitationCode.includes('currentSeats>=allowed'), 'Invitations must check seats before creating user records');

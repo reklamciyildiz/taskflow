@@ -1678,6 +1678,32 @@ export async function joinOrganizationViaInvitation(
   const normalizedUserRole: 'admin' | 'member' =
     invitation.role === 'admin' ? 'admin' : 'member';
 
+  // Avoid creating an orphaned invited user when the organization has
+  // already exhausted its purchased Creem seats. The database trigger makes
+  // the final check atomic in case another admin adds a member concurrently.
+  const invitedOrg:any=await organizationDb.getById(invitation.organization_id);
+  if(invitedOrg?.billing_provider==='creem' && invitedOrg?.creem_subscription_id) {
+    const rows=await teamMemberDb.listDistinctUsersForOrganization(invitation.organization_id);
+    const currentSeats=rows.length;
+    const paid=(invitedOrg.creem_payment_hold===false &&
+      (['active','trialing'].includes(invitedOrg.subscription_status) ||
+       (invitedOrg.subscription_status==='cancelled' &&
+        invitedOrg.subscription_ends_at && Date.parse(invitedOrg.subscription_ends_at)>Date.now())));
+    let allowed=2;
+    if(paid && invitedOrg.plan_name==='individual') allowed=1;
+    else if(paid && ['pro','team'].includes(invitedOrg.plan_name))
+      allowed=Math.max(1,Number(invitedOrg.seat_limit)||1);
+    const {data:pending,error:pendingError}=await (db as any).from('creem_seat_changes')
+      .select('previous_seats,desired_seats')
+      .eq('organization_id',invitation.organization_id)
+      .in('status',['pending','awaiting_sync','review']);
+    if(pendingError)throw pendingError;
+    for(const p of pending??[])if(Number(p.desired_seats)>Number(p.previous_seats))
+      allowed=Math.min(allowed,Number(p.previous_seats));
+    if(currentSeats>=allowed)
+      throw new Error('SEAT_LIMIT_REACHED: This organization has reached its purchased seat quota. Ask the admin to add seats.');
+  }
+
   // Create user
   const user = await userDb.create({
     email,

@@ -107,7 +107,13 @@ export async function POST(
       data: member,
       message: 'Member added successfully',
     }, { status: 201 });
-  } catch (error) {
+  } catch (error: any) {
+    if(error?.code==='23514' && String(error?.message??'').includes('seat')) {
+      return NextResponse.json<ApiResponse<null>>(
+        { success:false,error:'Purchased seat limit reached. Please add seats before inviting another member.',code:'PAYWALL_SEATS' as any },
+        { status:402 }
+      );
+    }
     console.error('Error adding member:', error);
     return NextResponse.json<ApiResponse<null>>(
       { success: false, error: 'Internal server error' },
