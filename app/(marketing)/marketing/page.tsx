@@ -33,7 +33,7 @@ export default function MarketingPage() {
         <MarketingInsights />
         <MarketingEverythingYouGet />
         <MarketingPricing />
-        <MarketingSocialProof />
+        {/* Genuine customer references will be added after verified customer consent. */}
         <MarketingPwaNote />
         <MarketingFooter />
       </main>

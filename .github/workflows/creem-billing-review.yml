@@ -1,0 +1,30 @@
+name: Creem billing review checks
+on:
+  pull_request:
+    paths:
+      - 'lib/creem-*'
+      - 'lib/billing-plans.ts'
+      - 'lib/entitlements.ts'
+      - 'app/api/billing/**'
+      - 'app/api/webhooks/creem/**'
+      - 'components/billing/**'
+      - 'components/marketing/**'
+      - 'supabase/migrations/20261101110000_creem_parallel_billing.sql'
+      - 'scripts/test-creem-billing-contract.ts'
+      - 'package.json'
+      - '.github/workflows/creem-billing-review.yml'
+  workflow_dispatch:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run test:creem
+      - run: npm run test:twa
+      - run: npx tsc --noEmit

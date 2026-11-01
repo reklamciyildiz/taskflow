@@ -99,7 +99,7 @@ export function MarketingIntegrationsStrip() {
         <div className="mt-10 flex justify-center">
           <div className="flex flex-col gap-3 sm:flex-row">
             <Link
-              href="/auth/signup?callbackUrl=%2Fsettings%2Fbilling"
+              href="/marketing#pricing"
               className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-5 py-3 text-sm font-semibold text-zinc-950 shadow-[0_0_26px_-10px_rgba(16,185,129,0.65)] transition-transform hover:scale-[1.02] active:scale-[0.98]"
             >
               See plans

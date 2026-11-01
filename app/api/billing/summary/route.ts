@@ -16,7 +16,8 @@ export async function GET(request: NextRequest) {
     const seatsUsed = await getOrganizationSeatUsage(orgId);
 
     const org: any = await organizationDb.getById(orgId);
-    const subscriptionId = org?.ls_subscription_id ? String(org.ls_subscription_id) : null;
+    const billingProvider = 'creem';
+    const subscriptionId = org?.creem_subscription_id ? String(org.creem_subscription_id) : null;
 
     return NextResponse.json({
       success: true,
@@ -28,6 +29,7 @@ export async function GET(request: NextRequest) {
         seatLimit: Number.isFinite(ent.seatLimit) ? ent.seatLimit : null,
         seatsUsed,
         subscriptionId,
+        billingProvider,
       },
     });
   } catch (e: any) {

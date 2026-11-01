@@ -19,7 +19,7 @@ export function MarketingEnterprise() {
         <div className="grid grid-cols-1 gap-10 md:grid-cols-2 md:items-center">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-500/80">
-              Enterprise ready
+              Built for growing teams
             </p>
             <h2 className="mt-3 text-3xl font-semibold tracking-tighter text-zinc-50 sm:text-4xl">
               Customers & webhooks — connected to the outside world.
@@ -94,7 +94,7 @@ export function MarketingEnterprise() {
               </div>
 
               <p className="mt-5 text-sm text-zinc-500">
-                Hooks are per-organization and logged — designed for production-grade automations.
+                Hooks are per-organization and logged — available for organization-scoped automations.
               </p>
             </div>
 

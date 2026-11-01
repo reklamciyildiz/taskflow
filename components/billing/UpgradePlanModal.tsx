@@ -8,15 +8,17 @@ import { cn } from '@/lib/utils';
 import { isAndroidTwa } from '@/lib/client/is-android-twa';
 
 type Interval = 'monthly' | 'yearly';
-type UpgradePlan = 'pro' | 'team';
+type UpgradePlan = 'individual' | 'pro' | 'team';
 type UpgradeReason = 'teams' | 'processes' | 'webhooks' | 'seats';
 
 const PRICES = {
-  pro: { monthly: 8, yearly: 72 }, // $6/seat/mo billed annually
-  team: { monthly: 15, yearly: 144 }, // $12/seat/mo billed annually
+  individual: { monthly: 1, yearly: 12 },
+  pro: { monthly: 4 },
+  team: { monthly: 6 }
 } as const;
 
 const FEATURES: Record<UpgradePlan, readonly string[]> = {
+  individual: ['1 seat', '1 workspace', 'Up to 3 processes', 'Annual billing'],
   pro: [
     'Up to 3 teams / workspaces',
     'Up to 10 processes',
@@ -39,30 +41,15 @@ function isHighlightedFeature(reason: UpgradeReason | undefined, plan: UpgradePl
   return false;
 }
 
-async function ensureLemon(): Promise<void> {
-  if (typeof window === 'undefined') return;
-  const w = window as Window & { LemonSqueezy?: { Url?: { Open?: (u: string) => void } }; createLemonSqueezy?: () => void };
-  if (w.LemonSqueezy?.Url?.Open) return;
-  await new Promise<void>((resolve, reject) => {
-    const existing = document.querySelector('script[data-lemonsqueezy="lemonjs"]') as HTMLScriptElement | null;
-    if (existing) {
-      existing.addEventListener('load', () => resolve());
-      existing.addEventListener('error', () => reject(new Error('Failed to load lemon.js')));
-      return;
-    }
-    const s = document.createElement('script');
-    s.src = 'https://app.lemonsqueezy.com/js/lemon.js';
-    s.defer = true;
-    s.dataset.lemonsqueezy = 'lemonjs';
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error('Failed to load lemon.js'));
-    document.head.appendChild(s);
-  });
-  w.createLemonSqueezy?.();
-}
-
 async function openCheckout(plan: UpgradePlan, billingInterval: Interval): Promise<void> {
-  const resp = await fetch('/api/billing/checkout', {
+  const summary = await fetch('/api/billing/summary').then(r => r.json()).catch(() => null);
+  if (!summary?.success) throw new Error('Unable to verify current subscription');
+  const current = String(summary.data?.plan ?? 'free');
+  const existing = Boolean(summary.data?.subscriptionId) && current !== 'free';
+  const order = ['individual','pro','team'];
+  if (existing && order.indexOf(plan) <= order.indexOf(current))
+    throw new Error('Only higher plans can be selected here. Use Billing settings to manage your subscription.');
+  const resp = await fetch(existing ? '/api/billing/switch-plan' : '/api/billing/checkout', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ plan, billingInterval }),
@@ -72,11 +59,9 @@ async function openCheckout(plan: UpgradePlan, billingInterval: Interval): Promi
     throw new Error(json?.error || 'Could not start checkout');
   }
   const url = json?.data?.url;
+  if (existing) { window.location.reload(); return; }
   if (typeof url !== 'string' || !url) throw new Error('Checkout URL missing');
-  await ensureLemon();
-  const w = window as Window & { LemonSqueezy?: { Url?: { Open?: (u: string) => void } } };
-  if (w.LemonSqueezy?.Url?.Open) w.LemonSqueezy.Url.Open(url);
-  else window.location.href = url;
+  window.location.assign(url);
 }
 
 export function UpgradePlanModal(props: {
@@ -90,15 +75,15 @@ export function UpgradePlanModal(props: {
   reason?: UpgradeReason;
 }) {
   const { open, onClose, title, description, recommendedPlan, reason } = props;
-  const [interval, setInterval] = useState<Interval>('monthly');
   const [busy, setBusy] = useState<UpgradePlan | null>(null);
   const isAndroid = typeof window !== 'undefined' ? isAndroidTwa() : false;
 
   const plans: UpgradePlan[] = useMemo(() => {
     // If Team is explicitly required (e.g. user is already on Pro), remove Pro to reduce decision fatigue.
-    if (recommendedPlan === 'team') return ['team'];
-    return ['pro', 'team'];
-  }, [recommendedPlan]);
+    if (recommendedPlan === 'team' || reason === 'webhooks' || reason === 'teams') return ['team'];
+    if (reason === 'seats' || recommendedPlan === 'pro') return ['pro', 'team'];
+    return ['individual', 'pro', 'team'];
+  }, [recommendedPlan, reason]);
 
   const defaultCopy = useMemo(() => {
     const wants = reason ?? 'processes';
@@ -129,7 +114,7 @@ export function UpgradePlanModal(props: {
   const handleUpgrade = async (plan: UpgradePlan) => {
     setBusy(plan);
     try {
-      await openCheckout(plan, interval);
+      await openCheckout(plan, plan === 'individual' ? 'yearly' : 'monthly');
     } finally {
       setBusy(null);
     }
@@ -153,31 +138,6 @@ export function UpgradePlanModal(props: {
         {/* Top bar: close + interval */}
         <div className="relative flex items-center justify-end gap-3 px-6 pt-5">
           <div className="mr-auto" />
-          <div className="inline-flex rounded-full border border-white/10 bg-white/[0.04] p-1">
-            <button
-              type="button"
-              onClick={() => setInterval('monthly')}
-              className={cn(
-                'rounded-full px-4 py-1.5 text-xs font-medium transition-colors',
-                interval === 'monthly' ? 'bg-white/10 text-white' : 'text-zinc-300/70 hover:text-zinc-100'
-              )}
-            >
-              Monthly
-            </button>
-            <button
-              type="button"
-              onClick={() => setInterval('yearly')}
-              className={cn(
-                'rounded-full px-4 py-1.5 text-xs font-medium transition-colors',
-                interval === 'yearly' ? 'bg-white/10 text-white' : 'text-zinc-300/70 hover:text-zinc-100'
-              )}
-            >
-              Yearly
-              <span className="ml-1.5 rounded-md bg-violet-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-violet-200">
-                -20%
-              </span>
-            </button>
-          </div>
           <button
             type="button"
             onClick={onClose}
@@ -221,12 +181,12 @@ export function UpgradePlanModal(props: {
           </div>
 
           {/* Right: plans */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             {plans.map((p) => {
               const isRecommended = recommendedPlan === p;
-              const price = interval === 'monthly' ? PRICES[p].monthly : PRICES[p].yearly;
-              const suffix = interval === 'monthly' ? '/seat' : '/seat';
-              const period = interval === 'monthly' ? '/mo' : '/yr';
+              const price = p === 'individual' ? 12 : PRICES[p].monthly;
+              const suffix = p === 'individual' ? '' : '/seat';
+              const period = p === 'individual' ? '/yr' : '/mo';
               const accent =
                 // Superlist-ish: keep the palette cohesive and premium (violet for both, emerald as a subtle hint).
                 p === 'team'
@@ -248,7 +208,7 @@ export function UpgradePlanModal(props: {
                   <div className="relative flex items-start justify-between gap-3">
                     <div>
                       <div className="flex items-center gap-2">
-                        <p className="text-sm font-semibold text-zinc-50">{p === 'pro' ? 'Pro' : 'Team'}</p>
+                        <p className="text-sm font-semibold text-zinc-50">{p === 'individual' ? 'Individual' : p === 'pro' ? 'Pro' : 'Team'}</p>
                         {p === 'team' ? <Sparkles className="h-4 w-4 text-emerald-400" aria-hidden /> : null}
                         {isRecommended ? (
                           <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-medium text-zinc-100/85">
@@ -257,7 +217,7 @@ export function UpgradePlanModal(props: {
                         ) : null}
                       </div>
                       <p className="mt-1 text-xs leading-snug text-zinc-100/60">
-                        {p === 'pro' ? 'Small teams' : 'Scale + webhooks'}
+                        {p === 'individual' ? 'For yourself' : p === 'pro' ? 'More capacity' : 'Scale + webhooks'}
                       </p>
                     </div>
                     <div className="text-right">

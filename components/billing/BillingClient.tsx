@@ -22,6 +22,7 @@ import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { useOrganizationBilling } from '@/hooks/useOrganizationBilling';
 import { isAndroidTwa } from '@/lib/client/is-android-twa';
+import { ACTIPROC_PLANS } from '@/lib/billing-plans';
 
 type Props = {
   organizationId: string | null;
@@ -40,7 +41,8 @@ function statusBadgeVariant(status: string): 'default' | 'secondary' | 'destruct
 }
 
 const PLAN_FEATURES = {
-  free: ['2 seats included', '1 team / workspace', '2 processes', 'Knowledge Hub (second brain)'],
+  free: ['2 seats included', '1 team / workspace', '1 process', 'Knowledge Hub (second brain)'],
+  individual: ['1 seat', '1 workspace', '3 processes', 'Personal notes and Knowledge Hub'],
   pro: ['Everything in Free', 'Up to 3 teams / workspaces', 'Up to 10 processes', 'Advanced reminders + Google Calendar'],
   team: ['Everything in Pro', 'Unlimited teams / workspaces', 'Unlimited processes', 'Webhooks'],
 } as const;
@@ -65,12 +67,12 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
 
   const requestedPlan = useMemo(() => {
     const p = (searchParams.get('plan') || '').toLowerCase();
-    return p === 'pro' ? 'pro' : p === 'team' ? 'team' : null;
+    return p === 'individual' ? 'individual' : p === 'pro' ? 'pro' : p === 'team' ? 'team' : null;
   }, [searchParams]);
 
   const checkoutSuccess = searchParams.get('checkout') === 'success';
 
-  const [selectedPlan, setSelectedPlan] = useState<'pro' | 'team' | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<'individual' | 'pro' | 'team' | null>(null);
   const [billingInterval, setBillingInterval] = useState<'monthly' | 'yearly'>('monthly');
   const [addSeatsOpen, setAddSeatsOpen] = useState(false);
   const [desiredSeats, setDesiredSeats] = useState(1);
@@ -85,7 +87,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
     el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, [requestedPlan]);
 
-  // After Lemon redirects back with ?checkout=success, poll billing twice to catch the webhook.
+  // After checkout return, reconcile after verified Creem webhook delivery.
   useEffect(() => {
     if (!checkoutSuccess) return;
     void refreshBilling();
@@ -97,6 +99,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
 
   const isAndroid = typeof window !== 'undefined' ? isAndroidTwa() : false;
   const busy = checkoutBusy !== null || isAndroid;
+
   const statusLabel = billingStatus.replace('_', ' ');
   const showSeatMeter =
     (billingPlan === 'team' || billingPlan === 'pro') && billingStatus !== 'cancelled';
@@ -116,7 +119,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Billing & plan</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Subscriptions are processed by Lemon Squeezy (merchant of record). Invoices, payment method, and
+              Subscriptions are processed by Creem (merchant of record). Invoices, payment methods, and
               cancellations live in the customer portal.
             </p>
           </div>
@@ -125,7 +128,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
         <div>
           <h2 className="text-xl font-semibold tracking-tight">Billing & plan</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Manage your organization subscription, seats, and Lemon Squeezy customer portal.
+            Manage your organization subscription, seats, and Creem customer portal.
           </p>
         </div>
       )}
@@ -146,7 +149,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
       {checkoutSuccess ? (
         <div className="flex items-center gap-3 rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-700 dark:text-green-400">
           <Check className="h-4 w-4 shrink-0" aria-hidden />
-          <span>Payment received — syncing your plan. This page will update automatically.</span>
+          <span>Checkout returned — verifying subscription payment. Your plan updates only after confirmation.</span>
         </div>
       ) : null}
 
@@ -175,6 +178,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                 <button
                   type="button"
                   onClick={() => setBillingInterval('yearly')}
+                  disabled
                   className={cn(
                     'rounded-full px-3 py-1 text-[11px] font-medium transition-colors',
                     billingInterval === 'yearly' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
@@ -187,8 +191,8 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <Button
                 type="button"
-                disabled={busy || (selectedPlan === 'pro' && billingPlan === 'team')}
-                onClick={() => void openCheckout(selectedPlan, { billingInterval })}
+                disabled={busy || selectedPlan === billingPlan || (billingPlan !== 'free' && ['individual','pro','team'].indexOf(selectedPlan) <= ['individual','pro','team'].indexOf(billingPlan))}
+                onClick={() => billingPlan === 'free' ? void openCheckout(selectedPlan, { billingInterval: selectedPlan === 'individual' ? 'yearly' : 'monthly' }) : void switchPlan(selectedPlan, { billingInterval: 'monthly' })}
               >
                 Continue to checkout
               </Button>
@@ -251,13 +255,14 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                   type="button"
                   size="sm"
                   disabled={busy}
-                  onClick={() => void openCheckout('pro', { billingInterval })}
+                  onClick={() => void openCheckout('individual', { billingInterval: 'yearly' })}
                 >
-                  {busy ? 'Opening…' : 'Upgrade to Pro'}
+                  {busy ? 'Opening…' : 'Upgrade to Individual'}
                 </Button>
+              ) : billingPlan === 'individual' ? (
+                <Button type="button" size="sm" disabled={busy} onClick={() => void switchPlan('pro', { billingInterval: 'monthly' })}>Upgrade to Pro</Button>
               ) : billingPlan === 'pro' ? (
-                // Existing subscriber: PATCH variant via API so Lemon prorates correctly.
-                // Creating a new checkout would open a second subscription.
+                // Upgrade the existing Creem subscription, not a second checkout.
                 <Button
                   type="button"
                   size="sm"
@@ -342,14 +347,14 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                 </p>
               ) : (
                 <p className="text-xs text-muted-foreground">
-                  Seat count syncs automatically after Lemon Squeezy webhook events.
+                  Seat count syncs after Creem webhook events.
                 </p>
               )}
             </div>
           ) : null}
 
           {addSeatsOpen && Number.isFinite(seatLimit) ? (() => {
-            const pricePerSeat = billingPlan === 'team' ? 15 : 8;
+            const pricePerSeat = (billingPlan === 'team' ? 6 : 4);
             const monthlyTotal = desiredSeats * pricePerSeat;
             const isIncrease = desiredSeats > seatLimit;
             const isDecrease = desiredSeats < seatLimit;
@@ -465,7 +470,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
           <div className="flex items-start gap-2 rounded-lg border border-border/60 bg-muted/20 p-3 text-xs text-muted-foreground">
             <Shield className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
             <span>
-              Tax, chargebacks, and receipts are handled by Lemon Squeezy. Open <strong>Invoices & portal</strong> for
+              Tax, chargebacks, and receipts are handled by Creem. Open <strong>Invoices & portal</strong> for
               PDF invoices, card updates, and cancellation.
             </span>
           </div>
@@ -490,6 +495,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
             <button
               type="button"
               onClick={() => setBillingInterval('yearly')}
+                  disabled
               className={cn(
                 'rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
                 billingInterval === 'yearly' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
@@ -499,13 +505,15 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
             </button>
           </div>
         </div>
-        <div className="grid gap-4 md:grid-cols-3">
-          {(['free', 'pro', 'team'] as const).map((key) => {
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {(['free', 'individual', 'pro', 'team'] as const).map((key) => {
             const current = billingPlan === key;
-            const title = key === 'free' ? 'Free' : key === 'pro' ? 'Pro' : 'Team';
+            const title = key === 'free' ? 'Free' : key === 'individual' ? 'Individual' : key === 'pro' ? 'Pro' : 'Team';
             const blurb =
               key === 'free'
                 ? 'Get started with core workflows.'
+                : key === 'individual'
+                  ? 'Personal workflows billed annually.'
                 : key === 'pro'
                   ? 'Power features for small teams.'
                   : 'Unlimited workspaces, processes, and webhooks.';
@@ -553,33 +561,20 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                   </ul>
                   {key === 'free' ? (
                     <p className="text-[11px] text-muted-foreground">Default for every organization.</p>
-                  ) : key === 'pro' ? (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant={current ? 'secondary' : 'default'}
-                      className="w-full"
-                      disabled={busy || current || billingPlan === 'team'}
-                      onClick={() => void openCheckout('pro', { billingInterval })}
-                    >
-                      {current ? 'On Pro' : billingPlan === 'team' ? 'Included in Team' : 'Choose Pro'}
-                    </Button>
                   ) : (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant={current ? 'secondary' : 'default'}
-                      className="w-full"
-                      disabled={busy || current}
-                      onClick={() => {
-                        // Free → Team: new checkout (no existing subscription)
-                        // Pro → Team: PATCH variant via API so Lemon prorates correctly
-                        if (billingPlan === 'pro') void switchPlan('team', { billingInterval });
-                        else void openCheckout('team', { billingInterval });
-                      }}
-                    >
-                      {current ? 'On Team' : billingPlan === 'pro' ? 'Switch to Team' : 'Choose Team'}
-                    </Button>
+                    <>
+                      <p className="text-xs text-muted-foreground">
+                        <strong className="text-foreground">${ACTIPROC_PLANS[key].priceUsd}</strong>
+                        {key === 'individual' ? '/year' : key === 'team' || key === 'pro' ? '/user/month' : '/month'}
+                      </p>
+                      <Button type="button" size="sm" variant={current ? 'secondary' : 'default'} className="w-full"
+                        disabled={busy || current || (billingPlan !== 'free' && ['individual','pro','team'].indexOf(key) <= ['individual','pro','team'].indexOf(billingPlan))}
+                        onClick={() => billingPlan === 'free'
+                          ? void openCheckout(key, {billingInterval:key === 'individual' ? 'yearly' : 'monthly'})
+                          : void switchPlan(key, {billingInterval:'monthly'})}>
+                        {current ? 'Current plan' : 'Choose ' + title}
+                      </Button>
+                    </>
                   )}
                 </CardContent>
               </Card>
@@ -587,19 +582,19 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
           })}
         </div>
         <p className="mt-3 text-center text-[11px] text-muted-foreground">
-          Prices are shown at checkout (monthly / yearly variants). VAT may apply based on customer location.
+          USD prices: Individual $12/year, Pro $4/seat/month, Team $6/seat/month. Creem includes applicable taxes in the listed price; verify the final amount at checkout.
         </p>
       </div>
 
       <Card className="border-dashed">
         <CardHeader className="pb-2">
           <CardTitle className="text-base">Need help?</CardTitle>
-          <CardDescription>Billing questions, failed payments, or tax documents — use Lemon’s portal first.</CardDescription>
+          <CardDescription>Billing questions, failed payments, or tax documents — use your payment provider’s portal first.</CardDescription>
         </CardHeader>
         <CardContent>
           <Button type="button" variant="link" className="h-auto p-0 text-sm" asChild>
-            <a href="https://docs.lemonsqueezy.com/help" target="_blank" rel="noopener noreferrer">
-              Lemon Squeezy help center
+            <a href={'https://docs.creem.io'} target="_blank" rel="noopener noreferrer">
+              {'Creem help center'}
               <ExternalLink className="ml-1 inline h-3 w-3" aria-hidden />
             </a>
           </Button>

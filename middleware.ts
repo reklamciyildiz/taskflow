@@ -93,6 +93,7 @@ export async function middleware(request: NextRequest) {
     '/access-denied',
     '/privacy',
     '/terms',
+    '/refunds',
   ];
 
   // Check if the current path is a public route

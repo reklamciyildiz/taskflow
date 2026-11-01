@@ -3,22 +3,15 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 
-export type BillingPlan = 'free' | 'pro' | 'team';
+export type BillingPlan = 'free' | 'individual' | 'pro' | 'team';
 export type BillingStatus = 'active' | 'past_due' | 'cancelled' | 'trialing' | 'paused' | 'expired';
-
-type LemonWindow = Window & {
-  LemonSqueezy?: {
-    Url?: { Open?: (u: string) => void };
-    Setup?: (opts: { eventHandler: (event: { event: string; [k: string]: unknown }) => void }) => void;
-  };
-  createLemonSqueezy?: () => void;
-};
 
 export function useOrganizationBilling(organizationId: string | null) {
   const [billingPlan, setBillingPlan] = useState<BillingPlan>('free');
   const [billingStatus, setBillingStatus] = useState<BillingStatus>('active');
   const [billingLoading, setBillingLoading] = useState(false);
-  const [checkoutBusy, setCheckoutBusy] = useState<'pro' | 'team' | null>(null);
+  const [checkoutBusy, setCheckoutBusy] = useState<'individual' | 'pro' | 'team' | null>(null);
+  const billingProvider = 'creem' as const;
   const [seatLimit, setSeatLimit] = useState<number>(Number.POSITIVE_INFINITY);
   const [seatsUsed, setSeatsUsed] = useState(1);
   const [subscriptionId, setSubscriptionId] = useState<string | null>(null);
@@ -28,7 +21,7 @@ export function useOrganizationBilling(organizationId: string | null) {
     if (!organizationId) return;
     setBillingLoading(true);
     try {
-      // Re-read Lemon's authoritative state before rendering local entitlements.
+      // Reconcile the authoritative subscription before rendering entitlements.
       // A failed reconciliation never grants access; the last verified local state remains visible.
       await fetch('/api/billing/reconcile', { method: 'POST' }).catch(() => null);
       const res = await fetch('/api/billing/summary');
@@ -36,7 +29,7 @@ export function useOrganizationBilling(organizationId: string | null) {
       if (json?.success && json?.data) {
         const plan = String(json.data.plan ?? 'free').toLowerCase();
         const status = String(json.data.subscriptionStatus ?? 'active').toLowerCase();
-        setBillingPlan(plan === 'team' ? 'team' : plan === 'pro' ? 'pro' : 'free');
+        setBillingPlan(plan === 'team' ? 'team' : plan === 'pro' ? 'pro' : plan === 'individual' ? 'individual' : 'free');
         setBillingStatus(
           status === 'past_due'
             ? 'past_due'
@@ -73,82 +66,17 @@ export function useOrganizationBilling(organizationId: string | null) {
     void refreshBilling();
   }, [refreshBilling]);
 
-  // Keep a stable ref so Lemon's eventHandler closure always calls the latest version
   const refreshBillingRef = useRef(refreshBilling);
-  useEffect(() => {
-    refreshBillingRef.current = refreshBilling;
-  }, [refreshBilling]);
-
-  const lemonSetupDone = useRef(false);
-
-  const ensureLemon = useCallback(async () => {
-    if (typeof window === 'undefined') return;
-    const w = window as LemonWindow;
-    if (w.LemonSqueezy?.Url?.Open) {
-      // Lemon.js already loaded — just make sure event handler is wired
-      if (!lemonSetupDone.current) {
-        w.LemonSqueezy?.Setup?.({
-          eventHandler: (event) => {
-            if (
-              event.event === 'Checkout.Success' ||
-              event.event === 'PaymentMethodUpdate.Success'
-            ) {
-              // Two-pass refresh: fast (webhook may already be processed) + slow (safety net)
-              setTimeout(() => void refreshBillingRef.current(), 2500);
-              setTimeout(() => void refreshBillingRef.current(), 8000);
-            }
-          },
-        });
-        lemonSetupDone.current = true;
-      }
-      return;
-    }
-
-    await new Promise<void>((resolve, reject) => {
-      const existing = document.querySelector(
-        'script[data-lemonsqueezy="lemonjs"]'
-      ) as HTMLScriptElement | null;
-      if (existing) {
-        existing.addEventListener('load', () => resolve());
-        existing.addEventListener('error', () => reject(new Error('Failed to load lemon.js')));
-        return;
-      }
-      const s = document.createElement('script');
-      s.src = 'https://app.lemonsqueezy.com/js/lemon.js';
-      s.defer = true;
-      s.dataset.lemonsqueezy = 'lemonjs';
-      s.onload = () => resolve();
-      s.onerror = () => reject(new Error('Failed to load lemon.js'));
-      document.head.appendChild(s);
-    });
-
-    w.createLemonSqueezy?.();
-
-    // Wire the success event handler once after init
-    if (!lemonSetupDone.current) {
-      w.LemonSqueezy?.Setup?.({
-        eventHandler: (event) => {
-          if (
-            event.event === 'Checkout.Success' ||
-            event.event === 'PaymentMethodUpdate.Success'
-          ) {
-            setTimeout(() => void refreshBillingRef.current(), 2500);
-            setTimeout(() => void refreshBillingRef.current(), 8000);
-          }
-        },
-      });
-      lemonSetupDone.current = true;
-    }
-  }, []);
+  useEffect(() => { refreshBillingRef.current = refreshBilling; }, [refreshBilling]);
 
   const openCheckout = useCallback(
     async (
-      plan: 'pro' | 'team',
+      plan: 'individual' | 'pro' | 'team',
       opts?: { billingInterval?: 'monthly' | 'yearly'; seats?: number }
     ) => {
       setCheckoutBusy(plan);
       try {
-        const billingInterval = opts?.billingInterval === 'yearly' ? 'yearly' : 'monthly';
+        const billingInterval = plan === 'individual' ? 'yearly' : opts?.billingInterval === 'yearly' ? 'yearly' : 'monthly';
         const payload: Record<string, unknown> = { plan, billingInterval };
         if (opts?.seats != null && Number.isFinite(opts.seats) && opts.seats >= 1) {
           payload.seats = Math.floor(opts.seats);
@@ -164,7 +92,7 @@ export function useOrganizationBilling(organizationId: string | null) {
         if (typeof url !== 'string' || !url) throw new Error('Checkout URL missing');
 
         // Full-page redirect: clean checkout without the app visible behind an overlay.
-        // Lemon redirects back to /settings/billing?checkout=success on completion.
+        // Creem redirects back; access changes only after a verified webhook.
         window.location.href = url;
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : 'Could not start checkout';
@@ -173,7 +101,7 @@ export function useOrganizationBilling(organizationId: string | null) {
         setCheckoutBusy(null);
       }
     },
-    [ensureLemon]
+    []
   );
 
   const openCustomerPortal = useCallback(async () => {
@@ -183,8 +111,7 @@ export function useOrganizationBilling(organizationId: string | null) {
       if (!resp.ok || !json?.success) throw new Error(json?.error || 'Could not open customer portal');
       const url = json?.data?.customerPortalUrl || json?.data?.updatePaymentMethodUrl;
       if (typeof url !== 'string' || !url) throw new Error('Customer portal URL missing');
-      // Open in new tab — portal's own "Back" button navigates within Lemon's domain,
-      // so we avoid it overwriting our app's overlay with the Lemon store page.
+      // Keep Creem's customer portal in its own tab.
       window.open(url, '_blank', 'noopener,noreferrer');
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Could not open customer portal';
@@ -223,7 +150,7 @@ export function useOrganizationBilling(organizationId: string | null) {
   }, []);
 
   const switchPlan = useCallback(
-    async (plan: 'pro' | 'team', opts?: { billingInterval?: 'monthly' | 'yearly' }) => {
+    async (plan: 'individual' | 'pro' | 'team', opts?: { billingInterval?: 'monthly' | 'yearly' }) => {
       setCheckoutBusy(plan);
       try {
         const billingInterval = opts?.billingInterval === 'yearly' ? 'yearly' : 'monthly';
@@ -259,20 +186,16 @@ export function useOrganizationBilling(organizationId: string | null) {
         json?.data?.customerPortalUrl ||
         json?.data?.updatePaymentMethodUrl;
       if (typeof url !== 'string' || !url) throw new Error('Subscription management URL missing');
-      // Use overlay so Lemon.js can render the prorated cost preview when quantity changes.
-      // Plain new-tab mode fetches the proration but can't render the result without the SDK context.
-      await ensureLemon();
-      const w = window as LemonWindow;
-      if (w.LemonSqueezy?.Url?.Open) w.LemonSqueezy.Url.Open(url);
-      else window.open(url, '_blank', 'noopener,noreferrer');
+      window.open(url, '_blank', 'noopener,noreferrer');
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Could not open subscription management';
       toast.error(msg);
     }
-  }, [ensureLemon]);
+  }, []);
 
   return {
     billingPlan,
+    billingProvider,
     billingStatus,
     billingLoading,
     checkoutBusy,

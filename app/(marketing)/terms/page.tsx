@@ -77,8 +77,7 @@ export default function TermsPage() {
 
           <Section title="5. Subscriptions and Billing">
             <p>
-              Actiproc offers free and paid subscription plans. Paid plans are billed through Lemon
-              Squeezy, our payment processor. By subscribing to a paid plan, you agree to:
+              Actiproc offers free and paid subscription plans. Existing paid subscriptions are processed by Lemon Squeezy; new subscriptions may be processed by Creem after the payment-provider transition. The checkout identifies the merchant of record. By subscribing to a paid plan, you agree to:
             </p>
             <ul>
               <li>Pay all applicable fees for your selected plan</li>
@@ -86,9 +85,9 @@ export default function TermsPage() {
               <li>Authorize us to charge your payment method on a recurring basis</li>
             </ul>
             <p>
-              Subscription fees are non-refundable except as required by applicable law or as
-              expressly stated in our refund policy. We reserve the right to change pricing with
-              30 days&rsquo; notice to active subscribers.
+              Refund requests are considered under applicable law and the payment provider&rsquo;s terms.
+              See our refund and cancellation information at /refunds. We reserve the right to change
+              pricing with 30 days&rsquo; notice to active subscribers.
             </p>
             <p>
               If a payment fails, we may suspend access to paid features until payment is resolved.
@@ -112,7 +111,7 @@ export default function TermsPage() {
 
           <Section title="7. Third-Party Integrations">
             <p>
-              Actiproc integrates with third-party services including Google Calendar and Lemon Squeezy.
+              Actiproc integrates with third-party services including Google Calendar and our applicable payment processor (Lemon Squeezy or Creem).
               Your use of these integrations is subject to the respective third-party terms of service
               and privacy policies. We are not responsible for the practices or content of third-party
               services.
