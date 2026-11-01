@@ -177,6 +177,53 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-7 pb-12">
+
+      <Dialog open={Boolean(billingReview)} onOpenChange={open=>{if(!open&&!reviewBusy){setBillingReview(null);setReviewError(null);setReviewAcknowledged(false);}}}>
+        <DialogContent className="max-w-md rounded-2xl p-6 shadow-2xl" hideClose={reviewBusy}>
+          <DialogHeader>
+            <DialogTitle className="text-xl">Review billing change</DialogTitle>
+            <DialogDescription>Nothing will be charged or changed until you approve.</DialogDescription>
+          </DialogHeader>
+          {billingReview ? <div className="space-y-4">
+            <div className="rounded-xl border bg-muted/30 p-4 text-sm space-y-2">
+              {billingReview.kind==='seats' ? <>
+                <div className="flex justify-between"><span>Current seats</span><strong>{billingReview.previousSeats}</strong></div>
+                <div className="flex justify-between"><span>New seats</span><strong>{billingReview.desiredSeats}</strong></div>
+              </> : <>
+                <div className="flex justify-between"><span>Current plan</span><strong className="capitalize">{billingReview.fromPlan}</strong></div>
+                <div className="flex justify-between"><span>New plan</span><strong className="capitalize">{billingReview.toPlan}</strong></div>
+                <div className="flex justify-between"><span>Seats</span><strong>{billingReview.seats}</strong></div>
+              </>}
+              <div className="flex justify-between gap-3 border-t pt-2"><span>New monthly list price</span><strong className="tabular-nums">${billingReview.nextMonthlyUsd.toFixed(2)}/mo</strong></div>
+            </div>
+            {billingReview.kind==='seats' && billingReview.direction==='decrease' ?
+              <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs leading-relaxed">The reduction may take effect immediately. Unused prepaid time is not automatically refunded.</p> :
+              <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs leading-relaxed">
+                <strong>Immediate payment:</strong> Creem will automatically charge your saved card when you approve.
+                The exact prorated amount is not available through this integration and may differ from the monthly price shown above.
+                The monthly price is NOT a quote for today's charge.
+              </p>
+            }
+            <label className="flex items-start gap-3 rounded-xl border p-3 text-xs leading-relaxed cursor-pointer">
+              <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0" checked={reviewAcknowledged}
+                disabled={reviewBusy||Boolean(reviewError)} onChange={e=>setReviewAcknowledged(e.target.checked)} />
+              <span>{billingReview.kind==='seats'&&billingReview.direction==='decrease'
+                ? 'I approve reducing my seat count immediately, without an automatic refund.'
+                : 'I authorize the immediate prorated charge to my saved card, understand that its exact amount is unavailable here, and accept the new monthly subscription price.'}</span>
+            </label>
+            {reviewError?<p role="alert" className="rounded-lg bg-destructive/10 p-3 text-xs text-destructive">{reviewError}</p>:null}
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button type="button" variant="outline" disabled={reviewBusy}
+                onClick={()=>{setBillingReview(null);setReviewAcknowledged(false);setReviewError(null);}}>Cancel</Button>
+              <Button type="button" disabled={!reviewAcknowledged||reviewBusy||Boolean(reviewError)||busy}
+                onClick={()=>void applyReviewedChange()}>
+                {reviewBusy?'Submitting…':billingReview.kind==='seats'&&billingReview.direction==='decrease'?'Approve reduction':'Authorize charge & confirm'}
+              </Button>
+            </div>
+          </div>:null}
+        </DialogContent>
+      </Dialog>
+
       <header className="relative isolate overflow-hidden rounded-[28px] border border-slate-800 bg-[#101c30] px-6 py-7 text-white shadow-[0_22px_60px_-38px_rgba(15,23,42,0.7)] sm:px-8">
         <div aria-hidden="true" className="pointer-events-none absolute -right-12 -top-28 h-72 w-72 rounded-full bg-blue-500/25 blur-[85px]" />
         <div aria-hidden="true" className="pointer-events-none absolute -bottom-40 left-12 h-64 w-72 rounded-full bg-violet-500/15 blur-[70px]" />
