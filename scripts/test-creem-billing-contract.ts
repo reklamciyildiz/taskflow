@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { ACTIPROC_PLANS, CREEM_EXPECTED_TAX_MODE } from '../lib/billing-plans';
-import { getCreemConfig, creemPlanForProduct, creemResponseMode } from '../lib/creem-config';
+import { getCreemConfig, creemPlanForProduct, creemResponseMode, creemCheckoutEnvironmentSafe } from '../lib/creem-config';
 import { normalizeCreemSubscription } from '../lib/creem-subscription-contract';
 
 assert.deepEqual([ACTIPROC_PLANS.free.maxProcesses,ACTIPROC_PLANS.individual.maxProcesses,ACTIPROC_PLANS.pro.maxProcesses],[1,3,10]);
@@ -44,8 +44,12 @@ for(const required of ['creem_payment_hold','claim_creem_event','apply_creem_sub
  assert.ok(sql.includes(required),'Missing migration guard '+required);
 const checkout=fs.readFileSync('app/api/billing/checkout/route.ts','utf8');
 assert.ok(checkout.includes("platformCookie === 'android-twa'"),'Android TWA checkout block missing');
-assert.ok(checkout.includes("newBillingProvider() === 'creem'"),'Creem not isolated from legacy checkout');
-assert.ok(checkout.includes("requestedBody?.plan === 'individual'"),'Legacy Lemon Individual must fail closed');
+assert.ok(checkout.includes('creemCheckoutEnvironmentSafe()'),'Checkout gate required');
+assert.equal(creemCheckoutEnvironmentSafe({...env,CREEM_CHECKOUT_ENABLED:'true',AXIOM_STAGING_SUPABASE_PROJECT_REF:'staging123',NEXT_PUBLIC_SUPABASE_URL:'https://staging123.supabase.co'}),true);
+assert.equal(creemCheckoutEnvironmentSafe({...env,CREEM_CHECKOUT_ENABLED:'true'}),false);
+assert.equal(creemCheckoutEnvironmentSafe({...env,VERCEL_ENV:'production',CREEM_MODE:'test',CREEM_CHECKOUT_ENABLED:'true'}),false);
+assert.equal(creemCheckoutEnvironmentSafe({...env,VERCEL_ENV:'production',CREEM_MODE:'live',CREEM_CHECKOUT_ENABLED:'true'}),true);
+assert.equal(creemCheckoutEnvironmentSafe({...env,VERCEL_ENV:'production',CREEM_MODE:'live'}),false);
 const checkoutOperation=fs.readFileSync('lib/creem-billing-operations.ts','utf8');
 assert.ok(checkoutOperation.includes('product.tax_mode!==CREEM_EXPECTED_TAX_MODE'),'Checkout must match configured Creem tax mode');
 const verifier=fs.readFileSync('scripts/verify-creem-products.ts','utf8');
@@ -55,8 +59,7 @@ assert.ok(webhook.includes("timingSafeEqual"),'Missing webhook timing-safe verif
 assert.ok(webhook.includes("checkout.completed") && webhook.includes("hold_creem_subscription"));
 for (const event of ['subscription.past_due','subscription.unpaid','subscription.scheduled_cancel'])
  assert.ok(webhook.includes(event), 'Missing Creem lifecycle event ' + event);
-const lemon = fs.readFileSync('lib/lemon-subscription.ts','utf8');
-assert.ok(lemon.includes("organization?.billing_provider === 'creem'"),'Late Lemon webhooks must not overwrite Creem');
+assert.ok(!checkout.includes('lemonsqueezy.com'),'No Lemon checkout API');
 console.log('Creem billing contract checks passed');
 
 const bootstrap = fs.readFileSync('scripts/bootstrap-staging-db.mjs','utf8');

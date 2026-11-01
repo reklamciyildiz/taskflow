@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireOrgAdmin } from '@/lib/server-authz';
 import { getOrganizationEntitlements, getOrganizationSeatUsage } from '@/lib/entitlements';
 import { organizationDb } from '@/lib/db';
-import { newBillingProvider } from '@/lib/creem-config';
 
 export async function GET(request: NextRequest) {
   try {
@@ -17,10 +16,8 @@ export async function GET(request: NextRequest) {
     const seatsUsed = await getOrganizationSeatUsage(orgId);
 
     const org: any = await organizationDb.getById(orgId);
-    const billingProvider = org?.billing_provider === 'creem' ? 'creem' : org?.ls_subscription_id ? 'lemon' : newBillingProvider();
-    const subscriptionId = billingProvider === 'creem'
-      ? (org?.creem_subscription_id ? String(org.creem_subscription_id) : null)
-      : (org?.ls_subscription_id ? String(org.ls_subscription_id) : null);
+    const billingProvider = 'creem';
+    const subscriptionId = org?.creem_subscription_id ? String(org.creem_subscription_id) : null;
 
     return NextResponse.json({
       success: true,

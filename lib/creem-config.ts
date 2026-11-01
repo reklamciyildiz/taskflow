@@ -3,7 +3,14 @@ export type CreemMode = 'test' | 'live';
 /** Creem API responses use prod, not live, for production mode. */
 export function creemResponseMode(config: Pick<CreemConfig, 'mode'>): 'test' | 'prod' { return config.mode === 'live' ? 'prod' : 'test'; }
 export type CreemConfig = { apiKey: string; secret: string; mode: CreemMode; products: Record<PaidActiprocPlan,string>; baseUrl: string };
-export function newBillingProvider(): 'creem' | 'lemon' { return process.env.NEW_BILLING_PROVIDER === 'creem' ? 'creem' : 'lemon'; }
+/** Merging main must never activate an unapproved checkout. */
+export function creemCheckoutEnvironmentSafe(env: NodeJS.ProcessEnv = process.env): boolean {
+  if (env.CREEM_CHECKOUT_ENABLED !== 'true') return false;
+  if (env.CREEM_MODE === 'live') return env.VERCEL_ENV === 'production';
+  if (env.CREEM_MODE !== 'test' || env.VERCEL_ENV === 'production') return false;
+  const ref = env.AXIOM_STAGING_SUPABASE_PROJECT_REF?.trim();
+  return !!ref && env.NEXT_PUBLIC_SUPABASE_URL === 'https://' + ref + '.supabase.co';
+}
 export function getCreemConfig(env: NodeJS.ProcessEnv = process.env): CreemConfig {
   const mode = env.CREEM_MODE;
   if (mode !== 'test' && mode !== 'live') throw new Error('CREEM_MODE must be test or live');
