@@ -26,9 +26,29 @@ async function main(): Promise<void> {
     { name:'Pro', displayName:'Actiproc Pro', id:process.env.CREEM_PRODUCT_PRO, cents:ACTIPROC_PLANS.pro.priceUsd*100, cadence:'every-month' },
     { name:'Team', displayName:'Actiproc Team', id:process.env.CREEM_PRODUCT_TEAM, cents:ACTIPROC_PLANS.team.priceUsd*100, cadence:'every-month' },
   ] as const;
+  // Diagnose local configuration without printing credentials or product IDs.
   const ids = settings.map(p => p.id?.trim());
-  if (ids.some(id => !id || !/^prod_[a-zA-Z0-9]+$/.test(id)) || new Set(ids).size !== 3) {
-    throw new Error('Copy three distinct Product IDs from the Creem Test Mode product detail page.');
+  let invalid = false;
+  for (const [index, plan] of settings.entries()) {
+    const value = ids[index];
+    const variable = 'CREEM_PRODUCT_' + plan.name.toUpperCase();
+    if (!value) {
+      console.error(variable + ': missing or empty');
+      invalid = true;
+    } else if (!/^prod_[a-zA-Z0-9]+$/.test(value)) {
+      console.error(variable + ': unexpected ID format (characters: ' + value.length +
+        '). Recopy using the Product ID copy icon, not the payment link.');
+      invalid = true;
+    } else {
+      console.log(variable + ': format OK (characters: ' + value.length + ')');
+    }
+  }
+  if (new Set(ids.filter(Boolean)).size !== ids.filter(Boolean).length) {
+    console.error('Two or more CREEM_PRODUCT_* variables contain the same ID.');
+    invalid = true;
+  }
+  if (invalid) {
+    throw new Error('Fix the indicated Product ID environment variables before contacting Creem.');
   }
 
   // Authoritative list resolves mistaken manual ID transcription without guessing.
