@@ -1,58 +1,87 @@
 import { loadEnvConfig } from '@next/env';
 import { ACTIPROC_PLANS } from '../lib/billing-plans';
 
-// Read developer-owned .env.local through Next's standard environment loader.
-// Never print the API key or webhook secret.
+// Read the developer's existing .env.local; never print API/webhook secrets.
 loadEnvConfig(process.cwd(), true);
+
+type Product = {
+  id?: string; name?: string; mode?: string; price?: number;
+  currency?: string; billing_type?: string; billing_period?: string;
+  tax_mode?: string | null; tax_category?: string | null; status?: string;
+};
+const API = 'https://test-api.creem.io/v1';
+const safe = (value: unknown): string => value == null ? '(missing)' : String(value);
 
 async function main(): Promise<void> {
   if (process.env.CREEM_MODE !== 'test') {
     throw new Error('Only CREEM_MODE=test is permitted by this preflight script.');
   }
-  const apiKey = process.env.CREEM_API_KEY?.trim();
-  if (!apiKey || /placeholder|your-|paste|example/i.test(apiKey)) {
+  const key = process.env.CREEM_API_KEY?.trim();
+  if (!key || /placeholder|your-|paste|example/i.test(key)) {
     throw new Error('Set the Creem TEST API key in .env.local before verifying products.');
   }
+  const headers = { 'x-api-key': key };
   const settings = [
-    ['Individual', process.env.CREEM_PRODUCT_INDIVIDUAL, ACTIPROC_PLANS.individual.priceUsd * 100, 'every-year'],
-    ['Pro', process.env.CREEM_PRODUCT_PRO, ACTIPROC_PLANS.pro.priceUsd * 100, 'every-month'],
-    ['Team', process.env.CREEM_PRODUCT_TEAM, ACTIPROC_PLANS.team.priceUsd * 100, 'every-month'],
+    { name:'Individual', displayName:'Actiproc Individual', id:process.env.CREEM_PRODUCT_INDIVIDUAL, cents:ACTIPROC_PLANS.individual.priceUsd*100, cadence:'every-year' },
+    { name:'Pro', displayName:'Actiproc Pro', id:process.env.CREEM_PRODUCT_PRO, cents:ACTIPROC_PLANS.pro.priceUsd*100, cadence:'every-month' },
+    { name:'Team', displayName:'Actiproc Team', id:process.env.CREEM_PRODUCT_TEAM, cents:ACTIPROC_PLANS.team.priceUsd*100, cadence:'every-month' },
   ] as const;
-  const ids = settings.map(([, id]) => id?.trim());
-  if (ids.some(id => !id || !/^prod_[A-Za-z0-9]+$/.test(id)) || new Set(ids).size !== 3) {
-    throw new Error('Copy three distinct Product IDs exactly from the Creem test dashboard.');
+  const ids = settings.map(p => p.id?.trim());
+  if (ids.some(id => !id || !/^prod_[a-zA-Z0-9]+$/.test(id)) || new Set(ids).size !== 3) {
+    throw new Error('Copy three distinct Product IDs from the Creem Test Mode product detail page.');
   }
 
+  // Authoritative list resolves mistaken manual ID transcription without guessing.
+  const catalogResponse = await fetch(API + '/products/search?page_number=1&page_size=100', { headers, cache:'no-store' });
+  if (!catalogResponse.ok) {
+    throw new Error('Could not enumerate test products (HTTP ' + catalogResponse.status + '). Check test API key and store.');
+  }
+  const catalog: unknown = await catalogResponse.json();
+  if (!catalog || typeof catalog !== 'object' || !Array.isArray((catalog as any).items)) {
+    throw new Error('Unexpected Creem product catalog response; cannot validate safely.');
+  }
+  const available: Product[] = (catalog as { items: Product[] }).items;
   let failed = false;
-  for (const [name, productId, cents, cadence] of settings) {
-    const response = await fetch('https://test-api.creem.io/v1/products?product_id=' + encodeURIComponent(productId!), {
-      headers: { 'x-api-key': apiKey },
-      cache: 'no-store',
-    });
+  for (const plan of settings) {
+    const id = plan.id!.trim();
+    const response = await fetch(API + '/products?product_id=' + encodeURIComponent(id), { headers, cache:'no-store' });
     if (!response.ok) {
-      console.error(name + ': failed Creem test API lookup (HTTP ' + response.status + ')');
+      console.error(plan.name + ': product lookup returned HTTP ' + response.status);
+      const matches = available.filter(p => p.name === plan.displayName && p.mode === 'test');
+      if (matches.length === 1 && matches[0].id) {
+        console.error('  Official Creem catalog ID: ' + matches[0].id);
+        console.error('  Update CREEM_PRODUCT_' + plan.name.toUpperCase() + ' in .env.local using the Creem Copy ID button.');
+      } else {
+        console.error('  Could not identify a unique matching test product. Check the selected Creem store and key.');
+      }
       failed = true;
       continue;
     }
-    const product: Record<string, unknown> = await response.json();
-    const problems: string[] = [];
-    if (product.id !== productId) problems.push('product ID');
-    if (product.mode !== 'test') problems.push('test mode');
-    if (product.price !== cents) problems.push('USD price');
-    if (product.currency !== 'USD') problems.push('currency');
-    if (product.billing_type !== 'recurring') problems.push('subscription type');
-    if (product.billing_period !== cadence) problems.push('billing period');
-    if (product.tax_mode !== 'exclusive') problems.push('tax mode');
-    if (product.tax_category !== 'saas') problems.push('SaaS tax category');
-    if (product.status !== 'active') problems.push('active status');
-    if (problems.length) {
-      console.error(name + ': mismatch in ' + problems.join(', '));
+    const product = await response.json() as Product;
+    const issues: string[] = [];
+    const expect = (field: keyof Product, value: string | number, label: string) => {
+      if (product[field] !== value) issues.push(label + ': expected ' + safe(value) + ', got ' + safe(product[field]));
+    };
+    expect('id',id,'Product ID');
+    expect('name',plan.displayName,'Product name');
+    expect('mode','test','Environment');
+    expect('price',plan.cents,'Price in cents');
+    expect('currency','USD','Currency');
+    expect('billing_type','recurring','Billing type');
+    expect('billing_period',plan.cadence,'Billing period');
+    expect('status','active','Status');
+    expect('tax_category','saas','Tax category');
+    expect('tax_mode','exclusive','Tax mode');
+    if (issues.length) {
+      console.error(plan.name + ': configuration mismatch');
+      for (const issue of issues) console.error('  - ' + issue);
       failed = true;
     } else {
-      console.log(name + ': OK ($' + (cents / 100).toFixed(2) + '/' + (cadence === 'every-year' ? 'year' : 'month') + ')');
+      console.log(plan.name + ': OK ($' + (plan.cents/100).toFixed(2) + '/' + (plan.cadence==='every-year'?'year':'month') + ')');
     }
   }
   if (failed) {
+    console.error('Creem products are not ready for checkout. Do not enable NEW_BILLING_PROVIDER=creem.');
     process.exitCode = 1;
   } else {
     console.log('All three Creem TEST products match Actiproc billing configuration.');
@@ -60,6 +89,6 @@ async function main(): Promise<void> {
 }
 
 main().catch(error => {
-  console.error(error instanceof Error ? error.message : 'Creem preflight failed.');
+  console.error(error instanceof Error ? error.message : 'Creem product verification failed.');
   process.exitCode = 1;
 });
