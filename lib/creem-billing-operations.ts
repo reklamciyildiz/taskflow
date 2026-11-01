@@ -22,9 +22,28 @@ export async function createCreemCheckout(request:NextRequest, orgId:string, ema
  try{
   const config=getCreemConfig();
   const org:any=await organizationDb.getById(orgId);
-  if(isExistingSubscription(org) || org?.billing_provider==='lemon')
-   return NextResponse.json({success:false,error:'An existing subscription must be managed or resolved before starting another.'},{status:409});
   const payload=await request.json().catch(()=>null);
+  const replacing=payload?.resubscribe===true;
+  const hasExisting=isExistingSubscription(org) || org?.billing_provider==='lemon';
+  if(hasExisting && (!replacing || process.env.CREEM_RESUBSCRIPTION_ENABLED!=='true'))
+    return NextResponse.json({success:false,error:'Existing subscriptions must be managed before checkout.'},{status:409});
+  if(replacing) {
+    if(!payload?.acceptNewCharge || org?.billing_provider!=='creem' ||
+       !org.creem_subscription_id || !org.creem_customer_id ||
+       org.creem_payment_hold || org.ls_subscription_id ||
+       (org.subscription_status!=='cancelled' && org.subscription_status!=='expired') ||
+       Boolean(org.creem_test_mode)!==(config.mode==='test'))
+      return NextResponse.json({success:false,error:'Re-subscription is unavailable for this organization.'},{status:409});
+    const remote=await creemApi<any>(config,'GET','subscriptions?subscription_id='+encodeURIComponent(org.creem_subscription_id));
+    const sub=remote?.subscription??remote;
+    const customer=typeof sub?.customer==='string'?sub.customer:sub?.customer?.id;
+    if(sub?.id!==org.creem_subscription_id || customer!==org.creem_customer_id ||
+       sub?.mode!==creemResponseMode(config) ||
+       !['canceled','expired'].includes(String(sub?.status)))
+      return NextResponse.json({success:false,error:'Creem has not confirmed a terminal cancellation. No payment started.'},{status:409});
+  } else if(!hasExisting && payload?.resubscribe) {
+    return NextResponse.json({success:false,error:'Use normal checkout for a new subscription.'},{status:400});
+  }
   const plan=payload?.plan;
   if(!isPaidPlan(plan))return NextResponse.json({success:false,error:'Invalid paid plan'},{status:400});
   const interval=payload?.billingInterval;
@@ -48,15 +67,25 @@ export async function createCreemCheckout(request:NextRequest, orgId:string, ema
      product.tax_category!=='saas' || product.status!=='active')
     return NextResponse.json({success:false,error:'Creem product settings do not match Actiproc pricing. Contact support.'},{status:409});
   const requestId=crypto.randomUUID();
-  const {error:intentError}=await (supabaseAdmin as any).from('creem_checkout_intents').insert({
-   request_id:requestId,organization_id:orgId,plan_name:plan,units:seats,test_mode:config.mode==='test'
-  });
-  if(intentError)throw intentError;
+  if(replacing) {
+    const {data:reserved,error:reserveError}=await (supabaseAdmin as any).rpc('reserve_creem_resubscription',{
+      p_org:orgId,p_request:requestId,p_previous:org.creem_subscription_id,
+      p_plan:plan,p_seats:seats,p_test:config.mode==='test'
+    });
+    if(reserveError)throw reserveError;
+    if(reserved!==true)
+      return NextResponse.json({success:false,error:'A subscription change or pending checkout must be resolved before another payment.'},{status:409});
+  } else {
+    const {error:intentError}=await (supabaseAdmin as any).from('creem_checkout_intents').insert({
+      request_id:requestId,organization_id:orgId,plan_name:plan,units:seats,test_mode:config.mode==='test'
+    });
+    if(intentError)throw intentError;
+  }
   const created=await creemApi<any>(config,'POST','checkouts',{
    product_id:productId,units:seats,request_id:requestId,
-   ...(email?{customer:{email}}:{}),
+   ...(replacing?{customer:{id:org.creem_customer_id}}:email?{customer:{email}}:{}),
    success_url:APP_URL+'/settings/billing?checkout=success',
-   metadata:{organization_id:orgId,checkout_request_id:requestId},
+   metadata:{organization_id:orgId,checkout_request_id:requestId,...(replacing?{resubscription:'true'}:{})},
   });
   if(created.mode!==creemResponseMode(config)||!/^https:\/\//.test(created.checkout_url??''))
    throw new Error('Invalid Creem checkout response or environment');
