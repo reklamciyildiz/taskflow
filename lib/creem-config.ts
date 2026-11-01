@@ -19,7 +19,7 @@ export function creemCheckoutEnvironmentSafe(env: NodeJS.ProcessEnv = process.en
       return authUrl.protocol === 'http:' &&
         ['localhost', '127.0.0.1'].includes(authUrl.hostname) &&
         supabaseUrl.protocol === 'https:' &&
-        /^[a-z0-9]+\\.supabase\\.co$/.test(supabaseUrl.hostname);
+        /^[a-z0-9]+[.]supabase[.]co$/.test(supabaseUrl.hostname);
     } catch {
       return false;
     }
