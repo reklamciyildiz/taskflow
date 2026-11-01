@@ -18,11 +18,13 @@ export function useOrganizationBilling(organizationId: string | null) {
   const [endsAt, setEndsAt] = useState<string | null>(null);
   // Default to no resume action until Creem confirms eligibility for this subscription.
   const [canResume, setCanResume] = useState(false);
+  const [canResubscribe, setCanResubscribe] = useState(false);
 
   const refreshBilling = useCallback(async () => {
     if (!organizationId) return;
     setBillingLoading(true);
     setCanResume(false);
+    setCanResubscribe(false);
     try {
       // Reconcile the authoritative subscription before rendering entitlements.
       // A failed reconciliation never grants access; the last verified local state remains visible.
@@ -57,12 +59,13 @@ export function useOrganizationBilling(organizationId: string | null) {
         setSubscriptionId(typeof sid === 'string' && sid ? sid : null);
         const end = json.data.endsAt;
         setEndsAt(typeof end === 'string' && end ? end : null);
-        if ((status === 'cancelled' || status === 'paused') && typeof sid === 'string' && sid) {
+        if ((status === 'cancelled' || status === 'paused' || status === 'expired') && typeof sid === 'string' && sid) {
           // Local "cancelled" also represents terminal Creem cancellations.
           // Never show Resume on local status alone.
           const response=await fetch('/api/billing/resume',{cache:'no-store'}).catch(()=>null);
           const result=response?.ok ? await response.json().catch(()=>null) : null;
           setCanResume(result?.success === true && result?.data?.canResume === true);
+          setCanResubscribe(result?.success === true && result?.data?.canResubscribe === true);
         }
       }
     } catch {
@@ -82,12 +85,16 @@ export function useOrganizationBilling(organizationId: string | null) {
   const openCheckout = useCallback(
     async (
       plan: 'individual' | 'pro' | 'team',
-      opts?: { billingInterval?: 'monthly' | 'yearly'; seats?: number }
+      opts?: { billingInterval?: 'monthly' | 'yearly'; seats?: number; resubscribe?: boolean; acceptNewCharge?: boolean }
     ) => {
       setCheckoutBusy(plan);
       try {
         const billingInterval = plan === 'individual' ? 'yearly' : opts?.billingInterval === 'yearly' ? 'yearly' : 'monthly';
         const payload: Record<string, unknown> = { plan, billingInterval };
+        if (opts?.resubscribe === true) {
+          payload.resubscribe = true;
+          payload.acceptNewCharge = opts.acceptNewCharge === true;
+        }
         if (opts?.seats != null && Number.isFinite(opts.seats) && opts.seats >= 1) {
           payload.seats = Math.floor(opts.seats);
         }
@@ -240,5 +247,6 @@ export function useOrganizationBilling(organizationId: string | null) {
     updateSeats,
     resumeSubscription,
     canResume,
+    canResubscribe,
   };
 }
