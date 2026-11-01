@@ -408,6 +408,7 @@ assert.equal(readCreemBillingCycle({status:'active',
  'Period end is not proof of next card charge');
 assert.equal(readCreemBillingCycle({status:'active',next_transaction_date:'not a date'}).nextChargeVerified,false);
 assert.equal(creemUtcDate('2026-12-09'),null,'Reject date-only and timezone-ambiguous inputs');
+assert.equal(creemUtcDate('2026-12-09T20:03:00'),null,'Require an explicit offset or UTC for billing dates');
 assert.equal(creemUtcDate('not a date'),null);
 assert.equal(creemUtcDate('2026-12-09T20:03:00+03:00'),'2026-12-09T17:03:00.000Z');
 const scheduleRoute=fs.readFileSync('app/api/billing/summary/route.ts','utf8');
