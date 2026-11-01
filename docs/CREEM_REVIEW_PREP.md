@@ -76,3 +76,33 @@ A checkout already carrying a Creem subscription ID (even if expired or on hold)
 deliberately blocked to prevent double charges until a dedicated resubscription flow
 is implemented. Retried checkout webhooks verify linked subscription ownership before
 acknowledging an already fulfilled checkout.
+
+## Approved primary Supabase local Test Mode (single main branch)
+Use `main`, `.env.local`, and the **primary** Supabase project. No staging env is necessary.
+Set these LOCAL-only values (never commit secrets):
+```dotenv
+NEXTAUTH_URL=http://localhost:3000
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+CREEM_MODE=test
+CREEM_CHECKOUT_ENABLED=true
+CREEM_TEST_ON_PRIMARY_DB=true
+CREEM_API_KEY=<test API key>
+CREEM_WEBHOOK_SECRET=<test webhook signing secret>
+CREEM_PRODUCT_INDIVIDUAL=<test product ID>
+CREEM_PRODUCT_PRO=<test product ID>
+CREEM_PRODUCT_TEAM=<test product ID>
+```
+Keep the existing primary Supabase URL, public key and service role key unchanged.
+Start `npm run dev` and expose only localhost for Creem Test Mode webhooks with
+`cloudflared tunnel --url http://localhost:3000`. In Creem **Test Mode**, register
+the resulting HTTPS tunnel URL plus `/api/webhooks/creem`; paste its generated
+secret to `.env.local` then restart `npm run dev`. No test webhook goes to
+`www.actiproc.com`, because its production runtime intentionally rejects test keys.
+Run payment tests against an organization you own. Test subscriptions and webhook
+events are written into the real primary DB and can unlock a plan in the live app;
+reset them deliberately after testing, never through bulk table deletion.
+
+Safety: `CREEM_TEST_ON_PRIMARY_DB=true` is ignored on Vercel (preview and production),
+in production NODE_ENV, without an explicit checkout flag, or unless NEXTAUTH_URL
+is localhost. Production requires separately approved Creem live credentials,
+CREEM_MODE=live, VERCEL_ENV=production, and deliberate checkout activation.

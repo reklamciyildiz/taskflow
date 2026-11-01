@@ -112,3 +112,20 @@ assert.equal(isPaidActive('cancelled',null),false);
 assert.equal(isPaidActive('past_due',future),false);
 assert.equal(isPaidActive('paused',future),false);
 assert.equal(isPaidActive('expired',future),false);
+
+// Opt-in primary Supabase tests: one main branch, one .env.local, no staging required.
+// The primary DB override is forbidden in any Vercel environment.
+const primary = {
+  ...env, VERCEL_ENV: undefined, NODE_ENV: 'development',
+  NEXTAUTH_URL: 'http://localhost:3000',
+  NEXT_PUBLIC_SUPABASE_URL: 'https://primaryproject123.supabase.co',
+  CREEM_MODE:'test', CREEM_CHECKOUT_ENABLED:'true', CREEM_TEST_ON_PRIMARY_DB:'true',
+} as NodeJS.ProcessEnv;
+assert.equal(creemCheckoutEnvironmentSafe(primary),true);
+assert.equal(creemCheckoutEnvironmentSafe({...primary,CREEM_TEST_ON_PRIMARY_DB:'false'}),false);
+assert.equal(creemCheckoutEnvironmentSafe({...primary,NEXTAUTH_URL:'https://www.actiproc.com'}),false);
+assert.equal(creemCheckoutEnvironmentSafe({...primary,VERCEL_ENV:'preview'}),false);
+assert.equal(creemCheckoutEnvironmentSafe({...primary,VERCEL_ENV:'production'}),false);
+assert.equal(creemCheckoutEnvironmentSafe({...primary,NODE_ENV:'production'}),false);
+assert.equal(creemCheckoutEnvironmentSafe({...primary,NEXT_PUBLIC_SUPABASE_URL:'https://malicious.example'}),false);
+assert.equal(creemCheckoutEnvironmentSafe({...primary,CREEM_CHECKOUT_ENABLED:'false'}),false);

@@ -3,11 +3,29 @@ export type CreemMode = 'test' | 'live';
 /** Creem API responses use prod, not live, for production mode. */
 export function creemResponseMode(config: Pick<CreemConfig, 'mode'>): 'test' | 'prod' { return config.mode === 'live' ? 'prod' : 'test'; }
 export type CreemConfig = { apiKey: string; secret: string; mode: CreemMode; products: Record<PaidActiprocPlan,string>; baseUrl: string };
-/** Merging main must never activate an unapproved checkout. */
+/** Checkout always starts closed; test checkout on primary DB requires explicit local opt-in. */
 export function creemCheckoutEnvironmentSafe(env: NodeJS.ProcessEnv = process.env): boolean {
   if (env.CREEM_CHECKOUT_ENABLED !== 'true') return false;
   if (env.CREEM_MODE === 'live') return env.VERCEL_ENV === 'production';
   if (env.CREEM_MODE !== 'test' || env.VERCEL_ENV === 'production') return false;
+
+  // This user runs Creem Test Mode from .env.local against their primary Supabase
+  // project, deliberately. Never permit that override on Vercel or a deployed app.
+  if (env.CREEM_TEST_ON_PRIMARY_DB === 'true') {
+    if (env.NODE_ENV !== 'development' || !!env.VERCEL_ENV) return false;
+    try {
+      const authUrl = new URL(env.NEXTAUTH_URL ?? '');
+      const supabaseUrl = new URL(env.NEXT_PUBLIC_SUPABASE_URL ?? '');
+      return authUrl.protocol === 'http:' &&
+        ['localhost', '127.0.0.1'].includes(authUrl.hostname) &&
+        supabaseUrl.protocol === 'https:' &&
+        /^[a-z0-9]+\\.supabase\\.co$/.test(supabaseUrl.hostname);
+    } catch {
+      return false;
+    }
+  }
+
+  // Existing isolated staging mode remains available but is never required.
   const ref = env.AXIOM_STAGING_SUPABASE_PROJECT_REF?.trim();
   return !!ref && env.NEXT_PUBLIC_SUPABASE_URL === 'https://' + ref + '.supabase.co';
 }
