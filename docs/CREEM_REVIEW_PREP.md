@@ -47,3 +47,11 @@ After a Test Mode API key is saved locally, run `npm run creem:verify-products`.
 The command checks price, recurrence, tax mode, test environment and activity directly against Creem without printing any credentials.
 Only enable `NEW_BILLING_PROVIDER=creem` against a migrated **staging database**, never against an unmigrated production database.
 Checkout callback and webhook delivery need an accessible test origin, not a local-only localhost callback.
+
+## Staging migration inventory (important)
+
+The staging bootstrap now registers the Creem migration as `20261101110000 creem_parallel_billing`.
+Before *any* database write, run `npm run staging:db:check` and inspect `pendingMigrations`.
+A previous check on 2026-11-01 returned 51/52 applied. That missing historical migration has NOT been identified; **do not apply all pending migrations blindly**.
+The Creem SQL must only run on the separately verified staging project, never the live production database.
+If you execute the Creem SQL manually in the staging SQL editor, that does **not** automatically register it in the bootstrap's own `supabase_migrations.axiom_schema_migrations` table. Prefer a reviewed migration apply with tracked checksum, or explicitly reconcile migration history before later bootstrap applies.
