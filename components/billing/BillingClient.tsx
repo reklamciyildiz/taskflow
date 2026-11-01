@@ -584,7 +584,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
           })}
         </div>
         <p className="mt-3 text-center text-[11px] text-muted-foreground">
-          USD base prices: Individual $12/year, Pro $4/month, Team $6/seat/month. Taxes may apply.
+          USD prices: Individual $12/year, Pro $4/seat/month, Team $6/seat/month. Creem includes applicable taxes in the listed price; verify the final amount at checkout.
         </p>
       </div>
 

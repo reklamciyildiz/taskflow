@@ -6,7 +6,7 @@ import { getOrganizationSeatUsage } from '@/lib/entitlements';
 import { APP_URL } from '@/lib/site-config';
 import { creemApi, creemProductForPlan, getCreemConfig, creemResponseMode } from '@/lib/creem-config';
 import { fetchCreemSubscription, reconcileCreemSubscription } from '@/lib/creem-subscription';
-import { isPaidPlan, type PaidActiprocPlan } from '@/lib/billing-plans';
+import { CREEM_EXPECTED_TAX_MODE, isPaidPlan, type PaidActiprocPlan } from '@/lib/billing-plans';
 
 function errorResponse(e: unknown, operation: string) {
  console.error('[creem] ' + operation, e instanceof Error ? e.message : 'unexpected');
@@ -41,7 +41,8 @@ export async function createCreemCheckout(request:NextRequest, orgId:string, ema
   const expectedPeriod=plan==='individual'?'every-year':'every-month';
   if(product.id!==productId || product.mode!==creemResponseMode(config) ||
      product.price!==expectedCents || product.currency!=='USD' || product.billing_type!=='recurring' ||
-     product.billing_period!==expectedPeriod || product.tax_mode!=='exclusive' || product.status!=='active')
+     product.billing_period!==expectedPeriod || product.tax_mode!==CREEM_EXPECTED_TAX_MODE ||
+     product.tax_category!=='saas' || product.status!=='active')
     return NextResponse.json({success:false,error:'Creem product settings do not match Actiproc pricing. Contact support.'},{status:409});
   const requestId=crypto.randomUUID();
   const {error:intentError}=await (supabaseAdmin as any).from('creem_checkout_intents').insert({

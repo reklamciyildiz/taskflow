@@ -1,3 +1,7 @@
+/** Creem test products use tax-inclusive pricing: taxes are included in the customer-facing price when applicable.
+ * This is the signed-off test configuration, not proof of live checkout behavior in all jurisdictions.
+ */
+export const CREEM_EXPECTED_TAX_MODE = 'inclusive' as const;
 /** Public USD list prices; checkout product IDs come from Creem configuration. */
 export const ACTIPROC_PLANS = {
   free: { priceUsd: 0, cadence: 'free', maxProcesses: 1, maxTeams: 1 },

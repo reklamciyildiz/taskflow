@@ -8,7 +8,7 @@ This branch does **not** change production Lemon Squeezy subscriptions. Do not m
 - Pro: **$4/seat/month** (per-user billing, same pricing unit as Team)
 - Team: **$6/seat/month**, unlimited processes and workspaces
 
-Creem products must be recurring, USD, SaaS, **exclusive** tax mode, and use respective intervals. Create in **Test Mode first**; never substitute test product IDs for live IDs.
+Creem TEST products must be recurring, USD, SaaS, **inclusive** tax mode, and use respective intervals. The $12/$4/$6 listed prices are tax-inclusive where applicable; verify the final country-specific checkout amount before enabling live sales. Switching to exclusive tax mode later requires explicit price and product review. Create in **Test Mode first**; never substitute test product IDs for live IDs.
 
 ## Environment variables (server-side only)
 - `NEW_BILLING_PROVIDER=creem` enables Creem for **new** subscriptions; omit in production until approved.

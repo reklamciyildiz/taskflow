@@ -1,5 +1,5 @@
 import { loadEnvConfig } from '@next/env';
-import { ACTIPROC_PLANS } from '../lib/billing-plans';
+import { ACTIPROC_PLANS, CREEM_EXPECTED_TAX_MODE } from '../lib/billing-plans';
 
 // Read the developer's existing .env.local; never print API/webhook secrets.
 loadEnvConfig(process.cwd(), true);
@@ -91,7 +91,7 @@ async function main(): Promise<void> {
     expect('billing_period',plan.cadence,'Billing period');
     expect('status','active','Status');
     expect('tax_category','saas','Tax category');
-    expect('tax_mode','exclusive','Tax mode');
+    expect('tax_mode',CREEM_EXPECTED_TAX_MODE,'Tax mode');
     if (issues.length) {
       console.error(plan.name + ': configuration mismatch');
       for (const issue of issues) console.error('  - ' + issue);

@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { ACTIPROC_PLANS } from '../lib/billing-plans';
+import { ACTIPROC_PLANS, CREEM_EXPECTED_TAX_MODE } from '../lib/billing-plans';
 import { getCreemConfig, creemPlanForProduct, creemResponseMode } from '../lib/creem-config';
 import { normalizeCreemSubscription } from '../lib/creem-subscription-contract';
 
 assert.deepEqual([ACTIPROC_PLANS.free.maxProcesses,ACTIPROC_PLANS.individual.maxProcesses,ACTIPROC_PLANS.pro.maxProcesses],[1,3,10]);
 assert.deepEqual([ACTIPROC_PLANS.individual.priceUsd,ACTIPROC_PLANS.pro.priceUsd,ACTIPROC_PLANS.team.priceUsd],[12,4,6]);
+assert.equal(CREEM_EXPECTED_TAX_MODE, 'inclusive');
 const env = {
  NODE_ENV: 'development', VERCEL_ENV: 'preview', CREEM_MODE:'test',
  CREEM_API_KEY:'test-only-not-real', CREEM_WEBHOOK_SECRET:'webhook-test-only',
@@ -45,6 +46,10 @@ const checkout=fs.readFileSync('app/api/billing/checkout/route.ts','utf8');
 assert.ok(checkout.includes("platformCookie === 'android-twa'"),'Android TWA checkout block missing');
 assert.ok(checkout.includes("newBillingProvider() === 'creem'"),'Creem not isolated from legacy checkout');
 assert.ok(checkout.includes("requestedBody?.plan === 'individual'"),'Legacy Lemon Individual must fail closed');
+const checkoutOperation=fs.readFileSync('lib/creem-billing-operations.ts','utf8');
+assert.ok(checkoutOperation.includes('product.tax_mode!==CREEM_EXPECTED_TAX_MODE'),'Checkout must match configured Creem tax mode');
+const verifier=fs.readFileSync('scripts/verify-creem-products.ts','utf8');
+assert.ok(verifier.includes("expect('tax_mode',CREEM_EXPECTED_TAX_MODE"),'Preflight must match checkout tax mode');
 const webhook=fs.readFileSync('app/api/webhooks/creem/route.ts','utf8');
 assert.ok(webhook.includes("timingSafeEqual"),'Missing webhook timing-safe verification');
 assert.ok(webhook.includes("checkout.completed") && webhook.includes("hold_creem_subscription"));

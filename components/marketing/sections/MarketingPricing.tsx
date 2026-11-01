@@ -22,7 +22,7 @@ export function MarketingPricing() {
      <ul className="mt-6 flex flex-1 flex-col gap-3 text-sm text-zinc-300">{p.features.map(f=><li key={f} className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400"/>{f}</li>)}</ul>
      <Link href={p.id==='free'?'/auth/signup':`/auth/signup?callbackUrl=${encodeURIComponent('/settings/billing?plan='+p.id)}`} className={`mt-8 inline-flex min-h-11 items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold ${p.id==='pro'?'bg-emerald-500 text-zinc-950 hover:bg-emerald-400':'border border-white/10 bg-white/[0.06] text-white hover:bg-white/[0.10]'}`}>{p.cta}</Link>
     </article>})}</div>
-   <p className="mt-8 text-center text-xs text-zinc-500">USD base prices. Applicable tax may be added at checkout. Individual renews annually; Pro and Team renew monthly.</p>
+   <p className="mt-8 text-center text-xs text-zinc-500">USD prices include applicable tax under our Creem pricing configuration. The final amount and any tax are shown at checkout. Individual renews annually; Pro and Team renew monthly.</p>
   </div>
  </section>;
 }
