@@ -226,7 +226,7 @@ assert.deepEqual(seatUpdatePayload(seatDetails,1,'proration-none'),{
   update_behavior:'proration-none'
 });
 assert.throws(()=>seatUpdatePayload(minimal,501,'proration-none'),SeatValidationError);
-assert.throws(()=>seatUpdatePayload({itemId:'wrong',productId:'prod_pro123'},5,'proration-none'),SeatValidationError);
+assert.throws(()=>seatUpdatePayload({itemId:'wrong',productId:'prod_pro123',priceId:null},5,'proration-none'),SeatValidationError);
 const seatRouteCode=fs.readFileSync('lib/creem-billing-operations.ts','utf8');
 assert.ok(seatRouteCode.includes('parseCreemSeatState') && seatRouteCode.includes('STALE_SEAT_STATE') &&
  seatRouteCode.includes('pendingVerification:!verified'), 'Seat changes must require identity and payment verification');
