@@ -211,11 +211,11 @@ export async function getCreemResumeAvailability(orgId: string) {
   const org:any=await organizationDb.getById(orgId);
   if(!org || org.billing_provider!=='creem' || !org.creem_subscription_id ||
      !org.creem_customer_id || org.creem_payment_hold ||
-     (org.subscription_status!=='cancelled' && org.subscription_status!=='paused'))
-   return NextResponse.json({success:true,data:{canResume:false}});
+     (org.subscription_status!=='cancelled' && org.subscription_status!=='paused' && org.subscription_status!=='expired'))
+   return NextResponse.json({success:true,data:{canResume:false,canResubscribe:false}});
   const config=getCreemConfig();
   if(Boolean(org.creem_test_mode)!==(config.mode==='test'))
-   return NextResponse.json({success:true,data:{canResume:false}});
+   return NextResponse.json({success:true,data:{canResume:false,canResubscribe:false}});
   const raw=await creemApi<any>(config,'GET','subscriptions?subscription_id='+encodeURIComponent(org.creem_subscription_id));
   const remote=raw?.subscription??raw;
   const customerId=typeof remote?.customer==='string'?remote.customer:remote?.customer?.id;
@@ -224,12 +224,18 @@ export async function getCreemResumeAvailability(orgId: string) {
    customerId===org.creem_customer_id &&
    productId===org.creem_product_id &&
    remote?.mode===creemResponseMode(config);
+  const remoteStatus=String(remote?.status??'');
   return NextResponse.json({success:true,data:{
-   canResume:matches && creemResumeEligibility(String(remote?.status??''))==='resume'
+   canResume:matches && creemResumeEligibility(remoteStatus)==='resume',
+   canResubscribe:matches &&
+     process.env.CREEM_RESUBSCRIPTION_ENABLED==='true' &&
+     !org.ls_subscription_id &&
+     ['canceled','expired'].includes(remoteStatus) &&
+     ['cancelled','expired'].includes(org.subscription_status)
   }},{headers:{'Cache-Control':'no-store'}});
  } catch {
   // Network failures must not result in an action that will just return an error.
-  return NextResponse.json({success:true,data:{canResume:false}},
+  return NextResponse.json({success:true,data:{canResume:false,canResubscribe:false}},
    {headers:{'Cache-Control':'no-store'}});
  }
 }
