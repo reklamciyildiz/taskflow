@@ -268,3 +268,8 @@ assert.ok(seatGuardSql.includes("o.billing_provider IS DISTINCT FROM 'creem'"), 
 assert.ok(seatGuardSql.includes("p_before_transaction"), 'Payment verification must preserve the last transaction ID before the seat change');
 assert.ok(seatGuardSql.includes("COUNT(DISTINCT tm.user_id)") && seatGuardSql.includes("FOR UPDATE"),
  'Concurrent organization membership inserts must be serialized and count distinct users');
+
+// Regression: an earlier migration granted EXECUTE to a nonexistent five-argument overload.
+const seatSql=fs.readFileSync('supabase/migrations/20261101180000_creem_seat_change_safety.sql','utf8');
+assert.ok(seatSql.includes('GRANT EXECUTE ON FUNCTION public.reserve_creem_seat_change(UUID,TEXT,INTEGER,INTEGER,BOOLEAN,TEXT)'), 'Reservation grant must exactly match the six-argument function');
+assert.ok(!seatSql.includes('GRANT EXECUTE ON FUNCTION public.reserve_creem_seat_change(UUID,TEXT,INTEGER,INTEGER,BOOLEAN)'), 'Legacy five-parameter grant must never return');

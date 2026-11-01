@@ -54,7 +54,7 @@ EXCEPTION WHEN unique_violation THEN
 END $$;
 REVOKE ALL ON FUNCTION public.reserve_creem_seat_change(UUID,TEXT,INTEGER,INTEGER,BOOLEAN,TEXT)
  FROM PUBLIC,anon,authenticated;
-GRANT EXECUTE ON FUNCTION public.reserve_creem_seat_change(UUID,TEXT,INTEGER,INTEGER,BOOLEAN)
+GRANT EXECUTE ON FUNCTION public.reserve_creem_seat_change(UUID,TEXT,INTEGER,INTEGER,BOOLEAN,TEXT)
  TO service_role;
 
 CREATE OR REPLACE FUNCTION public.transition_creem_seat_change(
