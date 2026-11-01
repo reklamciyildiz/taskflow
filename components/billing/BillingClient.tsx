@@ -319,7 +319,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                   ? void openCheckout(selectedPlan, { billingInterval: selectedPlan === 'individual' ? 'yearly' : 'monthly', resubscribe: true, acceptNewCharge })
                   : billingPlan === 'free'
                     ? void openCheckout(selectedPlan, { billingInterval: selectedPlan === 'individual' ? 'yearly' : 'monthly' })
-                    : void switchPlan(selectedPlan, { billingInterval: 'monthly' })}
+                    : void requestPlanReview(selectedPlan)}
               >
                 Continue to checkout
               </Button>
@@ -393,7 +393,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                   {busy ? 'Opening…' : 'Upgrade to Individual'}
                 </Button>
               ) : billingPlan === 'individual' && !canResubscribe ? (
-                <Button type="button" size="sm" disabled={!canUpgrade || busy} title={!canUpgrade ? 'Plan upgrades are unavailable while the subscription is cancelled or paused' : undefined} onClick={() => void switchPlan('pro', { billingInterval: 'monthly' })}>Upgrade to Pro</Button>
+                <Button type="button" size="sm" disabled={!canUpgrade || busy} title={!canUpgrade ? 'Plan upgrades are unavailable while the subscription is cancelled or paused' : undefined} onClick={() => void requestPlanReview('pro')}>Upgrade to Pro</Button>
               ) : billingPlan === 'pro' && !canResubscribe ? (
                 // Upgrade the existing Creem subscription, not a second checkout.
                 <Button
@@ -401,7 +401,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                   size="sm"
                   disabled={!canUpgrade || busy}
                   title={!canUpgrade ? 'Plan upgrades are unavailable while the subscription is cancelled or paused' : undefined}
-                  onClick={() => void switchPlan('team', { billingInterval: 'monthly' })}
+                  onClick={() => void requestPlanReview('team')}
                 >
                   {busy ? 'Switching…' : 'Upgrade to Team'}
                 </Button>
@@ -591,8 +591,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                   onClick={async () => {
                     setAddSeatsError(null);
                     try {
-                      await updateSeats(desiredSeats);
-                      setAddSeatsOpen(false);
+                      await requestSeatReview(desiredSeats);
                     } catch (e: unknown) {
                       const err = e as Error & { code?: string };
                       setAddSeatsError({ message: err?.message || 'Seat update failed', code: err?.code, traceId:(err as Error & {traceId?:string})?.traceId });
@@ -602,8 +601,8 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                   {busy
                     ? 'Saving…'
                     : isDecrease
-                      ? `Confirm — reduce to ${desiredSeats} seats`
-                      : `Confirm — ${desiredSeats} seats`}
+                      ? `Review reduction to ${desiredSeats} seats`
+                      : `Review payment for ${desiredSeats} seats`}
                 </Button>
               </div>
             );
@@ -703,7 +702,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                           ? void openCheckout(key, {billingInterval:key === 'individual' ? 'yearly' : 'monthly', resubscribe:true, acceptNewCharge})
                           : billingPlan === 'free'
                             ? void openCheckout(key, {billingInterval:key === 'individual' ? 'yearly' : 'monthly'})
-                            : void switchPlan(key, {billingInterval:'monthly'})}>
+                            : void requestPlanReview(key)}>
                         {canResubscribe ? 'Subscribe to ' + title : current ? 'Current plan' : !canUpgrade ? billingStatus === 'cancelled' ? 'Not available after cancellation' : 'Unavailable for this subscription' : 'Choose ' + title}
                       </Button>
                     </>
