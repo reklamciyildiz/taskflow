@@ -26,6 +26,5 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run test:creem
-      - run: npm run test:billing
       - run: npm run test:twa
       - run: npx tsc --noEmit

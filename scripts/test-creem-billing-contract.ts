@@ -43,7 +43,7 @@ const sql=fs.readFileSync('supabase/migrations/20261101110000_creem_parallel_bil
 for(const required of ['creem_payment_hold','claim_creem_event','apply_creem_subscription_snapshot','ls_subscription_id IS NULL','creem_checkout_intents','creem_webhook_events'])
  assert.ok(sql.includes(required),'Missing migration guard '+required);
 const checkout=fs.readFileSync('app/api/billing/checkout/route.ts','utf8');
-assert.ok(checkout.includes("platformCookie === 'android-twa'"),'Android TWA checkout block missing');
+assert.ok(checkout.includes("request.cookies.get('actiproc_platform')?.value === 'android-twa'"),'Android TWA checkout block missing');
 assert.ok(checkout.includes('creemCheckoutEnvironmentSafe()'),'Checkout gate required');
 assert.equal(creemCheckoutEnvironmentSafe({...env,CREEM_CHECKOUT_ENABLED:'true',AXIOM_STAGING_SUPABASE_PROJECT_REF:'staging123',NEXT_PUBLIC_SUPABASE_URL:'https://staging123.supabase.co'}),true);
 assert.equal(creemCheckoutEnvironmentSafe({...env,CREEM_CHECKOUT_ENABLED:'true'}),false);

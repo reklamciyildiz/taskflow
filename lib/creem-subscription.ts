@@ -11,7 +11,7 @@ export async function reconcileCreemSubscription(organizationId: string,subscrip
  const org:any=await organizationDb.getById(organizationId);
  if (!org) throw new Error('Organization not found');
  if (org.billing_provider==='lemon' || (org.ls_subscription_id && org.subscription_status!=='expired'))
-   throw new Error('Existing Lemon subscription cannot be replaced automatically');
+   throw new Error('A legacy subscription cannot be replaced automatically');
  if (org.creem_subscription_id && org.creem_subscription_id!==subscriptionId)
    throw new Error('Different Creem subscription already linked');
  if (org.creem_payment_hold) throw new Error('Creem payment hold requires manual review');

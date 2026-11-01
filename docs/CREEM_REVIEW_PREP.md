@@ -1,6 +1,6 @@
 # Creem review preparation (staging only)
 
-This branch does **not** change production Lemon Squeezy subscriptions. Do not merge or run migrations in production before account approval, legal review and live-mode E2E tests.
+Actiproc now has a single Creem runtime. Production checkout is disabled until account approval, legal review, and live-mode E2E tests.
 
 ## Agreed public prices
 - Free: $0, **1 process**
@@ -22,11 +22,11 @@ Creem TEST products must be recurring, USD, SaaS, **inclusive** tax mode, and us
 ## Review gate
 1. Apply `supabase/migrations/20261101110000_creem_parallel_billing.sql` to a **staging** DB first.
 2. Configure a test key and three test product IDs; create webhook pointing to `/api/webhooks/creem`.
-3. Test one checkout for every plan, renewal, cancellation, refund, dispute, portal, plan changes, seats, retries, duplicate/out-of-order webhooks and existing Lemon subscription preservation.
+3. Test one checkout for every plan, renewal, cancellation, refund, dispute, portal, plan changes, seats, retries, duplicate/out-of-order webhooks and legacy database record protection.
 4. Verify that a failed payment never unlocks access and that no checkout can be created in Android TWA.
 5. Verify legal/support pages and live product onboarding; provision a **temporary 100% discount test coupon** for Creem review only if requested.
 6. Obtain Creem KYC approval and confirm Turkish tax/legal obligations with a professional.
-7. Only then create live products/keys, run approved migration, enable production Creem and switch billing copy. Do not remove Lemon records until existing subscribers are resolved.
+7. Only after account approval and testing, create live products/keys, deploy them via Vercel server secrets and set CREEM_CHECKOUT_ENABLED=true in production. Do not remove historical database migrations.
 
 Important: website text and marketing price cards are not proof of a completed payment. Authoritative subscription data must come from verified Creem responses and webhooks.
 
@@ -42,7 +42,7 @@ Product IDs are not API keys. Verify the exact strings via the dashboard's copy 
 
 Do not replace the existing contents of `.env.local` and do not upload that file.
 The API key and webhook secret must be generated from Creem's **Test Mode** settings; these cannot be inferred from Product IDs.
-Use `CREEM_MODE=test` and initially keep `NEW_BILLING_PROVIDER=lemon`.
+Use `CREEM_MODE=test` and `CREEM_CHECKOUT_ENABLED=true` only against the dedicated staging Supabase project. Checkout is off by default.
 After a Test Mode API key is saved locally, run `npm run creem:verify-products`.
 The command checks price, recurrence, tax mode, test environment and activity directly against Creem without printing any credentials.
 Only enable `NEW_BILLING_PROVIDER=creem` against a migrated **staging database**, never against an unmigrated production database.
@@ -61,3 +61,8 @@ Because the Creem and Lemon reliability SQL were run manually in Supabase SQL Ed
 
 ## When the staging inspector fails all checks
 If SQL Editor reported Creem structures as present but `npm run staging:billing:inspect` reports every billing structure missing, the SQL Editor and CLI most likely targeted **different Supabase projects**. The inspector prints a staging-specific `stagingSqlEditor` link derived from `.env.staging.local`. Open *that exact link* and run read-only catalog queries. Do not replay the migrations or mark history as applied until their actual destination is confirmed. If manual SQL was inadvertently run against production, audit production first; do not automatically roll it back.
+
+## Single-main deployment
+The shipping code is Creem-only. Historical Lemon SQL remains for reproducible migration history, but checkout, portal, subscription changes, SDK, and webhook routes no longer call Lemon. GitHub main can deploy with `CREEM_CHECKOUT_ENABLED=false` (default).
+Test locally using the isolated staging project: copy the validated Creem Test Mode product IDs, API key and webhook secret to `.env.staging.local`, set `CREEM_MODE=test` and `CREEM_CHECKOUT_ENABLED=true`. Test checkouts explicitly require `AXIOM_STAGING_SUPABASE_PROJECT_REF` to match the app Supabase URL; a standard `.env.local` pointing to production is refused.
+For production: obtain Creem approval, create separate live products and secrets, configure the production webhook, set `CREEM_MODE=live`, then intentionally set `CREEM_CHECKOUT_ENABLED=true` in Vercel Production. Production never uses a test key or test product IDs.
