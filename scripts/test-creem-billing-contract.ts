@@ -160,4 +160,12 @@ assert.ok(operations.includes("+'/resume'") && operations.includes('reconcileCre
 const hookCode=fs.readFileSync('hooks/useOrganizationBilling.ts','utf8');
 const clientCode=fs.readFileSync('components/billing/BillingClient.tsx','utf8');
 assert.ok(hookCode.includes("fetch('/api/billing/resume'") && clientCode.includes('resumeSubscription()'), 'Resume action must be wired to Billing UI');
-assert.ok(clientCode.includes('Resume billing first'), 'Cancelled-plan pricing must explain next step');
+assert.ok(clientCode.includes('canResume && hasPaidSubscription'), 'Resume action must require verified remote eligibility');
+assert.ok(clientCode.includes('Not available after cancellation'), 'Cancelled-plan pricing must not promise an impossible resume');
+assert.ok(!clientCode.includes('Select <strong>Resume billing</strong>'), 'Never direct terminal subscriptions to an unsupported resume action');
+assert.ok(hookCode.includes("fetch('/api/billing/resume',{cache:'no-store'})"), 'The resume check must be read-only and fetched from Creem');
+
+const resumeServer=fs.readFileSync('lib/creem-billing-operations.ts','utf8');
+assert.ok(resumeRoute.includes('export async function GET') && resumeRoute.includes('getCreemResumeAvailability'), 'Resume eligibility must be checked via authenticated read-only endpoint');
+assert.ok(resumeServer.includes("creemResumeEligibility(String(remote?.status??''))==='resume'"), 'Only remotely resumable statuses may show the action');
+assert.ok(resumeServer.includes("customerId===org.creem_customer_id") && resumeServer.includes("productId===org.creem_product_id"), 'Remote eligibility must verify ownership and product');

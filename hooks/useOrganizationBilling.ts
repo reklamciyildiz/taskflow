@@ -16,10 +16,13 @@ export function useOrganizationBilling(organizationId: string | null) {
   const [seatsUsed, setSeatsUsed] = useState(1);
   const [subscriptionId, setSubscriptionId] = useState<string | null>(null);
   const [endsAt, setEndsAt] = useState<string | null>(null);
+  // Default to no resume action until Creem confirms eligibility for this subscription.
+  const [canResume, setCanResume] = useState(false);
 
   const refreshBilling = useCallback(async () => {
     if (!organizationId) return;
     setBillingLoading(true);
+    setCanResume(false);
     try {
       // Reconcile the authoritative subscription before rendering entitlements.
       // A failed reconciliation never grants access; the last verified local state remains visible.
@@ -54,6 +57,13 @@ export function useOrganizationBilling(organizationId: string | null) {
         setSubscriptionId(typeof sid === 'string' && sid ? sid : null);
         const end = json.data.endsAt;
         setEndsAt(typeof end === 'string' && end ? end : null);
+        if ((status === 'cancelled' || status === 'paused') && typeof sid === 'string' && sid) {
+          // Local "cancelled" also represents terminal Creem cancellations.
+          // Never show Resume on local status alone.
+          const response=await fetch('/api/billing/resume',{cache:'no-store'}).catch(()=>null);
+          const result=response?.ok ? await response.json().catch(()=>null) : null;
+          setCanResume(result?.success === true && result?.data?.canResume === true);
+        }
       }
     } catch {
       // ignore — stale state is acceptable
@@ -229,5 +239,6 @@ export function useOrganizationBilling(organizationId: string | null) {
     switchPlan,
     updateSeats,
     resumeSubscription,
+    canResume,
   };
 }
