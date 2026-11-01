@@ -100,6 +100,7 @@ const migrationSources = [
   ['20261025160000', 'lemon_webhook_reliability', ['supabase/migrations/20261025160000_lemon_webhook_reliability.sql']],
   ['20261101110000', 'creem_parallel_billing', ['supabase/migrations/20261101110000_creem_parallel_billing.sql']],
   ['20261101170000', 'creem_safe_resubscription', ['supabase/migrations/20261101170000_creem_safe_resubscription.sql']],
+  ['20261101180000', 'creem_seat_change_safety', ['supabase/migrations/20261101180000_creem_seat_change_safety.sql']],
 ];
 
 // The historical baseline helper already creates this trigger, while the later
