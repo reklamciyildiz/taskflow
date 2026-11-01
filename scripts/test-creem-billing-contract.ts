@@ -10,6 +10,7 @@ import { creemResumeEligibility } from '../lib/creem-lifecycle';
 import { parseCreemSeatState, seatUpdatePayload, SeatValidationError } from '../lib/creem-seats';
 import { matchesPaidSeatIncrease } from '../lib/creem-seat-payment';
 import { issueBillingConsent, verifyBillingConsent, type BillingConsentState } from '../lib/creem-billing-consent';
+import { readCreemBillingCycle, creemUtcDate, CREEM_IMMEDIATE_CYCLE_POLICY } from '../lib/creem-billing-cycle';
 
 assert.deepEqual([ACTIPROC_PLANS.free.maxProcesses,ACTIPROC_PLANS.individual.maxProcesses,ACTIPROC_PLANS.pro.maxProcesses],[1,3,10]);
 assert.deepEqual([ACTIPROC_PLANS.individual.priceUsd,ACTIPROC_PLANS.pro.priceUsd,ACTIPROC_PLANS.team.priceUsd],[12,4,6]);
@@ -334,7 +335,8 @@ assert.ok(paymentOps.includes('verifyCreemSeatIncreasePayment(config,{') &&
 const consentState:BillingConsentState={
  operation:'seats',organizationId:'org_test',subscriptionId:'sub_test',
  fromPlan:'pro',toPlan:'pro',fromSeats:3,toSeats:4,mode:'test',
- lastTransactionId:'tran_before',updatedAt:'2026-11-01T20:10:00.000Z'
+ lastTransactionId:'tran_before',updatedAt:'2026-11-01T20:10:00.000Z',
+ periodEndAt:'2026-12-01T20:10:00.000Z',nextChargeAt:'2026-12-01T20:10:00.000Z'
 };
 const signingSecret='creem-webhook-secret-for-consent-tests-only-123';
 const issuedAt=Date.UTC(2026,10,1,20,10);
@@ -346,6 +348,8 @@ for (const altered of [
  {...consentState,organizationId:'org_other'}, {...consentState,subscriptionId:'sub_other'},
  {...consentState,mode:'prod' as const}, {...consentState,lastTransactionId:'tran_after'},
  {...consentState,updatedAt:'2026-11-01T20:11:00.000Z'},
+ {...consentState,periodEndAt:'2026-12-09T20:10:00.000Z'},
+ {...consentState,nextChargeAt:'2026-12-09T20:10:00.000Z'},
  {...consentState,operation:'upgrade' as const}, {...consentState,toPlan:'team'}
 ])assert.equal(verifyBillingConsent(consentToken,altered,signingSecret,issuedAt+1000),false,
  'Never reuse paid consent for changed billing state');
@@ -376,3 +380,48 @@ assert.ok(consentUI.includes('Authorize charge & confirm') &&
  consentUI.includes('reviewAcknowledged') && consentUI.includes('requestSeatReview') &&
  consentUI.includes('requestPlanReview'), 'Explicit modal approval must precede saved-card charges');
 console.log('Creem explicit billing-consent tests passed');
+
+const activeCycle=readCreemBillingCycle({subscription:{
+ status:'active',
+ current_period_start_date:'2026-11-01T20:03:00Z',
+ current_period_end_date:'2026-12-01T20:03:00Z',
+ next_transaction_date:'2026-12-01T20:03:00Z'
+}});
+assert.deepEqual(activeCycle,{
+ currentPeriodStartAt:'2026-11-01T20:03:00.000Z',
+ currentPeriodEndAt:'2026-12-01T20:03:00.000Z',
+ nextChargeAt:'2026-12-01T20:03:00.000Z',nextChargeVerified:true
+});
+const afterIncrease=readCreemBillingCycle({status:'active',
+ current_period_start_date:'2026-11-09T20:03:00Z',
+ current_period_end_date:'2026-12-09T20:03:00Z',
+ next_transaction_date:'2026-12-09T20:03:00Z'});
+assert.equal(afterIncrease.nextChargeAt,'2026-12-09T20:03:00.000Z',
+ 'Use actual new provider date, not sign-up date + 30 days');
+assert.equal(CREEM_IMMEDIATE_CYCLE_POLICY,'new-cycle-on-immediate-charge');
+for(const status of ['scheduled_cancel','canceled','expired','paused','unpaid','past_due']) {
+ const cycle=readCreemBillingCycle({status,next_transaction_date:'2026-12-09T20:03:00Z'});
+ assert.equal(cycle.nextChargeAt,null, 'Do not promise an automatic charge in '+status);
+}
+assert.equal(readCreemBillingCycle({status:'active',
+ current_period_end_date:'2026-12-09T20:03:00Z'}).nextChargeAt,null,
+ 'Period end is not proof of next card charge');
+assert.equal(readCreemBillingCycle({status:'active',next_transaction_date:'not a date'}).nextChargeVerified,false);
+assert.equal(creemUtcDate('2026-12-09'),null,'Reject date-only and timezone-ambiguous inputs');
+assert.equal(creemUtcDate('not a date'),null);
+assert.equal(creemUtcDate('2026-12-09T20:03:00+03:00'),'2026-12-09T17:03:00.000Z');
+const scheduleRoute=fs.readFileSync('app/api/billing/summary/route.ts','utf8');
+assert.ok(scheduleRoute.includes('readCreemBillingCycle') &&
+ scheduleRoute.includes('billingCycle') && scheduleRoute.includes('creemResponseMode(config)'),
+ 'Renewal calendar must be read from matching provider subscription, never guessed');
+const scheduleOps=fs.readFileSync('lib/creem-billing-operations.ts','utf8');
+assert.ok(scheduleOps.includes('currentNextChargeAt:cycleBefore.nextChargeAt') &&
+ scheduleOps.includes('nextChargeAfterChangeAt:null') &&
+ scheduleOps.includes('periodEndAt:cycleBefore.currentPeriodEndAt'),
+ 'Charge approval must disclose unknown next cycle and bind current schedule');
+const scheduleUI=fs.readFileSync('components/billing/BillingClient.tsx','utf8');
+assert.ok(scheduleUI.includes('Next scheduled card charge (Creem)') &&
+ scheduleUI.includes('The immediate-charge option starts a new billing cycle') &&
+ scheduleUI.includes('not a tax/discount-adjusted invoice quote'),
+ 'Billing must not falsely imply fixed anchor or exact payable amount');
+console.log('Creem billing-cycle regression tests passed');
