@@ -221,7 +221,7 @@ export async function changeCreemSeats(request:NextRequest, orgId:string) {
   let update:any;
   try {
     update=await creemApi<any>(config,'POST','subscriptions/'+encodeURIComponent(current.id),
-      seatUpdatePayload(current.itemId,desired,increased?'proration-charge-immediately':'proration-none'));
+      seatUpdatePayload(current,desired,increased?'proration-charge-immediately':'proration-none'));
   } catch(e) {
     // Unknown responses / provider timeouts may have charged the card.
     // Keep the request locked for review; never automatically charge a second time.
@@ -284,7 +284,7 @@ export async function changeCreemSeats(request:NextRequest, orgId:string) {
   if(e instanceof SeatValidationError) {
    const names={
      IDENTITY_MISMATCH:'Creem subscription ownership could not be verified. No seat update was requested.',
-     ITEM_MISMATCH:'Creem did not return a valid per-seat subscription item. No seat update was requested.',
+     ITEM_MISMATCH:'Creem did not return a complete item, product and price mapping for this subscription. No seat update was requested.',
      INVALID_UNITS:'Creem seat quantity is not valid. No seat update was requested.',
      STALE_SEAT_STATE:'Our seat count differs from Creem. Refresh Billing before making changes.',
      NOT_ACTIVE:'The Creem subscription is not active. Manage payment details in the customer portal.',
@@ -292,14 +292,16 @@ export async function changeCreemSeats(request:NextRequest, orgId:string) {
    return NextResponse.json({success:false,code:e.code,error:names[e.code]},{status:409});
   }
   if(e instanceof CreemApiError) {
-   const code=e.status===402?'PAYMENT_REQUIRED':
+   const code=e.status===404?'CREEM_RESOURCE_NOT_FOUND':
+     e.status===402?'PAYMENT_REQUIRED':
      e.status===429?'RATE_LIMITED':
      e.status>=500?'CREEM_UNAVAILABLE':
      e.status>=400&&e.status<500?'CREEM_REJECTED':'CREEM_ERROR';
    const error=code==='PAYMENT_REQUIRED'?'Creem could not collect the seat-change payment. Update the payment method in your customer portal.':
+     code==='CREEM_RESOURCE_NOT_FOUND'?'Creem could not find the subscription update resource or item (HTTP 404). Please use the Creem reference for technical support. Do not repeatedly retry this charge.':
      code==='CREEM_REJECTED'?'Creem rejected this seat change. Check the payment method or subscription settings.':
      'Creem did not confirm the seat change. Refresh your billing status before trying again.';
-   return NextResponse.json({success:false,code,error,traceId:e.traceId??undefined},{status:code==='PAYMENT_REQUIRED'?402:code==='RATE_LIMITED'?429:code==='CREEM_REJECTED'?409:503});
+   return NextResponse.json({success:false,code,error,traceId:e.traceId??undefined},{status:code==='PAYMENT_REQUIRED'?402:code==='RATE_LIMITED'?429:code==='CREEM_RESOURCE_NOT_FOUND'||code==='CREEM_REJECTED'?409:503});
   }
   return errorResponse(e,'update-seats');
  }

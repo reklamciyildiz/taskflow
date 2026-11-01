@@ -195,26 +195,30 @@ assert.ok(billingNew.includes('acceptNewCharge') && billingNew.includes('canResu
 assert.ok(!webhookRe.includes('claim_old_subscription'), 'Do not invent unsupported Creem event claim');
 
 const expectedSeatIdentity={subscriptionId:'sub_abc123',customerId:'cust_abc123',productId:'prod_pro123',mode:'test' as const};
-const seatExample={...raw,items:[{id:'sitem_good',product_id:'prod_pro123',units:2}]};
+const seatExample={...raw,items:[{id:'sitem_good',product_id:'prod_pro123',price_id:'price_good',units:2}]};
 const seatDetails=parseCreemSeatState(seatExample,expectedSeatIdentity);
 assert.equal(seatDetails.itemId,'sitem_good');
+assert.equal(seatDetails.priceId,'price_good');
 assert.equal(seatDetails.units,2);
 assert.equal(parseCreemSeatState({subscription:seatExample},expectedSeatIdentity).units,2);
 for(const invalid of [
  {...seatExample,mode:'prod'}, {...seatExample,customer:{id:'cust_other'}},
  {...seatExample,product:{id:'prod_team123'}}, {...seatExample,items:[]},
- {...seatExample,items:[{id:'sitem_good',product_id:'prod_wrong',units:2}]},
- {...seatExample,items:[{id:'wrong',units:2}]},
- {...seatExample,items:[{id:'sitem_good',units:0}]},
- {...seatExample,items:[{id:'sitem_good',units:1.5}]},
+ {...seatExample,items:[{id:'sitem_good',product_id:'prod_wrong',price_id:'price_good',units:2}]},
+ {...seatExample,items:[{id:'sitem_good',product_id:'prod_pro123',units:2}]},
+ {...seatExample,items:[{id:'wrong',product_id:'prod_pro123',price_id:'price_good',units:2}]},
+ {...seatExample,items:[{id:'sitem_good',product_id:'prod_pro123',price_id:'price_good',units:0}]},
+ {...seatExample,items:[{id:'sitem_good',product_id:'prod_pro123',price_id:'price_good',units:1.5}]},
 ])assert.throws(()=>parseCreemSeatState(invalid,expectedSeatIdentity),SeatValidationError);
-assert.deepEqual(seatUpdatePayload('sitem_good',5,'proration-charge-immediately'),{
- items:[{id:'sitem_good',units:5}],update_behavior:'proration-charge-immediately'
+assert.deepEqual(seatUpdatePayload(seatDetails,5,'proration-charge-immediately'),{
+ items:[{id:'sitem_good',product_id:'prod_pro123',price_id:'price_good',units:5}],
+ update_behavior:'proration-charge-immediately'
 });
-assert.deepEqual(seatUpdatePayload('sitem_good',1,'proration-none'),{
- items:[{id:'sitem_good',units:1}],update_behavior:'proration-none'
+assert.deepEqual(seatUpdatePayload(seatDetails,1,'proration-none'),{
+ items:[{id:'sitem_good',product_id:'prod_pro123',price_id:'price_good',units:1}],
+ update_behavior:'proration-none'
 });
-assert.throws(()=>seatUpdatePayload('sitem_good',501,'proration-none'),SeatValidationError);
+assert.throws(()=>seatUpdatePayload(seatDetails,501,'proration-none'),SeatValidationError);
 const seatRouteCode=fs.readFileSync('lib/creem-billing-operations.ts','utf8');
 assert.ok(seatRouteCode.includes('parseCreemSeatState') && seatRouteCode.includes('STALE_SEAT_STATE') &&
  seatRouteCode.includes('pendingVerification:!verified'), 'Seat changes must require identity and payment verification');
@@ -273,3 +277,8 @@ assert.ok(seatGuardSql.includes("COUNT(DISTINCT tm.user_id)") && seatGuardSql.in
 const seatSql=fs.readFileSync('supabase/migrations/20261101180000_creem_seat_change_safety.sql','utf8');
 assert.ok(seatSql.includes('GRANT EXECUTE ON FUNCTION public.reserve_creem_seat_change(UUID,TEXT,INTEGER,INTEGER,BOOLEAN,TEXT)'), 'Reservation grant must exactly match the six-argument function');
 assert.ok(!seatSql.includes('GRANT EXECUTE ON FUNCTION public.reserve_creem_seat_change(UUID,TEXT,INTEGER,INTEGER,BOOLEAN)'), 'Legacy five-parameter grant must never return');
+
+const readOnlyInspector=fs.readFileSync('scripts/inspect-creem-seats.ts','utf8');
+assert.ok(readOnlyInspector.includes("'GET'") && !readOnlyInspector.includes("'POST'"),'CLI must never mutate subscription seats');
+assert.ok(readOnlyInspector.includes('price_id') && readOnlyInspector.includes('product_id'),'CLI must surface safe item field availability');
+assert.ok(seatRouteCode.includes('CREEM_RESOURCE_NOT_FOUND'),'Creem 404 must not be described as a declined card');

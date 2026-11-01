@@ -34,6 +34,7 @@
     "test:mobile-release": "node scripts/test-mobile-release-contract.mjs",
     "test:creem": "tsx scripts/test-creem-billing-contract.ts",
     "creem:verify-products": "tsx scripts/verify-creem-products.ts",
+    "creem:inspect-seats": "tsx scripts/inspect-creem-seats.ts",
     "test:capacitor-oauth": "node scripts/test-capacitor-oauth-handoff.mjs",
     "migrate:auth": "tsx scripts/migrate-users-to-supabase-auth.ts",
     "ios:check": "npm run test:ios-shell && npm run test:ios-auth && npm run test:ios-ci && npm run test:ios-device-ci"

@@ -1,7 +1,5 @@
-import { creemResponseMode, type CreemConfig } from '@/lib/creem-config';
-
 export type CreemSeatState = {
-  id:string; customerId:string; productId:string; itemId:string;
+  id:string; customerId:string; productId:string; itemId:string; priceId:string;
   units:number; mode:string; status:string; updatedAt:string | null;
 };
 /** Creem GET /subscriptions can return either a root object or a subscription envelope. */
@@ -18,12 +16,15 @@ export function parseCreemSeatState(
     throw new SeatValidationError('IDENTITY_MISMATCH');
   if (!Array.isArray(items) || items.length!==1) throw new SeatValidationError('ITEM_MISMATCH');
   const item=items[0];
+  // The mutation contract references the existing subscription item AND its
+  // product/price. Never manufacture an ID: use the authoritative GET response.
   if(typeof item?.id!=='string' || !item.id.startsWith('sitem_') ||
-     (item.product_id && item.product_id!==expected.productId))
+     item.product_id!==expected.productId ||
+     typeof item.price_id!=='string' || !item.price_id.startsWith('price_'))
     throw new SeatValidationError('ITEM_MISMATCH');
   const units=Number(item.units);
   if(!Number.isSafeInteger(units)||units<1||units>500)throw new SeatValidationError('INVALID_UNITS');
-  return {id:raw.id,customerId,productId,itemId:item.id,units,mode:raw.mode,status:String(raw.status??''),updatedAt:typeof raw.updated_at==='string'?raw.updated_at:null};
+  return {id:raw.id,customerId,productId,itemId:item.id,priceId:item.price_id,units,mode:raw.mode,status:String(raw.status??''),updatedAt:typeof raw.updated_at==='string'?raw.updated_at:null};
 }
 export class SeatValidationError extends Error {
   constructor(public readonly code:'IDENTITY_MISMATCH'|'ITEM_MISMATCH'|'INVALID_UNITS'|'STALE_SEAT_STATE'|'NOT_ACTIVE') {
@@ -32,8 +33,17 @@ export class SeatValidationError extends Error {
   }
 }
 /** Downshifts are immediate unless Creem independently supports a scheduled change. */
-export function seatUpdatePayload(itemId:string,seats:number,behavior:'proration-charge-immediately'|'proration-none') {
-  if(!itemId.startsWith('sitem_') || !Number.isSafeInteger(seats) || seats<1 || seats>500)
+export function seatUpdatePayload(
+  item: Pick<CreemSeatState,'itemId'|'productId'|'priceId'>,
+  seats:number,
+  behavior:'proration-charge-immediately'|'proration-none',
+) {
+  if(!item.itemId.startsWith('sitem_') || !item.productId.startsWith('prod_') ||
+     !item.priceId.startsWith('price_'))
+    throw new SeatValidationError('ITEM_MISMATCH');
+  if(!Number.isSafeInteger(seats) || seats<1 || seats>500)
     throw new SeatValidationError('INVALID_UNITS');
-  return {items:[{id:itemId,units:seats}],update_behavior:behavior};
+  return {items:[{
+    id:item.itemId,product_id:item.productId,price_id:item.priceId,units:seats,
+  }],update_behavior:behavior};
 }
