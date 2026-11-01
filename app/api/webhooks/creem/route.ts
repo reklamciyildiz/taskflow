@@ -3,14 +3,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { creemApi, getCreemConfig, creemPlanForProduct, creemResponseMode } from '@/lib/creem-config';
 import { reconcileCreemSubscription } from '@/lib/creem-subscription';
+import { validCreemEventId, verifyCreemSignature, paidCreemCheckoutMatches } from '@/lib/creem-webhook-contract';
 export const runtime='nodejs';
 const updateEvents=new Set(['subscription.active','subscription.paid','subscription.canceled','subscription.scheduled_cancel','subscription.past_due','subscription.unpaid','subscription.expired','subscription.trialing','subscription.paused','subscription.update']);
-function safeSignature(raw:string, signature:string|null,secret:string):boolean {
- if(!signature || !/^[a-f0-9]{64}$/i.test(signature))return false;
- const computed=crypto.createHmac('sha256',secret).update(raw).digest();
- const provided=Buffer.from(signature,'hex');
- return computed.length===provided.length && crypto.timingSafeEqual(computed,provided);
-}
 function objectId(x:any):string|null {return typeof x==='string'?x:typeof x?.id==='string'?x.id:null;}
 async function logEvent(id:string,status:string,reason?:string) {
  const {error}=await (supabaseAdmin as any).from('creem_webhook_events').update({
@@ -24,12 +19,12 @@ export async function POST(request:NextRequest) {
   const config=getCreemConfig();
   const raw=await request.text();
   if(raw.length>262144)return NextResponse.json({error:'Payload too large'},{status:413});
-  if(!safeSignature(raw,request.headers.get('creem-signature'),config.secret))
+  if(!verifyCreemSignature(raw,request.headers.get('creem-signature'),config.secret))
    return NextResponse.json({error:'Invalid webhook signature'},{status:401});
   const event=JSON.parse(raw);
   eventId=String(event?.id ?? '');
   const kind=String(event?.eventType ?? '');
-  if(!/^evt_[a-zA-Z0-9]+$/.test(eventId) || !kind) return NextResponse.json({error:'Invalid webhook event'},{status:400});
+  if(!validCreemEventId(eventId) || !kind) return NextResponse.json({error:'Invalid webhook event'},{status:400});
   const sha=crypto.createHash('sha256').update(raw).digest('hex');
   const {data:claimed,error:claimError}=await (supabaseAdmin as any).rpc('claim_creem_event',{p_id:eventId,p_hash:sha,p_type:kind});
   if(claimError)throw claimError;
@@ -44,26 +39,36 @@ export async function POST(request:NextRequest) {
    const checkoutId=objectId(obj.id);
    const {data:intent,error}=await (supabaseAdmin as any).from('creem_checkout_intents').select('*').eq('request_id',requestId).single();
    if(error || !intent)throw new Error('Creem checkout missing authorized intent');
-   if(!checkoutId || checkoutId!==intent.checkout_id || intent.fulfilled_at ||
+   if(!checkoutId || checkoutId!==intent.checkout_id ||
        Boolean(intent.test_mode)!==(config.mode==='test') || obj.mode!==creemResponseMode(config) ||
        String(obj.status)!=='completed' || String(obj.order?.status)!=='paid')
      throw new Error('Checkout state/mode is not verified as paid');
    // Always verify the authoritative checkout: webhook event examples may omit units.
    const checkout=await creemApi<any>(config,'GET','checkouts?checkout_id='+encodeURIComponent(checkoutId));
-   if(checkout.id!==checkoutId || checkout.request_id!==requestId || checkout.mode!==creemResponseMode(config) ||
-      checkout.status!=='completed' || checkout.order?.status!=='paid')
-     throw new Error('Authoritative Creem checkout has not completed a paid order');
-   const productId=objectId(checkout.product);
-   const plan=productId?creemPlanForProduct(productId,config):null;
-   if(plan!==intent.plan_name)throw new Error('Checkout product differs from authorized plan');
-   const quantity=Number(checkout.units ?? obj.units);
-   if(!Number.isInteger(quantity) || quantity!==Number(intent.units))throw new Error('Checkout quantity mismatch');
+   const expectedProductId=creemPlanForProduct(String(checkout.product?.id ?? checkout.product ?? ''),config) === intent.plan_name
+     ? String(checkout.product?.id ?? checkout.product)
+     : null;
+   if(!expectedProductId || !paidCreemCheckoutMatches(checkout,{
+     checkoutId,requestId,mode:creemResponseMode(config),productId:expectedProductId,seats:Number(intent.units),
+   })) throw new Error('Authoritative checkout differs from authorized paid intent');
    const sid=objectId(checkout.subscription);
    if(!sid)throw new Error('Missing subscription in completed checkout');
-   const result=await reconcileCreemSubscription(intent.organization_id,sid,config);
-   if(!result.applied)throw new Error('Creem checkout subscription not applied');
-   const {error:markError}=await (supabaseAdmin as any).from('creem_checkout_intents').update({fulfilled_at:new Date().toISOString()}).eq('request_id',requestId);
-   if(markError)throw markError;
+   if(intent.fulfilled_at) {
+     // Crash-safe retry: if the intent was fulfilled but the event journal update failed,
+     // verify the same subscription was linked before acknowledging this delivery.
+     const {data:linked,error:linkedError}=await (supabaseAdmin as any).from('organizations')
+       .select('creem_subscription_id,billing_provider,creem_test_mode').eq('id',intent.organization_id).single();
+     if(linkedError || linked?.billing_provider!=='creem' ||
+        linked.creem_subscription_id!==sid ||
+        Boolean(linked.creem_test_mode)!==(config.mode==='test'))
+       throw new Error('Fulfilled checkout is not linked to its original subscription');
+   } else {
+     const result=await reconcileCreemSubscription(intent.organization_id,sid,config);
+     if(!result.applied)throw new Error('Creem checkout subscription not applied');
+     const {error:markError}=await (supabaseAdmin as any).from('creem_checkout_intents')
+       .update({fulfilled_at:new Date().toISOString()}).eq('request_id',requestId);
+     if(markError)throw markError;
+   }
   }else if(updateEvents.has(kind)){
    const sid=objectId(obj.id);
    if(!sid)throw new Error('Creem subscription event without subscription id');

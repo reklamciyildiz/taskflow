@@ -66,3 +66,13 @@ If SQL Editor reported Creem structures as present but `npm run staging:billing:
 The shipping code is Creem-only. Historical Lemon SQL remains for reproducible migration history, but checkout, portal, subscription changes, SDK, and webhook routes no longer call Lemon. GitHub main can deploy with `CREEM_CHECKOUT_ENABLED=false` (default).
 Test locally using the isolated staging project: copy the validated Creem Test Mode product IDs, API key and webhook secret to `.env.staging.local`, set `CREEM_MODE=test` and `CREEM_CHECKOUT_ENABLED=true`. Test checkouts explicitly require `AXIOM_STAGING_SUPABASE_PROJECT_REF` to match the app Supabase URL; a standard `.env.local` pointing to production is refused.
 For production: obtain Creem approval, create separate live products and secrets, configure the production webhook, set `CREEM_MODE=live`, then intentionally set `CREEM_CHECKOUT_ENABLED=true` in Vercel Production. Production never uses a test key or test product IDs.
+
+## Production audit and checkout retry safety
+Production Supabase was manually migrated before staging; object presence alone does not
+prove every column, constraint, privilege and RPC matches the intended SQL. Inspect
+production in **read-only** SQL Editor before turning on payments. Never replay an
+existing migration or modify migration history based solely on an object existence test.
+A checkout already carrying a Creem subscription ID (even if expired or on hold) is
+deliberately blocked to prevent double charges until a dedicated resubscription flow
+is implemented. Retried checkout webhooks verify linked subscription ownership before
+acknowledging an already fulfilled checkout.

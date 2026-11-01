@@ -13,7 +13,9 @@ function errorResponse(e: unknown, operation: string) {
  return NextResponse.json({success:false,error:'Unable to complete billing operation. Please try again.'},{status:502});
 }
 function isExistingSubscription(org:any) {
- return Boolean((org.ls_subscription_id || org.creem_subscription_id) && org.subscription_status!=='expired');
+ // An expired subscription id still prevents assigning a different id in the
+ // database RPC. Never collect payment for a new subscription we cannot grant.
+ return Boolean(org?.ls_subscription_id || org?.creem_subscription_id || org?.creem_payment_hold);
 }
 export async function createCreemCheckout(request:NextRequest, orgId:string, email:string|null|undefined) {
  try{

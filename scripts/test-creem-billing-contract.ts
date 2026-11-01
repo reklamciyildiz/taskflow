@@ -3,6 +3,8 @@ import fs from 'node:fs';
 import { ACTIPROC_PLANS, CREEM_EXPECTED_TAX_MODE } from '../lib/billing-plans';
 import { getCreemConfig, creemPlanForProduct, creemResponseMode, creemCheckoutEnvironmentSafe } from '../lib/creem-config';
 import { normalizeCreemSubscription } from '../lib/creem-subscription-contract';
+import { validCreemEventId, verifyCreemSignature, paidCreemCheckoutMatches } from '../lib/creem-webhook-contract';
+import crypto from 'node:crypto';
 
 assert.deepEqual([ACTIPROC_PLANS.free.maxProcesses,ACTIPROC_PLANS.individual.maxProcesses,ACTIPROC_PLANS.pro.maxProcesses],[1,3,10]);
 assert.deepEqual([ACTIPROC_PLANS.individual.priceUsd,ACTIPROC_PLANS.pro.priceUsd,ACTIPROC_PLANS.team.priceUsd],[12,4,6]);
@@ -72,3 +74,27 @@ assert.ok(inspection.includes('creem_webhook_events') && inspection.includes('cl
 
 const dashboardProbe=fs.readFileSync('scripts/inspect-staging-billing.mjs','utf8');
 assert.ok(dashboardProbe.includes('stagingSqlEditor:') && dashboardProbe.includes("to_regclass('public.creem_checkout_intents')"), 'Staging inspection must check actual connected database and point to the configured staging SQL editor');
+
+const examplePayload='{"id":"evt_test_123","eventType":"checkout.completed"}';
+const validSignature=crypto.createHmac('sha256','local-secret-only').update(examplePayload).digest('hex');
+assert.equal(verifyCreemSignature(examplePayload,validSignature,'local-secret-only'),true);
+assert.equal(verifyCreemSignature(examplePayload+' ',validSignature,'local-secret-only'),false);
+assert.equal(verifyCreemSignature(examplePayload,null,'local-secret-only'),false);
+assert.equal(verifyCreemSignature(examplePayload,'invalid','local-secret-only'),false);
+assert.equal(validCreemEventId('evt_alpha-123_ABC'),true);
+assert.equal(validCreemEventId('evt_'),false);
+assert.equal(validCreemEventId('other_fake'),false);
+const validCheckout={id:'ch_good',request_id:'our-uuid',mode:'test',status:'completed',
+  order:{status:'paid'},product:{id:'prod_pro123'},units:3};
+const expectedCheckout={checkoutId:'ch_good',requestId:'our-uuid',mode:'test' as const,productId:'prod_pro123',seats:3};
+assert.equal(paidCreemCheckoutMatches(validCheckout,expectedCheckout),true);
+for(const bad of [
+  {...validCheckout,mode:'prod'}, {...validCheckout,status:'pending'},
+  {...validCheckout,order:{status:'unpaid'}}, {...validCheckout,units:4},
+  {...validCheckout,product:'prod_wrong'}, {...validCheckout,request_id:'other'}
+]) assert.equal(paidCreemCheckoutMatches(bad,expectedCheckout),false);
+const operationSource=fs.readFileSync('lib/creem-billing-operations.ts','utf8');
+assert.ok(operationSource.includes('org?.creem_payment_hold'),'A payment hold must block new checkout');
+assert.ok(operationSource.includes('org?.creem_subscription_id'),'An expired linked subscription must block duplicate checkout');
+assert.ok(webhook.includes('if(intent.fulfilled_at)') && webhook.includes('creem_subscription_id!==sid'),
+ 'A previously fulfilled checkout must be safely acknowledged after verifying the same subscription');
