@@ -1,5 +1,7 @@
 name: Creem billing review checks
 on:
+  push:
+    branches: [main]
   pull_request:
     paths:
       - 'lib/creem-*'
