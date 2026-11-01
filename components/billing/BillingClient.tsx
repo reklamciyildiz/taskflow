@@ -79,6 +79,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
     seatLimit,
     seatsUsed,
     seatChange,
+    planChange,
     subscriptionId,
     endsAt,
     refreshBilling,
@@ -133,7 +134,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
 
   const isNativeApp = typeof window !== 'undefined' ? isCapacitorNative() : false;
   const hasPaidSubscription = billingPlan !== 'free' && Boolean(subscriptionId);
-  const canUpgrade = billingPlan === 'free' || (billingStatus === 'active' && hasPaidSubscription) || canResubscribe;
+  const canUpgrade = (billingPlan === 'free' || (billingStatus === 'active' && hasPaidSubscription) || canResubscribe) && !seatChange && !planChange;
   const planTitle = billingPlan.charAt(0).toUpperCase() + billingPlan.slice(1);
   const formattedEnd = endsAt && Number.isFinite(Date.parse(endsAt))
     ? new Date(endsAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})
@@ -419,7 +420,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                   type="button"
                   variant="outline"
                   size="sm"
-                  disabled={busy || billingStatus !== 'active' || Boolean(seatChange)}
+                  disabled={busy || billingStatus !== 'active' || Boolean(seatChange) || Boolean(planChange)}
                   onClick={() => {
                     setDesiredSeats(seatLimit);
                     setAddSeatsError(null);
@@ -515,6 +516,12 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
             </div>
           ) : null}
 
+          {planChange ? (
+            <div role="status" className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-xs text-foreground">
+              Your upgrade from <strong>{planChange.previousPlan}</strong> to <strong>{planChange.desiredPlan}</strong> is awaiting a verified Creem payment.
+              No second billing change can start while this is pending. Use Refresh; if review persists, contact support.
+            </div>
+          ) : null}
           {seatChange ? (
             <div role="status" className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-xs text-foreground">
               Creem is verifying your request for <strong>{seatChange.desiredSeats}</strong> seats.
@@ -640,7 +647,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                 <Button
                   type="button"
                   size="sm"
-                  disabled={busy || Boolean(seatChange) || !isValid}
+                  disabled={busy || Boolean(seatChange) || Boolean(planChange) || !isValid}
                   onClick={async () => {
                     setAddSeatsError(null);
                     try {
