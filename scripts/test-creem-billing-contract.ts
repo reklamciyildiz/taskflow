@@ -62,3 +62,7 @@ console.log('Creem billing contract checks passed');
 const bootstrap = fs.readFileSync('scripts/bootstrap-staging-db.mjs','utf8');
 assert.ok(bootstrap.includes("['20261101110000', 'creem_parallel_billing'"), 'Creem staging migration must be tracked');
 assert.ok(bootstrap.includes('pendingMigrations: pending.map('), 'Read-only staging check must list migration names');
+
+const inspection=fs.readFileSync('scripts/inspect-staging-billing.mjs','utf8');
+assert.ok(inspection.includes("BEGIN READ ONLY"),'Billing audit must be read-only');
+assert.ok(inspection.includes('creem_webhook_events') && inspection.includes('claim_creem_event'),'Billing audit must check Creem storage and RPC');

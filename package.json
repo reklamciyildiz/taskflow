@@ -9,6 +9,7 @@
     "dev:staging:mobile": "node scripts/run-staging-local.mjs --mobile-auth-test --port=3200",
     "staging:db:plan": "node scripts/bootstrap-staging-db.mjs",
     "staging:db:check": "node scripts/bootstrap-staging-db.mjs --check",
+    "staging:billing:inspect": "node scripts/inspect-staging-billing.mjs",
     "staging:db:apply": "node scripts/bootstrap-staging-db.mjs --apply",
     "staging:ai:seed": "node scripts/seed-ai-staging.mjs",
     "staging:ai:index": "node scripts/invoke-staging-ai-index.mjs --port=3100",
