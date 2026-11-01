@@ -57,7 +57,9 @@ assert.ok(checkoutOperation.includes('product.tax_mode!==CREEM_EXPECTED_TAX_MODE
 const verifier=fs.readFileSync('scripts/verify-creem-products.ts','utf8');
 assert.ok(verifier.includes("expect('tax_mode',CREEM_EXPECTED_TAX_MODE"),'Preflight must match checkout tax mode');
 const webhook=fs.readFileSync('app/api/webhooks/creem/route.ts','utf8');
-assert.ok(webhook.includes("timingSafeEqual"),'Missing webhook timing-safe verification');
+const webhookContract=fs.readFileSync('lib/creem-webhook-contract.ts','utf8');
+assert.ok(webhook.includes('verifyCreemSignature') && webhookContract.includes('timingSafeEqual'),
+ 'Missing webhook timing-safe verification');
 assert.ok(webhook.includes("checkout.completed") && webhook.includes("hold_creem_subscription"));
 for (const event of ['subscription.past_due','subscription.unpaid','subscription.scheduled_cancel'])
  assert.ok(webhook.includes(event), 'Missing Creem lifecycle event ' + event);
