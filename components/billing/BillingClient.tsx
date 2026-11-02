@@ -34,6 +34,8 @@ import { cn } from '@/lib/utils';
 import { useOrganizationBilling } from '@/hooks/useOrganizationBilling';
 import { isCapacitorNative } from '@/lib/client/is-capacitor-native';
 import { ACTIPROC_PLANS } from '@/lib/billing-plans';
+import { aiPlanMonthlyDescription, aiPlanDailyDescription } from '@/lib/ai/ai-plan-catalog';
+import { AIUsageBillingCard } from '@/components/billing/AIUsageBillingCard';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 type CyclePreview = {
@@ -383,6 +385,8 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
           <p className="mt-3 text-[11px] leading-relaxed text-slate-400">List prices exclude individual discounts or credits. The next-charge date is displayed only when confirmed by Creem.</p>
         </div>
       </header>
+
+      <AIUsageBillingCard key={`${billingPlan}:${seatLimit}:${billingStatus}`} />
 
       {hasPaidSubscription ? (
         <section aria-label="Billing cycle details" className="grid gap-3 rounded-[22px] border border-border/70 bg-card p-4 shadow-sm sm:grid-cols-[1fr_1fr_1.5fr] sm:items-center sm:p-5">
@@ -812,7 +816,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
       </Card>
 
       {/* Plan matrix */}
-      <div>
+      <div id="billing-plans" className="scroll-mt-20">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div><p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">Flexible plans</p><h2 className="mt-1 text-xl font-semibold tracking-tight sm:text-2xl">Choose how your team grows</h2><p className="mt-1 text-sm text-muted-foreground">Individual is annual; Pro and Team are monthly per seat.</p></div>
 
@@ -865,6 +869,13 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                   <CardDescription className="text-xs">{blurb}</CardDescription>
                 </CardHeader>
                 <CardContent className="flex flex-1 flex-col gap-5 pb-5">
+                  <div className="rounded-[15px] border border-primary/15 bg-primary/[0.045] p-3">
+                    <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
+                      <Sparkles className="h-3.5 w-3.5" aria-hidden /> Included Actiproc AI
+                    </div>
+                    <p className="mt-2 text-sm font-semibold text-foreground">{aiPlanMonthlyDescription(key)}</p>
+                    <p className="mt-1 text-[11px] text-muted-foreground">{aiPlanDailyDescription(key)}</p>
+                  </div>
                   <ul className="flex-1 space-y-3 border-t border-border/70 pt-4 text-xs text-muted-foreground">
                     {PLAN_FEATURES[key].map((f) => (
                       <li key={f} className="flex gap-2">
@@ -900,7 +911,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
           })}
         </div>
         <p className="mt-3 text-center text-[11px] text-muted-foreground">
-          Individual $12/year, Pro $4/seat/month, Team $6/seat/month. Applicable taxes are included; upgrades may incur an immediate prorated charge.
+          Individual $12/year, Pro $4/seat/month, Team $6/seat/month. AI allowances apply when AI access is available, with no automatic overage billing. Pro/Team capacity is based on verified paid seats (up to 20 for AI). Applicable taxes are included; upgrades may incur an immediate prorated charge.
           {billingStatus === 'cancelled' && !canResubscribe ? ' New purchases for this organization will become available only after billing eligibility and database migration are verified.' : ''}
         </p>
       </div>
