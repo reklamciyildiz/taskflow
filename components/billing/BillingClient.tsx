@@ -18,6 +18,13 @@ import {
   Users,
   Check,
   Shield,
+  CalendarClock,
+  Loader2,
+  ArrowRight,
+  Copy,
+  Plus,
+  Minus,
+  Info,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -195,51 +202,120 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
     <div className="mx-auto w-full max-w-6xl space-y-7 pb-12">
 
       <Dialog open={Boolean(billingReview)} onOpenChange={open=>{if(!open&&!reviewBusy){setBillingReview(null);setReviewError(null);setReviewAcknowledged(false);}}}>
-        <DialogContent className="max-w-md rounded-2xl p-6 shadow-2xl" hideClose={reviewBusy}>
-          <DialogHeader>
-            <DialogTitle className="text-xl">Review billing change</DialogTitle>
-            <DialogDescription>Nothing will be charged or changed until you approve.</DialogDescription>
-          </DialogHeader>
-          {billingReview ? <div className="space-y-4">
-            <div className="rounded-xl border bg-muted/30 p-4 text-sm space-y-2">
-              {billingReview.kind==='seats' ? <>
-                <div className="flex justify-between"><span>Current seats</span><strong>{billingReview.previousSeats}</strong></div>
-                <div className="flex justify-between"><span>New seats</span><strong>{billingReview.desiredSeats}</strong></div>
-              </> : <>
-                <div className="flex justify-between"><span>Current plan</span><strong className="capitalize">{billingReview.fromPlan}</strong></div>
-                <div className="flex justify-between"><span>New plan</span><strong className="capitalize">{billingReview.toPlan}</strong></div>
-                <div className="flex justify-between"><span>Seats</span><strong>{billingReview.seats}</strong></div>
-              </>}
-              <div className="flex justify-between gap-3 border-t pt-2"><span>New monthly list price</span><strong className="tabular-nums">${billingReview.nextMonthlyUsd.toFixed(2)}/mo</strong></div>
-              <div className="flex justify-between gap-3"><span className="text-muted-foreground">Current Creem renewal date</span><strong className="text-right text-xs">{utcBillingDate(billingReview.currentNextChargeAt)}</strong></div>
+        <DialogContent className="max-h-[min(92dvh,850px)] w-[calc(100vw-1.25rem)] max-w-[560px] overflow-y-auto rounded-[26px] border-border/70 bg-background p-0 shadow-[0_32px_90px_-30px_rgba(15,23,42,0.55)] sm:w-full" hideClose={reviewBusy}>
+          <div className="relative overflow-hidden rounded-t-[25px] bg-gradient-to-br from-[#101d34] via-[#152843] to-[#223f75] px-5 py-6 text-white sm:px-7 sm:py-7">
+            <div aria-hidden="true" className="pointer-events-none absolute -right-8 -top-12 h-40 w-40 rounded-full bg-sky-400/20 blur-3xl" />
+            <div className="relative flex items-start gap-3.5">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/20 bg-white/10 shadow-inner">
+                <ShieldCheck className="h-5 w-5 text-sky-200" aria-hidden />
+              </div>
+              <DialogHeader className="min-w-0 text-left">
+                <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-sky-200">Secure billing · Final review</p>
+                <DialogTitle className="text-xl font-semibold tracking-tight text-white sm:text-2xl">Review your change</DialogTitle>
+                <DialogDescription className="mt-1 text-xs leading-relaxed text-slate-200 sm:text-sm">
+                  Nothing is submitted to Creem until you authorize this update.
+                </DialogDescription>
+              </DialogHeader>
             </div>
-            {billingReview.kind==='seats' && billingReview.direction==='decrease' ?
-              <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs leading-relaxed">Creem may apply this reduction at the next billing cycle. No immediate refund is promised. Verify the effective seat count after provider synchronization.</p> :
-              <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs leading-relaxed">
-                <strong>Immediate payment:</strong> Creem will automatically charge your saved card when you approve.
-                The exact prorated amount is not available through this integration and may differ from the monthly price shown above.
-                The monthly price is NOT a quote for today's charge.
-                <strong className="mt-2 block">Renewal calendar change:</strong>
-                The immediate-charge option starts a new billing cycle. Your existing renewal date shown above
-                is not guaranteed to remain unchanged. The exact next charge date will be displayed only after Creem confirms the update.
-              </p>
-            }
-            <label className="flex items-start gap-3 rounded-xl border p-3 text-xs leading-relaxed cursor-pointer">
-              <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0" checked={reviewAcknowledged}
+          </div>
+          {billingReview ? <div className="space-y-4 px-5 pb-5 pt-5 sm:px-7 sm:pb-7">
+            <div className="overflow-hidden rounded-2xl border border-border/70 bg-muted/20">
+              <div className="flex items-center justify-between border-b border-border/60 px-4 py-3">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.13em] text-muted-foreground">Change summary</span>
+                <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary">
+                  <CheckCircle2 className="h-3 w-3" aria-hidden /> Review
+                </span>
+              </div>
+              <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 px-4 py-4 sm:px-5">
+                <div className="min-w-0">
+                  <p className="text-[11px] font-medium text-muted-foreground">Current {billingReview.kind==='seats'?'seats':'plan'}</p>
+                  <p className="mt-1 truncate text-2xl font-semibold tracking-tight capitalize tabular-nums text-foreground">
+                    {billingReview.kind==='seats'?billingReview.previousSeats:billingReview.fromPlan}
+                  </p>
+                </div>
+                <div className="flex h-9 w-9 items-center justify-center rounded-full border border-primary/20 bg-primary/10 text-primary">
+                  <ArrowRight className="h-4 w-4" aria-hidden />
+                </div>
+                <div className="min-w-0 text-right">
+                  <p className="text-[11px] font-medium text-muted-foreground">New {billingReview.kind==='seats'?'seats':'plan'}</p>
+                  <p className="mt-1 truncate text-2xl font-semibold tracking-tight capitalize tabular-nums text-primary">
+                    {billingReview.kind==='seats'?billingReview.desiredSeats:billingReview.toPlan}
+                  </p>
+                </div>
+              </div>
+              <div className="border-t border-border/60 bg-background/80 px-4 py-4 sm:px-5">
+                <div className="flex flex-wrap items-end justify-between gap-2">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">New monthly list price</p>
+                    <p className="mt-1 text-[11px] text-muted-foreground">Recurring plan price · not today's payment</p>
+                  </div>
+                  <p className="text-2xl font-semibold tracking-tight tabular-nums text-foreground">
+                    ${billingReview.nextMonthlyUsd.toFixed(2)}<span className="text-sm font-medium text-muted-foreground">/mo</span>
+                  </p>
+                </div>
+                {billingReview.kind==='plan' ? (
+                  <p className="mt-3 text-xs text-muted-foreground">{billingReview.seats} seat{billingReview.seats===1?'':'s'} included in the new plan price.</p>
+                ) : null}
+                <div className="mt-3 flex flex-col gap-1 border-t border-dashed border-border/80 pt-3 text-xs sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                  <span className="flex items-center gap-1.5 text-muted-foreground"><CalendarClock className="h-3.5 w-3.5 shrink-0" aria-hidden /> Current renewal date</span>
+                  <strong className="break-words font-medium tabular-nums text-foreground">{utcBillingDate(billingReview.currentNextChargeAt)}</strong>
+                </div>
+              </div>
+            </div>
+            {billingReview.kind==='seats' && billingReview.direction==='decrease' ? (
+              <div className="flex items-start gap-3 rounded-2xl border border-amber-500/25 bg-amber-500/[0.07] p-4">
+                <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden />
+                <div className="space-y-1 text-xs leading-relaxed text-foreground/85">
+                  <p className="font-semibold text-foreground">Seat reduction</p>
+                  <p>Creem may apply fewer seats immediately or at your next billing cycle. An automatic refund is not guaranteed. Check the confirmed seat count after synchronization.</p>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-start gap-3 rounded-2xl border border-sky-500/20 bg-sky-500/[0.06] p-4">
+                  <CreditCard className="mt-0.5 h-4 w-4 shrink-0 text-sky-600 dark:text-sky-400" aria-hidden />
+                  <div className="space-y-1 text-xs leading-relaxed text-foreground/85">
+                    <p className="font-semibold text-foreground">Today's charge · Prorated</p>
+                    <p>Creem calculates your immediate payment using the subscription change and applicable time-based adjustments. It may be lower than the full monthly price difference.</p>
+                    <p className="font-medium text-foreground">The exact charge is calculated by Creem and is not available before confirmation in this integration.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3 rounded-2xl border border-border/80 bg-muted/30 p-4">
+                  <CalendarClock className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
+                  <div className="space-y-1 text-xs leading-relaxed text-foreground/85">
+                    <p className="font-semibold text-foreground">Renewal date may change</p>
+                    <p>Immediate-charge changes start a new billing cycle. Your next charge date will be shown after Creem confirms the update.</p>
+                  </div>
+                </div>
+              </div>
+            )}
+            <label className={cn(
+              'flex cursor-pointer items-start gap-3 rounded-2xl border px-4 py-4 transition-colors',
+              reviewAcknowledged?'border-primary/40 bg-primary/[0.05]':'border-border/80 bg-card hover:border-primary/30',
+              (reviewBusy||Boolean(reviewError))&&'cursor-not-allowed opacity-70'
+            )}>
+              <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 accent-blue-600" checked={reviewAcknowledged}
                 disabled={reviewBusy||Boolean(reviewError)} onChange={e=>setReviewAcknowledged(e.target.checked)} />
-              <span>{billingReview.kind==='seats'&&billingReview.direction==='decrease'
-                ? 'I approve the seat reduction, understand it may take effect at the next billing cycle, and do not expect an automatic refund.'
-                : 'I authorize the immediate Creem-calculated charge to my saved card, accept the new monthly price, and understand the renewal date can reset.'}</span>
+              <span className="text-xs leading-relaxed text-foreground/90">{billingReview.kind==='seats'&&billingReview.direction==='decrease'
+                ? 'I approve this reduction and understand that its effective date and any refund depend on Creem.'
+                : 'I authorize Creem to charge my saved card the calculated prorated amount, accept the new monthly list price, and understand my renewal date may reset.'}</span>
             </label>
-            {reviewError?<p role="alert" className="rounded-lg bg-destructive/10 p-3 text-xs text-destructive">{reviewError}</p>:null}
-            <div className="flex flex-wrap justify-end gap-2">
-              <Button type="button" variant="outline" disabled={reviewBusy}
+            {reviewError?<p role="alert" className="rounded-xl border border-destructive/25 bg-destructive/[0.07] p-3 text-xs leading-relaxed text-destructive">{reviewError}</p>:null}
+            <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end">
+              <Button type="button" variant="outline" disabled={reviewBusy} className="h-11 rounded-xl px-5"
                 onClick={()=>{setBillingReview(null);setReviewAcknowledged(false);setReviewError(null);}}>Cancel</Button>
               <Button type="button" disabled={!reviewAcknowledged||reviewBusy||Boolean(reviewError)||busy}
+                className="h-11 rounded-xl bg-blue-600 px-5 font-semibold text-white shadow-sm shadow-blue-600/20 transition-all hover:bg-blue-700 hover:shadow-md disabled:shadow-none"
                 onClick={()=>void applyReviewedChange()}>
-                {reviewBusy?'Submitting…':billingReview.kind==='seats'&&billingReview.direction==='decrease'?'Approve reduction':'Authorize charge & confirm'}
+                {reviewBusy?<><Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />Confirming with Creem…</>
+                  :billingReview.kind==='seats'&&billingReview.direction==='decrease'
+                    ?<><Check className="mr-2 h-4 w-4" aria-hidden />Approve reduction</>
+                    :<><ShieldCheck className="mr-2 h-4 w-4" aria-hidden />Authorize & confirm</>}
               </Button>
             </div>
+            <p className="flex items-center justify-center gap-1.5 text-center text-[11px] text-muted-foreground">
+              <ShieldCheck className="h-3.5 w-3.5" aria-hidden /> Payments are processed securely by Creem
+            </p>
           </div>:null}
         </DialogContent>
       </Dialog>
