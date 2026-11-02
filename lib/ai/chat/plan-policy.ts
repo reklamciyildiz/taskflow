@@ -10,27 +10,29 @@ export type AIPlanAllowance = {
   period: 'calendar_month_utc';
 };
 
-/** Launch caps; tune after observing real token consumption. Do not treat messages as free compute. */
+/** Generous introductory caps; monitor real model and retrieval costs before revising. Do not treat messages as free compute. */
 export function aiAllowanceForOrganization(ent: Pick<Entitlements,
   'plan' | 'subscriptionStatus' | 'endsAt' | 'seatLimit'>): AIPlanAllowance {
   const paid = isPaidActive(ent.subscriptionStatus, ent.endsAt);
   const plan: PlanName = paid && ent.plan !== 'free' ? ent.plan : 'free';
-  // No subscription-backed seats (Infinity on developer accounts) are not an
-  // unlimited AI subsidy. Even paid Team never grants >20x the base pool.
+  // Always derive purchased capacity from server-side entitlements. Developer
+  // accounts with Infinity are not allowed unlimited AI; stop scaling at 20
+  // paid seats pending a separately-priced enterprise agreement.
   const seats = Number.isFinite(ent.seatLimit)
     ? Math.min(20, Math.max(1, Math.floor(ent.seatLimit)))
     : 1;
   if (plan === 'individual') return {
-    plan, dailyRequestsPerUser: 5, monthlyRequestsPerOrg: 20, includedSeats: 1, period: 'calendar_month_utc',
+    plan, dailyRequestsPerUser: 50, monthlyRequestsPerOrg: 300, includedSeats: 1, period: 'calendar_month_utc',
   };
   if (plan === 'pro') return {
-    plan, dailyRequestsPerUser: 15, monthlyRequestsPerOrg: 100, includedSeats: 1, period: 'calendar_month_utc',
-  };
-  if (plan === 'team') return {
-    plan, dailyRequestsPerUser: 20, monthlyRequestsPerOrg: 120 * seats, includedSeats: seats,
+    plan, dailyRequestsPerUser: 100, monthlyRequestsPerOrg: 800 * seats, includedSeats: seats,
     period: 'calendar_month_utc',
   };
-  return { plan: 'free', dailyRequestsPerUser: 2, monthlyRequestsPerOrg: 5, includedSeats: 1,
+  if (plan === 'team') return {
+    plan, dailyRequestsPerUser: 150, monthlyRequestsPerOrg: 1200 * seats, includedSeats: seats,
+    period: 'calendar_month_utc',
+  };
+  return { plan: 'free', dailyRequestsPerUser: 10, monthlyRequestsPerOrg: 30, includedSeats: 1,
     period: 'calendar_month_utc' };
 }
 
