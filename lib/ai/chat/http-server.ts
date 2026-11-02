@@ -1,12 +1,23 @@
 import 'server-only';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuthedUser } from '@/lib/server-authz';
-import { isAIChatEnabled } from './config';
-import { isAIBetaScopeAllowed } from '@/lib/ai/beta-access';
+import { isAIChatEnabled, isAIChatRuntimeReady } from './config';
+import { isAIBetaModeEnabled, isAIBetaScopeAllowed } from '@/lib/ai/beta-access';
 
 export async function requireAIChatUser(request?: NextRequest) {
   if (!isAIChatEnabled()) {
     return NextResponse.json({ error:{ code:'FEATURE_DISABLED',message:'Actiproc AI is not enabled' } },{ status:503 });
+  }
+  // Public rollout is deliberately stricter than closed beta. A missing or
+  // broken provider-token admission RPC must not expose unmetered public AI.
+  if (!isAIBetaModeEnabled() &&
+      (!isAIChatRuntimeReady() ||
+        process.env.AI_GROQ_TPM_ADMISSION_ENABLED !== 'true' ||
+        process.env.AXIOM_AI_WRITE_TOOLS_ENABLED === 'true' ||
+        process.env.AXIOM_AI_ACTION_MUTATION_TOOLS_ENABLED === 'true')) {
+    return NextResponse.json({ error:{ code:'PUBLIC_ROLLOUT_NOT_READY',
+      message:'Actiproc AI public access requires atomic quotas, provider token admission, and write tools disabled for the initial rollout' } },
+      { status:503 });
   }
   const authed=await requireAuthedUser(request);
   if (authed instanceof NextResponse) return authed;

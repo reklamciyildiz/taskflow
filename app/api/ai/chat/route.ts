@@ -28,6 +28,8 @@ import type { AIReadReference,AIReadToolCall,AIReadToolExecution } from '@/lib/a
 import { shouldPlanAIWrite,selectAIWriteProposal } from '@/lib/ai/agent/write-selector';
 import { createAIWriteProposal,AIWriteProposalError } from '@/lib/ai/agent/write-proposals-server';
 import { getUserSchedulingTimeZone } from '@/lib/scheduling-runtime-server';
+import { aiAllowanceForAuthenticatedOrganization } from '@/lib/ai/chat/plan-access-server';
+import { estimateGroqChatCostUsd } from '@/lib/ai/chat/plan-policy';
 
 export const runtime='nodejs';
 export const maxDuration=60;
@@ -93,6 +95,13 @@ export async function POST(request:NextRequest) {
   const parsed=requestSchema.safeParse(await request.json().catch(()=>null));
   if (!parsed.success) return NextResponse.json({ error:{ code:'INVALID_REQUEST',message:'Invalid chat request' } },{ status:400 });
   const input=parsed.data;
+  let allowance: Awaited<ReturnType<typeof aiAllowanceForAuthenticatedOrganization>>;
+  try {
+    allowance=await aiAllowanceForAuthenticatedOrganization(scope.organizationId);
+  } catch {
+    return NextResponse.json({ error:{ code:'AI_ENTITLEMENT_UNAVAILABLE',
+      message:'AI subscription limits could not be verified. Please try again shortly.' } },{ status:503 });
+  }
   try {
     const conversation=await getConversation(scope,input.conversationId);
     // Context supplied by the browser can only narrow retrieval and never grants access.
@@ -204,7 +213,10 @@ export async function POST(request:NextRequest) {
 
           const contextPlan=planChatContext({ intent,question:input.message,history:availableHistory,
             citations,structured,agentContext,configuredMaxOutputTokens:aiChatLimits.maxOutputTokens });
-          const quota=await reserveAIQuota(scope.userId,scope.organizationId,'axiom-chat',input.clientRequestId);
+          const quota=await reserveAIQuota(scope.userId,scope.organizationId,'axiom-chat',input.clientRequestId,{
+            dailyRequestsPerUser:allowance.dailyRequestsPerUser,
+            monthlyRequestsPerOrg:allowance.monthlyRequestsPerOrg,
+          });
           if (!quota.allowed) {
             const errorEvent={ type:'error',code:'QUOTA_EXHAUSTED',
               message:formatAIQuotaMessage(quota.reason,quota.resetAt),retryable:false } as const;
@@ -257,7 +269,8 @@ export async function POST(request:NextRequest) {
               send({type:'proposal',proposal});send({type:'delta',text:answer});send({type:'done',finishReason:'completed'});
               assistantStatus='completed';
               await recordAIRequest(scope.userId,scope.organizationId,'axiom-chat',model,inputTokens??0,outputTokens??0,
-                0,Date.now()-startedAt,true,undefined,{intent,writeProposalTool:selection.call.name,writeExecuted:false});
+                estimateGroqChatCostUsd(model,inputTokens??0,outputTokens??0),Date.now()-startedAt,true,undefined,
+                {intent,plan:allowance.plan,writeProposalTool:selection.call.name,writeExecuted:false,costIsEstimate:true});
               return;
             }
           }
@@ -312,7 +325,8 @@ export async function POST(request:NextRequest) {
           if (verified.length) send({ type:'sources',sources:verified });
           send({ type:'done',finishReason:'completed' });assistantStatus='completed';
           await recordAIRequest(scope.userId,scope.organizationId,'axiom-chat',model,inputTokens ?? 0,outputTokens ?? 0,
-            0,Date.now()-startedAt,true,undefined,{ intent,citationCount:verified.length,
+            estimateGroqChatCostUsd(model,inputTokens??0,outputTokens??0),Date.now()-startedAt,true,undefined,
+            { intent,plan:allowance.plan,costIsEstimate:true,citationCount:verified.length,
               retrievalSourceCount:citations.length,retrievalLatencyMs,firstTokenMs,
               contextProfile:finalContextPlan.profile,estimatedInputTokens:finalContextPlan.estimatedInputTokens,
               maxOutputTokens:finalContextPlan.maxOutputTokens,droppedHistoryMessages:finalContextPlan.droppedHistoryMessages,
@@ -338,8 +352,10 @@ export async function POST(request:NextRequest) {
             status:assistantStatus,model,inputTokens,outputTokens,errorCode:normalized.code,
             sources:[],...(readToolReferences.length?{references:readToolReferences}:{}),grounding }); } catch { /* lease recovery remains */ }
           if (billableAttempt) await recordAIRequest(scope.userId,scope.organizationId,'axiom-chat',model ?? 'groq',
-            inputTokens ?? 0,outputTokens ?? 0,0,Date.now()-startedAt,false,normalized.code,
-            { failed:true,userQuotaRefunded });
+            inputTokens ?? 0,outputTokens ?? 0,
+            estimateGroqChatCostUsd(model??'groq',inputTokens??0,outputTokens??0),
+            Date.now()-startedAt,false,normalized.code,
+            { failed:true,userQuotaRefunded,plan:allowance.plan,costIsEstimate:true });
           try { send({ type:'error',...normalized }); } catch { /* disconnected client */ }
         } finally {
           overallSignal.cleanup();
