@@ -1,75 +1,66 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Sparkles } from 'lucide-react';
+import { AlertTriangle, ArrowUpRight, CheckCircle2, Sparkles } from 'lucide-react';
+import { aiUsageThreshold } from '@/lib/ai/ai-plan-catalog';
+import { isCapacitorNative } from '@/lib/client/is-capacitor-native';
+import { useAIUsage } from './useAIUsage';
 
-type AIAllowanceStatus = {
-  plan: 'free' | 'individual' | 'pro' | 'team';
-  period: 'calendar_month_utc';
-  daily: { used: number; limit: number; remaining: number };
-  monthly: { used: number; limit: number; remaining: number };
-};
+const nf = new Intl.NumberFormat('en-US');
 
 export function AIAllowanceIndicator({ request, refreshKey }: {
   request: typeof fetch;
   refreshKey: number;
 }) {
-  const [status, setStatus] = useState<AIAllowanceStatus | null>(null);
-  const [unavailable, setUnavailable] = useState(false);
-  useEffect(() => {
-    let active = true;
-    void request('/api/ai/usage', { cache: 'no-store' })
-      .then(async (response) => {
-        if (!response.ok) throw new Error('Unavailable');
-        return response.json() as Promise<AIAllowanceStatus>;
-      })
-      .then((result) => {
-        if (!active) return;
-        setStatus(result);
-        setUnavailable(false);
-      })
-      .catch(() => {
-        if (!active) return;
-        setStatus(null);
-        setUnavailable(true);
-      });
-    return () => { active = false; };
-  }, [request, refreshKey]);
+  const { status, loading, error } = useAIUsage(request, refreshKey);
+  const native = typeof window !== 'undefined' && isCapacitorNative();
 
-  if (unavailable) return (
-    <p role="status" className="hidden text-[11px] text-amber-600 sm:block">
-      AI availability is not verified
-    </p>
+  if (loading && !status) return (
+    <div aria-label="Loading AI allowance" className="ml-auto h-9 w-40 animate-pulse rounded-xl bg-muted/55 sm:w-56" />
   );
-  if (!status) return null;
-  const exhausted = status.monthly.remaining === 0 || status.daily.remaining === 0;
-  const blockedReason = status.monthly.remaining === 0 ? 'Monthly AI limit reached'
-    : status.daily.remaining === 0 ? 'Daily AI limit reached' : null;
-  const number = new Intl.NumberFormat('en-US');
+  if (error || !status) return (
+    <span role="status" className="ml-auto flex items-center gap-1.5 text-[11px] text-amber-600">
+      <AlertTriangle className="h-3.5 w-3.5" aria-hidden /> AI allowance unavailable
+    </span>
+  );
+
+  const monthly = aiUsageThreshold(status.monthly.used, status.monthly.limit);
+  const daily = aiUsageThreshold(status.daily.used, status.daily.limit);
+  const exhausted = monthly === 'exhausted' || daily === 'exhausted';
+  const warning = !exhausted && (monthly === 'warning' || daily === 'warning');
+  const blockedReason = monthly === 'exhausted' ? 'Monthly AI limit reached'
+    : daily === 'exhausted' ? 'Daily AI limit reached' : null;
+  const usagePct = Math.min(100, 100 * status.monthly.used / Math.max(1, status.monthly.limit));
+
   return (
-    <div className="ml-auto flex min-w-0 items-center gap-2 sm:gap-3" role="status">
-      <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border/70 bg-muted/40 px-2.5 py-1 text-[10px] font-semibold uppercase text-muted-foreground">
-        <Sparkles className="h-3 w-3" aria-hidden />
-        {status.plan}
-      </span>
-      <div className="min-w-0 text-right text-[10px] leading-tight text-muted-foreground" title="Monthly requests are shared by the organization. Daily requests are per user. UTC calendar periods.">
-        <p className={exhausted ? 'font-semibold text-amber-600' : 'font-semibold text-foreground'}>
-          {blockedReason ?? `${number.format(status.monthly.remaining)} / ${number.format(status.monthly.limit)} AI requests left this month`}
-        </p>
-        <p className="mt-0.5 text-[10px] text-muted-foreground">
-          {number.format(status.daily.remaining)} / {number.format(status.daily.limit)} today · UTC reset
-        </p>
-        <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-muted" role="progressbar"
-          aria-label="Monthly AI requests used" aria-valuemin={0} aria-valuemax={status.monthly.limit}
-          aria-valuenow={status.monthly.used}>
-          <div className="h-full rounded-full bg-primary transition-[width]"
-            style={{ width: `${Math.min(100, Math.max(0, status.monthly.used / Math.max(1, status.monthly.limit) * 100))}%` }} />
-        </div>
+    <div className="ml-auto flex min-w-0 items-center gap-2 sm:gap-3" role="status" aria-label="AI usage and access">
+      <div className="hidden shrink-0 items-center gap-1.5 rounded-full border border-border/70 bg-muted/40 px-2.5 py-1.5 text-[10px] font-semibold uppercase text-foreground/85 sm:inline-flex">
+        <Sparkles className="h-3 w-3 text-primary" aria-hidden />{status.plan}
       </div>
-      {(status.plan === 'free' || status.plan === 'individual') && (
+      <div className="min-w-0 max-w-[200px] text-right text-[10px] leading-tight sm:min-w-[164px]">
+        <p className="truncate font-semibold text-foreground" title="Shared monthly organization allowance; no automatic overage charges">
+          {blockedReason ?? `${nf.format(status.monthly.remaining)} / ${nf.format(status.monthly.limit)} AI requests left this month`}
+        </p>
+        <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted" role="progressbar"
+          aria-label="Monthly AI requests used" aria-valuemin={0} aria-valuemax={status.monthly.limit}
+          aria-valuenow={Math.min(status.monthly.used, status.monthly.limit)}>
+          <div className={`h-full rounded-full transition-[width] ${monthly === 'exhausted' ? 'bg-rose-500' : monthly === 'warning' ? 'bg-amber-500' : 'bg-primary'}`}
+            style={{ width: `${usagePct}%` }} />
+        </div>
+        <p className="mt-1 flex items-center justify-end gap-1 text-[10px] text-muted-foreground">
+          {warning || exhausted ? <AlertTriangle className="h-3 w-3 text-amber-500" aria-hidden />
+            : <CheckCircle2 className="h-3 w-3 text-emerald-500" aria-hidden />}
+          {nf.format(status.daily.remaining)} / {nf.format(status.daily.limit)} today · UTC
+        </p>
+        {status.access !== 'available' && (
+          <p className="mt-1 text-[10px] font-medium text-amber-600">
+            {status.access === 'beta_only' ? 'AI access: beta rollout' : 'AI access not yet ready'}
+          </p>
+        )}
+      </div>
+      {(status.plan === 'free' || status.plan === 'individual') && !native && (
         <a href="/settings/billing"
-          className="hidden shrink-0 rounded-lg border border-primary/20 bg-primary/10 px-2.5 py-1.5 text-[10px] font-semibold text-primary hover:bg-primary/15 sm:inline-flex">
-          See plans
+          className="hidden shrink-0 items-center gap-1 rounded-lg border border-primary/20 bg-primary/10 px-2.5 py-2 text-[10px] font-semibold text-primary transition-colors hover:bg-primary/15 lg:inline-flex">
+          See plans <ArrowUpRight className="h-3 w-3" aria-hidden />
         </a>
       )}
     </div>

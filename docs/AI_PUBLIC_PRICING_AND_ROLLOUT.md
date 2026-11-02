@@ -116,3 +116,55 @@ cross-tenant ACLs or retention are ready.
   justified by cost and adoption. Do not promise unlimited usage.
 - Publish precise allowances on MarketingPricing only after production
   activation and successful payment-status downgrade QA.
+
+## Premium AI product UI — acceptance (2026-11-02)
+
+Marketing Pricing, billing plan comparison, and Upgrade Plan Modal all derive their
+numbers from `lib/ai/ai-plan-catalog.ts`, which the server policy also imports:
+- Free: 10/day/user, 30/month/org.
+- Individual: 50/day/user, 300/month/org, annual subscription.
+- Pro: 100/day/user, 800/month **per verified paid seat**.
+- Team: 150/day/user, 1,200/month **per verified paid seat**.
+- Shared Pro/Team allowances fund a maximum of 20 paid seats until a separate
+  enterprise contract is implemented. There is no per-request Creem charge.
+
+The AI Chat header shows remaining requests and daily cap, turns amber above
+80%, and surfaces beta-only/not-ready status. The owner/admin Billing view
+shows a larger, authenticated AI usage panel with monthly used/remaining,
+UTC reset, daily remaining, 80%/100% warnings, paid-seat pooling and plan
+comparison. Native Capacitor views preserve existing no-purchase rules.
+
+The `GET /api/ai/usage` endpoint deliberately allows **authenticated members**
+to read only their own daily count and the shared organization monthly
+count, even while beta gating is active. This enables Billing to show an
+accurate entitlement before chat is made available. Neither the endpoint
+nor the UI grants AI access; only `requireAIChatUser` does. The response
+includes `access: 'available' | 'beta_only' | 'not_ready'` and is marked
+`private, no-store`. On verification failures, clients hide stale usage.
+
+### Launch acceptance matrix — do not skip
+
+1. With beta mode still on, sign in as a **non-beta Free user**. Pricing must
+   state staged access; Billing can display verified 30/month and
+   `beta_only`; Chat must continue to reject unauthorized beta access.
+2. As an approved beta user, issue an AI prompt and confirm `/api/ai/usage`
+   increments. Check retry/rollback and a monthly allowance of the actual
+   organization's active plan.
+3. Use a paid Individual user (300/month), Pro organization with 3 verified
+   seats (2,400/month), and Team organization with 5 paid seats
+   (6,000/month). Check both the per-user daily value and org shared pool.
+4. Check expired/past-due plan falls back to Free. Usage may exceed its now
+   smaller allowance: display `0 remaining`, never a negative balance.
+5. Verify an 80% usage sample and full quota sample in UI. The warning must
+   appear, without checkout side effects or auto top-ups.
+6. Test a mobile Capacitor app session. It must show its allowance but not
+   offer an in-app payment path.
+7. Confirm write/mutation tools remain off, atomic quota and provider token
+   admission remain enabled, and the 12-per-minute SQL guard is installed.
+8. **Only after all tests pass**, in Vercel Production set
+   `AXIOM_AI_BETA_MODE_ENABLED=false`, redeploy, and run a real ordinary-user
+   chat smoke test. Revert the flag to `true` if any guard or request fails.
+
+Implementation note: No Vercel environment mutation or production smoke
+test is performed merely by merging this PR. The marketing cards are honest
+about staged access until the beta flag is changed.

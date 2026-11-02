@@ -1,7 +1,8 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Check, Sparkles, X } from 'lucide-react';
+import { Check, Sparkles, X, Info } from 'lucide-react';
+import { AI_PLAN_LIMITS, aiPlanDailyDescription } from '@/lib/ai/ai-plan-catalog';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -127,7 +128,7 @@ export function UpgradePlanModal(props: {
           // Ensure this overlay sits above any already-open dialog (e.g. Create Team).
           'z-[520] max-w-5xl p-0 overflow-hidden border-white/10 bg-[#0b0b10]/85 text-zinc-50',
           'shadow-[0_30px_120px_-24px_rgba(0,0,0,0.85)] backdrop-blur-xl',
-          'sm:rounded-[28px]'
+          'sm:rounded-[28px] max-h-[92dvh] overflow-y-auto'
         )}
         overlayClassName={cn(
           // Softer, more premium background + blur.
@@ -166,7 +167,7 @@ export function UpgradePlanModal(props: {
             </DialogHeader>
 
             <div className="mt-6 text-sm leading-relaxed text-zinc-200/70">
-              Faster, smarter, and more collaborative.
+              Grow your workflows with an included monthly AI allowance, transparent limits and no automatic overage charges.
             </div>
 
             <Button
@@ -231,6 +232,20 @@ export function UpgradePlanModal(props: {
                     </div>
                   </div>
 
+                  <div className="relative mt-5 rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.085] px-3.5 py-4">
+                    <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-emerald-300">
+                      <Sparkles className="h-3.5 w-3.5" aria-hidden /> Included AI allowance
+                    </div>
+                    <p className="mt-2 text-2xl font-semibold tabular-nums text-white">
+                      {AI_PLAN_LIMITS[p].monthlyBase.toLocaleString('en-US')}
+                      <span className="ml-1 text-xs font-medium text-emerald-100/70">requests/month</span>
+                    </p>
+                    <p className="mt-1 text-[11px] leading-relaxed text-zinc-300">
+                      {AI_PLAN_LIMITS[p].perSeat ? 'Per verified paid seat · shared organization pool' : 'Included in your personal plan'}
+                    </p>
+                    <p className="mt-1 text-[11px] text-zinc-400">{aiPlanDailyDescription(p)}</p>
+                  </div>
+
                   {isNativeApp ? (
                     <div className="relative mt-4 rounded-xl border border-sky-500/20 bg-sky-500/10 p-2.5 text-center text-xs text-sky-200">
                       Purchases and plan upgrades are unavailable in the native app. Existing account entitlements remain synchronized.
@@ -277,6 +292,10 @@ export function UpgradePlanModal(props: {
             })}
           </div>
         </div>
+        <p className="mx-6 mb-6 flex items-start gap-2 rounded-xl border border-white/10 bg-white/[0.04] p-3 text-[11px] leading-relaxed text-zinc-400">
+          <Info className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" aria-hidden />
+          AI limits reset each UTC calendar month. Pro/Team allowances are shared across the organization and scale with verified paid seats up to 20. AI may remain beta-only until public activation; no usage-based automatic charges.
+        </p>
       </DialogContent>
     </Dialog>
   );
