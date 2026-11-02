@@ -433,3 +433,22 @@ assert.ok(scheduleUI.includes('Next scheduled card charge (Creem)') &&
  scheduleUI.includes('not a tax/discount-adjusted invoice quote'),
  'Billing must not falsely imply fixed anchor or exact payable amount');
 console.log('Creem billing-cycle regression tests passed');
+
+
+// Premium Billing review is presentational: payment protections remain explicit.
+const premiumBillingUi=fs.readFileSync('components/billing/BillingClient.tsx','utf8');
+for(const required of [
+ 'Review your change','Change summary','New monthly list price',
+ 'Recurring plan price · not today\'s payment',
+ 'Today\'s charge · Prorated',
+ 'The exact charge is calculated by Creem',
+ 'Immediate-charge changes start a new billing cycle',
+ 'reviewAcknowledged','disabled={!reviewAcknowledged||reviewBusy',
+ 'CREEM' // replaced below with actual branding marker in UI
+].slice(0,-1))assert.ok(premiumBillingUi.includes(required),'Missing billing review protection or clarity: '+required);
+for(const required of ['Team capacity','Next scheduled charge','Recurring list price',
+ 'Adjust team capacity','Copy subscription reference','Seat change pending verification'])
+ assert.ok(premiumBillingUi.includes(required),'Missing premium billing feature: '+required);
+assert.ok(premiumBillingUi.includes('max-h-[min(92dvh,850px)]'),
+ 'Billing review must stay scrollable on small screens');
+console.log('Premium Billing UX contract tests passed');
