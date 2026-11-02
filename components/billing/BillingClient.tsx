@@ -199,7 +199,15 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
   const verifiedPlanRate = seatChange || planChange ? 'Change pending'
     : billingPlan === 'individual' && hasPaidSubscription ? '$12 / year'
     : (billingPlan === 'pro' || billingPlan === 'team') && hasPaidSubscription && Number.isFinite(seatLimit)
-      ? '
+      ? '$' + (seatLimit * (billingPlan === 'pro' ? 4 : 6)).toFixed(2) + ' / mo'
+      : billingPlan === 'free' ? '$0 / mo' : 'See Creem portal';
+  const verifiedNextCharge = billingStatus === 'cancelled'
+    ? 'Renewal off'
+    : billingCycle?.nextChargeVerified
+      ? utcBillingDate(billingCycle.nextChargeAt)
+      : hasPaidSubscription ? 'Check Creem portal' : 'No payment scheduled';
+  const actionSecondary = 'h-10 rounded-xl border-border/80 bg-background px-3.5 text-xs font-medium shadow-sm transition-all hover:-translate-y-px hover:border-primary/30 hover:bg-primary/[0.045] hover:shadow-md focus-visible:ring-primary/40';
+  const actionPrimary = 'h-10 rounded-xl bg-blue-600 px-4 text-xs font-semibold text-white shadow-[0_10px_20px_-12px_rgba(37,99,235,0.8)] transition-all hover:-translate-y-px hover:bg-blue-700 hover:shadow-lg focus-visible:ring-blue-500';
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-7 pb-12">
