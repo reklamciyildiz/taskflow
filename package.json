@@ -32,7 +32,7 @@
     "test:ios-device-ci": "node scripts/test-ios-device-ipa-workflow.mjs",
     "test:mobile-connectivity": "node scripts/test-mobile-connectivity.mjs",
     "test:mobile-release": "node scripts/test-mobile-release-contract.mjs",
-    "test:creem": "tsx scripts/test-creem-billing-contract.ts",
+    "test:creem": "tsx scripts/test-creem-billing-contract.ts && tsx scripts/test-creem-billing-scenarios.ts",
     "creem:verify-products": "tsx scripts/verify-creem-products.ts",
     "creem:inspect-seats": "tsx scripts/inspect-creem-seats.ts",
     "test:capacitor-oauth": "node scripts/test-capacitor-oauth-handoff.mjs",

@@ -9,6 +9,7 @@ import { parseCreemSeatState, seatUpdatePayload, SeatValidationError } from '@/l
 import { verifyCreemSeatIncreasePayment, type PendingSeatIncrease } from '@/lib/creem-seat-payment';
 import { issueBillingConsent, verifyBillingConsent, type BillingConsentState } from '@/lib/creem-billing-consent';
 import { readCreemBillingCycle, CREEM_IMMEDIATE_CYCLE_POLICY } from '@/lib/creem-billing-cycle';
+import { reconcilePendingCreemPlanChange } from '@/lib/creem-plan-settlement';
 import { fetchCreemSubscription, reconcileCreemSubscription } from '@/lib/creem-subscription';
 import { CREEM_EXPECTED_TAX_MODE, isPaidPlan, type PaidActiprocPlan } from '@/lib/billing-plans';
 import { creemResumeEligibility } from '@/lib/creem-lifecycle';
@@ -155,7 +156,12 @@ export async function reconcileCreemOrg(orgId:string) {
       }
     }
   }
-  return NextResponse.json({success:true,data:{reconciled:result.applied,seatChangePending}});
+  let planChangePending=false;
+  if(process.env.CREEM_PLAN_MUTATIONS_ENABLED==='true') {
+    const settlement=await reconcilePendingCreemPlanChange(orgId,result.snapshot,getCreemConfig());
+    planChangePending=settlement.pending;
+  }
+  return NextResponse.json({success:true,data:{reconciled:result.applied,seatChangePending,planChangePending}});
  }catch(e){return errorResponse(e,'reconcile')}
 }
 export async function changeCreemSeats(request:NextRequest, orgId:string) {
@@ -215,6 +221,14 @@ export async function changeCreemSeats(request:NextRequest, orgId:string) {
     nextChargeAt:cycleBefore.nextChargeAt
   };
   if(body?.action==='preview') {
+    if(process.env.CREEM_PLAN_MUTATIONS_ENABLED==='true') {
+      const {data:planOpen,error:planError}=await (supabaseAdmin as any)
+        .from('creem_plan_changes').select('id').eq('organization_id',orgId)
+        .in('status',['pending','awaiting_sync','review']).maybeSingle();
+      if(planError)throw planError;
+      if(planOpen)return NextResponse.json({success:false,code:'PLAN_CHANGE_IN_PROGRESS',
+        error:'Plan upgrade is pending. Refresh billing before editing seats.'},{status:409});
+    }
     const {data:open,error:openError}=await (supabaseAdmin as any).from('creem_seat_changes')
       .select('id').eq('organization_id',orgId)
       .in('status',['pending','awaiting_sync','review']).maybeSingle();
@@ -352,6 +366,9 @@ export async function changeCreemSeats(request:NextRequest, orgId:string) {
 
 export async function changeCreemPlan(request:NextRequest,orgId:string) {
  try{
+  if(process.env.CREEM_PLAN_MUTATIONS_ENABLED!=='true')
+   return NextResponse.json({success:false,code:'PLAN_UPGRADES_DISABLED',
+     error:'Plan upgrades require verified billing safety configuration.'},{status:503});
   const config=getCreemConfig(),org:any=await organizationDb.getById(orgId);
   if(org?.billing_provider!=='creem'||!org.creem_subscription_id)
    return NextResponse.json({success:false,error:'No Creem subscription found'},{status:404});
@@ -367,7 +384,16 @@ export async function changeCreemPlan(request:NextRequest,orgId:string) {
     return NextResponse.json({success:false,error:'Subscription payment or environment is not current.'},{status:409});
   if((await getOrganizationSeatUsage(orgId))>1 && plan==='individual')
    return NextResponse.json({success:false,error:'Individual requires one member'},{status:409});
-  if(process.env.CREEM_SEAT_MUTATIONS_ENABLED==='true') {
+  if(process.env.CREEM_SEAT_MUTATIONS_ENABLED!=='true')
+    return NextResponse.json({success:false,code:'SEAT_SAFETY_REQUIRED',
+      error:'Plan upgrades require the atomic seat guard.'},{status:503});
+  {
+    const {data:planOpen,error:planError}=await (supabaseAdmin as any).from('creem_plan_changes')
+      .select('id').eq('organization_id',orgId)
+      .in('status',['pending','awaiting_sync','review']).maybeSingle();
+    if(planError)throw planError;
+    if(planOpen)return NextResponse.json({success:false,code:'PLAN_CHANGE_IN_PROGRESS',
+      error:'A plan upgrade is pending. No second charge can start.'},{status:409});
     const {data:open,error}=await (supabaseAdmin as any).from('creem_seat_changes')
       .select('id').eq('organization_id',orgId)
       .in('status',['pending','awaiting_sync','review']).maybeSingle();
@@ -390,10 +416,14 @@ export async function changeCreemPlan(request:NextRequest,orgId:string) {
     return NextResponse.json({success:false,error:'Subscription seat quantity changed. Refresh billing.'},{status:409});
   const sub=raw?.subscription??raw;
   const cycleBefore=readCreemBillingCycle(raw);
+  const beforeTransaction=typeof sub?.last_transaction_id==='string'?sub.last_transaction_id:null;
+  if(!beforeTransaction || !/^tran_[A-Za-z0-9_-]+$/.test(beforeTransaction))
+    return NextResponse.json({success:false,code:'PAYMENT_BASELINE_MISSING',
+      error:'Creem payment history is unavailable. No upgrade was requested.'},{status:409});
   const consentState:BillingConsentState={
     operation:'upgrade',organizationId:orgId,subscriptionId:snapshot.subscriptionId,
     fromPlan:previous,toPlan:plan,fromSeats:seatState.units,toSeats:seatState.units,
-    mode:creemResponseMode(config),lastTransactionId:typeof sub?.last_transaction_id==='string'?sub.last_transaction_id:null,
+    mode:creemResponseMode(config),lastTransactionId:beforeTransaction,
     updatedAt:seatState.updatedAt,
     periodEndAt:cycleBefore.currentPeriodEndAt,
     nextChargeAt:cycleBefore.nextChargeAt
@@ -413,10 +443,47 @@ export async function changeCreemPlan(request:NextRequest,orgId:string) {
   if(body?.action!=='confirm' || !verifyBillingConsent(body?.consentToken,consentState,config.secret))
     return NextResponse.json({success:false,code:'CONSENT_REQUIRED',
       error:'Payment approval expired or subscription details changed. Review the upgrade again.'},{status:409});
-  await creemApi(config,'POST','subscriptions/'+encodeURIComponent(snapshot.subscriptionId)+'/upgrade',{
-   product_id:creemProductForPlan(plan,config),update_behavior:'proration-charge-immediately'
+  const targetProduct=creemProductForPlan(plan,config);
+  const {data:reservation,error:reserveError}=await (supabaseAdmin as any).rpc('reserve_creem_plan_change',{
+    p_org:orgId,p_subscription:snapshot.subscriptionId,p_previous:previous,p_desired:plan,
+    p_previous_product:snapshot.productId,p_desired_product:targetProduct,
+    p_previous_transaction:beforeTransaction,p_seats:seatState.units,
+    p_customer:snapshot.customerId,p_test:config.mode==='test'
   });
-  return NextResponse.json({success:true});
+  if(reserveError)return NextResponse.json({success:false,code:'PLAN_DATABASE_NOT_READY',
+    error:'Atomic plan billing migration is missing. No charge was requested.'},{status:503});
+  if(typeof reservation!=='string')
+   return NextResponse.json({success:false,code:'BILLING_CHANGE_IN_PROGRESS',
+      error:'Another seat or plan change is in progress. No second payment was requested.'},{status:409});
+  const transition=async(from:'pending'|'awaiting_sync'|'review',to:'awaiting_sync'|'review'|'failed')=>{
+    const {data,error}=await (supabaseAdmin as any).rpc('transition_creem_plan_change',{
+       p_id:reservation,p_from:from,p_to:to
+    });
+    if(error||data!==true)
+      console.error('[creem] plan mutation transition failed',{code:error?.code??'STATE_CONFLICT'});
+  };
+  try {
+    await creemApi(config,'POST','subscriptions/'+encodeURIComponent(snapshot.subscriptionId)+'/upgrade',{
+      product_id:targetProduct,update_behavior:'proration-charge-immediately'
+    });
+  }catch(e) {
+    // Even a provider HTTP error can follow a submitted charge; keep the lock.
+    await transition('pending','review');
+    return NextResponse.json({success:true,data:{pending:true,review:true,
+      message:'Creem payment status is uncertain. Refresh billing; do not retry the charge.'}},{status:202});
+  }
+  await transition('pending','awaiting_sync');
+  try {
+    const applied=await reconcileCreemSubscription(orgId,snapshot.subscriptionId,config);
+    const settlement=await reconcilePendingCreemPlanChange(orgId,applied.snapshot,config);
+    return NextResponse.json({success:true,data:{pending:!settlement.settled,
+      verified:settlement.settled}});
+  }catch(e) {
+    // Provider might have charged. The pending SQL lease blocks duplicate calls.
+    console.warn('[creem] plan upgrade awaiting invoice verification',
+      e instanceof Error?e.name:'unknown');
+    return NextResponse.json({success:true,data:{pending:true,verified:false}},{status:202});
+  }
  }catch(e){return errorResponse(e,'switch-plan')}
 }
 

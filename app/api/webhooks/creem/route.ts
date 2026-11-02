@@ -4,6 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase-admin';
 import { creemApi, getCreemConfig, creemPlanForProduct, creemResponseMode } from '@/lib/creem-config';
 import { reconcileCreemSubscription, fetchCreemSubscription } from '@/lib/creem-subscription';
 import { verifyCreemSeatIncreasePayment, type PendingSeatIncrease } from '@/lib/creem-seat-payment';
+import { reconcilePendingCreemPlanChange } from '@/lib/creem-plan-settlement';
 import { validCreemEventId, verifyCreemSignature, paidCreemCheckoutMatches } from '@/lib/creem-webhook-contract';
 export const runtime='nodejs';
 const updateEvents=new Set(['subscription.active','subscription.paid','subscription.canceled','subscription.scheduled_cancel','subscription.past_due','subscription.unpaid','subscription.expired','subscription.trialing','subscription.paused','subscription.update']);
@@ -141,7 +142,13 @@ export async function POST(request:NextRequest) {
        }
      }
    }
-  }else if(kind==='refund.created' || kind==='dispute.created'){
+    if(process.env.CREEM_PLAN_MUTATIONS_ENABLED==='true' &&
+     result.snapshot.status==='active' &&
+     (kind==='subscription.paid'||kind==='subscription.update'||kind==='subscription.active')) {
+    // Verify a NEW paid invoice before granting upgraded Team entitlements.
+    await reconcilePendingCreemPlanChange(org.id,result.snapshot,config);
+  }
+ }else if(kind==='refund.created' || kind==='dispute.created'){
    const sid=objectId(obj.subscription) ?? objectId(obj.transaction?.subscription);
    if(!sid)throw new Error('Payment reversal missing subscription mapping - manual review needed');
    const {data, error}=await (supabaseAdmin as any).rpc('hold_creem_subscription',{p_subscription_id:sid,p_reason:kind});

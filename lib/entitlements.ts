@@ -91,7 +91,21 @@ export function getPlanLimits(ent: Pick<Entitlements, 'plan' | 'subscriptionStat
 
 export async function getOrganizationEntitlements(organizationId: string): Promise<Entitlements> {
   const org: any = await organizationDb.getById(organizationId);
-  const plan = normalizePlan(org?.plan_name);
+  let plan = normalizePlan(org?.plan_name);
+  // Provider may switch plan before completing an immediate charge. Keep the
+  // previously paid plan until the new invoice is VERIFIED and lease settled.
+  if(process.env.CREEM_PLAN_MUTATIONS_ENABLED==='true' &&
+     org?.billing_provider==='creem' && org.creem_subscription_id) {
+    const {data:pending,error}=await (supabaseAdmin as any).from('creem_plan_changes')
+      .select('previous_plan,desired_plan').eq('organization_id',organizationId)
+      .in('status',['pending','awaiting_sync','review']).maybeSingle();
+    if(error) {
+      console.error('[creem] cannot verify pending plan change',{code:error.code});
+      plan='free'; // fail closed — never grant unverified Team features
+    }else if(pending && pending.desired_plan===plan){
+      plan=normalizePlan(pending.previous_plan);
+    }
+  }
   // Creem payment holds and failed/paused subscriptions never unlock paid access.
   const subscriptionStatus = org?.billing_provider === 'creem' &&
     (org?.creem_payment_hold || ['past_due', 'paused'].includes(String(org?.subscription_status)))

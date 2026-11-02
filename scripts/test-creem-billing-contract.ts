@@ -308,9 +308,10 @@ assert.ok(seatModule.includes('price_id:(item as CreemSeatState).priceId') && !s
 const paymentChange={subscription_id:'sub_paid',previous_seats:1,desired_seats:3,
  previous_transaction_id:'tran_old',created_at:'2026-11-01T17:02:57.000Z'};
 const paymentSubscription={id:'sub_paid',mode:'test',status:'active',
- items:[{id:'sitem_1',units:3}],last_transaction_id:'tran_new'};
+ items:[{id:'sitem_1',units:3}],customer:'cust_paid',last_transaction_id:'tran_new'};
 const paymentTransaction={id:'tran_new',mode:'test',status:'paid',amount_paid:800,
- subscription:'sub_paid',created_at:1793552600000};
+ subscription:'sub_paid',customer:'cust_paid',type:'invoice',currency:'USD',
+ refunded_amount:null,created_at:1793552600000};
 assert.equal(matchesPaidSeatIncrease(paymentChange,paymentSubscription,paymentTransaction,'test'),true);
 for(const [change,sub,tx] of [
  [{...paymentChange,previous_transaction_id:'tran_new'},paymentSubscription,paymentTransaction],
@@ -321,6 +322,12 @@ for(const [change,sub,tx] of [
  [paymentChange,paymentSubscription,{...paymentTransaction,mode:'prod'}],
  [paymentChange,paymentSubscription,{...paymentTransaction,subscription:'sub_other'}],
  [paymentChange,paymentSubscription,{...paymentTransaction,created_at:1793550000000}],
+ [paymentChange,paymentSubscription,{...paymentTransaction,created_at:1793552600000+1200000+100000}],
+ [paymentChange,paymentSubscription,{...paymentTransaction,customer:'cust_wrong'}],
+ [paymentChange,paymentSubscription,{...paymentTransaction,currency:'EUR'}],
+ [paymentChange,paymentSubscription,{...paymentTransaction,type:'payment'}],
+ [paymentChange,paymentSubscription,{...paymentTransaction,refunded_amount:100}],
+ [paymentChange,{...paymentSubscription,customer:'cust_wrong'},paymentTransaction],
  ] as any[])assert.equal(matchesPaidSeatIncrease(change,sub,tx,'test'),false);
 const paymentWebhook=fs.readFileSync('app/api/webhooks/creem/route.ts','utf8');
 assert.ok(paymentWebhook.includes('verifyCreemSeatIncreasePayment(config,change') &&
