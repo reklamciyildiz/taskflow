@@ -476,22 +476,26 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
       ) : null}
 
       {/* Current subscription */}
-      <Card className="overflow-hidden rounded-[24px] border-border/80 bg-card shadow-[0_12px_38px_-28px_rgba(15,23,42,0.45)]">
-        <CardHeader className="border-b bg-gradient-to-r from-primary/[0.08] via-muted/30 to-card pb-5 pt-6">
+      <Card className="overflow-hidden rounded-[26px] border-border/70 bg-card shadow-[0_15px_48px_-32px_rgba(15,23,42,0.48)]">
+        <CardHeader className="border-b border-border/70 bg-gradient-to-br from-primary/[0.075] via-card to-card pb-5 pt-6 sm:px-7">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div className="space-y-1">
-              <CardTitle className="flex flex-wrap items-center gap-2 text-lg">
-                <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                  <CreditCard className="h-4 w-4" aria-hidden />
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-[0_8px_22px_-11px_rgba(37,99,235,0.8)]">
+                  <CreditCard className="h-5 w-5" aria-hidden />
                 </span>
-                Current subscription
-              </CardTitle>
-              <CardDescription>
-                Organization billing state. Use Refresh after completing checkout or portal changes.
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">Subscription management</p>
+                  <CardTitle className="mt-0.5 text-lg font-semibold tracking-tight sm:text-xl">Current subscription</CardTitle>
+                </div>
+              </div>
+              <CardDescription className="max-w-lg text-xs leading-relaxed">
+                Your verified subscription details and available account actions.
               </CardDescription>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => void refreshBilling()}>
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
+              <Button type="button" variant="outline" size="sm" className={actionSecondary} disabled={busy} onClick={() => void refreshBilling()}>
+                <RefreshCw className={cn('mr-1.5 h-3.5 w-3.5', billingLoading && 'animate-spin')} aria-hidden />
                 {billingLoading ? 'Refreshing…' : 'Refresh'}
               </Button>
               <Button
@@ -522,7 +526,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                 </Button>
               ) : null}
               {canResume && hasPaidSubscription ? (
-                <Button type="button" size="sm" disabled={busy}
+                <Button type="button" size="sm" className={actionPrimary} disabled={busy}
                   onClick={() => void resumeSubscription()}>
                   {checkoutBusy === 'resume' ? 'Confirming renewal…' : 'Resume renewal'}
                 </Button>
@@ -531,38 +535,43 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                 <Button
                   type="button"
                   size="sm"
+                  className={actionPrimary}
                   disabled={busy}
                   onClick={() => void openCheckout('individual', { billingInterval: 'yearly' })}
                 >
                   {busy ? 'Opening…' : 'Upgrade to Individual'}
                 </Button>
               ) : billingPlan === 'individual' && !canResubscribe ? (
-                <Button type="button" size="sm" disabled={!canUpgrade || busy} title={!canUpgrade ? 'Plan upgrades are unavailable while the subscription is cancelled or paused' : undefined} onClick={() => void requestPlanReview('pro')}>Upgrade to Pro</Button>
+                <Button type="button" size="sm" className={actionPrimary} disabled={!canUpgrade || busy} title={!canUpgrade ? 'Plan upgrades are unavailable while the subscription is cancelled or paused' : undefined} onClick={() => void requestPlanReview('pro')}>
+                  <Sparkles className="mr-1.5 h-3.5 w-3.5" aria-hidden /> Upgrade to Pro
+                </Button>
               ) : billingPlan === 'pro' && !canResubscribe ? (
                 // Upgrade the existing Creem subscription, not a second checkout.
                 <Button
                   type="button"
                   size="sm"
+                  className={actionPrimary}
                   disabled={!canUpgrade || busy}
                   title={!canUpgrade ? 'Plan upgrades are unavailable while the subscription is cancelled or paused' : undefined}
                   onClick={() => void requestPlanReview('team')}
                 >
+                  <Sparkles className="mr-1.5 h-3.5 w-3.5" aria-hidden />
                   {busy ? 'Switching…' : 'Upgrade to Team'}
                 </Button>
               ) : null}
             </div>
           </div>
         </CardHeader>
-        <CardContent className="space-y-6 pt-6">
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="text-sm font-medium text-muted-foreground">Plan</span>
-            <Badge variant={billingPlan === 'free' ? 'secondary' : 'default'} className="text-xs uppercase">
+        <CardContent className="space-y-6 pt-6 sm:px-7 sm:pb-7">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <span className="text-xs font-medium text-muted-foreground">Your plan</span>
+            <Badge variant={billingPlan === 'free' ? 'secondary' : 'default'} className="rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-wide">
               {billingPlan}
             </Badge>
-            <Separator orientation="vertical" className="hidden h-4 sm:block" />
-            <span className="text-sm font-medium text-muted-foreground">Status</span>
-            <Badge variant={statusBadgeVariant(billingStatus)} className="capitalize">
-              {billingLoading ? '…' : statusLabel}
+            <Separator orientation="vertical" className="mx-1 hidden h-4 sm:block" />
+            <span className="text-xs font-medium text-muted-foreground">Subscription status</span>
+            <Badge variant={statusBadgeVariant(billingStatus)} className="rounded-full px-3 py-1 text-[10px] font-semibold capitalize">
+              {billingLoading ? 'Refreshing…' : statusLabel}
             </Badge>
           </div>
 
