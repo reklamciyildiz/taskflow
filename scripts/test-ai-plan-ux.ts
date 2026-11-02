@@ -82,7 +82,7 @@ assert.ok(indicator.includes("useAIUsage(request, refreshKey)") &&
  indicator.includes("status.access === 'beta_only'"),
  'AI Chat must show current validated daily/monthly usage and rollout access');
 assert.ok(usage.includes('requireAuthedUser(request)') &&
- !usage.includes('requireAIChatUser') &&
+ !usage.includes('await requireAIChatUser(request)') &&
  usage.includes('aiAllowanceForAuthenticatedOrganization(organizationId)') &&
  usage.includes("ai_quota_counters") &&
  usage.includes("'Cache-Control': 'private, no-store'") &&
