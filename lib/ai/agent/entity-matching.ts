@@ -146,7 +146,7 @@ export function matchAIStage<T>(query: string, rows: readonly T[], nameOf: (row:
 /** Extract a stage mentioned immediately before 'kolonu/column/stage' */
 export function stageHintFromText(text: string): string | null {
   const cleaned = text.replace(/[“”"']/g, ' ');
-  const match = cleaned.match(/([\p{L}\p{N}_-]+(?:\s+[\p{L}\p{N}_-]+){0,4})\s+(?:kolon(?:un[ad]?|undaki|unda|una|u|da|a)?|s[uü]tun(?:unda|una|u|da|a)?|column|stage|a[sş]ama(?:s[iı]nda|s[iı]na|da|ya)?)\b/iu);
+  const match = cleaned.match(/([\p{L}\p{N}_-]+(?:\s+[\p{L}\p{N}_-]+){0,4})\s+(?:kolon(?:un[ad]?|undaki|unda|una|u|da|a|i)?(?:\s+(?:da|de|na|ya))?|koln(?:unda|una)?|s[uü]tun(?:unda|una|u|da|a)?|column|stage|a[sş]ama(?:s[iı]nda|s[iı]na|da|ya)?)\b/iu);
   if (!match) return null;
   return match[1].trim();
 }
