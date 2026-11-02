@@ -27,6 +27,7 @@
     "test:planner:visual": "node scripts/test-planner-v2-visual.cjs",
     "test:editor": "tsx scripts/test-editor-slash-commands.ts",
     "test:knowledge-hub": "tsx scripts/test-knowledge-hub.ts",
+    "test:ai:public": "tsx scripts/test-ai-public-access.ts",
     "test:mobile-web": "node scripts/test-mobile-web-contract.mjs",
     "test:ios-shell": "node scripts/test-ios-shell-contract.mjs",
     "test:ios-auth": "node scripts/test-ios-auth-security.mjs",
