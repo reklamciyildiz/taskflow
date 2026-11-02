@@ -71,7 +71,7 @@ export function AIUsageBillingCard() {
                 <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-muted" role="progressbar"
                   aria-label="Monthly AI requests used" aria-valuemin={0} aria-valuemax={status.monthly.limit}
                   aria-valuenow={Math.min(status.monthly.used, status.monthly.limit)}>
-                  <div className={`h-full rounded-full transition-[width] ${exhausted ? 'bg-rose-500' : nearLimit ? 'bg-amber-500' : 'bg-primary'}`}
+                  <div className={`h-full rounded-full transition-[width] ${monthState === 'exhausted' ? 'bg-rose-500' : monthState === 'warning' ? 'bg-amber-500' : 'bg-primary'}`}
                     style={{ width: `${percent}%` }} />
                 </div>
                 <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] text-muted-foreground">
