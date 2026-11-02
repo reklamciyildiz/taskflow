@@ -127,6 +127,10 @@ async function resolveProcess(actor: Actor, input: { processId?: string; process
   if (input.processId) {
     const project = projects.find((row: any) => String(row.id) === input.processId);
     if (!project) throw new AIWriteProposalError('not_found', 'Seçilen Process bulunamadı veya düzenleme yetkiniz yok.');
+    if (input.processName && matchAIEntity(input.processName, [project], (row: any) => String(row.name)).kind !== 'match') {
+      throw new AIWriteProposalError('ambiguous',
+        `Process ID ile belirtilen isim eşleşmiyor: “${input.processName}” / “${project.name}”. Hedefi netleştirin.`);
+    }
     return project as any;
   }
   if (input.processName) return resolveNamedTarget(projects, input.processName,
@@ -162,6 +166,11 @@ async function resolveAction(actor: Actor, input: { actionId?: string; actionTit
     : mentionedName(tasks, userRequest, (row: any) => String(row.title), 'Action')?.value;
   if (!task) throw new AIWriteProposalError('not_found',
     'Action bulunamadı veya düzenleme yetkiniz yok. Lütfen tam Action adını belirtin.');
+  if (input.actionId && input.actionTitle &&
+      matchAIEntity(input.actionTitle, [task], (row: any) => String(row.title)).kind !== 'match') {
+    throw new AIWriteProposalError('ambiguous',
+      `Action ID ile adı uyuşmuyor: “${input.actionTitle}” / “${task.title}”. Lütfen hedefi netleştirin.`);
+  }
   const project = candidates.find((row: any) => String(row.id) === String(task.project_id));
   if (!project) throw new AIWriteProposalError('forbidden', 'Action is not writable');
   return { task, project };
@@ -201,6 +210,9 @@ export async function createAIWriteProposal(toolName: AIWriteToolName, raw: unkn
     if (input.stageId) {
       stage = stages.find((item) => item.id === input.stageId) ?? null;
       if (!stage) throw new AIWriteProposalError('not_found', 'Kolon ID geçerli değil. Lütfen mevcut bir kolonu belirtin.');
+      if (input.stageName && matchAIEntity(input.stageName, [stage], (item) => item.title).kind !== 'match') {
+        throw new AIWriteProposalError('ambiguous', 'Kolon ID ile adı uyuşmuyor. Lütfen hedef kolonu belirtin.');
+      }
     } else if (input.stageName) {
       const match = resolveNamedTarget(stages, input.stageName, 'Kolon', (item) => item.title);
       stage = match.value;
@@ -239,6 +251,10 @@ export async function createAIWriteProposal(toolName: AIWriteToolName, raw: unkn
         'Checklist maddesi', (candidate) => candidate.text).value
       : mentionedName(items, scope.userRequest, (candidate) => candidate.text, 'Checklist maddesi')?.value;
     if (!item?.id) throw new AIWriteProposalError('not_found', 'Checklist item was not found');
+    if (input.checklistItemId && input.checklistText &&
+        matchAIEntity(input.checklistText, [item], (row) => row.text).kind !== 'match') {
+      throw new AIWriteProposalError('ambiguous', 'Checklist maddesinin ID ve metni uyuşmuyor. Lütfen maddesini netleştirin.');
+    }
     payload = { actionId: String(task.id), checklistItemId: item.id, completed: input.completed,
       expectedTaskUpdatedAt: String(task.updated_at), expectedChecked: item.checked };
     display = { title: 'Checklist güncelleme taslağı',
