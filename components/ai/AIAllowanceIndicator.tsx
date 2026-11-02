@@ -43,7 +43,7 @@ export function AIAllowanceIndicator({ request, refreshKey }: {
         <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted" role="progressbar"
           aria-label="Monthly AI requests used" aria-valuemin={0} aria-valuemax={status.monthly.limit}
           aria-valuenow={Math.min(status.monthly.used, status.monthly.limit)}>
-          <div className={`h-full rounded-full transition-[width] ${exhausted ? 'bg-rose-500' : warning ? 'bg-amber-500' : 'bg-primary'}`}
+          <div className={`h-full rounded-full transition-[width] ${monthly === 'exhausted' ? 'bg-rose-500' : monthly === 'warning' ? 'bg-amber-500' : 'bg-primary'}`}
             style={{ width: `${usagePct}%` }} />
         </div>
         <p className="mt-1 flex items-center justify-end gap-1 text-[10px] text-muted-foreground">
