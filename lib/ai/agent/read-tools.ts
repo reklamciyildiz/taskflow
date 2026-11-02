@@ -9,6 +9,7 @@ import { extractChecklistItemsFromTipTap } from '@/lib/tiptap-parser';
 import { isTerminalBoardColumn,parseColumnConfigFromJson } from '@/lib/types';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import type { AIReadReference,AIReadToolActor,AIReadToolExecution,AIReadToolName } from './types';
+import { matchAIEntity, normalizeAIEntityName } from './entity-matching';
 
 const uuid=z.string().uuid();
 const processSelector=z.object({ processId:uuid.optional(),processName:z.string().trim().min(1).max(120).optional() }).strict()
@@ -67,9 +68,12 @@ async function visibleProcesses(actor:AIReadToolActor,teamId?:string) {
 async function resolveProcess(actor:AIReadToolActor,input:{processId?:string;processName?:string},teamId?:string) {
   const projects=await visibleProcesses(actor,teamId);
   if (input.processId) return projects.find((project:any)=>String(project.id)===input.processId)??null;
-  const query=input.processName?.toLocaleLowerCase('tr-TR').trim()??'';
-  return projects.find((project:any)=>String(project.name).toLocaleLowerCase('tr-TR')===query)
-    ??projects.find((project:any)=>String(project.name).toLocaleLowerCase('tr-TR').includes(query))??null;
+  if (!input.processName) return null;
+  const result=matchAIEntity(input.processName,projects,(project:any)=>String(project.name));
+  if (result.kind==='match') return result.value;
+  if (result.kind==='ambiguous') throw new AIReadToolError('not_found',
+    `Process adı belirsiz: ${result.candidates.join(', ')}. Lütfen tam adını belirtin.`);
+  return null;
 }
 
 function processReference(project:any):AIReadReference {
@@ -86,7 +90,15 @@ function localCalendarDate(timeZone:string) {
 
 async function runListProcesses(actor:AIReadToolActor,input:z.infer<typeof listProcessesSchema>):Promise<AIReadToolExecution> {
   let projects=await visibleProcesses(actor,input.teamId);
-  if (input.query) { const q=input.query.toLocaleLowerCase('tr-TR');projects=projects.filter((p:any)=>String(p.name).toLocaleLowerCase('tr-TR').includes(q)); }
+  if (input.query) {
+    const q=normalizeAIEntityName(input.query);
+    const exact=projects.filter((p:any)=>normalizeAIEntityName(p.name).includes(q));
+    if (exact.length) projects=exact;
+    else {
+      const result=matchAIEntity(input.query,projects,(p:any)=>String(p.name));
+      projects=result.kind==='match'?[result.value]:[];
+    }
+  }
   const selected=projects.slice(0,input.limit);
   return { name:'list_processes',statusLabel:'Süreçler kontrol ediliyor…',citations:[],references:selected.map(processReference),data:{ total:projects.length,hasMore:projects.length>selected.length,processes:selected.map((p:any)=>({ id:String(p.id),name:String(p.name),teamId:p.team_id?String(p.team_id):null,visibility:String(p.visibility??'team'),stageCount:parseColumnConfigFromJson(p.column_config).length })) } };
 }
