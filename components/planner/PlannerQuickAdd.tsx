@@ -79,6 +79,7 @@ export function PlannerQuickAdd() {
 
   function chooseParent(id: string) {
     setParentId(id);
+    setValue('');
     setExistingId('');
     if (!currentTeam) return;
     try {
@@ -214,12 +215,12 @@ export function PlannerQuickAdd() {
         </div>
         <div className="inline-flex rounded-xl border border-border/70 bg-muted/45 p-1" role="group" aria-label="New Planner entry type">
           <button type="button" aria-pressed={kind === 'checklist'} disabled={locked}
-            onClick={() => { setKind('checklist'); setDate(null); setTime(''); }}
+            onClick={() => { setKind('checklist'); setValue(''); setDate(null); setTime(''); }}
             className={`inline-flex min-h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition ${kind === 'checklist' ? 'bg-background text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
             <CheckSquare2 className="h-3.5 w-3.5" aria-hidden /> Checklist item
           </button>
           <button type="button" aria-pressed={kind === 'action'} disabled={locked}
-            onClick={() => { setKind('action'); setDate(null); setTime(''); }}
+            onClick={() => { setKind('action'); setValue(''); setDate(null); setTime(''); }}
             className={`inline-flex min-h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition ${kind === 'action' ? 'bg-background text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
             <Layers3 className="h-3.5 w-3.5" aria-hidden /> Action
           </button>
@@ -239,10 +240,10 @@ export function PlannerQuickAdd() {
           </label>
           <div className="flex items-center gap-1 rounded-lg bg-background/70 p-1 text-[11px] font-medium">
             <button type="button" disabled={locked} aria-pressed={checklistMode === 'new'}
-              onClick={() => setChecklistMode('new')}
+              onClick={() => { setChecklistMode('new'); setValue(''); }}
               className={`min-h-8 rounded-md px-2.5 ${checklistMode === 'new' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted'}`}>New item</button>
             <button type="button" disabled={locked} aria-pressed={checklistMode === 'existing'}
-              onClick={() => setChecklistMode('existing')}
+              onClick={() => { setChecklistMode('existing'); setValue(''); }}
               className={`min-h-8 rounded-md px-2.5 ${checklistMode === 'existing' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted'}`}>Existing item</button>
           </div>
           {!parents.length && <p className="text-xs text-amber-600 sm:col-span-2">Create an Action first. It can hold many independently scheduled checklist items.</p>}
