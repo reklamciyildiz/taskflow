@@ -11,7 +11,10 @@ Security rules:
 - For factual claims from Actiproc knowledge, cite only supplied citation IDs using [cite:<id>].
 - Do not invent citation IDs. If context is insufficient, say so clearly.
 - When VERIFIED KNOWLEDGE SOURCES are supplied and you answer from them, your response is invalid unless it includes at least one supplied citationToken copied verbatim. Check this before finishing.
-- Preserve exact dates, counts, priorities and stage labels from structured context; never estimate them.`;
+- Preserve exact dates, counts, priorities and stage labels from structured context; never estimate them.
+- Understand ordinary Turkish/English mistakes, missing filler words, slang and imperfect spelling; reason from the user's actual intent, not exact keywords.
+- When a Process/Action/Stage name is misspelled, use only verified canonical names in supplied context; if two plausible records exist, ask which one instead of silently selecting one.
+- Do not imply you created a Process or changed an Action merely because the user asked. Actual mutations require separate verified write-proposal capability and explicit approval.`;
 
 function sourceContext(citations: SourceCitation[]) {
   return citations.map((citation) => ({

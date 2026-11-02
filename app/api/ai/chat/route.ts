@@ -346,6 +346,25 @@ export async function POST(request:NextRequest) {
               readTools:readToolExecutions.map((execution)=>execution.name),toolCallCount:readToolExecutions.length,
               modelToolSelection:usedModelToolSelection });
         } catch(error) {
+          if (error instanceof AIWriteProposalError
+              && (error.code==='ambiguous' || error.code==='not_found')) {
+            // User-facing clarification rather than a failed message/toast.
+            // The model may infer typos, but only the authorized, uniquely
+            // resolved canonical record is allowed into an approval proposal.
+            answer=error.message;
+            assistantStatus='completed';
+            await finalizeAssistantMessage({messageId:turn.assistantMessageId,scope,
+              content:answer,status:'completed',model,inputTokens,outputTokens,
+              grounding:{kind:'none'}});
+            send({type:'delta',text:answer});
+            send({type:'done',finishReason:'completed'});
+            await recordAIRequest(scope.userId,scope.organizationId,'axiom-chat',model??'groq',
+              inputTokens??0,outputTokens??0,
+              estimateGroqChatCostUsd(model??'groq',inputTokens??0,outputTokens??0),
+              Date.now()-startedAt,true,undefined,
+              {plan:allowance.plan,clarificationRequired:true,costIsEstimate:true});
+            return;
+          }
           const cancelled=request.signal.aborted || (error instanceof Error && error.name==='AbortError');
           assistantStatus=cancelled?'cancelled':'failed';
           const normalized=safeError(error,provider);
