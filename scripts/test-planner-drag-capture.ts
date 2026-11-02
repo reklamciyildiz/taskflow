@@ -83,5 +83,5 @@ assert.ok(calendar.includes('scheduleType: \'one_off\'') &&
 assert.ok(calendar.includes('plannerDragSupported(item.isRecurring, item.scheduleTime)'),
  'Recurring series cannot be silently converted to a one-off');
 assert.ok(shared.includes('PlannerQuickAdd') && shared.includes('PlannerCalendar') &&
- mobile.includes('PlannerV2View'), 'Web and Capacitor must share the improved Planner');
+ mobile.includes('PlannerRuntimeProvider'), 'Web and Capacitor must share the improved Planner');
 console.log('PASS: 15-minute pointer snapping, dates, recurring safety, canonical checklist creation, capture retry and platform guard');
