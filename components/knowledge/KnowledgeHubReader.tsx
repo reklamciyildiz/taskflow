@@ -210,7 +210,9 @@ export function KnowledgeHubReader({
                       onClick={() => {
                         const page = notePage - 1;
                         setNotePage(page);
-                        setSelectedNoteId(card.notes[page * NOTES_PER_PAGE]?.id ?? null);
+                        const nextId = card.notes[page * NOTES_PER_PAGE]?.id ?? null;
+                        setSelectedNoteId(nextId);
+                        setSelectedSourceId(nextId);
                         setActiveSection('notes');
                       }}
                       className="rounded-lg border border-border p-1.5 hover:bg-muted disabled:opacity-30">
@@ -220,7 +222,9 @@ export function KnowledgeHubReader({
                       onClick={() => {
                         const page = notePage + 1;
                         setNotePage(page);
-                        setSelectedNoteId(card.notes[page * NOTES_PER_PAGE]?.id ?? null);
+                        const nextId = card.notes[page * NOTES_PER_PAGE]?.id ?? null;
+                        setSelectedNoteId(nextId);
+                        setSelectedSourceId(nextId);
                         setActiveSection('notes');
                       }}
                       className="rounded-lg border border-border p-1.5 hover:bg-muted disabled:opacity-30">
@@ -323,7 +327,9 @@ export function KnowledgeHubReader({
                   onClick={() => {
                     const page = checklistPage - 1;
                     setChecklistPage(page);
-                    setSelectedChecklistId(card.checklistItems[page * CHECKLIST_PER_PAGE]?.id ?? null);
+                    const nextId = card.checklistItems[page * CHECKLIST_PER_PAGE]?.id ?? null;
+                    setSelectedChecklistId(nextId);
+                    setSelectedSourceId(nextId);
                     setActiveSection('checklist');
                   }}
                   className="rounded-lg border border-border p-1.5 hover:bg-muted disabled:opacity-30">
@@ -333,7 +339,9 @@ export function KnowledgeHubReader({
                   onClick={() => {
                     const page = checklistPage + 1;
                     setChecklistPage(page);
-                    setSelectedChecklistId(card.checklistItems[page * CHECKLIST_PER_PAGE]?.id ?? null);
+                    const nextId = card.checklistItems[page * CHECKLIST_PER_PAGE]?.id ?? null;
+                    setSelectedChecklistId(nextId);
+                    setSelectedSourceId(nextId);
                     setActiveSection('checklist');
                   }}
                   className="rounded-lg border border-border p-1.5 hover:bg-muted disabled:opacity-30">
