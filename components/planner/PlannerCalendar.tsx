@@ -128,11 +128,21 @@ export function PlannerCalendar() {
     if (!plannerDragSupported(item.isRecurring, item.scheduleTime)) return;
     setMoveBusy(true);
     try {
+      // Fail closed on stale calendar data. Never replace another user's recurrence
+      // or erase newly edited reminders with an old projection snapshot.
+      const current = await scheduleApi.get(item.source);
+      if (!current.success || !current.data || current.data.id !== item.scheduleId ||
+          current.data.scheduleType !== 'one_off' ||
+          current.data.scheduleDate !== item.scheduleDate ||
+          current.data.scheduleTime?.slice(0, 5) !== item.scheduleTime?.slice(0, 5)) {
+        throw new Error('This event has changed since your calendar loaded. Refresh and try again.');
+      }
       const response = await scheduleApi.save({
         source: item.source, scheduleType: 'one_off',
         scheduleDate: target.date, scheduleTime: target.time,
-        timeZone: item.timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
-        durationMinutes: item.durationMinutes ?? 30, reminderRules: item.reminderRules,
+        timeZone: current.data.timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+        durationMinutes: current.data.durationMinutes ?? 30,
+        reminderRules: current.data.reminderRules,
       });
       if (!response.success || !response.data) throw new Error(response.error || 'Calendar change could not be saved.');
       dispatchScheduleChanged(item.source, response.data);
