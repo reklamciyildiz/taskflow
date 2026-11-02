@@ -2,26 +2,24 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ArrowRight, ArrowUpRight, BookOpen, Check, CheckCircle2, CheckSquare2,
-  Clock3, FileText, FolderOpen, LayoutGrid, List, Pin, Search, ShieldCheck,
-  SlidersHorizontal, Sparkles, Star, Users, X,
+  ArrowRight, ArrowUpRight, BookOpen, CheckCircle2, CheckSquare2,
+  Clock3, FileText, FolderOpen, LayoutGrid, List, Pin, Search,
+  SlidersHorizontal, Sparkles, Star, X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import {
-  Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle,
-} from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 import {
-  formatKnowledgeEntryDate, normalizeKnowledgePinId, searchKnowledgeCards,
-  setChecklistItemChecked, type KnowledgeContentFilter, type KnowledgeHubCard,
-  type KnowledgeSearchResult,
+  focusKnowledgeMatch, normalizeKnowledgePinId, searchKnowledgeCards,
+  type KnowledgeContentFilter, type KnowledgeHubCard, type KnowledgeSearchResult,
 } from '@/lib/knowledge-retrieval';
+import {
+  KnowledgeHubReader, type KnowledgeReaderSelection,
+} from '@/components/knowledge/KnowledgeHubReader';
 import type { Project, Task, TaskUpdateFields } from '@/lib/types';
 
 const PIN_KEY = 'taskflow:pinnedKnowledgeEntryIds';
@@ -83,8 +81,7 @@ export function KnowledgeHubWorkspace({
   const [visibleCount, setVisibleCount] = useState(24);
   const [layout, setLayout] = useState<Layout>('cards');
   const [pinIds, setPinIds] = useState<string[]>([]);
-  const [activeCardId, setActiveCardId] = useState<string | null>(null);
-  const [savingItemId, setSavingItemId] = useState<string | null>(null);
+  const [activeSelection, setActiveSelection] = useState<KnowledgeReaderSelection | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -141,7 +138,7 @@ export function KnowledgeHubWorkspace({
 
   useEffect(() => { setVisibleCount(24); }, [query, tab, projectFilter, sort, layout]);
   const displayedResults = results.slice(0, visibleCount);
-  const active = cards.find((card) => card.id === activeCardId) ?? null;
+  const active = cards.find((card) => card.id === activeSelection?.cardId) ?? null;
   const notesCount = knowledgeCards.reduce((count, card) => count + card.notes.length, 0);
   const checklistCount = knowledgeCards.reduce((count, card) => count + card.checklistItems.length, 0);
   const openItems = knowledgeCards.reduce(
@@ -170,25 +167,6 @@ export function KnowledgeHubWorkspace({
     if (teamId) params.set('teamId', teamId);
     if (projectFilter !== 'all' && projectFilter !== '__none__') params.set('processId', projectFilter);
     navigate('/ai?' + params.toString());
-  }
-  async function toggleChecklistItem(card: KnowledgeHubCard, itemId: string, nextChecked: boolean) {
-    const item = card.checklistItems.find((candidate) => candidate.id === itemId);
-    const task = taskMap.get(card.taskId);
-    if (!item?.persistedId || !task || !canEditTask(task.createdBy, task.assigneeId) || savingItemId) return;
-    const next = setChecklistItemChecked(task.checklistBlocks, item.persistedId, nextChecked);
-    if (!next) {
-      toast.error('This checklist item can no longer be updated. Open the action to refresh it.');
-      return;
-    }
-    setSavingItemId(itemId);
-    try {
-      const ok = await updateTask(task.id, { checklistBlocks: next });
-      if (!ok) toast.error('Checklist change was not saved.');
-    } catch {
-      toast.error('Checklist change was not saved.');
-    } finally {
-      setSavingItemId(null);
-    }
   }
 
   return (
@@ -383,7 +361,7 @@ export function KnowledgeHubWorkspace({
               const { card, matches: sourceMatches } = result;
               const isPinned = pinIds.includes(normalizeKnowledgePinId(card.id));
               const completed = card.checklistItems.filter((item) => item.done).length;
-              const firstMatch = query.trim() ? sourceMatches.find((item) => item.sourceType !== 'action') ?? sourceMatches[0] : null;
+              const firstMatch = query.trim() ? focusKnowledgeMatch(sourceMatches, content) : null;
               const snippet = firstMatch?.snippet || cardSummary(card);
               const previewLabel = firstMatch ? 'Matched ' + firstMatch.label :
                 card.notes.length > 0 ? 'From your notes' : card.checklistItems.length ? 'From your checklist' : 'Related action';
@@ -393,7 +371,9 @@ export function KnowledgeHubWorkspace({
                     'group relative flex min-w-0 flex-col overflow-hidden rounded-[21px] border border-border/70 bg-card shadow-[0_10px_35px_-30px_rgba(15,23,42,0.5)] transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-[0_18px_42px_-27px_rgba(15,23,42,0.35)]',
                     layout === 'list' ? 'sm:flex-row sm:items-center' : 'min-h-[240px]',
                   )}>
-                  <button type="button" onClick={() => setActiveCardId(card.id)} aria-label={'Read ' + card.taskTitle}
+                  <button type="button"
+                    onClick={() => setActiveSelection({ cardId: card.id, matches: sourceMatches, query, preferred: content })}
+                    aria-label={firstMatch ? 'Read matching ' + firstMatch.label.toLowerCase() + ' in ' + card.taskTitle : 'Read ' + card.taskTitle}
                     className={cn('min-w-0 flex-1 p-5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary', layout === 'cards' && 'flex flex-col')}>
                     <div className="mb-3 flex flex-wrap items-center gap-1.5 text-[10px] font-semibold">
                       {card.notes.length > 0 && <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/10 px-2 py-1 text-violet-600 dark:text-violet-300"><BookOpen className="h-3 w-3" aria-hidden /> Notes · {card.notes.length}</span>}
@@ -435,92 +415,19 @@ export function KnowledgeHubWorkspace({
         )}
       </main>
 
-      <Sheet open={Boolean(active)} onOpenChange={(isOpen) => { if (!isOpen) setActiveCardId(null); }}>
-        <SheetContent side="right" className="z-[431] flex h-full w-full max-w-full flex-col gap-0 overflow-y-auto border-l border-border/70 bg-background p-0 shadow-2xl sm:w-[580px] sm:max-w-[580px]">
-          {active && (
-            <>
-              <div className="border-b border-border/70 bg-gradient-to-br from-primary/[0.07] via-card to-card px-6 pb-6 pt-8 sm:px-8">
-                <div className="mb-4 flex flex-wrap gap-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-primary">
-                  <span className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1">Knowledge detail</span>
-                  {active.projectName && <span className="rounded-full border border-border bg-background px-2.5 py-1 text-muted-foreground">{active.projectName}</span>}
-                </div>
-                <SheetHeader className="pr-6 text-left">
-                  <SheetTitle className="break-words text-xl font-semibold leading-snug tracking-tight sm:text-2xl">{active.taskTitle}</SheetTitle>
-                  <SheetDescription className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs">
-                    <span className="inline-flex items-center gap-1.5"><Users className="h-3.5 w-3.5" aria-hidden />{active.teamName}</span>
-                    <span className="inline-flex items-center gap-1.5"><Clock3 className="h-3.5 w-3.5" aria-hidden />Updated {formatKnowledgeEntryDate(active.sortDate)}</span>
-                  </SheetDescription>
-                </SheetHeader>
-                <div className="mt-5 flex flex-wrap gap-2">
-                  <Button type="button" onClick={() => { const taskId=active.taskId; setActiveCardId(null); openTaskEditor(taskId); }} className="h-10 rounded-xl px-4 text-xs font-semibold">
-                    Open full action <ArrowUpRight className="ml-1.5 h-3.5 w-3.5" aria-hidden />
-                  </Button>
-                  <Button type="button" variant="outline" className="h-10 rounded-xl text-xs" onClick={() => pin(active)}>
-                    <Star className={cn('mr-1.5 h-3.5 w-3.5', pinIds.includes(normalizeKnowledgePinId(active.id)) && 'fill-amber-400 text-amber-500')} aria-hidden />
-                    {pinIds.includes(normalizeKnowledgePinId(active.id)) ? 'Unpin' : 'Pin'}
-                  </Button>
-                </div>
-              </div>
-              <div className="flex-1 space-y-7 px-6 py-6 sm:px-8">
-                <section aria-label="Saved notes">
-                  <div className="mb-3 flex items-center justify-between">
-                    <h3 className="flex items-center gap-2 text-sm font-semibold"><BookOpen className="h-4 w-4 text-violet-500" aria-hidden /> Notes &amp; decisions</h3>
-                    <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] tabular-nums text-muted-foreground">{active.notes.length}</span>
-                  </div>
-                  {active.notes.length ? (
-                    <div className="space-y-3">
-                      {active.notes.map((note) => (
-                        <div key={note.id} className="rounded-2xl border border-border/70 bg-card p-4 shadow-sm">
-                          <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
-                            <span className="rounded-full bg-violet-500/10 px-2.5 py-1 font-semibold capitalize text-violet-600 dark:text-violet-300">{note.type}</span>
-                            <span className="text-muted-foreground">{abbreviatedDate(new Date(note.updatedAt))}</span>
-                          </div>
-                          {note.title && <h4 className="mt-3 break-words text-sm font-semibold">{note.title}</h4>}
-                          <p className="mt-2 whitespace-pre-wrap break-words text-[13px] leading-[1.75] text-foreground/85">{note.text || 'No note text.'}</p>
-                          {note.authorName && <p className="mt-3 text-[11px] text-muted-foreground">By {note.authorName}</p>}
-                        </div>
-                      ))}
-                    </div>
-                  ) : <p className="rounded-xl border border-dashed border-border p-4 text-xs text-muted-foreground">No notes on this action yet.</p>}
-                </section>
-                <section aria-label="Checklist items">
-                  <div className="mb-3 flex items-center justify-between">
-                    <h3 className="flex items-center gap-2 text-sm font-semibold"><CheckSquare2 className="h-4 w-4 text-emerald-500" aria-hidden /> Checklist</h3>
-                    <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] tabular-nums text-muted-foreground">
-                      {active.checklistItems.filter((item) => item.done).length}/{active.checklistItems.length}
-                    </span>
-                  </div>
-                  {active.checklistItems.length ? (
-                    <ul className="space-y-2">
-                      {active.checklistItems.map((item) => {
-                        const task = taskMap.get(active.taskId);
-                        const editable = task && canEditTask(task.createdBy, task.assigneeId);
-                        return (
-                          <li key={item.id} className="flex items-start gap-3 rounded-xl border border-border/70 bg-card px-3.5 py-3">
-                            <Checkbox checked={item.done} disabled={!editable || !item.persistedId || Boolean(savingItemId)}
-                              aria-label={'Mark checklist item ' + item.text + ' as ' + (item.done ? 'incomplete' : 'complete')}
-                              onCheckedChange={(checked) => void toggleChecklistItem(active, item.id, checked === true)}
-                              className="mt-0.5 shrink-0" />
-                            <span className={cn('min-w-0 flex-1 break-words text-[13px] leading-relaxed', item.done && 'text-muted-foreground line-through')}>{item.text}</span>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  ) : <p className="rounded-xl border border-dashed border-border p-4 text-xs text-muted-foreground">No checklist items on this action.</p>}
-                  {active.checklistItems.some((item) => !item.persistedId) &&
-                    <p className="mt-2 text-[11px] text-muted-foreground">Older checklist items without stored IDs must be edited in their original action.</p>}
-                </section>
-              </div>
-              <div className="sticky bottom-0 border-t border-border/70 bg-background/95 px-6 py-4 backdrop-blur-sm sm:px-8">
-                <p className="flex items-center gap-2 text-[11px] leading-relaxed text-muted-foreground">
-                  <ShieldCheck className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                  Content stays linked to its original action. Edits follow your workspace permissions.
-                </p>
-              </div>
-            </>
-          )}
-        </SheetContent>
-      </Sheet>
+      <KnowledgeHubReader
+        card={active}
+        selection={activeSelection}
+        open={Boolean(active)}
+        onClose={() => setActiveSelection(null)}
+        onOpenTask={(id) => openTaskEditor(id)}
+        onTogglePin={pin}
+        pinned={Boolean(active && pinIds.includes(normalizeKnowledgePinId(active.id)))}
+        tasksById={taskMap}
+        canEditTask={canEditTask}
+        updateTask={updateTask}
+        onSaveError={(message) => toast.error(message)}
+      />
     </div>
   );
 }
