@@ -5,6 +5,9 @@ on:
       - 'lib/ai/**'
       - 'app/api/ai/**'
       - 'components/ai/**'
+      - 'components/billing/**'
+      - 'components/marketing/sections/MarketingPricing.tsx'
+      - 'scripts/test-ai-plan-ux.ts'
       - 'scripts/test-ai-public-access.ts'
       - 'scripts/test-ai-public-rate-sql.sh'
       - 'supabase/migrations/*ai*.sql'
@@ -16,6 +19,9 @@ on:
       - 'lib/ai/**'
       - 'app/api/ai/**'
       - 'components/ai/**'
+      - 'components/billing/**'
+      - 'components/marketing/sections/MarketingPricing.tsx'
+      - 'scripts/test-ai-plan-ux.ts'
       - 'scripts/test-ai-public-access.ts'
       - 'scripts/test-ai-public-rate-sql.sh'
       - 'supabase/migrations/*ai*.sql'
@@ -46,6 +52,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run test:ai:public
+      - run: npm run test:ai:commercial-ui
       - name: Test SQL minute admission and parallel safety
         env:
           PGHOST: localhost
