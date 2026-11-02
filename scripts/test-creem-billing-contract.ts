@@ -139,7 +139,7 @@ const billingUi=fs.readFileSync('components/billing/BillingClient.tsx','utf8');
 assert.ok(billingUi.includes('canUpgrade') && billingUi.includes('hasPaidSubscription'),'Cancelled plans must block unsupported plan upgrades');
 assert.ok(!billingUi.includes('Checkout returned — verifying subscription payment'),'Stale checkout banner must be removed');
 assert.ok(!billingUi.includes('setBillingInterval('),'Unsupported billing interval toggle must not appear');
-assert.ok(billingUi.includes('Secured by Creem') && billingUi.includes('Choose how your team grows'),'Billing dashboard design missing');
+assert.ok(billingUi.includes('Payments powered by Creem') && billingUi.includes('Choose how your team grows'),'Billing dashboard design missing');
 
 const cases = {
   scheduled_cancel:'resume',
@@ -428,9 +428,9 @@ assert.ok(scheduleOps.includes('currentNextChargeAt:cycleBefore.nextChargeAt') &
  scheduleOps.includes('periodEndAt:cycleBefore.currentPeriodEndAt'),
  'Charge approval must disclose unknown next cycle and bind current schedule');
 const scheduleUI=fs.readFileSync('components/billing/BillingClient.tsx','utf8');
-assert.ok(scheduleUI.includes('Next scheduled card charge (Creem)') &&
- scheduleUI.includes('The immediate-charge option starts a new billing cycle') &&
- scheduleUI.includes('not a tax/discount-adjusted invoice quote'),
+assert.ok(scheduleUI.includes('Next scheduled charge') &&
+ scheduleUI.includes('Immediate-charge changes start a new billing cycle') &&
+ scheduleUI.includes('Not an immediate-payment quote'),
  'Billing must not falsely imply fixed anchor or exact payable amount');
 console.log('Creem billing-cycle regression tests passed');
 
@@ -443,9 +443,8 @@ for(const required of [
  'Today\'s charge · Prorated',
  'The exact charge is calculated by Creem',
  'Immediate-charge changes start a new billing cycle',
- 'reviewAcknowledged','disabled={!reviewAcknowledged||reviewBusy',
- 'CREEM' // replaced below with actual branding marker in UI
-].slice(0,-1))assert.ok(premiumBillingUi.includes(required),'Missing billing review protection or clarity: '+required);
+ 'reviewAcknowledged','disabled={!reviewAcknowledged||reviewBusy'
+])assert.ok(premiumBillingUi.includes(required),'Missing billing review protection or clarity: '+required);
 for(const required of ['Team capacity','Next scheduled charge','Recurring list price',
  'Adjust team capacity','Copy subscription reference','Seat change pending verification'])
  assert.ok(premiumBillingUi.includes(required),'Missing premium billing feature: '+required);
