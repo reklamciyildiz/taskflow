@@ -669,7 +669,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
             return (
               <div className="space-y-5 rounded-[22px] border border-primary/25 bg-gradient-to-br from-primary/[0.04] via-card to-card p-5 shadow-[0_14px_36px_-26px_rgba(15,23,42,0.4)] sm:p-6">
                 <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium">Manage seats</p>
+                  <div><p className="text-sm font-semibold tracking-tight">Manage seats</p><p className="mt-1 text-xs text-muted-foreground">Review your new capacity before confirming.</p></div>
                   <button
                     type="button"
                     className="text-xs text-muted-foreground hover:text-foreground"
@@ -679,13 +679,13 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                   </button>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground">Current seats</p>
-                    <p className="text-sm font-medium">{seatLimit}</p>
-                    <p className="text-xs text-muted-foreground">{seatsUsed} in use · min {seatsUsed}</p>
-                  </div>
-                  <div className="space-y-1.5">
-                    <label htmlFor="new-seats" className="text-xs text-muted-foreground">
+                  <div className="rounded-xl border border-border/70 bg-background/75 px-4 py-3">
+                     <p className="text-xs text-muted-foreground">Current capacity</p>
+                     <p className="mt-1 text-2xl font-semibold tabular-nums">{seatLimit}<span className="ml-1 text-xs font-medium text-muted-foreground">seats</span></p>
+                     <p className="mt-1 text-xs text-muted-foreground">{seatsUsed} in use · minimum {seatsUsed}</p>
+                   </div>
+                  <div className="space-y-1.5 rounded-xl border border-primary/20 bg-primary/[0.035] px-4 py-3">
+                     <label htmlFor="new-seats" className="text-xs font-medium text-foreground">
                       New total seats
                     </label>
                     <input
@@ -753,7 +753,8 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                 <Button
                   type="button"
                   size="sm"
-                  disabled={busy || Boolean(seatChange) || Boolean(planChange) || !isValid}
+                  className="h-11 w-full rounded-xl bg-blue-600 font-semibold text-white shadow-[0_12px_26px_-16px_rgba(37,99,235,0.85)] transition-all hover:bg-blue-700"
+                   disabled={busy || Boolean(seatChange) || Boolean(planChange) || !isValid}
                   onClick={async () => {
                     setAddSeatsError(null);
                     try {
@@ -842,13 +843,13 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
               >
                 {current ? (
                   <div className="absolute right-3 top-3">
-                    <Badge variant="outline" className="text-[10px] uppercase">
+                    <Badge variant="outline" className="rounded-full border-primary/30 bg-primary/[0.055] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-primary">
                       Current
                     </Badge>
                   </div>
                 ) : null}
-                <CardHeader className="space-y-3 pb-2 pt-6">
-                  <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+                <CardHeader className="space-y-3 pb-3 pt-7">
+                  <CardTitle className="flex items-center gap-2 text-lg font-semibold tracking-tight">
                     {key === 'pro' ? <Sparkles className="h-4 w-4 text-amber-500" aria-hidden /> : null}
                     {key === 'team' ? <Users className="h-4 w-4 text-primary" aria-hidden /> : null}
                     {title}
@@ -856,7 +857,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                   <CardDescription className="text-xs">{blurb}</CardDescription>
                 </CardHeader>
                 <CardContent className="flex flex-1 flex-col gap-5 pb-5">
-                  <ul className="flex-1 space-y-2 text-xs text-muted-foreground">
+                  <ul className="flex-1 space-y-3 border-t border-border/70 pt-4 text-xs text-muted-foreground">
                     {PLAN_FEATURES[key].map((f) => (
                       <li key={f} className="flex gap-2">
                         <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
@@ -868,11 +869,12 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                     <p className="text-[11px] text-muted-foreground">Default for every organization.</p>
                   ) : (
                     <>
-                      <p className="text-xs text-muted-foreground">
-                        <strong className="text-3xl font-semibold tracking-tight text-foreground">${ACTIPROC_PLANS[key].priceUsd}</strong>
+                      <p className="border-t border-border/70 pt-4 text-xs text-muted-foreground">
+                         <strong className="text-3xl font-semibold tracking-tight tabular-nums text-foreground">${ACTIPROC_PLANS[key].priceUsd}</strong>
                         {key === 'individual' ? '/year' : key === 'team' || key === 'pro' ? '/user/month' : '/month'}
                       </p>
-                      <Button type="button" size="sm" variant={current ? 'secondary' : 'default'} className="h-10 w-full rounded-xl"
+                      <Button type="button" size="sm" variant={current ? 'secondary' : 'default'}
+                         className={cn('h-11 w-full rounded-xl font-semibold transition-all', !current && 'bg-blue-600 text-white shadow-[0_12px_24px_-14px_rgba(37,99,235,0.8)] hover:bg-blue-700')}
                         disabled={busy || !canUpgrade || (canResubscribe && !acceptNewCharge) ||
                           (!canResubscribe && (current || (billingPlan !== 'free' && ['individual','pro','team'].indexOf(key) <= ['individual','pro','team'].indexOf(billingPlan))))}
                         onClick={() => canResubscribe
