@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import type { AIChatContext,AIChatMessage,AIConversationSummary } from '@/lib/ai/chat/types';
 import { parseChatSSEBuffer } from '@/lib/ai/chat/sse';
 import { SafeAIMessage } from './SafeAIMessage';
+import { AIAllowanceIndicator } from './AIAllowanceIndicator';
 import { useTaskContext } from '@/components/TaskContext';
 
 const suggestions=['What did I learn recently?','List the latest Actions in this Process','How does Planner scheduling work?'];
@@ -54,6 +55,7 @@ export function AxiomAIChatView({
   const [messages,setMessages]=useState<AIChatMessage[]>([]);
   const [input,setInput]=useState('');const [loading,setLoading]=useState(false);const [historyOpen,setHistoryOpen]=useState(false);
   const [proposalBusy,setProposalBusy]=useState<string|null>(null);
+  const [usageRefreshKey,setUsageRefreshKey]=useState(0);
   const abortRef=useRef<AbortController|null>(null),bottomRef=useRef<HTMLDivElement|null>(null);
 
   const refreshConversations=useCallback(async()=>{
@@ -107,7 +109,8 @@ export function AxiomAIChatView({
       if (!activeConversation) {
         const created=await request('/api/ai/conversations',{ method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ context }) });
         if (!created.ok) throw new Error((await created.json()).error?.message ?? 'Conversation could not be created');
-        activeConversation=(await created.json()).conversation.id;setConversationId(activeConversation);
+        const createdPayload=await created.json();
+        activeConversation=createdPayload.conversation.id;setConversationId(activeConversation);
       }
       const requestId=crypto.randomUUID(),optimisticUser=`user-${requestId}`,optimisticAssistant=`assistant-${requestId}`;
       setMessages((current)=>[...current,
@@ -140,7 +143,11 @@ export function AxiomAIChatView({
     } catch(error) {
       if ((error as Error).name!=='AbortError') toast.error(error instanceof Error?error.message:'Actiproc AI is unavailable');
       setMessages((current)=>current.map((item)=>item.status==='streaming'?{...item,status:controller.signal.aborted?'cancelled':'failed'}:item));
-    } finally { if(abortRef.current===controller) abortRef.current=null;setLoading(false); }
+    } finally {
+      if(abortRef.current===controller) abortRef.current=null;
+      setLoading(false);
+      setUsageRefreshKey((value)=>value+1);
+    }
   };
 
   const lastUser=[...messages].reverse().find((message)=>message.role==='user');
@@ -152,7 +159,7 @@ export function AxiomAIChatView({
     <section className="flex min-w-0 flex-1 flex-col">
       <header className="flex h-14 shrink-0 items-center gap-3 border-b px-3 sm:px-5">
         <Sheet open={historyOpen} onOpenChange={setHistoryOpen}><SheetTrigger asChild><Button variant="ghost" size="icon" className="lg:hidden" aria-label="Open chat history"><Menu className="h-5 w-5"/></Button></SheetTrigger><SheetContent side="left" className="w-[88vw] max-w-sm p-0"><SheetHeader className="border-b p-4"><SheetTitle>Chat history</SheetTitle></SheetHeader>{history}</SheetContent></Sheet>
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary"><Bot className="h-5 w-5"/></div><div><h1 className="font-semibold">Actiproc AI</h1><p className="text-xs text-muted-foreground">Verified workspace knowledge, when available</p></div>
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><Bot className="h-5 w-5"/></div><div className="min-w-0"><h1 className="font-semibold">Actiproc AI</h1><p className="hidden text-xs text-muted-foreground sm:block">Verified workspace knowledge, when available</p></div><AIAllowanceIndicator request={request} refreshKey={usageRefreshKey}/>
       </header>
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-6 sm:px-6">
         {messages.length===0?<div className="mx-auto flex h-full max-w-2xl flex-col items-center justify-center text-center"><div className="mb-5 rounded-2xl bg-gradient-to-br from-violet-500/15 to-cyan-500/15 p-4"><Bot className="h-9 w-9 text-primary"/></div><h2 className="text-2xl font-semibold">How can I help?</h2><p className="mt-2 max-w-md text-sm text-muted-foreground">Ask about accessible Actiproc knowledge, your current work, or how the product works.</p><div className="mt-7 grid w-full gap-2 sm:grid-cols-3">{suggestions.map((suggestion)=><button key={suggestion} className="rounded-xl border bg-background p-3 text-left text-sm transition-colors hover:bg-muted" onClick={()=>void send(suggestion)}>{suggestion}</button>)}</div></div>
