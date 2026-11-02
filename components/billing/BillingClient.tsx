@@ -502,18 +502,20 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                 type="button"
                 variant="outline"
                 size="sm"
+                className={actionSecondary}
                 disabled={busy || !hasPaidSubscription}
                 onClick={() => void openCustomerPortal()}
                 title={billingPlan === 'free' ? 'Subscribe first' : 'Invoices & payment method'}
               >
                 <Receipt className="mr-1.5 h-3.5 w-3.5" aria-hidden />
-                Invoices & portal
+                Invoices &amp; portal
               </Button>
               {(billingPlan === 'team' || billingPlan === 'pro') && subscriptionId && Number.isFinite(seatLimit) ? (
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
+                  className={actionSecondary}
                   disabled={busy || billingStatus !== 'active' || Boolean(seatChange) || Boolean(planChange)}
                   onClick={() => {
                     setDesiredSeats(seatLimit);
@@ -616,22 +618,26 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
           ) : null}
 
           {planChange ? (
-            <div role="status" className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-xs text-foreground">
-              Your upgrade from <strong>{planChange.previousPlan}</strong> to <strong>{planChange.desiredPlan}</strong> is awaiting a verified Creem payment.
-              No second billing change can start while this is pending. Use Refresh; if review persists, contact support.
+            <div role="status" className="flex items-start gap-3 rounded-2xl border border-amber-500/25 bg-amber-500/[0.07] p-4 text-xs leading-relaxed text-foreground">
+              <Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden />
+              <div><p className="mb-1 font-semibold">Plan upgrade pending verification</p>
+                Your upgrade from <strong className="capitalize">{planChange.previousPlan}</strong> to <strong className="capitalize">{planChange.desiredPlan}</strong> is awaiting a verified Creem payment. You cannot start another change while verification is pending. Refresh your status or contact support if review remains open.
+              </div>
             </div>
           ) : null}
           {seatChange ? (
-            <div role="status" className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-xs text-foreground">
-              Creem is verifying your request for <strong>{seatChange.desiredSeats}</strong> seats.
-              {seatChange.status === 'review' ? ' Billing review is needed before a new change.' : ' Another charge cannot start until it is verified.'}
-              Use Refresh to check again.
+            <div role="status" className="flex items-start gap-3 rounded-2xl border border-amber-500/25 bg-amber-500/[0.07] p-4 text-xs leading-relaxed text-foreground">
+              <Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden />
+              <div><p className="mb-1 font-semibold">Seat change pending verification</p>
+                Creem is verifying your request for <strong>{seatChange.desiredSeats}</strong> seats.
+                {seatChange.status === 'review' ? ' This requires billing review before another change.' : ' A new charge cannot start until confirmation.'} Refresh to check its status.
+              </div>
             </div>
           ) : null}
           {showSeatMeter ? (
-            <div className="space-y-2 rounded-xl border bg-card p-4">
-              <div className="flex items-center justify-between text-sm">
-                <span className="font-medium">Seat usage</span>
+            <div className="space-y-4 rounded-[20px] border border-border/70 bg-gradient-to-br from-muted/45 via-card to-card p-4 shadow-sm sm:p-5">
+              <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+                <span className="flex items-center gap-2 font-semibold"><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/[0.08] text-primary"><Users className="h-4 w-4" aria-hidden /></span> Team seat usage</span>
                 <span className="tabular-nums text-muted-foreground">
                   {billingLoading ? '…' : `${seatsUsed} / ${Number.isFinite(seatLimit) ? seatLimit : '∞'} used`}
                   {seatPct > 0 && Number.isFinite(seatLimit) ? (
@@ -639,7 +645,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                   ) : null}
                 </span>
               </div>
-              <Progress value={seatsUsed} max={Number.isFinite(seatLimit) ? Math.max(seatLimit, 1) : Math.max(seatsUsed, 1)} className="h-2" />
+              <Progress aria-label="Seats used" value={seatsUsed} max={Number.isFinite(seatLimit) ? Math.max(seatLimit, 1) : Math.max(seatsUsed, 1)} className="h-2.5 overflow-hidden rounded-full bg-primary/10" />
               {Number.isFinite(seatLimit) && seatsUsed >= seatLimit ? (
                 <p className="text-xs text-muted-foreground">
                   Invites are blocked at your purchased seat limit. Use <strong>Add seats</strong> above to increase
@@ -768,9 +774,19 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
           })() : null}
 
           {subscriptionId ? (
-            <p className="font-mono text-xs text-muted-foreground">
-              Subscription ref: <span className="select-all">{subscriptionId}</span>
-            </p>
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/70 bg-muted/20 px-4 py-3">
+              <div className="min-w-0">
+                <p className="text-[11px] font-medium text-muted-foreground">Subscription reference</p>
+                <p className="mt-1 break-all font-mono text-[11px] text-foreground/80" title={subscriptionId}>{subscriptionId}</p>
+              </div>
+              <Button type="button" variant="outline" size="sm" className="h-9 shrink-0 rounded-lg px-3 text-xs"
+                aria-label="Copy subscription reference" onClick={async()=>{
+                  try { await navigator.clipboard.writeText(subscriptionId); toast.success('Subscription reference copied'); }
+                  catch { toast.error('Unable to copy subscription reference'); }
+                }}>
+                <Copy className="mr-1.5 h-3.5 w-3.5" aria-hidden /> Copy
+              </Button>
+            </div>
           ) : billingPlan !== 'free' ? (
             <p className="text-xs text-muted-foreground">Subscription id will appear here after the first webhook sync.</p>
           ) : null}
