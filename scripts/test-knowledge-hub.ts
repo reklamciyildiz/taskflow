@@ -6,6 +6,7 @@ import {
   searchKnowledgeCards,
   setChecklistItemChecked,
   normalizeKnowledgePinId,
+  focusKnowledgeMatch,
 } from '../lib/knowledge-retrieval';
 import type { Note, Task, Team } from '../lib/types';
 
@@ -49,9 +50,30 @@ const hits = searchKnowledgeCards(output.cards, {
 });
 assert.equal(hits.length, 1);
 assert.equal(hits[0].matches.some((match) => match.sourceType === 'note'), true);
-assert.equal(searchKnowledgeCards(output.cards, {
+assert.deepEqual(focusKnowledgeMatch(hits[0].matches, 'all')?.sourceId, 'note-1');
+assert.deepEqual(focusKnowledgeMatch(hits[0].matches, 'notes')?.sourceId, 'note-1');
+const itemHits = searchKnowledgeCards(output.cards, {
   query: 'review enterprise', content: 'checklist', projectId: 'all',
-}).length, 1);
+});
+assert.equal(itemHits.length, 1);
+assert.equal(focusKnowledgeMatch(itemHits[0].matches, 'checklist')?.sourceId, 'item-1');
+assert.equal(searchKnowledgeCards(output.cards, {
+  query: 'enterprise invoices', content: 'checklist', projectId: 'all',
+}).length, 0, 'Notes should not appear from unrelated checklist or action content');
+assert.equal(searchKnowledgeCards(output.cards, {
+  query: 'review enterprise', content: 'notes', projectId: 'all',
+}).length, 0, 'Checklists should not appear as note search hits');
+assert.equal(searchKnowledgeCards(output.cards, {
+  query: 'Research competitor pricing', content: 'notes', projectId: 'all',
+}).length, 0, 'Filtered notes must not accidentally match the action title');
+const mixedHits = searchKnowledgeCards(output.cards, {
+  query: 'enterprise', content: 'all', projectId: 'all',
+});
+assert.equal(mixedHits.length, 1);
+assert.equal(mixedHits[0].matches.length >= 2, true);
+assert.equal(focusKnowledgeMatch(mixedHits[0].matches, 'notes')?.sourceId, 'note-1');
+assert.equal(focusKnowledgeMatch(mixedHits[0].matches, 'checklist')?.sourceId, 'item-1');
+assert.equal(focusKnowledgeMatch(mixedHits[0].matches, 'all')?.sourceId, 'item-1');
 assert.equal(searchKnowledgeCards(output.cards, {
   query: '', content: 'all', projectId: '__none__',
 }).length, 0);
@@ -68,15 +90,30 @@ assert.equal(normalizeKnowledgePinId('card-a-1'), 'card-a-1');
 assert.equal(normalizeKnowledgePinId('learning-a-1'), 'card-a-1');
 
 const view = fs.readFileSync('components/knowledge/KnowledgeHubWorkspace.tsx', 'utf8');
+const reader = fs.readFileSync('components/knowledge/KnowledgeHubReader.tsx', 'utf8');
 const adapter = fs.readFileSync('components/KnowledgeHubView.tsx', 'utf8');
 const mobile = fs.readFileSync('mobile/src/MobileKnowledgeHub.tsx', 'utf8');
 assert.ok(view.includes('searchKnowledgeCards(') && view.includes('projectFilter') &&
   view.includes('notesLoading') && view.includes('retryNotes') &&
   view.includes('setChecklistItemChecked(') && view.includes('canEditTask('),
   'Search, access-controlled mutation and note retries must remain available');
-assert.ok(view.includes('Knowledge detail') && view.includes('Open full action') &&
-  view.includes('active.notes.map') && view.includes('active.checklistItems.map'),
-  'Detail reader must show complete notes and checklist items, not just card previews');
+assert.ok(reader.includes('Knowledge reader') && reader.includes('Open full action') &&
+  reader.includes('selectedNotePage.map') && reader.includes('selectedChecklistPage.map') &&
+  reader.includes('selectedNote.text') && reader.includes('highlightKnowledgeText') &&
+  reader.includes('scrollIntoView') && reader.includes('Search matches'),
+  'Focused reader must navigate precise note/checklist sources, highlight matches and show full selected note');
+assert.ok(view.includes('setActiveSelection({ cardId: card.id, matches: sourceMatches, query, preferred: content })') &&
+  view.includes('focusKnowledgeMatch(sourceMatches, content)') &&
+  view.includes('<KnowledgeHubReader') &&
+  !view.includes('active.notes.map'),
+  'Clicked search results must carry stable source identity into the detail reader');
+assert.ok(reader.includes('const NOTES_PER_PAGE = 6') &&
+  reader.includes('const CHECKLIST_PER_PAGE = 10') &&
+  reader.includes('setNotePage(Math.max') &&
+  reader.includes('setChecklistPage(Math.max') &&
+  reader.includes('aria-current={chosen') &&
+  reader.includes('aria-label="Next notes"'),
+  'Many notes and checklist items should be paginated and navigable');
 assert.ok(!view.includes('max-h-80 overflow-y-auto') &&
   !view.includes('columns-1 gap-4 [column-fill:_balance]'),
   'Knowledge card design must not regress to scroll-inside masonry');
@@ -86,9 +123,9 @@ assert.ok(view.includes('results.slice(0, visibleCount)') &&
   'Result previews must scale for large libraries and filters need pressed state');
 assert.ok(view.includes('aria-label="Search Knowledge Hub"') &&
   view.includes('aria-pressed={isPinned}') &&
-  view.includes('onClick={() => setActiveCardId(card.id)}'),
+  view.includes('onClick={() => setActiveSelection({ cardId: card.id'),
   'Accessible, independent card actions are required');
 assert.ok(adapter.includes('KnowledgeHubWorkspace') &&
   mobile.includes('KnowledgeHubViewContent'),
   'Web and Android must share the updated presentation');
-console.log('Knowledge Hub retrieval, canonical checklist, search scopes and premium workspace contracts passed');
+console.log('Knowledge Hub retrieval, source-level search focus, paginated reader, checklist persistence and cross-platform contracts passed');
