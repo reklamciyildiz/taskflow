@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { Sparkles } from 'lucide-react';
 
 type AIAllowanceStatus = {
@@ -52,15 +51,15 @@ export function AIAllowanceIndicator({ request, refreshKey }: {
       </span>
       <div className="min-w-0 text-right text-[10px] leading-tight text-muted-foreground">
         <p className={exhausted ? 'font-semibold text-amber-600' : 'font-semibold text-foreground'}>
-          {status.monthly.remaining} / {status.monthly.limit} left this month
+          {status.monthly.remaining} / {status.monthly.limit} AI requests left this month
         </p>
         <p className="hidden sm:block">{status.daily.remaining} remaining today · UTC reset</p>
       </div>
       {(status.plan === 'free' || status.plan === 'individual') && (
-        <Link href="/settings/billing"
+        <a href="/settings/billing"
           className="hidden shrink-0 rounded-lg border border-primary/20 bg-primary/10 px-2.5 py-1.5 text-[10px] font-semibold text-primary hover:bg-primary/15 sm:inline-flex">
           See plans
-        </Link>
+        </a>
       )}
     </div>
   );
