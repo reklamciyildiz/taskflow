@@ -1,0 +1,39 @@
+name: Knowledge Hub workspace checks
+on:
+  pull_request:
+    paths:
+      - 'components/KnowledgeHubView.tsx'
+      - 'components/knowledge/**'
+      - 'app/(shell)/dashboard/knowledge-hub/**'
+      - 'mobile/src/MobileKnowledgeHub.tsx'
+      - 'hooks/useKnowledgeRetrieval.ts'
+      - 'lib/knowledge-retrieval.ts'
+      - 'scripts/test-knowledge-hub.ts'
+      - 'package.json'
+      - '.github/workflows/knowledge-hub-quality.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'components/KnowledgeHubView.tsx'
+      - 'components/knowledge/**'
+      - 'app/(shell)/dashboard/knowledge-hub/**'
+      - 'mobile/src/MobileKnowledgeHub.tsx'
+      - 'hooks/useKnowledgeRetrieval.ts'
+      - 'lib/knowledge-retrieval.ts'
+      - 'scripts/test-knowledge-hub.ts'
+      - 'package.json'
+  workflow_dispatch:
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run test:knowledge-hub
+      - run: npm run test:mobile-web
+      - run: npx tsc --noEmit
