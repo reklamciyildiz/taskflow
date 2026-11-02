@@ -1,5 +1,6 @@
 import type { Entitlements, PlanName } from '@/lib/entitlements';
 import { isPaidActive } from '@/lib/subscription-access';
+import { AI_PLAN_LIMITS, aiPlanMonthlyLimit, AI_MAX_FUNDED_SEATS } from '@/lib/ai/ai-plan-catalog';
 
 export type AIPlanAllowance = {
   plan: PlanName;
@@ -15,25 +16,18 @@ export function aiAllowanceForOrganization(ent: Pick<Entitlements,
   'plan' | 'subscriptionStatus' | 'endsAt' | 'seatLimit'>): AIPlanAllowance {
   const paid = isPaidActive(ent.subscriptionStatus, ent.endsAt);
   const plan: PlanName = paid && ent.plan !== 'free' ? ent.plan : 'free';
-  // Always derive purchased capacity from server-side entitlements. Developer
-  // accounts with Infinity are not allowed unlimited AI; stop scaling at 20
-  // paid seats pending a separately-priced enterprise agreement.
+  // A non-finite seat entitlement is intentionally not an unlimited AI pool.
   const seats = Number.isFinite(ent.seatLimit)
-    ? Math.min(20, Math.max(1, Math.floor(ent.seatLimit)))
+    ? Math.min(AI_MAX_FUNDED_SEATS, Math.max(1, Math.floor(ent.seatLimit)))
     : 1;
-  if (plan === 'individual') return {
-    plan, dailyRequestsPerUser: 50, monthlyRequestsPerOrg: 300, includedSeats: 1, period: 'calendar_month_utc',
-  };
-  if (plan === 'pro') return {
-    plan, dailyRequestsPerUser: 100, monthlyRequestsPerOrg: 800 * seats, includedSeats: seats,
+  const limits = AI_PLAN_LIMITS[plan];
+  return {
+    plan,
+    dailyRequestsPerUser: limits.dailyPerUser,
+    monthlyRequestsPerOrg: aiPlanMonthlyLimit(plan, seats),
+    includedSeats: limits.perSeat ? seats : 1,
     period: 'calendar_month_utc',
   };
-  if (plan === 'team') return {
-    plan, dailyRequestsPerUser: 150, monthlyRequestsPerOrg: 1200 * seats, includedSeats: seats,
-    period: 'calendar_month_utc',
-  };
-  return { plan: 'free', dailyRequestsPerUser: 10, monthlyRequestsPerOrg: 30, includedSeats: 1,
-    period: 'calendar_month_utc' };
 }
 
 /**
