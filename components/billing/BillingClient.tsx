@@ -12,7 +12,6 @@ import {
   ShieldCheck,
   CheckCircle2,
   Clock3,
-  ArrowUpRight,
   RefreshCw,
   Sparkles,
   Users,
@@ -143,9 +142,6 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
   const hasPaidSubscription = billingPlan !== 'free' && Boolean(subscriptionId);
   const canUpgrade = (billingPlan === 'free' || (billingStatus === 'active' && hasPaidSubscription) || canResubscribe) && !seatChange && !planChange;
   const planTitle = billingPlan.charAt(0).toUpperCase() + billingPlan.slice(1);
-  const formattedEnd = endsAt && Number.isFinite(Date.parse(endsAt))
-    ? new Date(endsAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})
-    : null;
   const busy = checkoutBusy !== null || isNativeApp || reviewLoading;
   const formattedNextCharge = billingStatus === 'cancelled' ? 'Renewal off'
     : billingCycle?.nextChargeVerified ? utcBillingDate(billingCycle.nextChargeAt)
@@ -675,20 +671,37 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                     <label htmlFor="new-seats" className="text-xs text-muted-foreground">
                       New total seats
                     </label>
-                    <input
-                      id="new-seats"
-                      type="number"
-                      min={seatsUsed}
-                      max={500}
-                      value={desiredSeats}
-                      onChange={(e) => {
-                        const v = Math.floor(Number(e.target.value));
-                        setDesiredSeats(Number.isFinite(v) ? Math.max(1, v) : 1);
-                        setAddSeatsError(null);
-                        setSeatReductionAcknowledged(false);
-                      }}
-                      className="h-10 w-full min-w-0 rounded-xl border border-border/80 bg-background px-3 text-sm font-semibold tabular-nums shadow-sm outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
-                    />
+                    <div className="flex items-center gap-2">
+                      <Button type="button" variant="outline" size="icon" className="h-10 w-10 shrink-0 rounded-xl border-border/80"
+                        aria-label="Remove one seat" disabled={busy || desiredSeats<=Math.max(seatsUsed,1)}
+                        onClick={()=>{
+                          setDesiredSeats(Math.max(Math.max(seatsUsed,1),desiredSeats-1));
+                          setAddSeatsError(null);setSeatReductionAcknowledged(false);
+                        }}>
+                        <Minus className="h-4 w-4" aria-hidden />
+                      </Button>
+                      <input
+                        id="new-seats"
+                        type="number"
+                        min={Math.max(seatsUsed,1)}
+                        max={500}
+                        value={desiredSeats}
+                        onChange={(e) => {
+                          const v = Math.floor(Number(e.target.value));
+                          setDesiredSeats(Number.isFinite(v) ? Math.max(1, v) : 1);
+                          setAddSeatsError(null);setSeatReductionAcknowledged(false);
+                        }}
+                        className="h-10 w-full min-w-0 rounded-xl border border-border/80 bg-background px-3 text-center text-sm font-semibold tabular-nums shadow-sm outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
+                      />
+                      <Button type="button" variant="outline" size="icon" className="h-10 w-10 shrink-0 rounded-xl border-border/80"
+                        aria-label="Add one seat" disabled={busy || desiredSeats>=500}
+                        onClick={()=>{
+                          setDesiredSeats(Math.min(500,desiredSeats+1));
+                          setAddSeatsError(null);setSeatReductionAcknowledged(false);
+                        }}>
+                        <Plus className="h-4 w-4" aria-hidden />
+                      </Button>
+                    </div>
                   </div>
                 </div>
                 <div className="space-y-2 rounded-2xl border border-border/70 bg-background/85 px-4 py-3 text-xs text-muted-foreground">
