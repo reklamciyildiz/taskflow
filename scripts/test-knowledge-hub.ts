@@ -66,6 +66,13 @@ assert.equal(searchKnowledgeCards(output.cards, {
 assert.equal(searchKnowledgeCards(output.cards, {
   query: 'Research competitor pricing', content: 'notes', projectId: 'all',
 }).length, 0, 'Filtered notes must not accidentally match the action title');
+const onlyAction = searchKnowledgeCards(output.cards, {
+  query: 'Research competitor pricing', content: 'all', projectId: 'all',
+});
+assert.equal(onlyAction.length, 1);
+assert.deepEqual(onlyAction[0].matches.map((match) => match.sourceType), ['action'],
+  'A title match must not mark an unrelated checklist item as the matching source');
+assert.equal(focusKnowledgeMatch(onlyAction[0].matches)?.sourceType, 'action');
 const mixedHits = searchKnowledgeCards(output.cards, {
   query: 'enterprise', content: 'all', projectId: 'all',
 });
@@ -108,6 +115,8 @@ assert.ok(view.includes('setActiveSelection({ cardId: card.id, matches: sourceMa
   view.includes('<KnowledgeHubReader') &&
   !view.includes('active.notes.map'),
   'Clicked search results must carry stable source identity into the detail reader');
+assert.ok(reader.includes('setSelectedSourceId(nextId)'),
+  'Pagination must keep the focused source and selected note/checklist consistent');
 assert.ok(reader.includes('const NOTES_PER_PAGE = 6') &&
   reader.includes('const CHECKLIST_PER_PAGE = 10') &&
   reader.includes('setNotePage(Math.max') &&
