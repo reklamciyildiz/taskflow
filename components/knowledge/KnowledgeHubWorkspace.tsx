@@ -383,7 +383,14 @@ export function KnowledgeHubWorkspace({
                     <h3 className="line-clamp-2 text-[15px] font-semibold leading-snug tracking-tight text-foreground group-hover:text-primary">
                       {card.taskTitle}
                     </h3>
-                    <p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">{previewLabel}</p>
+                    <p className="mt-3 flex flex-wrap items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">
+                      <span>{previewLabel}</span>
+                      {query.trim() && sourceMatches.length > 1 && (
+                        <span className="rounded-full bg-primary/[0.08] px-2 py-1 text-primary normal-case tracking-normal">
+                          {sourceMatches.length} matches · choose in reader
+                        </span>
+                      )}
+                    </p>
                     <p className={cn('mt-1 break-words text-[12px] leading-relaxed text-muted-foreground', layout === 'cards' ? 'line-clamp-3' : 'line-clamp-2')}>
                       {snippet}
                     </p>
