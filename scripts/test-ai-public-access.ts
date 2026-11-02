@@ -64,6 +64,15 @@ assert.ok(server.includes('isAIBetaScopeAllowed(') && server.includes('!isAIBeta
  server.includes("process.env.AI_GROQ_TPM_ADMISSION_ENABLED !== 'true'") &&
  server.includes("process.env.AXIOM_AI_WRITE_TOOLS_ENABLED === 'true'"),
  'Public release must retain the beta guard and fail closed without hard provider admission / write tools off');
+assert.ok(chat.indexOf("const quota=await reserveAIQuota(") <
+  chat.indexOf("const directReadToolCalls=") &&
+ chat.indexOf("const quota=await reserveAIQuota(") <
+  chat.indexOf("retrieveKnowledge({"),
+ 'AI user and organization quota must be reserved before any billable retrieval or tooling');
+assert.ok(chat.includes("await releaseAIQuotaReservation(input.clientRequestId,scope.userId,scope.organizationId)") &&
+ chat.includes("model:'axiom-index-status'") &&
+ chat.includes("model:'axiom-scope-guard'"),
+ 'Non-model knowledge/index-status and missing-team responses must restore quota');
 assert.ok(chat.includes('aiAllowanceForAuthenticatedOrganization(scope.organizationId)') &&
  chat.includes('dailyRequestsPerUser:allowance.dailyRequestsPerUser') &&
  chat.includes('monthlyRequestsPerOrg:allowance.monthlyRequestsPerOrg') &&
