@@ -82,6 +82,7 @@ export function KnowledgeHubReader({
   const [checklistPage, setChecklistPage] = useState(0);
   const [matchPage, setMatchPage] = useState(0);
   const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
+  const [activeSection, setActiveSection] = useState<'notes' | 'checklist' | 'action'>('notes');
   const [pendingChecklist, setPendingChecklist] = useState<string | null>(null);
   const checklistFocusRef = useRef<HTMLLIElement | null>(null);
 
@@ -89,9 +90,8 @@ export function KnowledgeHubReader({
   const first = focusKnowledgeMatch(selection?.matches ?? [], selection?.preferred ?? 'all');
   const currentMatch = matches.find((item) => item.sourceId === selectedSourceId) ?? first;
   const selectedNote = card?.notes.find((note) => note.id === selectedNoteId) ?? null;
-  const currentChecklist = card?.checklistItems.find((item) => item.id === selectedChecklistId) ?? null;
   const query = selection?.query ?? '';
-  const focusChecklist = currentMatch?.sourceType === 'checklist';
+  const focusChecklist = activeSection === 'checklist';
 
   // Open the precise source selected by search, not the beginning of its parent action.
   useEffect(() => {
@@ -106,6 +106,9 @@ export function KnowledgeHubReader({
     setSelectedNoteId(noteId);
     setSelectedChecklistId(checklistId);
     setSelectedSourceId(focused?.sourceId ?? null);
+    setActiveSection(focused?.sourceType === 'checklist' ? 'checklist' :
+      focused?.sourceType === 'action' ? 'action' :
+      selection.preferred === 'checklist' ? 'checklist' : 'notes');
     setNotePage(Math.max(0, Math.floor(Math.max(0, card.notes.findIndex((note) => note.id === noteId)) / NOTES_PER_PAGE)));
     setChecklistPage(Math.max(0, Math.floor(Math.max(0, card.checklistItems.findIndex((item) => item.id === checklistId)) / CHECKLIST_PER_PAGE)));
     setMatchPage(0);
@@ -121,10 +124,12 @@ export function KnowledgeHubReader({
     if (!card) return;
     setSelectedSourceId(match.sourceId);
     if (match.sourceType === 'note') {
+      setActiveSection('notes');
       const index = card.notes.findIndex((note) => note.id === match.sourceId);
       setSelectedNoteId(match.sourceId);
       if (index >= 0) setNotePage(Math.floor(index / NOTES_PER_PAGE));
     } else if (match.sourceType === 'checklist') {
+      setActiveSection('checklist');
       const index = card.checklistItems.findIndex((item) => item.id === match.sourceId);
       setSelectedChecklistId(match.sourceId);
       if (index >= 0) setChecklistPage(Math.floor(index / CHECKLIST_PER_PAGE));
@@ -180,7 +185,7 @@ export function KnowledgeHubReader({
                   const matched = matches.some((match) => match.sourceType === 'note' && match.sourceId === note.id);
                   return (
                     <button key={note.id} type="button" aria-current={chosen ? 'true' : undefined}
-                      onClick={() => { setSelectedNoteId(note.id); setSelectedSourceId(note.id); }}
+                      onClick={() => { setSelectedNoteId(note.id); setSelectedSourceId(note.id); setActiveSection('notes'); }}
                       className={cn(
                         'w-full rounded-xl border px-3 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
                         chosen ? 'border-primary/25 bg-primary/[0.085] text-foreground' : 'border-transparent text-muted-foreground hover:bg-muted/75 hover:text-foreground',
@@ -202,12 +207,22 @@ export function KnowledgeHubReader({
                   <span>{notePage + 1} / {noteTotalPages}</span>
                   <div className="flex gap-1">
                     <button type="button" aria-label="Previous notes" disabled={notePage === 0}
-                      onClick={() => setNotePage((page) => page - 1)}
+                      onClick={() => {
+                        const page = notePage - 1;
+                        setNotePage(page);
+                        setSelectedNoteId(card.notes[page * NOTES_PER_PAGE]?.id ?? null);
+                        setActiveSection('notes');
+                      }}
                       className="rounded-lg border border-border p-1.5 hover:bg-muted disabled:opacity-30">
                       <ChevronLeft className="h-3.5 w-3.5" aria-hidden />
                     </button>
                     <button type="button" aria-label="Next notes" disabled={notePage >= noteTotalPages - 1}
-                      onClick={() => setNotePage((page) => page + 1)}
+                      onClick={() => {
+                        const page = notePage + 1;
+                        setNotePage(page);
+                        setSelectedNoteId(card.notes[page * NOTES_PER_PAGE]?.id ?? null);
+                        setActiveSection('notes');
+                      }}
                       className="rounded-lg border border-border p-1.5 hover:bg-muted disabled:opacity-30">
                       <ChevronRight className="h-3.5 w-3.5" aria-hidden />
                     </button>
@@ -305,12 +320,22 @@ export function KnowledgeHubReader({
               <span>Showing {checklistPage * CHECKLIST_PER_PAGE + 1}–{Math.min((checklistPage + 1) * CHECKLIST_PER_PAGE, card.checklistItems.length)} of {card.checklistItems.length}</span>
               <div className="flex gap-1">
                 <button type="button" disabled={checklistPage === 0} aria-label="Previous checklist items"
-                  onClick={() => setChecklistPage((page) => page - 1)}
+                  onClick={() => {
+                    const page = checklistPage - 1;
+                    setChecklistPage(page);
+                    setSelectedChecklistId(card.checklistItems[page * CHECKLIST_PER_PAGE]?.id ?? null);
+                    setActiveSection('checklist');
+                  }}
                   className="rounded-lg border border-border p-1.5 hover:bg-muted disabled:opacity-30">
                   <ChevronLeft className="h-3.5 w-3.5" aria-hidden />
                 </button>
                 <button type="button" disabled={checklistPage >= checklistTotalPages - 1} aria-label="Next checklist items"
-                  onClick={() => setChecklistPage((page) => page + 1)}
+                  onClick={() => {
+                    const page = checklistPage + 1;
+                    setChecklistPage(page);
+                    setSelectedChecklistId(card.checklistItems[page * CHECKLIST_PER_PAGE]?.id ?? null);
+                    setActiveSection('checklist');
+                  }}
                   className="rounded-lg border border-border p-1.5 hover:bg-muted disabled:opacity-30">
                   <ChevronRight className="h-3.5 w-3.5" aria-hidden />
                 </button>
