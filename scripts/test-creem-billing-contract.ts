@@ -383,9 +383,21 @@ assert.ok(seatEndpoint.includes('requireOrgAdmin') && planEndpoint.includes('req
  'Billing endpoints must require organizational admin');
 assert.ok(consentHook.includes("action: 'preview'") && consentHook.includes("action: 'confirm'"),
  'UI must separate review and charge requests');
-assert.ok(consentUI.includes('Authorize charge & confirm') &&
+assert.ok(consentUI.includes('Authorize charge &amp; confirm') &&
  consentUI.includes('reviewAcknowledged') && consentUI.includes('requestSeatReview') &&
- consentUI.includes('requestPlanReview'), 'Explicit modal approval must precede saved-card charges');
+ consentUI.includes('requestPlanReview') &&
+ consentUI.includes('disabled={!reviewAcknowledged||reviewBusy||Boolean(reviewError)||busy}') &&
+ consentUI.includes('onClick={()=>void applyReviewedChange()}'),
+ 'Explicit modal consent, disabled submit and signed review must precede saved-card charges');
+assert.ok(consentUI.includes('Today&apos;s charge is prorated') &&
+ consentUI.includes('The exact charge is set by Creem') &&
+ consentUI.includes('not today&apos;s charge') &&
+ consentUI.includes('Your renewal date will change'),
+ 'Review UI must explain prorated payment, unknown exact charge, monthly list price and cycle reset');
+assert.ok(consentUI.includes('max-h-[92dvh]') &&
+ consentUI.includes('aria-label="Close billing review"') &&
+ consentUI.includes('aria-label="Copy subscription reference"'),
+ 'Premium billing controls must remain scrollable and accessible');
 console.log('Creem explicit billing-consent tests passed');
 
 const activeCycle=readCreemBillingCycle({subscription:{
@@ -428,8 +440,9 @@ assert.ok(scheduleOps.includes('currentNextChargeAt:cycleBefore.nextChargeAt') &
  scheduleOps.includes('periodEndAt:cycleBefore.currentPeriodEndAt'),
  'Charge approval must disclose unknown next cycle and bind current schedule');
 const scheduleUI=fs.readFileSync('components/billing/BillingClient.tsx','utf8');
-assert.ok(scheduleUI.includes('Next scheduled card charge (Creem)') &&
+assert.ok(scheduleUI.includes('Next scheduled charge') &&
  scheduleUI.includes('The immediate-charge option starts a new billing cycle') &&
- scheduleUI.includes('not a tax/discount-adjusted invoice quote'),
- 'Billing must not falsely imply fixed anchor or exact payable amount');
+ scheduleUI.includes('List prices exclude individual discounts or credits') &&
+ scheduleUI.includes('billingCycle?.nextChargeVerified'),
+ 'Billing must display the Creem-verified next charge, not imply a fixed anchor or payable amount');
 console.log('Creem billing-cycle regression tests passed');
