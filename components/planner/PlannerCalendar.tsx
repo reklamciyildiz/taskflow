@@ -23,6 +23,11 @@ import {
   SCHEDULE_CHANGED_EVENT,
 } from '@/lib/schedule-events';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import type { PlannerDropTarget } from '@/lib/planner-drag-reschedule';
+import { plannerDragSupported } from '@/lib/planner-drag-reschedule';
+import { dispatchScheduleChanged } from '@/lib/schedule-events';
 import { DayTimeline, WeekTimeline, type TimelineFocusRequest } from './PlannerTimeline';
 
 function dayLabel(date: string, long = false) {
@@ -43,7 +48,7 @@ function startOfWeek(date: string) {
 }
 
 export function PlannerCalendar() {
-  const { currentTeam, tasks, projects, generalBoardColumns, openTaskEditor, plannerApi } = usePlannerRuntime();
+  const { currentTeam, tasks, projects, generalBoardColumns, openTaskEditor, plannerApi, scheduleApi } = usePlannerRuntime();
   const today = formatDueDateYmdLocal(new Date());
   const [selectedDate, setSelectedDate] = useState(today);
   const [mode, setMode] = useState<'day' | 'week'>('day');
@@ -51,6 +56,8 @@ export function PlannerCalendar() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<{ source: WorkSource; title: string; occurrence?: PlannerProjectionItem } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [moveReview, setMoveReview] = useState<{ item: PlannerProjectionItem; target: PlannerDropTarget } | null>(null);
+  const [moveBusy, setMoveBusy] = useState(false);
   const [allDayExpanded, setAllDayExpanded] = useState(false);
   const [anytimeOpen, setAnytimeOpen] = useState(false);
   const [anytimeLimit, setAnytimeLimit] = useState(20);
@@ -108,6 +115,47 @@ export function PlannerCalendar() {
   const visibleAnytime = anytime.slice(0, 4);
   const visibleAnytimeSheet = anytime.slice(0, anytimeLimit);
 
+  const requestMove = (item: PlannerProjectionItem, target: PlannerDropTarget) => {
+    if (!plannerDragSupported(item.isRecurring, item.scheduleTime)) {
+      toast.info('Recurring time blocks are changed through their schedule editor.');
+      return;
+    }
+    setMoveReview({ item, target });
+  };
+  const applyMove = async () => {
+    if (!moveReview || moveBusy) return;
+    const { item, target } = moveReview;
+    if (!plannerDragSupported(item.isRecurring, item.scheduleTime)) return;
+    setMoveBusy(true);
+    try {
+      // Fail closed on stale calendar data. Never replace another user's recurrence
+      // or erase newly edited reminders with an old projection snapshot.
+      const current = await scheduleApi.get(item.source);
+      if (!current.success || !current.data || current.data.id !== item.scheduleId ||
+          current.data.scheduleType !== 'one_off' ||
+          current.data.scheduleDate !== item.scheduleDate ||
+          current.data.scheduleTime?.slice(0, 5) !== item.scheduleTime?.slice(0, 5)) {
+        throw new Error('This event has changed since your calendar loaded. Refresh and try again.');
+      }
+      const response = await scheduleApi.save({
+        source: item.source, scheduleType: 'one_off',
+        scheduleDate: target.date, scheduleTime: target.time,
+        timeZone: current.data.timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+        durationMinutes: current.data.durationMinutes ?? 30,
+        reminderRules: current.data.reminderRules,
+      });
+      if (!response.success || !response.data) throw new Error(response.error || 'Calendar change could not be saved.');
+      dispatchScheduleChanged(item.source, response.data);
+      setMoveReview(null);
+      setSelectedDate(target.date);
+      toast.success('Time block rescheduled.');
+      void load(true);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not reschedule time block.');
+    } finally {
+      setMoveBusy(false);
+    }
+  };
   const editItem = (item: PlannerProjectionItem) => setEditing({
     source: item.source,
     title: item.checklistItemText || item.taskTitle,
@@ -147,7 +195,7 @@ export function PlannerCalendar() {
         <div>
           <div className="planner-v2-eyebrow"><CalendarClock aria-hidden="true" /> Time blocks</div>
           <h2 id="planner-calendar-title">Calendar</h2>
-          <p>Plan time without losing the source Action or Checklist context.</p>
+          <p>Drag a block to another time in 15-minute steps, or click to edit. Checklist items remain linked to their Action.</p>
         </div>
         <div className="planner-v2-calendar-controls">
           <div className="flex items-center gap-1">
@@ -221,6 +269,7 @@ export function PlannerCalendar() {
               focusRequest={focusRequest}
               onEdit={editItem}
               onCreateAt={selectEmptyTime}
+              onMoveRequest={requestMove}
             />
           ) : null}
           <div className={cn(mode === 'week' && 'md:hidden')}>
@@ -251,6 +300,7 @@ export function PlannerCalendar() {
               focusRequest={focusRequest}
               onEdit={editItem}
               onCreateAt={selectEmptyTime}
+              onMoveRequest={requestMove}
             />
           </div>
         </>
@@ -287,6 +337,33 @@ export function PlannerCalendar() {
         </SheetContent>
       </Sheet>
 
+      <Dialog open={Boolean(moveReview)} onOpenChange={(open) => { if (!open && !moveBusy) setMoveReview(null); }}>
+        <DialogContent className="max-w-[min(94vw,460px)] rounded-[24px] border border-border/70 p-0 shadow-2xl">
+          <DialogHeader className="border-b border-border/70 bg-primary/[0.045] px-6 py-5 text-left">
+            <DialogTitle className="text-lg font-semibold">Move this time block?</DialogTitle>
+            <DialogDescription className="pt-1 text-xs leading-relaxed">Review the time before saving to your calendar.</DialogDescription>
+          </DialogHeader>
+          {moveReview ? (
+            <div className="space-y-4 px-6 py-5">
+              <div className="rounded-xl border border-border/75 bg-muted/25 p-4">
+                <p className="line-clamp-2 text-sm font-semibold">{moveReview.item.checklistItemText || moveReview.item.taskTitle}</p>
+                <p className="mt-2 text-[11px] uppercase tracking-wide text-muted-foreground">{moveReview.item.source.sourceType === 'checklist_item' ? 'Checklist item' : 'Action'}</p>
+                <div className="mt-4 grid grid-cols-2 gap-3 text-xs">
+                  <div><p className="text-muted-foreground">From</p><p className="mt-1 font-semibold tabular-nums">{moveReview.item.effectiveDate}<br />{moveReview.item.scheduleTime?.slice(0,5)}</p></div>
+                  <div><p className="text-primary">To</p><p className="mt-1 font-semibold tabular-nums text-primary">{moveReview.target.date}<br />{moveReview.target.time}</p></div>
+                </div>
+              </div>
+              <p className="text-xs leading-relaxed text-muted-foreground">Only this one-time block moves. Duration, reminders and the original Action/Checklist link remain intact. Recurring series must be edited separately.</p>
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <Button variant="outline" type="button" disabled={moveBusy} className="h-11 rounded-xl" onClick={() => setMoveReview(null)}>Cancel</Button>
+                <Button type="button" disabled={moveBusy} className="h-11 rounded-xl px-5 font-semibold" onClick={() => void applyMove()}>
+                  {moveBusy ? 'Saving…' : 'Confirm new time'}
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
       <PlannerScheduleDialog
         open={Boolean(editing)}
         onOpenChange={(open) => !open && setEditing(null)}

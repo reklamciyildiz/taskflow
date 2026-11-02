@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef } from 'react';
 import type { PlannerProjectionItem } from '@/lib/planner-projection';
 import { layoutPlannerTimeline } from '@/lib/planner-v2-utils';
+import { usePlannerTimeDrag } from './usePlannerTimeDrag';
+import type { PlannerDropTarget } from '@/lib/planner-drag-reschedule';
 
 const DAY_START_HOUR = 0;
 const DAY_END_HOUR = 24;
@@ -62,6 +64,7 @@ export function DayTimeline({
   focusRequest,
   onEdit,
   onCreateAt,
+  onMoveRequest,
 }: {
   date: string;
   today: string;
@@ -69,9 +72,11 @@ export function DayTimeline({
   focusRequest: TimelineFocusRequest;
   onEdit: (item: PlannerProjectionItem) => void;
   onCreateAt: (date: string, time: string) => void;
+  onMoveRequest: (item: PlannerProjectionItem, target: PlannerDropTarget) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const timed = useMemo(() => layoutPlannerTimeline(items.filter((item) => item.scheduleTime)), [items]);
+  const drag = usePlannerTimeDrag(today, DAY_PX_PER_HOUR, onMoveRequest);
   const focusHour = focusRequest.date === date ? focusRequest.hour : preferredTimelineHour(items, date, today);
   const canCreate = date >= today;
   const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes();
@@ -85,7 +90,7 @@ export function DayTimeline({
       aria-label={`24-hour timeline for ${date}. Scroll vertically to reach every hour.`}
       data-planner-timeline="day"
     >
-      <div className="relative ml-14" style={{ height: DAY_END_HOUR * DAY_PX_PER_HOUR }}>
+      <div data-planner-grid-date={date} className="relative ml-14" style={{ height: DAY_END_HOUR * DAY_PX_PER_HOUR }}>
         {Array.from({ length: DAY_END_HOUR + 1 }, (_, hour) => (
           <div key={hour} className="pointer-events-none absolute left-0 right-0 border-t border-border/35" style={{ top: hour * DAY_PX_PER_HOUR }}>
             <span className="absolute -left-12 -top-2.5 w-10 text-right text-[10px] tabular-nums text-muted-foreground">
@@ -115,6 +120,13 @@ export function DayTimeline({
             <span>Now</span>
           </div>
         ) : null}
+        {drag.preview?.target.date === date && (
+          <div aria-hidden="true" className="pointer-events-none absolute z-30 overflow-hidden rounded-lg border-2 border-dashed border-blue-500 bg-blue-500/25 px-2 py-1.5 text-[11px] font-semibold shadow-lg"
+            style={{ top: minutes(drag.preview.target.time) / 60 * DAY_PX_PER_HOUR,
+              height: Math.max(36, (items.find((item) => item.id === drag.preview?.itemId)?.durationMinutes ?? 30) / 60 * DAY_PX_PER_HOUR), left: 2, right: 2 }}>
+            Move to {drag.preview.target.time}
+          </div>
+        )}
         {timed.map(({ item, lane, lanes }) => {
           const top = (minutes(item.scheduleTime) / 60) * DAY_PX_PER_HOUR;
           const height = Math.max(36, ((item.durationMinutes ?? 30) / 60) * DAY_PX_PER_HOUR);
@@ -122,10 +134,11 @@ export function DayTimeline({
             <button
               key={item.id}
               type="button"
-              onClick={() => onEdit(item)}
-              className="absolute z-10 overflow-hidden rounded-lg border border-primary/25 bg-primary/12 px-2 py-1.5 text-left shadow-sm transition hover:bg-primary/18 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              onPointerDown={(event) => drag.startDrag(event, item)}
+              onClick={() => drag.click(item, onEdit)}
+              className="absolute z-10 touch-none select-none overflow-hidden rounded-lg border border-primary/25 bg-primary/12 px-2 py-1.5 text-left shadow-sm transition hover:bg-primary/18 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               style={{ top, height, left: `calc(${lane / lanes * 100}% + 2px)`, width: `calc(${100 / lanes}% - 4px)` }}
-              aria-label={`Edit ${item.checklistItemText || item.taskTitle}, ${timeRange(item)}`}
+              aria-label={`${item.isRecurring ? "Edit recurring" : "Drag to change time or edit"} ${item.checklistItemText || item.taskTitle}, ${timeRange(item)}`}
             >
               <span className="block truncate text-xs font-semibold">{item.checklistItemText || item.taskTitle}</span>
               <span className="mt-0.5 block truncate text-[10px] text-muted-foreground">{timeRange(item)}{item.durationMinutes ? ` · ${item.durationMinutes}m` : ''}</span>
@@ -145,6 +158,7 @@ export function WeekTimeline({
   focusRequest,
   onEdit,
   onCreateAt,
+  onMoveRequest,
 }: {
   dates: string[];
   selectedDate: string;
@@ -153,9 +167,11 @@ export function WeekTimeline({
   focusRequest: TimelineFocusRequest;
   onEdit: (item: PlannerProjectionItem) => void;
   onCreateAt: (date: string, time: string) => void;
+  onMoveRequest: (item: PlannerProjectionItem, target: PlannerDropTarget) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const selectedItems = items.filter((item) => item.effectiveDate === selectedDate);
+  const drag = usePlannerTimeDrag(today, WEEK_PX_PER_HOUR, onMoveRequest);
   const focusHour = focusRequest.date === selectedDate ? focusRequest.hour : preferredTimelineHour(selectedItems, selectedDate, today);
   const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes();
   useTimelineFocus(scrollRef, dates.join(','), focusHour, focusRequest, WEEK_PX_PER_HOUR);
@@ -187,7 +203,7 @@ export function WeekTimeline({
             {dates.map((date) => {
               const blocks = layoutPlannerTimeline(items.filter((item) => item.effectiveDate === date && item.scheduleTime));
               return (
-                <div key={date} className="relative border-l border-border/30" style={{ height: DAY_END_HOUR * WEEK_PX_PER_HOUR }}>
+                <div key={date} data-planner-grid-date={date} className="relative border-l border-border/30" style={{ height: DAY_END_HOUR * WEEK_PX_PER_HOUR }}>
                   {Array.from({ length: DAY_END_HOUR + 1 }, (_, hour) => (
                     <span key={hour} className="pointer-events-none absolute left-0 right-0 border-t border-border/25" style={{ top: hour * WEEK_PX_PER_HOUR }} />
                   ))}
@@ -203,6 +219,13 @@ export function WeekTimeline({
                     />
                   ))}
                   {date === today ? <div className="planner-v2-now-line pointer-events-none absolute left-0 right-0 z-20" style={{ top: (nowMinutes / 60) * WEEK_PX_PER_HOUR }} /> : null}
+                  {drag.preview?.target.date === date && (
+                    <div aria-hidden="true" className="pointer-events-none absolute left-0 right-0 z-30 rounded-md border-2 border-dashed border-blue-500 bg-blue-500/25 px-1 text-[10px] font-semibold"
+                      style={{ top: minutes(drag.preview.target.time) / 60 * WEEK_PX_PER_HOUR,
+                        height: Math.max(28, (items.find((item) => item.id === drag.preview?.itemId)?.durationMinutes ?? 30) / 60 * WEEK_PX_PER_HOUR) }}>
+                      {drag.preview.target.time}
+                    </div>
+                  )}
                   {blocks.map(({ item, lane, lanes }) => {
                     const top = (minutes(item.scheduleTime) / 60) * WEEK_PX_PER_HOUR;
                     const blockHeight = Math.max(28, ((item.durationMinutes ?? 30) / 60) * WEEK_PX_PER_HOUR);
@@ -210,10 +233,11 @@ export function WeekTimeline({
                       <button
                         key={item.id}
                         type="button"
-                        onClick={() => onEdit(item)}
-                        className="absolute z-10 overflow-hidden rounded-md border border-primary/20 bg-primary/12 px-1.5 py-1 text-left hover:bg-primary/18 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        onPointerDown={(event) => drag.startDrag(event, item)}
+                        onClick={() => drag.click(item, onEdit)}
+                        className="absolute z-10 touch-none select-none overflow-hidden rounded-md border border-primary/20 bg-primary/12 px-1.5 py-1 text-left hover:bg-primary/18 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         style={{ top, height: blockHeight, left: `calc(${lane / lanes * 100}% + 2px)`, width: `calc(${100 / lanes}% - 4px)` }}
-                        aria-label={`Edit ${item.checklistItemText || item.taskTitle}, ${timeRange(item)}`}
+                        aria-label={`${item.isRecurring ? "Edit recurring" : "Drag to change time or edit"} ${item.checklistItemText || item.taskTitle}, ${timeRange(item)}`}
                       >
                         <span className="block truncate text-[10px] font-semibold">{item.checklistItemText || item.taskTitle}</span>
                         {blockHeight >= 38 ? <span className="block truncate text-[9px] text-muted-foreground">{timeRange(item)}</span> : null}
