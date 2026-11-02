@@ -362,7 +362,7 @@ export async function POST(request:NextRequest) {
               inputTokens??0,outputTokens??0,
               estimateGroqChatCostUsd(model??'groq',inputTokens??0,outputTokens??0),
               Date.now()-startedAt,true,undefined,
-              {intent,plan:allowance.plan,clarificationRequired:true,costIsEstimate:true});
+              {plan:allowance.plan,clarificationRequired:true,costIsEstimate:true});
             return;
           }
           const cancelled=request.signal.aborted || (error instanceof Error && error.name==='AbortError');
