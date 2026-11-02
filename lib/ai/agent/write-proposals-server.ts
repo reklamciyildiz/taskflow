@@ -107,7 +107,7 @@ function resolveStageFromSentence<T>(stages: readonly T[], text: string, nameOf:
   const words = phrase.split(/\s+/).filter(Boolean);
   // Natural-language prefixes can include a Process or Turkish case suffix.
   // Evaluate bounded suffix phrases, never the complete command.
-  const matched = [];
+  const matched: Array<{kind:'match';value:T;label:string;mode:'exact'|'partial'|'typo'}> = [];
   for (let n = Math.min(words.length, 5); n >= 1; n--) {
     const result = matchAIEntity(words.slice(-n).join(' '), stages, nameOf);
     if (result.kind === 'match') matched.push(result);
