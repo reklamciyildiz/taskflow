@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuthedUser } from '@/lib/server-authz';
 import { isAIChatEnabled, isAIChatRuntimeReady } from './config';
 import { isAIBetaModeEnabled, isAIBetaScopeAllowed } from '@/lib/ai/beta-access';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 
 export async function requireAIChatUser(request?: NextRequest) {
   if (!isAIChatEnabled()) {
@@ -23,6 +24,19 @@ export async function requireAIChatUser(request?: NextRequest) {
   if (authed instanceof NextResponse) return authed;
   if (!authed.user.organization_id) {
     return NextResponse.json({ error:{ code:'FORBIDDEN',message:'Organization required' } },{ status:403 });
+  }
+  if (!isAIBetaModeEnabled()) {
+    // This service-role-only function ships with the same migration that
+    // installs the atomic 12/minute sliding-window guard. No verification,
+    // no public rollout; never trust a client-side flag for this.
+    try {
+      const { data, error } = await supabaseAdmin.rpc('ai_public_burst_guard_ready');
+      if (error || data !== true) throw new Error('AI rate policy missing');
+    } catch {
+      return NextResponse.json({ error: { code: 'PUBLIC_RATE_GUARD_NOT_READY',
+        message: 'AI fair-use protection is not yet installed. Please try again later.' } },
+        { status: 503 });
+    }
   }
   if (!isAIBetaScopeAllowed(authed.user.id,authed.user.organization_id)) {
     return NextResponse.json({ error:{ code:'BETA_ACCESS_REQUIRED',message:'Actiproc AI is currently available to approved beta accounts only' } },{ status:403 });
