@@ -24,6 +24,7 @@ import {
   Plus,
   Minus,
   Info,
+  X,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -214,10 +215,17 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
     <div className="mx-auto w-full max-w-6xl space-y-7 pb-12">
 
       <Dialog open={Boolean(billingReview)} onOpenChange={open=>{if(!open&&!reviewBusy){setBillingReview(null);setReviewError(null);setReviewAcknowledged(false);}}}>
-        <DialogContent className="max-h-[min(92dvh,850px)] w-[calc(100vw-1.25rem)] max-w-[560px] overflow-y-auto rounded-[26px] border-border/70 bg-background p-0 shadow-[0_32px_90px_-30px_rgba(15,23,42,0.55)] sm:w-full" hideClose={reviewBusy}>
+        <DialogContent className="max-h-[min(92dvh,850px)] w-[calc(100vw-1.25rem)] max-w-[560px] gap-0 overflow-y-auto rounded-[26px] border-border/70 bg-background p-0 shadow-[0_32px_90px_-30px_rgba(15,23,42,0.55)] sm:w-full" hideClose>
           <div className="relative overflow-hidden rounded-t-[25px] bg-gradient-to-br from-[#101d34] via-[#152843] to-[#223f75] px-5 py-6 text-white sm:px-7 sm:py-7">
             <div aria-hidden="true" className="pointer-events-none absolute -right-8 -top-12 h-40 w-40 rounded-full bg-sky-400/20 blur-3xl" />
-            <div className="relative flex items-start gap-3.5">
+            <div className="relative flex items-start gap-3.5 pr-8">
+              {!reviewBusy ? (
+                <button type="button" aria-label="Close billing review"
+                  className="absolute -right-1 -top-1 inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/15 bg-white/10 text-slate-100 transition-colors hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
+                  onClick={()=>{setBillingReview(null);setReviewError(null);setReviewAcknowledged(false);}}>
+                  <X className="h-4 w-4" aria-hidden />
+                </button>
+              ) : null}
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/20 bg-white/10 shadow-inner">
                 <ShieldCheck className="h-5 w-5 text-sky-200" aria-hidden />
               </div>
