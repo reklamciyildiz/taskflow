@@ -88,7 +88,7 @@ export function KnowledgeHubReader({
 
   const matches = selection?.matches.filter((item) => item.sourceType !== 'action') ?? [];
   const first = focusKnowledgeMatch(selection?.matches ?? [], selection?.preferred ?? 'all');
-  const currentMatch = matches.find((item) => item.sourceId === selectedSourceId) ?? first;
+  const currentMatch = matches.find((item) => item.sourceId === selectedSourceId) ?? (selectedSourceId === null ? first : null);
   const selectedNote = card?.notes.find((note) => note.id === selectedNoteId) ?? null;
   const query = selection?.query ?? '';
   const focusChecklist = activeSection === 'checklist';
