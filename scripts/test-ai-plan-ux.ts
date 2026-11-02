@@ -76,6 +76,9 @@ assert.ok(billAI.includes('No automatic usage overages or charges') &&
  billAI.includes("nearLimit") && billAI.includes("'warning'") &&
  billAI.includes("isCapacitorNative()"),
  'Billing must warn at 80% and avoid native paid checkout links');
+assert.ok(indicator.includes("monthly === 'exhausted' ? 'bg-rose-500'") &&
+ billAI.includes("monthState === 'exhausted' ? 'bg-rose-500'"),
+ 'The monthly progress bar must not turn red solely from a daily limit');
 assert.ok(indicator.includes("useAIUsage(request, refreshKey)") &&
  indicator.includes('Monthly AI limit reached') &&
  indicator.includes('Daily AI limit reached') &&
