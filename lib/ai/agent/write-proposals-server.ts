@@ -10,6 +10,7 @@ import { getUserSchedulingTimeZone } from '@/lib/scheduling-runtime-server';
 import { resolveScheduleForSource } from '@/lib/work-schedule-server';
 import { normalizeWorkScheduleInput, scheduleMatchesDate } from '@/lib/scheduling-domain';
 import type { AIWriteProposal, AIWriteToolName } from './write-types';
+import { matchAIEntity, normalizeAIEntityName, stageHintFromText } from './entity-matching';
 
 type Actor = { userId: string; organizationId: string; role?: string | null };
 type Scope = Actor & { conversationId: string; assistantMessageId: string; userRequest: string };
@@ -57,10 +58,6 @@ export class AIWriteProposalError extends Error {
   }
 }
 
-const normalize = (value: unknown) => String(value ?? '').trim().toLocaleLowerCase('tr-TR');
-const entityKey = (value: unknown) => normalize(value).replace(/[^a-z0-9çğıöşü]+/giu, ' ')
-  .replace(/\b(process|project|proje|süreç|surec|stage|aşama|asama|action|aksiyon)\b/giu, ' ')
-  .replace(/\s+/g, ' ').trim();
 const isAdmin = (actor: Actor) => actor.role === 'admin' || actor.role === 'owner';
 
 async function visibleWritableProcesses(actor: Actor) {
@@ -79,64 +76,92 @@ async function visibleWritableProcesses(actor: Actor) {
   return (projects ?? []).filter((project: any) => project.team_id && writableTeams.has(String(project.team_id)));
 }
 
-function uniqueMatch<T>(rows: T[], exact: (row: T) => boolean, partial: (row: T) => boolean, label: string): T | null {
-  const exactRows = rows.filter(exact);
-  if (exactRows.length === 1) return exactRows[0];
-  if (exactRows.length > 1) throw new AIWriteProposalError('ambiguous', `${label} is ambiguous; specify the exact record`);
-  const partialRows = rows.filter(partial);
-  if (partialRows.length === 1) return partialRows[0];
-  if (partialRows.length > 1) throw new AIWriteProposalError('ambiguous', `${label} is ambiguous; specify the exact record`);
+/** One canonical target or a clarification. Never use a fuzzy result outside the actor's writable scope. */
+function resolveNamedTarget<T>(rows: readonly T[], query: string, label: string, labelOf: (row: T) => string) {
+  const result = matchAIEntity(query, rows, labelOf);
+  if (result.kind === 'match') return result;
+  if (result.kind === 'ambiguous') {
+    throw new AIWriteProposalError('ambiguous',
+      `${label} için birden fazla olası eşleşme var: ${result.candidates.join(', ')}. Lütfen tam adını belirtin.`);
+  }
+  throw new AIWriteProposalError('not_found',
+    `${label} bulunamadı veya düzenleme yetkiniz yok. ${result.candidates.length ? `Erişilebilir seçenekler: ${result.candidates.join(', ')}.` : 'Lütfen mevcut kaydın adını belirtin.'}`);
+}
+
+/** Only word-bounded full-name mentions, not fuzzy searching the whole user command. */
+function mentionedName<T>(rows: readonly T[], question: string, nameOf: (row: T) => string, label: string) {
+  const utterance = ` ${normalizeAIEntityName(question)} `;
+  const exact = rows.filter((row) => {
+    const name = normalizeAIEntityName(nameOf(row));
+    return name.length >= 4 && utterance.includes(` ${name} `);
+  });
+  if (exact.length === 1) return { kind: 'match' as const, value: exact[0], label: nameOf(exact[0]), mode: 'exact' as const };
+  if (exact.length > 1) throw new AIWriteProposalError('ambiguous',
+    `${label} belirsiz. Lütfen hedefin tam adını yazın: ${exact.map(nameOf).slice(0,5).join(', ')}.`);
   return null;
+}
+
+function resolveStageFromSentence<T>(stages: readonly T[], text: string, nameOf: (row: T) => string) {
+  const phrase = stageHintFromText(text);
+  if (!phrase) return null;
+  const words = phrase.split(/\s+/).filter(Boolean);
+  // Natural-language prefixes can include a Process or Turkish case suffix.
+  // Evaluate bounded suffix phrases, never the complete command.
+  const matched = [];
+  for (let n = Math.min(words.length, 5); n >= 1; n--) {
+    const result = matchAIEntity(words.slice(-n).join(' '), stages, nameOf);
+    if (result.kind === 'match') matched.push(result);
+    if (result.kind === 'ambiguous') throw new AIWriteProposalError('ambiguous',
+      `Kolon adı belirsiz: ${result.candidates.join(', ')}. Lütfen tam adını yazın.`);
+  }
+  const names = [...new Set(matched.map((item) => item.label))];
+  if (names.length > 1) throw new AIWriteProposalError('ambiguous',
+    `Birden fazla kolon eşleşiyor: ${names.join(', ')}. Lütfen kolonu netleştirin.`);
+  if (matched.length) return matched[0];
+  throw new AIWriteProposalError('not_found',
+    `İstenen kolon anlaşılamadı. Mevcut kolonlar: ${stages.map(nameOf).slice(0, 8).join(', ')}.`);
 }
 
 async function resolveProcess(actor: Actor, input: { processId?: string; processName?: string }, userRequest = '') {
   const projects = await visibleWritableProcesses(actor);
-  let project = input.processId
-    ? projects.find((row: any) => String(row.id) === input.processId)
-    : input.processName ? uniqueMatch(projects, (row: any) => entityKey(row.name) === entityKey(input.processName),
-      (row: any) => entityKey(row.name).includes(entityKey(input.processName))
-        || entityKey(input.processName).includes(entityKey(row.name)), 'Process name') : null;
-  if (!project && userRequest) project = uniqueMatch(projects, () => false,
-    (row: any) => entityKey(userRequest).includes(entityKey(row.name)), 'Process name');
-  if (!project) throw new AIWriteProposalError('not_found', 'Process was not found or is not writable');
-  return project as any;
+  if (input.processId) {
+    const project = projects.find((row: any) => String(row.id) === input.processId);
+    if (!project) throw new AIWriteProposalError('not_found', 'Seçilen Process bulunamadı veya düzenleme yetkiniz yok.');
+    return project as any;
+  }
+  if (input.processName) return resolveNamedTarget(projects, input.processName,
+    'Process', (row: any) => String(row.name)).value as any;
+  const mentioned = mentionedName(projects, userRequest, (row: any) => String(row.name), 'Process');
+  if (mentioned) return mentioned.value as any;
+  throw new AIWriteProposalError('not_found',
+    'Hangi Process? Lütfen Process adını belirtin; mevcut Action kartı için yanlış Process seçmeyeceğim.');
 }
 
 async function resolveAction(actor: Actor, input: { actionId?: string; actionTitle?: string; processId?: string; processName?: string }, userRequest = '') {
   const projects = await visibleWritableProcesses(actor);
-  let candidates = projects;
-  if (input.processId || input.processName) {
-    try { candidates = [await resolveProcess(actor, input, userRequest)]; }
-    catch (error) { if (!(error instanceof AIWriteProposalError) || error.code !== 'not_found') throw error; }
-  }
+  const candidates = input.processId || input.processName
+    ? [await resolveProcess(actor, input, userRequest)] : projects;
   const projectIds = candidates.map((row: any) => String(row.id));
-  if (!projectIds.length) throw new AIWriteProposalError('not_found', 'Action was not found or is not writable');
+  if (!projectIds.length) throw new AIWriteProposalError('not_found', 'Action bulunamadı veya düzenleme yetkiniz yok.');
   let tasks: any[];
   if (input.actionId) {
     const task = await taskDb.getById(input.actionId);
     tasks = task ? [task] : [];
   } else {
     const { data, error } = await supabaseAdmin.from('tasks').select('*')
-      .eq('organization_id', actor.organizationId).in('project_id', projectIds).limit(200);
+      .eq('organization_id', actor.organizationId).in('project_id', projectIds).limit(500);
     if (error) throw new AIWriteProposalError('unavailable', 'Action access could not be checked');
     tasks = data ?? [];
   }
-  tasks = tasks.filter((task: any) => task.organization_id === actor.organizationId && projectIds.includes(String(task.project_id)));
-  let task = input.actionId ? tasks.find((row: any) => String(row.id) === input.actionId) : input.actionTitle ? uniqueMatch(tasks,
-    (row: any) => normalize(row.title) === normalize(input.actionTitle),
-    (row: any) => normalize(row.title).includes(normalize(input.actionTitle)), 'Action title') : null;
-  if (!task && input.actionId) {
-    const { data, error } = await supabaseAdmin.from('tasks').select('*')
-      .eq('organization_id', actor.organizationId).in('project_id', projectIds).limit(200);
-    if (error) throw new AIWriteProposalError('unavailable', 'Action access could not be checked');
-    tasks = data ?? [];
-    task = input.actionTitle ? uniqueMatch(tasks,
-      (row: any) => normalize(row.title) === normalize(input.actionTitle),
-      (row: any) => normalize(row.title).includes(normalize(input.actionTitle)), 'Action title') : null;
-  }
-  if (!task && userRequest) task = uniqueMatch(tasks, () => false,
-    (row: any) => normalize(userRequest).includes(normalize(row.title)), 'Action title');
-  if (!task) throw new AIWriteProposalError('not_found', 'Action was not found or is not writable');
+  tasks = tasks.filter((task: any) =>
+    task.organization_id === actor.organizationId && projectIds.includes(String(task.project_id)));
+  let task = input.actionId
+    ? tasks.find((row: any) => String(row.id) === input.actionId)
+    : input.actionTitle ? resolveNamedTarget(tasks, input.actionTitle,
+      'Action', (row: any) => String(row.title)).value
+    : mentionedName(tasks, userRequest, (row: any) => String(row.title), 'Action')?.value;
+  if (!task) throw new AIWriteProposalError('not_found',
+    'Action bulunamadı veya düzenleme yetkiniz yok. Lütfen tam Action adını belirtin.');
   const project = candidates.find((row: any) => String(row.id) === String(task.project_id));
   if (!project) throw new AIWriteProposalError('forbidden', 'Action is not writable');
   return { task, project };
@@ -169,17 +194,31 @@ export async function createAIWriteProposal(toolName: AIWriteToolName, raw: unkn
     const input = parseArguments(createActionSchema, raw); const project = await resolveProcess(scope, input, scope.userRequest);
     const checklistItems = input.checklistItems ?? [];
     const stages = parseColumnConfigFromJson(project.column_config);
-    const stage = input.stageId ? stages.find((item) => item.id === input.stageId)
-      : input.stageName ? uniqueMatch(stages, (item) => entityKey(item.title) === entityKey(input.stageName),
-        (item) => entityKey(item.title).includes(entityKey(input.stageName))
-          || entityKey(input.stageName).includes(entityKey(item.title)), 'Stage name') : stages.find((item) => !item.isTerminal);
-    const resolvedStage = stage ?? uniqueMatch(stages, () => false,
-      (item) => entityKey(scope.userRequest).includes(entityKey(item.title)), 'Stage name');
-    if (!resolvedStage) throw new AIWriteProposalError('not_found', 'Stage was not found in the selected Process');
+    // Explicit IDs are authoritative. A failed ID must not fall back to a
+    // guessed name or the first board column.
+    let stage: (typeof stages)[number] | null = null;
+    let stageCorrection: string | null = null;
+    if (input.stageId) {
+      stage = stages.find((item) => item.id === input.stageId) ?? null;
+      if (!stage) throw new AIWriteProposalError('not_found', 'Kolon ID geçerli değil. Lütfen mevcut bir kolonu belirtin.');
+    } else if (input.stageName) {
+      const match = resolveNamedTarget(stages, input.stageName, 'Kolon', (item) => item.title);
+      stage = match.value;
+      if (match.mode === 'typo') stageCorrection = `“${input.stageName}” → “${match.label}”`;
+    } else {
+      const hinted = resolveStageFromSentence(stages, scope.userRequest, (item) => item.title);
+      stage = hinted?.value ?? stages.find((item) => !item.isTerminal) ?? null;
+      if (hinted?.mode === 'typo') stageCorrection = `Kolon → “${hinted.label}”`;
+    }
+    if (!stage) throw new AIWriteProposalError('not_found', 'Bu Process için kullanılabilir kolon bulunamadı.');
+    const resolvedStage = stage;
     payload = { processId: String(project.id), teamId: String(project.team_id), stageId: resolvedStage.id,
       title: input.title, description: input.description, priority: input.priority, checklistItems };
     display = { title: 'Action oluşturma taslağı', summary: `“${input.title}” Action’ı oluşturulacak.`,
       targetLabel: `${project.name} / ${resolvedStage.title}`, fields: [
+        { label: 'Process', value: String(project.name) },
+        { label: 'Kolon', value: resolvedStage.title },
+        ...(stageCorrection ? [{ label: 'Yazım eşleştirmesi · onaylayın', value: stageCorrection }] : []),
         { label: 'Öncelik', value: input.priority },
         ...(input.description ? [{ label: 'Açıklama', value: input.description }] : []),
         ...(checklistItems.length ? [{ label: 'Checklist', value: checklistItems.join(' • ') }] : []),
@@ -194,11 +233,11 @@ export async function createAIWriteProposal(toolName: AIWriteToolName, raw: unkn
   } else if (toolName === 'update_checklist') {
     const input = parseArguments(updateChecklistSchema, raw); const { task, project } = await resolveAction(scope, input, scope.userRequest);
     const items = extractChecklistItemsFromTipTap(task.checklist_blocks);
-    let item = input.checklistItemId ? items.find((candidate) => candidate.id === input.checklistItemId)
-      : input.checklistText ? uniqueMatch(items, (candidate) => normalize(candidate.text) === normalize(input.checklistText),
-        (candidate) => normalize(candidate.text).includes(normalize(input.checklistText)), 'Checklist item') : null;
-    if (!item) item = uniqueMatch(items, () => false,
-      (candidate) => normalize(scope.userRequest).includes(normalize(candidate.text)), 'Checklist item');
+    const item = input.checklistItemId
+      ? items.find((candidate) => candidate.id === input.checklistItemId)
+      : input.checklistText ? resolveNamedTarget(items, input.checklistText,
+        'Checklist maddesi', (candidate) => candidate.text).value
+      : mentionedName(items, scope.userRequest, (candidate) => candidate.text, 'Checklist maddesi')?.value;
     if (!item?.id) throw new AIWriteProposalError('not_found', 'Checklist item was not found');
     payload = { actionId: String(task.id), checklistItemId: item.id, completed: input.completed,
       expectedTaskUpdatedAt: String(task.updated_at), expectedChecked: item.checked };
