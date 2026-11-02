@@ -33,6 +33,8 @@ assert.equal(match('In Progres',[...cols,{id:5,title:'In Progress 2'}]).kind,'am
 const projects=['ALUMAS','Dönüşüm Süreci','SmartSafe AI'].map((name,id)=>({id,name}));
 const proc=(q:string)=>matchAIEntity(q,projects,x=>x.name);
 assert.equal(proc('alumass').kind,'match');
+assert.equal(proc("Alumas'ta").kind,'match');
+assert.equal(proc('Alumas processinde').kind,'match');
 assert.equal(proc('donusum sureci').kind,'match');
 assert.equal(proc('SmartSafe Aİ process').kind,'match');
 assert.equal(proc('Sma').kind,'none');
@@ -54,6 +56,16 @@ assert.equal(shouldPlanAIWrite('In Progress neden boş?'),false);
 const proposals=fs.readFileSync('lib/ai/agent/write-proposals-server.ts','utf8');
 const reads=fs.readFileSync('lib/ai/agent/read-tools.ts','utf8');
 const selector=fs.readFileSync('lib/ai/agent/write-selector.ts','utf8');
+const route=fs.readFileSync('app/api/ai/chat/route.ts','utf8');
+assert.ok(route.includes("error.code==='ambiguous' || error.code==='not_found'") &&
+ route.includes("clarificationRequired:true") &&
+ route.includes("send({type:'delta',text:answer})"),
+ 'Ambiguous or missing targets should become an ordinary conversational clarification');
+assert.ok(proposals.includes("Process ID ile belirtilen isim eşleşmiyor") &&
+ proposals.includes("Action ID ile adı uyuşmuyor") &&
+ proposals.includes("Kolon ID ile adı uyuşmuyor") &&
+ proposals.includes("Checklist maddesinin ID ve metni uyuşmuyor"),
+ 'Names and supplied canonical IDs must never silently disagree');
 assert.ok(proposals.includes("matchAIEntity(") &&
  proposals.includes("stageHintFromText(") &&
  proposals.includes("resolveNamedTarget(") &&
