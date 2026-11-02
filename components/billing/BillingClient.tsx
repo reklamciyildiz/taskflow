@@ -486,18 +486,18 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
       ) : null}
 
       {/* Current subscription */}
-      <Card className="overflow-hidden rounded-[24px] border-border/80 bg-card shadow-[0_12px_38px_-28px_rgba(15,23,42,0.45)]">
-        <CardHeader className="border-b bg-gradient-to-r from-primary/[0.08] via-muted/30 to-card pb-5 pt-6">
+      <Card className="overflow-hidden rounded-[26px] border-border/70 bg-card shadow-[0_18px_48px_-36px_rgba(15,23,42,0.55)]">
+        <CardHeader className="border-b border-border/70 bg-gradient-to-r from-blue-500/[0.08] via-muted/20 to-card pb-5 pt-6 sm:px-7">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="space-y-1">
               <CardTitle className="flex flex-wrap items-center gap-2 text-lg">
-                <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-primary/10 bg-primary/10 text-primary shadow-sm">
                   <CreditCard className="h-4 w-4" aria-hidden />
                 </span>
                 Current subscription
               </CardTitle>
               <CardDescription>
-                Organization billing state. Use Refresh after completing checkout or portal changes.
+                Manage your subscription securely. Refresh to synchronize changes with Creem.
               </CardDescription>
             </div>
             <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
@@ -554,7 +554,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
             </div>
           </div>
         </CardHeader>
-        <CardContent className="space-y-6 pt-6">
+        <CardContent className="space-y-6 px-5 pt-6 sm:px-7">
           <div className="flex flex-wrap items-center gap-3">
             <span className="text-sm font-medium text-muted-foreground">Plan</span>
             <Badge variant={billingPlan === 'free' ? 'secondary' : 'default'} className="text-xs uppercase">
@@ -621,9 +621,9 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
             </div>
           ) : null}
           {showSeatMeter ? (
-            <div className="space-y-2 rounded-xl border bg-card p-4">
+            <div className="space-y-3 rounded-2xl border border-border/70 bg-gradient-to-br from-muted/35 to-card p-4 sm:p-5">
               <div className="flex items-center justify-between text-sm">
-                <span className="font-medium">Seat usage</span>
+                <span className="flex items-center gap-2 font-semibold"><Users className="h-4 w-4 text-primary" aria-hidden />Seat usage</span>
                 <span className="tabular-nums text-muted-foreground">
                   {billingLoading ? '…' : `${seatsUsed} / ${Number.isFinite(seatLimit) ? seatLimit : '∞'} used`}
                   {seatPct > 0 && Number.isFinite(seatLimit) ? (
@@ -631,15 +631,15 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                   ) : null}
                 </span>
               </div>
-              <Progress value={seatsUsed} max={Number.isFinite(seatLimit) ? Math.max(seatLimit, 1) : Math.max(seatsUsed, 1)} className="h-2" />
+              <Progress value={seatsUsed} max={Number.isFinite(seatLimit) ? Math.max(seatLimit, 1) : Math.max(seatsUsed, 1)} className="h-2.5 rounded-full bg-primary/10" />
               {Number.isFinite(seatLimit) && seatsUsed >= seatLimit ? (
                 <p className="text-xs text-muted-foreground">
-                  Invites are blocked at your purchased seat limit. Use <strong>Add seats</strong> above to increase
+                  Invites are blocked at your purchased seat limit. Use <strong>Manage seats</strong> above to increase
                   your quota; changes sync after the next webhook event (use Refresh).
                 </p>
               ) : (
                 <p className="text-xs text-muted-foreground">
-                  Seat count syncs after Creem webhook events.
+                  Seats update after Creem confirms your payment. Refresh to see verified capacity.
                 </p>
               )}
             </div>
@@ -652,9 +652,9 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
             const isDecrease = desiredSeats < seatLimit;
             const isValid = Number.isSafeInteger(desiredSeats) && desiredSeats !== seatLimit && desiredSeats >= seatsUsed && desiredSeats >= 1 && desiredSeats <= 500 && (!isDecrease || seatReductionAcknowledged);
             return (
-              <div className="rounded-2xl border border-primary/20 bg-card p-5 shadow-sm space-y-4">
+              <div className="space-y-4 rounded-[22px] border border-primary/20 bg-gradient-to-br from-primary/[0.045] via-card to-card p-4 shadow-[0_16px_38px_-30px_rgba(15,23,42,0.5)] sm:p-5">
                 <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium">Manage seats</p>
+                  <div><p className="text-sm font-semibold">Adjust team capacity</p><p className="mt-1 text-xs text-muted-foreground">Review changes before any payment is requested.</p></div>
                   <button
                     type="button"
                     className="text-xs text-muted-foreground hover:text-foreground"
@@ -685,16 +685,16 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                         setAddSeatsError(null);
                         setSeatReductionAcknowledged(false);
                       }}
-                      className="w-full rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      className="h-10 w-full min-w-0 rounded-xl border border-border/80 bg-background px-3 text-sm font-semibold tabular-nums shadow-sm outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
                 </div>
-                <div className="rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground space-y-0.5">
+                <div className="space-y-2 rounded-2xl border border-border/70 bg-background/85 px-4 py-3 text-xs text-muted-foreground">
                   <p>
-                    Monthly plan: <span className="font-medium text-foreground">{desiredSeats} seats × ${pricePerSeat} = ${monthlyTotal}/mo</span>
+                    Recurring list price: <strong className="font-semibold text-foreground">{desiredSeats} seats × ${pricePerSeat} = ${monthlyTotal.toFixed(2)}/mo</strong>
                   </p>
                   {isIncrease ? (
-                    <p>Creem will calculate the prorated amount due now. The exact charge may differ from the full monthly total shown above.</p>
+                    <p>Creem calculates an immediate prorated charge using the subscription change and time-based adjustments. The exact amount is not available before confirmation; the renewal date may reset.</p>
                   ) : isDecrease ? (
                     <p>Creem can reduce seat quantity immediately without automatically refunding prepaid time. Review this before confirming.</p>
                   ) : null}
@@ -738,6 +738,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                 <Button
                   type="button"
                   size="sm"
+                  className={cn(primaryButtonClass,'h-11 w-full justify-center')}
                   disabled={busy || Boolean(seatChange) || Boolean(planChange) || !isValid}
                   onClick={async () => {
                     setAddSeatsError(null);
@@ -750,7 +751,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                   }}
                 >
                   {busy
-                    ? 'Saving…'
+                    ? 'Preparing review…'
                     : isDecrease
                       ? `Review reduction to ${desiredSeats} seats`
                       : `Review payment for ${desiredSeats} seats`}
@@ -760,14 +761,21 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
           })() : null}
 
           {subscriptionId ? (
-            <p className="font-mono text-xs text-muted-foreground">
-              Subscription ref: <span className="select-all">{subscriptionId}</span>
-            </p>
+            <div className="flex flex-col gap-2 rounded-2xl border border-border/70 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-[11px] font-medium text-muted-foreground">Subscription reference</p>
+                <p className="mt-1 break-all font-mono text-xs text-foreground/85">{subscriptionId}</p>
+              </div>
+              <Button type="button" variant="outline" size="sm" className={cn(actionButtonClass,'shrink-0 self-start sm:self-auto')}
+                onClick={()=>void copySubscriptionId()} aria-label="Copy subscription reference">
+                <Copy className="mr-1.5 h-3.5 w-3.5" aria-hidden />Copy ID
+              </Button>
+            </div>
           ) : billingPlan !== 'free' ? (
             <p className="text-xs text-muted-foreground">Subscription id will appear here after the first webhook sync.</p>
           ) : null}
 
-          <div className="flex items-start gap-2 rounded-lg border border-border/60 bg-muted/20 p-3 text-xs text-muted-foreground">
+          <div className="flex items-start gap-3 rounded-2xl border border-border/60 bg-muted/15 p-4 text-xs leading-relaxed text-muted-foreground">
             <Shield className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
             <span>
               Tax, chargebacks, and receipts are handled by Creem. Open <strong>Invoices & portal</strong> for
