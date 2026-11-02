@@ -120,11 +120,14 @@ function sourceSearchText(source: KnowledgeRetrievalDocument): string {
     : source.sourceType === 'checklist'
       ? 'checklist task item'
       : 'action task';
-  return cleanText(`${source.title} ${source.text} ${labels}`).toLocaleLowerCase();
+  const content = source.sourceType === 'checklist' ? source.text : `${source.title} ${source.text}`;
+  return cleanText(`${content} ${labels}`).toLocaleLowerCase();
 }
 
 function makeSnippet(source: KnowledgeRetrievalDocument, query: string): string {
-  const combined = cleanText([source.title, source.text].filter(Boolean).join(' — '));
+  const combined = source.sourceType === 'checklist'
+    ? cleanText(source.text)
+    : cleanText([source.title, source.text].filter(Boolean).join(' — '));
   if (!combined) return '';
   const lower = combined.toLocaleLowerCase();
   const index = lower.indexOf(query);
