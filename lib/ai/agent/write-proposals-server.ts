@@ -10,7 +10,7 @@ import { getUserSchedulingTimeZone } from '@/lib/scheduling-runtime-server';
 import { resolveScheduleForSource } from '@/lib/work-schedule-server';
 import { normalizeWorkScheduleInput, scheduleMatchesDate } from '@/lib/scheduling-domain';
 import type { AIWriteProposal, AIWriteToolName } from './write-types';
-import { matchAIEntity, normalizeAIEntityName, stageHintFromText } from './entity-matching';
+import { matchAIEntity, matchAIStage, normalizeAIEntityName, stageHintFromText } from './entity-matching';
 
 type Actor = { userId: string; organizationId: string; role?: string | null };
 type Scope = Actor & { conversationId: string; assistantMessageId: string; userRequest: string };
@@ -78,7 +78,7 @@ async function visibleWritableProcesses(actor: Actor) {
 
 /** One canonical target or a clarification. Never use a fuzzy result outside the actor's writable scope. */
 function resolveNamedTarget<T>(rows: readonly T[], query: string, label: string, labelOf: (row: T) => string) {
-  const result = matchAIEntity(query, rows, labelOf);
+  const result = label === 'Kolon' ? matchAIStage(query, rows, labelOf) : matchAIEntity(query, rows, labelOf);
   if (result.kind === 'match') return result;
   if (result.kind === 'ambiguous') {
     throw new AIWriteProposalError('ambiguous',
@@ -107,9 +107,9 @@ function resolveStageFromSentence<T>(stages: readonly T[], text: string, nameOf:
   const words = phrase.split(/\s+/).filter(Boolean);
   // Natural-language prefixes can include a Process or Turkish case suffix.
   // Evaluate bounded suffix phrases, never the complete command.
-  const matched: Array<{kind:'match';value:T;label:string;mode:'exact'|'partial'|'typo'}> = [];
+  const matched: Array<{kind:'match';value:T;label:string;mode:'exact'|'partial'|'typo'|'alias'}> = [];
   for (let n = Math.min(words.length, 5); n >= 1; n--) {
-    const result = matchAIEntity(words.slice(-n).join(' '), stages, nameOf);
+    const result = matchAIStage(words.slice(-n).join(' '), stages, nameOf);
     if (result.kind === 'match') matched.push(result);
     if (result.kind === 'ambiguous') throw new AIWriteProposalError('ambiguous',
       `Kolon adı belirsiz: ${result.candidates.join(', ')}. Lütfen tam adını yazın.`);
@@ -210,17 +210,17 @@ export async function createAIWriteProposal(toolName: AIWriteToolName, raw: unkn
     if (input.stageId) {
       stage = stages.find((item) => item.id === input.stageId) ?? null;
       if (!stage) throw new AIWriteProposalError('not_found', 'Kolon ID geçerli değil. Lütfen mevcut bir kolonu belirtin.');
-      if (input.stageName && matchAIEntity(input.stageName, [stage], (item) => item.title).kind !== 'match') {
+      if (input.stageName && matchAIStage(input.stageName, [stage], (item) => item.title).kind !== 'match') {
         throw new AIWriteProposalError('ambiguous', 'Kolon ID ile adı uyuşmuyor. Lütfen hedef kolonu belirtin.');
       }
     } else if (input.stageName) {
       const match = resolveNamedTarget(stages, input.stageName, 'Kolon', (item) => item.title);
       stage = match.value;
-      if (match.mode === 'typo') stageCorrection = `“${input.stageName}” → “${match.label}”`;
+      if (match.mode !== 'exact') stageCorrection = `“${input.stageName}” → “${match.label}”`;
     } else {
       const hinted = resolveStageFromSentence(stages, scope.userRequest, (item) => item.title);
       stage = hinted?.value ?? stages.find((item) => !item.isTerminal) ?? null;
-      if (hinted?.mode === 'typo') stageCorrection = `Kolon → “${hinted.label}”`;
+      if (hinted && hinted.mode !== 'exact') stageCorrection = `Kolon → “${hinted.label}”`;
     }
     if (!stage) throw new AIWriteProposalError('not_found', 'Bu Process için kullanılabilir kolon bulunamadı.');
     const resolvedStage = stage;
