@@ -146,6 +146,21 @@ export async function POST(request:NextRequest) {
             send({ type:'done',finishReason:'completed' });return;
           }
 
+          // Reserve the atomic org/user quota BEFORE retrieval or model tool
+          // selection. Otherwise a depleted/spamming user could still drive
+          // billable embedding searches and costly database reads.
+          const quota=await reserveAIQuota(scope.userId,scope.organizationId,'axiom-chat',input.clientRequestId,{
+            dailyRequestsPerUser:allowance.dailyRequestsPerUser,
+            monthlyRequestsPerOrg:allowance.monthlyRequestsPerOrg,
+          });
+          if (!quota.allowed) {
+            const errorEvent={ type:'error',code:'QUOTA_EXHAUSTED',
+              message:formatAIQuotaMessage(quota.reason,quota.resetAt),retryable:false } as const;
+            send(errorEvent);await finalizeAssistantMessage({ messageId:turn.assistantMessageId,scope,content:'',status:'failed',errorCode:errorEvent.code });
+            assistantStatus='failed';return;
+          }
+          quotaReserved=Boolean(quota.reservationId);
+
           const readToolsEnabled=areAIReadToolsEnabled();
           const directReadToolCalls=readToolsEnabled&&!writeRequested?planDirectAIReadTools(input.message,effectiveContext):[];
           const needsModelToolSelection=readToolsEnabled&&!writeRequested&&shouldUseModelToolSelection(input.message,directReadToolCalls);
@@ -193,6 +208,10 @@ export async function POST(request:NextRequest) {
                 requestId:input.clientRequestId }));
             }
             if (intent==='knowledge' && citations.length===0) {
+              if (quotaReserved) {
+                await releaseAIQuotaReservation(input.clientRequestId,scope.userId,scope.organizationId);
+                quotaReserved=false;
+              }
               answer='Your Actiproc knowledge index does not contain an accessible match yet. Once indexing is enabled and current, I can answer this with verified sources.';
               send({ type:'delta',text:answer });assistantStatus='completed';
               await finalizeAssistantMessage({ messageId:turn.assistantMessageId,scope,content:answer,status:'completed',model:'axiom-index-status' });
@@ -201,6 +220,10 @@ export async function POST(request:NextRequest) {
             if (citations.length>0) grounding={ kind:'knowledge',teamId:effectiveContext.teamId,processId:effectiveContext.processId };
           } else if (!writeRequested&&!readToolExecutions.length&&!needsModelToolSelection&&intent==='structured') {
             if (!effectiveContext.teamId) {
+              if (quotaReserved) {
+                await releaseAIQuotaReservation(input.clientRequestId,scope.userId,scope.organizationId);
+                quotaReserved=false;
+              }
               answer='Choose a team or open Actiproc AI from Knowledge Hub so I can answer this structured question from canonical Action data.';
               send({ type:'delta',text:answer });assistantStatus='completed';
               await finalizeAssistantMessage({ messageId:turn.assistantMessageId,scope,content:answer,status:'completed',model:'axiom-scope-guard' });
@@ -213,17 +236,6 @@ export async function POST(request:NextRequest) {
 
           const contextPlan=planChatContext({ intent,question:input.message,history:availableHistory,
             citations,structured,agentContext,configuredMaxOutputTokens:aiChatLimits.maxOutputTokens });
-          const quota=await reserveAIQuota(scope.userId,scope.organizationId,'axiom-chat',input.clientRequestId,{
-            dailyRequestsPerUser:allowance.dailyRequestsPerUser,
-            monthlyRequestsPerOrg:allowance.monthlyRequestsPerOrg,
-          });
-          if (!quota.allowed) {
-            const errorEvent={ type:'error',code:'QUOTA_EXHAUSTED',
-              message:formatAIQuotaMessage(quota.reason,quota.resetAt),retryable:false } as const;
-            send(errorEvent);await finalizeAssistantMessage({ messageId:turn.assistantMessageId,scope,content:'',status:'failed',errorCode:errorEvent.code });
-            assistantStatus='failed';return;
-          }
-          quotaReserved=Boolean(quota.reservationId);
 
           provider=new GroqChatProvider(); model=provider.modelId;
 
