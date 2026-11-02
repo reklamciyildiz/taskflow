@@ -11,9 +11,12 @@ export async function requireAIChatUser(request?: NextRequest) {
   // Public rollout is deliberately stricter than closed beta. A missing or
   // broken provider-token admission RPC must not expose unmetered public AI.
   if (!isAIBetaModeEnabled() &&
-      (!isAIChatRuntimeReady() || process.env.AI_GROQ_TPM_ADMISSION_ENABLED !== 'true')) {
+      (!isAIChatRuntimeReady() ||
+        process.env.AI_GROQ_TPM_ADMISSION_ENABLED !== 'true' ||
+        process.env.AXIOM_AI_WRITE_TOOLS_ENABLED === 'true' ||
+        process.env.AXIOM_AI_ACTION_MUTATION_TOOLS_ENABLED === 'true')) {
     return NextResponse.json({ error:{ code:'PUBLIC_ROLLOUT_NOT_READY',
-      message:'Actiproc AI public access requires atomic quotas, provider credentials and provider token admission' } },
+      message:'Actiproc AI public access requires atomic quotas, provider token admission, and write tools disabled for the initial rollout' } },
       { status:503 });
   }
   const authed=await requireAuthedUser(request);
