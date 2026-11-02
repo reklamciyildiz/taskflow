@@ -9,6 +9,9 @@ export function formatAIQuotaMessage(reason:string|undefined,resetAt:Date):strin
   if (normalized.includes('monthly')) {
     return `Aylık organizasyon AI istek limitine ulaşıldı. Kota ${resetLabel} (Türkiye saati) yenilenir.`;
   }
+  if (normalized.includes('minute')) {
+    return `Kısa sürede çok fazla AI isteği gönderildi. Dakikada en fazla 12 istek gönderebilirsiniz; ${resetLabel} (Türkiye saati) tekrar deneyin.`;
+  }
   return `${reason??'AI kullanım limiti doğrulanamadı'} Yeniden deneme zamanı: ${resetLabel} (Türkiye saati).`;
 }
 
