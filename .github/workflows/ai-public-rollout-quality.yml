@@ -6,6 +6,8 @@ on:
       - 'app/api/ai/**'
       - 'components/ai/**'
       - 'scripts/test-ai-public-access.ts'
+      - 'scripts/test-ai-public-rate-sql.sh'
+      - 'supabase/migrations/*ai*.sql'
       - 'package.json'
       - '.github/workflows/ai-public-rollout-quality.yml'
   push:
@@ -15,12 +17,27 @@ on:
       - 'app/api/ai/**'
       - 'components/ai/**'
       - 'scripts/test-ai-public-access.ts'
+      - 'scripts/test-ai-public-rate-sql.sh'
+      - 'supabase/migrations/*ai*.sql'
       - 'package.json'
   workflow_dispatch:
 jobs:
   test-public-ai:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -29,6 +46,16 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run test:ai:public
+      - name: Test SQL minute admission and parallel safety
+        env:
+          PGHOST: localhost
+          PGPORT: '5432'
+          PGUSER: postgres
+          PGPASSWORD: postgres
+          PGDATABASE: postgres
+        run: |
+          command -v psql >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y postgresql-client)
+          bash scripts/test-ai-public-rate-sql.sh
       - run: npx tsx scripts/test-ai-beta-access.ts
       - run: npx tsx scripts/test-ai-chat.ts
       - run: npm run test:mobile-web
