@@ -10,6 +10,8 @@ export type EntityMatch<T> =
 
 const ENTITY_SUFFIXES = new Set([
   'process', 'proje', 'project', 'surec', 'sures', 'sürec', 'processin',
+  'processinde', 'processindeki', 'procesinde', 'projesinde', 'projesindeki',
+  'surecinde', 'surecindeki', 'projesine', 'processine',
   'stage', 'column', 'kolon', 'kolonu', 'kolonunda', 'kolonuna',
   'sutun', 'sutunu', 'sutununda', 'asama', 'asamasinda',
   'action', 'aksiyon', 'task', 'gorev',
@@ -25,7 +27,10 @@ export function normalizeAIEntityName(raw: unknown): string {
 }
 
 function comparable(value: unknown): string {
-  const tokens = normalizeAIEntityName(value).split(' ').filter(Boolean);
+  // Turkish case markers separated by apostrophes: Alumas'ta, SmartSafe'de.
+  // Keep ordinary canonical labels intact when no apostrophe is present.
+  const raw = String(value ?? '').replace(/['’](?:ta|te|da|de|dan|den|nin|in|im|deki|daki)\b/giu, '');
+  const tokens = normalizeAIEntityName(raw).split(' ').filter(Boolean);
   while (tokens.length > 1 && ENTITY_SUFFIXES.has(tokens[tokens.length - 1])) tokens.pop();
   return tokens.join(' ');
 }
