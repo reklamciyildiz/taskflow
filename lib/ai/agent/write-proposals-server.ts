@@ -135,8 +135,19 @@ async function resolveProcess(actor: Actor, input: { processId?: string; process
   }
   if (input.processName) return resolveNamedTarget(projects, input.processName,
     'Process', (row: any) => String(row.name)).value as any;
-  const mentioned = mentionedName(projects, userRequest, (row: any) => String(row.name), 'Process');
-  if (mentioned) return mentioned.value as any;
+  // A Process name may also occur as the NEW Action's title. Only infer
+  // a Process from user text when it appears immediately before an explicit
+  // Process marker. Otherwise require an explicit selector or context ID.
+  const sentence = ` ${normalizeAIEntityName(userRequest)} `;
+  const markers = ['process', 'processinde', 'processindeki', 'proje', 'projesinde',
+    'projesindeki', 'surec', 'surecinde', 'project', 'projectinde'];
+  const named = projects.filter((row: any) => {
+    const name = normalizeAIEntityName(row.name);
+    return name.length >= 4 && markers.some((marker) => sentence.includes(` ${name} ${marker} `));
+  });
+  if (named.length > 1) throw new AIWriteProposalError('ambiguous',
+    `Hangi Process? Olası kayıtlar: ${named.map((row: any) => row.name).slice(0, 5).join(', ')}.`);
+  if (named.length === 1) return named[0] as any;
   throw new AIWriteProposalError('not_found',
     'Hangi Process? Lütfen Process adını belirtin; mevcut Action kartı için yanlış Process seçmeyeceğim.');
 }
