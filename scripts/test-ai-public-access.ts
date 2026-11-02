@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { aiAllowanceForOrganization, estimateGroqChatCostUsd } from '../lib/ai/chat/plan-policy';
 import { isAIBetaScopeAllowed } from '../lib/ai/beta-access';
+import { formatAIQuotaMessage } from '../lib/ai/chat/quota-policy';
 
 const entitlement = (plan: 'free'|'individual'|'pro'|'team',
   status: 'active'|'expired'|'trialing'|'past_due'|'cancelled' = 'active',
@@ -23,6 +24,9 @@ assert.equal(entitlement('team','expired',10).monthlyRequestsPerOrg,30);
 assert.equal(entitlement('individual','trialing').monthlyRequestsPerOrg,300);
 assert.equal(entitlement('team','cancelled',3,'2020-01-01T00:00:00Z').monthlyRequestsPerOrg,30);
 assert.equal(entitlement('team','cancelled',3,'2099-01-01T00:00:00Z').monthlyRequestsPerOrg,3600);
+assert.ok(formatAIQuotaMessage('Minute AI request rate limit exceeded',
+  new Date('2026-11-02T20:00:00Z')).includes('Dakikada en fazla 12'),
+  'Burst rejection should explain the limit and local reset time');
 assert.equal(estimateGroqChatCostUsd('openai/gpt-oss-120b',4000,1000),0.0012);
 assert.equal(estimateGroqChatCostUsd('qwen/qwen3.8-27b',4000,1000),0.0072);
 assert.ok(estimateGroqChatCostUsd('unknown-model',4000,1000)>0,
@@ -36,6 +40,14 @@ assert.ok(minutePolicy.includes("IF p_feature = 'axiom-chat'") &&
  minutePolicy.includes("pg_advisory_xact_lock(hashtextextended('ai-quota:user:'") &&
  minutePolicy.includes('CREATE OR REPLACE FUNCTION public.reserve_ai_quota('),
  'Atomic minute burst cap must be checked under existing quota locks');
+const burstLockAt=minutePolicy.indexOf("pg_advisory_xact_lock(hashtextextended('ai-quota:user:'");
+const burstCheckAt=minutePolicy.indexOf('v_minute_count >= 12');
+const firstReservationAt=minutePolicy.indexOf('INSERT INTO public.ai_quota_counters');
+assert.ok(burstLockAt >= 0 && burstLockAt < burstCheckAt &&
+ burstCheckAt < firstReservationAt, 'Minute burst limit must be atomic and checked before incrementing counters');
+assert.ok(minutePolicy.includes("IF v_reservation_id IS NOT NULL THEN") &&
+ minutePolicy.indexOf('IF v_reservation_id IS NOT NULL THEN') < burstCheckAt,
+ 'Idempotent existing requests must not be double-charged against minute caps');
 assert.ok(minutePolicy.includes('ai_public_burst_guard_ready()') &&
  !minutePolicy.includes('DROP TABLE') && !minutePolicy.includes('TRUNCATE'),
  'Guard migration must be discoverable and data-preserving');
@@ -70,6 +82,9 @@ assert.ok(view.includes('const createdPayload=await created.json()') &&
  !view.includes('activeConversation=(await created.json())') &&
  view.includes('<AIAllowanceIndicator'),
  'New conversation must read its response exactly once and show plan usage');
+assert.ok(ui.includes('Daily AI limit reached') && ui.includes('Monthly AI limit reached') &&
+ ui.includes('role="progressbar"') && ui.includes('status.daily.remaining'),
+ 'AI usage UI must distinguish daily and monthly exhaustion, including mobile');
 assert.ok(ui.includes('AI requests left this month') && ui.includes('href="/settings/billing"') &&
  !ui.includes('next/link'),'Allowance UI must remain compatible with Capacitor');
 const saved=process.env.AXIOM_AI_BETA_MODE_ENABLED;
