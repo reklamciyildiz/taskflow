@@ -80,6 +80,7 @@ export function KnowledgeHubWorkspace({
   const [tab, setTab] = useState<LibraryTab>('all');
   const [projectFilter, setProjectFilter] = useState('all');
   const [sort, setSort] = useState<Sort>('recent');
+  const [visibleCount, setVisibleCount] = useState(24);
   const [layout, setLayout] = useState<Layout>('cards');
   const [pinIds, setPinIds] = useState<string[]>([]);
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
@@ -138,6 +139,8 @@ export function KnowledgeHubWorkspace({
     });
   }, [matches, pinIds, query, sort, tab]);
 
+  useEffect(() => { setVisibleCount(24); }, [query, tab, projectFilter, sort, layout]);
+  const displayedResults = results.slice(0, visibleCount);
   const active = cards.find((card) => card.id === activeCardId) ?? null;
   const notesCount = knowledgeCards.reduce((count, card) => count + card.notes.length, 0);
   const checklistCount = knowledgeCards.reduce((count, card) => count + card.checklistItems.length, 0);
@@ -289,12 +292,12 @@ export function KnowledgeHubWorkspace({
           </div>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/70 pt-4">
-          <div role="tablist" aria-label="Knowledge collection" className="flex min-w-0 flex-wrap gap-1.5">
+          <div role="group" aria-label="Knowledge collection" className="flex min-w-0 flex-wrap gap-1.5">
             {tabs.map((item) => {
               const Icon = item.icon;
               const selected = tab === item.id;
               return (
-                <button key={item.id} type="button" role="tab" aria-selected={selected}
+                <button key={item.id} type="button" aria-pressed={selected}
                   onClick={() => setTab(item.id)}
                   className={cn(
                     'inline-flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:px-3 sm:text-xs',
@@ -361,7 +364,9 @@ export function KnowledgeHubWorkspace({
             <p className="mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">
               {cards.length === 0
                 ? 'Create an action and add notes or checklist items. They will appear here automatically.'
-                : knowledgeCards.length === 0 && !query && tab !== 'actions'
+                : tab === 'pinned'
+                  ? 'Nothing pinned yet. Pin important entries to find them quickly later on this device.'
+                  : knowledgeCards.length === 0 && !query && tab !== 'actions'
                   ? 'No notes or checklist items yet. Open an action to capture your next idea or decision.'
                   : 'Try another keyword, process or collection. Search can also find actions that do not have notes yet.'}
             </p>
@@ -374,7 +379,7 @@ export function KnowledgeHubWorkspace({
           </div>
         ) : (
           <div className={cn('grid gap-4', layout === 'cards' ? 'sm:grid-cols-2 xl:grid-cols-3' : 'grid-cols-1')}>
-            {results.map((result: KnowledgeSearchResult) => {
+            {displayedResults.map((result: KnowledgeSearchResult) => {
               const { card, matches: sourceMatches } = result;
               const isPinned = pinIds.includes(normalizeKnowledgePinId(card.id));
               const completed = card.checklistItems.filter((item) => item.done).length;
@@ -417,6 +422,15 @@ export function KnowledgeHubWorkspace({
                 </article>
               );
             })}
+          </div>
+        )}
+        {!loading && !notesLoading && results.length > visibleCount && (
+          <div className="flex flex-col items-center gap-2 pt-3">
+            <p className="text-[11px] tabular-nums text-muted-foreground">Showing {displayedResults.length} of {results.length} entries</p>
+            <Button type="button" variant="outline" className="h-10 rounded-xl border-border/80 px-5 text-xs font-semibold shadow-sm"
+              onClick={() => setVisibleCount((count) => count + 24)}>
+              Show more knowledge <ArrowRight className="ml-2 h-4 w-4" aria-hidden />
+            </Button>
           </div>
         )}
       </main>
