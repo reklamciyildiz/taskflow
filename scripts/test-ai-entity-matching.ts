@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { matchAIEntity, normalizeAIEntityName, stageHintFromText } from '../lib/ai/agent/entity-matching';
+import { matchAIEntity, matchAIStage, normalizeAIEntityName, stageHintFromText } from '../lib/ai/agent/entity-matching';
 import { shouldPlanAIWrite } from '../lib/ai/agent/write-selector';
 
 const cols=['To Do','In Progress','In Review','Done'].map((title,id)=>({id,title}));
@@ -17,6 +17,15 @@ got('in progess','In Progress');
 got('in pro gress','In Progress');
 got('In Review kolonu','In Review');
 got('In Progress column','In Progress');
+const fromTurkish=matchAIStage('devam eden',cols,(row)=>row.title);
+assert.equal(fromTurkish.kind,'match');
+if(fromTurkish.kind==='match') assert.equal(fromTurkish.label,'In Progress');
+const review=matchAIStage('incelemede',cols,(row)=>row.title);
+assert.equal(review.kind,'match');
+if(review.kind==='match') assert.equal(review.label,'In Review');
+const collision=matchAIStage('devam eden',[...cols,{id:99,title:'Doing'}],x=>x.title);
+assert.equal(collision.kind,'ambiguous','Synonym collision requires clarification, not default stage');
+
 assert.equal(normalizeAIEntityName('İŞLER GÜNCELLEŞTİRİLDİ'),'isler guncellestirildi');
 assert.equal(match('in').kind,'none','Short, generic terms must not pick a column');
 assert.equal(match('doen').kind,'none','Short labels must not accept risky fuzzy guesses');
