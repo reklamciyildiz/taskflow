@@ -4,7 +4,9 @@ import { AI_READ_TOOL_DEFINITIONS } from './definitions';
 import type { AIReadToolCall } from './types';
 
 const SELECTOR_SYSTEM=`Select at most two read-only Axiom tools needed for the user's question.
-Use no tool for ordinary conversation. Never invent IDs. Prefer processName when the user supplied a name.
+Understand informal Turkish, missing filler words and small spelling errors; still select tools only when authorized workspace data is actually needed.
+Use no tool for ordinary conversation. Never invent IDs. Prefer processName when the user supplied a name, preserving the user's spelling for safe server-side resolution.
+Do not guess a different Process because one name looks familiar; the server will clarify ambiguous names.
 Do not answer the question. You have no write tools.`;
 
 export async function selectAIReadTools(input:{
