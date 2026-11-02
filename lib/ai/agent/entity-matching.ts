@@ -4,7 +4,7 @@
  * Never create a record or infer an ID from text; this resolves supplied labels only.
  */
 export type EntityMatch<T> =
-  | { kind: 'match'; value: T; label: string; mode: 'exact' | 'partial' | 'typo' }
+  | { kind: 'match'; value: T; label: string; mode: 'exact' | 'partial' | 'typo' | 'alias' }
   | { kind: 'ambiguous'; candidates: string[] }
   | { kind: 'none'; candidates: string[] };
 
@@ -108,6 +108,39 @@ export function matchAIEntity<T>(
   const close = eligible.filter((item) => item.d <= winner.d + 1);
   if (close.length > 1) return { kind: 'ambiguous', candidates: candidateNames(close) };
   return { kind: 'match', value: winner.row, label: winner.label, mode: 'typo' };
+}
+
+
+/**
+ * Translate a narrow set of well-known workflow stage concepts into canonical
+ * labels. If an organization has both "Doing" and "In Progress", never pick
+ * one: that is a semantic collision requiring user clarification.
+ */
+const STAGE_CATEGORIES: Readonly<Record<string, readonly string[]>> = {
+  progress: ['in progress','inprogress','doing','ongoing','working','devam eden',
+    'devam ediyor','yapiliyor','yapilmakta','calisiliyor','suruyor','yapim asamasinda'],
+  todo: ['to do','todo','not started','yapilacak','yapilacaklar','baslanmadi',
+    'bekliyor','bekleyen'],
+  done: ['done','completed','finished','complete','tamamlandi','tamamlanmis','bitti','bitmis'],
+  review: ['in review','review','under review','incelemede','inceleme','kontrolde','kontrol ediliyor'],
+};
+
+export function matchAIStage<T>(query: string, rows: readonly T[], nameOf: (row: T) => string): EntityMatch<T> {
+  const direct = matchAIEntity(query,rows,nameOf);
+  if (direct.kind !== 'none') return direct;
+  const text = comparable(query);
+  const category = Object.keys(STAGE_CATEGORIES).find(
+    (key) => STAGE_CATEGORIES[key].includes(text));
+  if (!category) return direct;
+  const candidates = rows.filter((row) =>
+    STAGE_CATEGORIES[category].includes(comparable(nameOf(row))));
+  if (candidates.length === 1) return {
+    kind:'match',value:candidates[0],label:nameOf(candidates[0]),mode:'alias',
+  };
+  if (candidates.length > 1) return {
+    kind:'ambiguous',candidates:[...new Set(candidates.map(nameOf))].slice(0,5),
+  };
+  return direct;
 }
 
 /** Extract a stage mentioned immediately before 'kolonu/column/stage' */
