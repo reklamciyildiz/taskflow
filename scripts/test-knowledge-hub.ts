@@ -80,6 +80,10 @@ assert.ok(view.includes('Knowledge detail') && view.includes('Open full action')
 assert.ok(!view.includes('max-h-80 overflow-y-auto') &&
   !view.includes('columns-1 gap-4 [column-fill:_balance]'),
   'Knowledge card design must not regress to scroll-inside masonry');
+assert.ok(view.includes('results.slice(0, visibleCount)') &&
+  view.includes('Show more knowledge') &&
+  view.includes('aria-pressed={selected}'),
+  'Result previews must scale for large libraries and filters need pressed state');
 assert.ok(view.includes('aria-label="Search Knowledge Hub"') &&
   view.includes('aria-pressed={isPinned}') &&
   view.includes('onClick={() => setActiveCardId(card.id)}'),
