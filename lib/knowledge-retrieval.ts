@@ -286,7 +286,7 @@ export function searchKnowledgeCards(
     if (input.content === 'checklist' && card.checklistItems.length === 0) return [];
 
     const eligibleSources = card.sources.filter((source) => {
-      if (source.sourceType === 'action') return true;
+      // A filtered collection must match its own content, not an unrelated action title.
       if (input.content === 'notes') return source.sourceType === 'note';
       if (input.content === 'checklist') return source.sourceType === 'checklist';
       return true;
@@ -308,6 +308,20 @@ export function searchKnowledgeCards(
       }));
     return matches.length > 0 ? [{ card, matches }] : [];
   });
+}
+
+/**
+ * Every hit points to a canonical source, not merely to the parent action.
+ * Prefer the requested content type and an actual source over the action title.
+ * The chosen source ID is stable across searches and refreshes.
+ */
+export function focusKnowledgeMatch(
+  matches: KnowledgeMatch[],
+  preferred: KnowledgeContentFilter = 'all',
+): KnowledgeMatch | null {
+  if (preferred === 'notes') return matches.find((hit) => hit.sourceType === 'note') ?? null;
+  if (preferred === 'checklist') return matches.find((hit) => hit.sourceType === 'checklist') ?? null;
+  return matches.find((hit) => hit.sourceType !== 'action') ?? matches[0] ?? null;
 }
 
 /** Updates a canonical TipTap taskItem by id. */
