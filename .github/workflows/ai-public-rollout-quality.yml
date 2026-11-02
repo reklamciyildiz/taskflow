@@ -1,0 +1,35 @@
+name: AI public access and pricing safety
+on:
+  pull_request:
+    paths:
+      - 'lib/ai/**'
+      - 'app/api/ai/**'
+      - 'components/ai/**'
+      - 'scripts/test-ai-public-access.ts'
+      - 'package.json'
+      - '.github/workflows/ai-public-rollout-quality.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'lib/ai/**'
+      - 'app/api/ai/**'
+      - 'components/ai/**'
+      - 'scripts/test-ai-public-access.ts'
+      - 'package.json'
+  workflow_dispatch:
+jobs:
+  test-public-ai:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run test:ai:public
+      - run: npx tsx scripts/test-ai-beta-access.ts
+      - run: npx tsx scripts/test-ai-chat.ts
+      - run: npm run test:mobile-web
+      - run: npx tsc --noEmit
