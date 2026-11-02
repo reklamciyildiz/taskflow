@@ -442,7 +442,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
       ) : null}
 
       {selectedPlan ? (
-        <Card className="rounded-2xl border-border/80 bg-card shadow-sm">
+        <Card className="rounded-[20px] border-primary/25 bg-gradient-to-r from-primary/[0.065] to-card shadow-sm">
           <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="text-sm">
               <p className="font-medium">
@@ -457,6 +457,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <Button
                 type="button"
+                className={actionPrimary}
                 disabled={busy || !canUpgrade || (canResubscribe && !acceptNewCharge) ||
                   (!canResubscribe && (selectedPlan === billingPlan || (billingPlan !== 'free' && ['individual','pro','team'].indexOf(selectedPlan) <= ['individual','pro','team'].indexOf(billingPlan))))}
                 onClick={() => canResubscribe
@@ -467,7 +468,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
               >
                 Continue to checkout
               </Button>
-              <Button type="button" variant="outline" disabled={busy} onClick={() => setSelectedPlan(null)}>
+              <Button type="button" variant="outline" className={actionSecondary} disabled={busy} onClick={() => setSelectedPlan(null)}>
                 Clear selection
               </Button>
             </div>
@@ -666,7 +667,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
             const isDecrease = desiredSeats < seatLimit;
             const isValid = Number.isSafeInteger(desiredSeats) && desiredSeats !== seatLimit && desiredSeats >= seatsUsed && desiredSeats >= 1 && desiredSeats <= 500 && (!isDecrease || seatReductionAcknowledged);
             return (
-              <div className="rounded-2xl border border-primary/20 bg-card p-5 shadow-sm space-y-4">
+              <div className="space-y-5 rounded-[22px] border border-primary/25 bg-gradient-to-br from-primary/[0.04] via-card to-card p-5 shadow-[0_14px_36px_-26px_rgba(15,23,42,0.4)] sm:p-6">
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-medium">Manage seats</p>
                   <button
@@ -699,16 +700,16 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                         setAddSeatsError(null);
                         setSeatReductionAcknowledged(false);
                       }}
-                      className="w-full rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      className="h-10 w-full rounded-lg border border-border bg-background px-3 text-base font-semibold tabular-nums shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                     />
                   </div>
                 </div>
-                <div className="rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground space-y-0.5">
+                <div className="space-y-2 rounded-xl border border-border/70 bg-background/75 px-4 py-3 text-xs text-muted-foreground">
                   <p>
-                    Monthly plan: <span className="font-medium text-foreground">{desiredSeats} seats × ${pricePerSeat} = ${monthlyTotal}/mo</span>
+                    New monthly list price: <span className="font-semibold text-foreground">{desiredSeats} seats × ${pricePerSeat} = ${monthlyTotal}/mo</span>
                   </p>
                   {isIncrease ? (
-                    <p>Creem will calculate the prorated amount due now. The exact charge may differ from the full monthly total shown above.</p>
+                    <p>Creem calculates today&apos;s prorated payment using remaining prepaid time and the new price. The exact charge is not available before confirmation, and the immediate charge resets the billing cycle.</p>
                   ) : isDecrease ? (
                     <p>Creem can reduce seat quantity immediately without automatically refunding prepaid time. Review this before confirming.</p>
                   ) : null}
@@ -833,9 +834,10 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                 key={key}
                 ref={ref as any}
                 className={cn(
-                  'relative flex min-h-[345px] flex-col overflow-hidden rounded-[22px] border-border/80 bg-card shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg',
-                  (current || requested) && 'border-primary/40 ring-1 ring-primary/30',
-                  key === 'pro' && !current && 'bg-gradient-to-b from-blue-500/[0.07] to-card'
+                  'group relative flex min-h-[365px] flex-col overflow-hidden rounded-[24px] border-border/70 bg-card shadow-[0_14px_36px_-27px_rgba(15,23,42,0.4)] transition-all duration-200 hover:-translate-y-1 hover:border-primary/35 hover:shadow-[0_20px_46px_-26px_rgba(15,23,42,0.35)]',
+                  (current || requested) && 'border-primary/45 ring-1 ring-primary/20',
+                  key === 'pro' && !current && 'bg-gradient-to-b from-blue-500/[0.07] via-card to-card',
+                  key === 'team' && !current && 'bg-gradient-to-b from-indigo-500/[0.055] via-card to-card'
                 )}
               >
                 {current ? (
