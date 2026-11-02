@@ -555,14 +555,14 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
           </div>
         </CardHeader>
         <CardContent className="space-y-6 px-5 pt-6 sm:px-7">
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="text-sm font-medium text-muted-foreground">Plan</span>
-            <Badge variant={billingPlan === 'free' ? 'secondary' : 'default'} className="text-xs uppercase">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <span className="text-xs font-medium text-muted-foreground">Plan</span>
+            <Badge variant={billingPlan === 'free' ? 'secondary' : 'default'} className="rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-wider">
               {billingPlan}
             </Badge>
             <Separator orientation="vertical" className="hidden h-4 sm:block" />
-            <span className="text-sm font-medium text-muted-foreground">Status</span>
-            <Badge variant={statusBadgeVariant(billingStatus)} className="capitalize">
+            <span className="text-xs font-medium text-muted-foreground">Status</span>
+            <Badge variant={statusBadgeVariant(billingStatus)} className="rounded-full px-3 py-1 text-[10px] font-semibold capitalize">
               {billingLoading ? '…' : statusLabel}
             </Badge>
           </div>
@@ -608,16 +608,18 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
           ) : null}
 
           {planChange ? (
-            <div role="status" className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-xs text-foreground">
-              Your upgrade from <strong>{planChange.previousPlan}</strong> to <strong>{planChange.desiredPlan}</strong> is awaiting a verified Creem payment.
-              No second billing change can start while this is pending. Use Refresh; if review persists, contact support.
+            <div role="status" className="flex items-start gap-3 rounded-2xl border border-amber-500/25 bg-amber-500/[0.07] px-4 py-4 text-xs leading-relaxed text-foreground">
+              <Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden />
+              <div><strong className="mb-1 block text-sm">Plan upgrade pending verification</strong> Your upgrade from <strong>{planChange.previousPlan}</strong> to <strong>{planChange.desiredPlan}</strong> is awaiting a verified Creem payment.
+              No second billing change can start while this is pending. Refresh; if review persists, contact support.</div>
             </div>
           ) : null}
           {seatChange ? (
-            <div role="status" className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-xs text-foreground">
-              Creem is verifying your request for <strong>{seatChange.desiredSeats}</strong> seats.
+            <div role="status" className="flex items-start gap-3 rounded-2xl border border-amber-500/25 bg-amber-500/[0.07] px-4 py-4 text-xs leading-relaxed text-foreground">
+              <Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden />
+              <div><strong className="mb-1 block text-sm">Seat change pending verification</strong> Creem is verifying your request for <strong>{seatChange.desiredSeats}</strong> seats.
               {seatChange.status === 'review' ? ' Billing review is needed before a new change.' : ' Another charge cannot start until it is verified.'}
-              Use Refresh to check again.
+              Refresh to check again.</div>
             </div>
           ) : null}
           {showSeatMeter ? (
@@ -817,28 +819,28 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                 key={key}
                 ref={ref as any}
                 className={cn(
-                  'relative flex min-h-[345px] flex-col overflow-hidden rounded-[22px] border-border/80 bg-card shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg',
-                  (current || requested) && 'border-primary/40 ring-1 ring-primary/30',
-                  key === 'pro' && !current && 'bg-gradient-to-b from-blue-500/[0.07] to-card'
+                  'relative flex min-h-[355px] flex-col overflow-hidden rounded-[24px] border-border/70 bg-card shadow-[0_15px_32px_-26px_rgba(15,23,42,0.55)] transition-all duration-200 hover:-translate-y-1 hover:border-primary/35 hover:shadow-[0_20px_42px_-26px_rgba(15,23,42,0.45)]',
+                  (current || requested) && 'border-primary/45 ring-2 ring-primary/15',
+                  key === 'pro' && !current && 'bg-gradient-to-b from-blue-500/[0.075] via-card to-card'
                 )}
               >
                 {current ? (
-                  <div className="absolute right-3 top-3">
-                    <Badge variant="outline" className="text-[10px] uppercase">
+                  <div className="absolute right-4 top-4">
+                    <Badge variant="outline" className="rounded-full border-primary/25 bg-primary/[0.06] px-2.5 py-1 text-[10px] font-semibold uppercase text-primary">
                       Current
                     </Badge>
                   </div>
                 ) : null}
-                <CardHeader className="space-y-3 pb-2 pt-6">
-                  <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+                <CardHeader className="space-y-3 pb-2 pt-7">
+                  <CardTitle className="flex items-center gap-2 text-lg font-semibold tracking-tight">
                     {key === 'pro' ? <Sparkles className="h-4 w-4 text-amber-500" aria-hidden /> : null}
                     {key === 'team' ? <Users className="h-4 w-4 text-primary" aria-hidden /> : null}
                     {title}
                   </CardTitle>
-                  <CardDescription className="text-xs">{blurb}</CardDescription>
+                  <CardDescription className="min-h-[32px] text-xs leading-relaxed">{blurb}</CardDescription>
                 </CardHeader>
                 <CardContent className="flex flex-1 flex-col gap-5 pb-5">
-                  <ul className="flex-1 space-y-2 text-xs text-muted-foreground">
+                  <ul className="flex-1 space-y-2.5 text-xs leading-relaxed text-muted-foreground">
                     {PLAN_FEATURES[key].map((f) => (
                       <li key={f} className="flex gap-2">
                         <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
@@ -851,10 +853,10 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                   ) : (
                     <>
                       <p className="text-xs text-muted-foreground">
-                        <strong className="text-3xl font-semibold tracking-tight text-foreground">${ACTIPROC_PLANS[key].priceUsd}</strong>
+                        <strong className="text-[34px] font-semibold tracking-tight text-foreground">${ACTIPROC_PLANS[key].priceUsd}</strong>
                         {key === 'individual' ? '/year' : key === 'team' || key === 'pro' ? '/user/month' : '/month'}
                       </p>
-                      <Button type="button" size="sm" variant={current ? 'secondary' : 'default'} className="h-10 w-full rounded-xl"
+                      <Button type="button" size="sm" variant={current ? 'secondary' : 'default'} className={cn('h-11 w-full rounded-xl text-xs font-semibold shadow-sm transition-all hover:shadow-md',!current&&'bg-blue-600 text-white hover:bg-blue-700')}
                         disabled={busy || !canUpgrade || (canResubscribe && !acceptNewCharge) ||
                           (!canResubscribe && (current || (billingPlan !== 'free' && ['individual','pro','team'].indexOf(key) <= ['individual','pro','team'].indexOf(billingPlan))))}
                         onClick={() => canResubscribe
@@ -877,7 +879,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
         </p>
       </div>
 
-      <Card className="rounded-2xl border-border/70 bg-muted/20">
+      <Card className="rounded-[22px] border-border/70 bg-muted/15 shadow-[0_12px_32px_-28px_rgba(15,23,42,0.5)]">
         <CardHeader className="pb-2">
           <CardTitle className="text-base">Need help?</CardTitle>
           <CardDescription>Billing questions, failed payments, or tax documents — use your payment provider’s portal first.</CardDescription>
