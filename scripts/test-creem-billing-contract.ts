@@ -383,7 +383,7 @@ assert.ok(seatEndpoint.includes('requireOrgAdmin') && planEndpoint.includes('req
  'Billing endpoints must require organizational admin');
 assert.ok(consentHook.includes("action: 'preview'") && consentHook.includes("action: 'confirm'"),
  'UI must separate review and charge requests');
-assert.ok(consentUI.includes('Authorize charge & confirm') &&
+assert.ok(consentUI.includes('Authorize & confirm') &&
  consentUI.includes('reviewAcknowledged') && consentUI.includes('requestSeatReview') &&
  consentUI.includes('requestPlanReview'), 'Explicit modal approval must precede saved-card charges');
 console.log('Creem explicit billing-consent tests passed');
