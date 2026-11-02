@@ -95,7 +95,8 @@ const adapter = fs.readFileSync('components/KnowledgeHubView.tsx', 'utf8');
 const mobile = fs.readFileSync('mobile/src/MobileKnowledgeHub.tsx', 'utf8');
 assert.ok(view.includes('searchKnowledgeCards(') && view.includes('projectFilter') &&
   view.includes('notesLoading') && view.includes('retryNotes') &&
-  view.includes('setChecklistItemChecked(') && view.includes('canEditTask('),
+  reader.includes('setChecklistItemChecked(') && reader.includes('canEditTask(') &&
+  reader.includes('updateTask(task.id, { checklistBlocks: next })'),
   'Search, access-controlled mutation and note retries must remain available');
 assert.ok(reader.includes('Knowledge reader') && reader.includes('Open full action') &&
   reader.includes('selectedNotePage.map') && reader.includes('selectedChecklistPage.map') &&
