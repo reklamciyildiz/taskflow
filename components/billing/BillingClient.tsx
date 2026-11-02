@@ -182,6 +182,15 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
       toast.error(e instanceof Error?e.message:'Unable to review upgrade.');
     } finally {setReviewLoading(false);}
   }
+  async function copySubscriptionId(){
+    if(!subscriptionId)return;
+    try {
+      await navigator.clipboard.writeText(subscriptionId);
+      toast.success('Subscription ID copied');
+    } catch {
+      toast.error('Unable to copy subscription ID');
+    }
+  }
   async function applyReviewedChange(){
     if(!billingReview||!reviewAcknowledged||reviewBusy||busy)return;
     setReviewBusy(true);setReviewError(null);
@@ -491,63 +500,54 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                 Organization billing state. Use Refresh after completing checkout or portal changes.
               </CardDescription>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => void refreshBilling()}>
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
+              <Button type="button" variant="outline" size="sm" className={actionButtonClass}
+                disabled={busy||billingLoading} onClick={() => void refreshBilling()}>
+                <RefreshCw className={cn('mr-1.5 h-3.5 w-3.5',billingLoading&&'animate-spin')} aria-hidden />
                 {billingLoading ? 'Refreshing…' : 'Refresh'}
               </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={busy || !hasPaidSubscription}
-                onClick={() => void openCustomerPortal()}
-                title={billingPlan === 'free' ? 'Subscribe first' : 'Invoices & payment method'}
-              >
+              <Button type="button" variant="outline" size="sm" className={actionButtonClass}
+                disabled={busy || !hasPaidSubscription} onClick={() => void openCustomerPortal()}
+                title={billingPlan === 'free' ? 'Subscribe first' : 'Invoices & payment method'}>
                 <Receipt className="mr-1.5 h-3.5 w-3.5" aria-hidden />
-                Invoices & portal
+                Invoices & portal <ExternalLink className="ml-1.5 h-3 w-3 text-muted-foreground" aria-hidden />
               </Button>
               {(billingPlan === 'team' || billingPlan === 'pro') && subscriptionId && Number.isFinite(seatLimit) ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
+                <Button type="button" variant="outline" size="sm" className={actionButtonClass}
                   disabled={busy || billingStatus !== 'active' || Boolean(seatChange) || Boolean(planChange)}
                   onClick={() => {
                     setDesiredSeats(seatLimit);
+                    setSeatReductionAcknowledged(false);
                     setAddSeatsError(null);
                     setAddSeatsOpen(true);
-                  }}
-                >
-                  <Users className="mr-1.5 h-3.5 w-3.5" aria-hidden />
-                  Manage seats
+                  }}>
+                  <Users className="mr-1.5 h-3.5 w-3.5" aria-hidden />Manage seats
                 </Button>
               ) : null}
               {canResume && hasPaidSubscription ? (
-                <Button type="button" size="sm" disabled={busy}
+                <Button type="button" size="sm" className={primaryButtonClass} disabled={busy}
                   onClick={() => void resumeSubscription()}>
+                  <RefreshCw className="mr-1.5 h-3.5 w-3.5" aria-hidden />
                   {checkoutBusy === 'resume' ? 'Confirming renewal…' : 'Resume renewal'}
                 </Button>
               ) : null}
               {billingPlan === 'free' ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  disabled={busy}
-                  onClick={() => void openCheckout('individual', { billingInterval: 'yearly' })}
-                >
+                <Button type="button" size="sm" className={primaryButtonClass} disabled={busy}
+                  onClick={() => void openCheckout('individual', { billingInterval: 'yearly' })}>
+                  <Sparkles className="mr-1.5 h-3.5 w-3.5" aria-hidden />
                   {busy ? 'Opening…' : 'Upgrade to Individual'}
                 </Button>
               ) : billingPlan === 'individual' && !canResubscribe ? (
-                <Button type="button" size="sm" disabled={!canUpgrade || busy} title={!canUpgrade ? 'Plan upgrades are unavailable while the subscription is cancelled or paused' : undefined} onClick={() => void requestPlanReview('pro')}>Upgrade to Pro</Button>
-              ) : billingPlan === 'pro' && !canResubscribe ? (
-                // Upgrade the existing Creem subscription, not a second checkout.
-                <Button
-                  type="button"
-                  size="sm"
-                  disabled={!canUpgrade || busy}
+                <Button type="button" size="sm" className={primaryButtonClass} disabled={!canUpgrade || busy}
                   title={!canUpgrade ? 'Plan upgrades are unavailable while the subscription is cancelled or paused' : undefined}
-                  onClick={() => void requestPlanReview('team')}
-                >
+                  onClick={() => void requestPlanReview('pro')}>
+                  <Sparkles className="mr-1.5 h-3.5 w-3.5" aria-hidden /> Upgrade to Pro
+                </Button>
+              ) : billingPlan === 'pro' && !canResubscribe ? (
+                <Button type="button" size="sm" className={primaryButtonClass} disabled={!canUpgrade || busy}
+                  title={!canUpgrade ? 'Plan upgrades are unavailable while the subscription is cancelled or paused' : undefined}
+                  onClick={() => void requestPlanReview('team')}>
+                  <Sparkles className="mr-1.5 h-3.5 w-3.5" aria-hidden />
                   {busy ? 'Switching…' : 'Upgrade to Team'}
                 </Button>
               ) : null}
