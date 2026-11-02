@@ -74,12 +74,18 @@ assert.ok(day.includes('data-planner-grid-date={date}') &&
  day.includes('touch-none select-none') && day.includes('drag.preview?.target.date'),
  'Day/week must have actual pointer targets and live preview');
 assert.ok(calendar.includes('scheduleType: \'one_off\'') &&
- calendar.includes('durationMinutes: item.durationMinutes ?? 30') &&
- calendar.includes('reminderRules: item.reminderRules') &&
+ calendar.includes('durationMinutes: current.data.durationMinutes ?? 30') &&
+ calendar.includes('reminderRules: current.data.reminderRules') &&
  calendar.includes('dispatchScheduleChanged(item.source, response.data)') &&
  calendar.includes('Confirm new time') &&
  calendar.includes('onMoveRequest={requestMove}'),
  'A drag must request confirmation and persist the canonical source/reminders/duration');
+assert.ok(calendar.includes("const current = await scheduleApi.get(item.source)") &&
+ calendar.includes("current.data.scheduleType !== 'one_off'"),
+ 'Stale or newly recurring events must be refreshed before a drag can write');
+assert.ok(quick.includes('const previousSchedule = await scheduleApi.get({') &&
+ quick.includes('if (previousSchedule.data)'),
+ 'Quick Add must refuse to overwrite a pre-existing checklist recurrence or reminders');
 assert.ok(calendar.includes('plannerDragSupported(item.isRecurring, item.scheduleTime)'),
  'Recurring series cannot be silently converted to a one-off');
 assert.ok(shared.includes('PlannerQuickAdd') && shared.includes('PlannerCalendar') &&
