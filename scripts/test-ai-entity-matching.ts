@@ -52,6 +52,8 @@ assert.equal(stageHintFromText('Alumas procesinde in proggress kolonunda test ad
 assert.equal(stageHintFromText('test adıyla aksiyon oluştur'),''
  || null); // no target -> default workflow is allowed
 assert.equal(stageHintFromText('in proggress sütununa task ekleyelim'),'in proggress');
+assert.equal(stageHintFromText('In Progress koloni da Test adında aksiyon oluştur'),'In Progress');
+assert.equal(stageHintFromText('in proggress kolnunda Test aksiyon ekleyelim'),'in proggress');
 
 assert.equal(shouldPlanAIWrite('Alumas processinde in proggress kolonunda test adında aksiyon oluştur'),true);
 assert.equal(shouldPlanAIWrite('İn Progress kolonuna yeni aksiyon ekleyelim'),true);
