@@ -169,6 +169,13 @@ export function PlannerQuickAdd() {
         if (checklistMode === 'existing') {
           if (!selectedItem) throw new Error('Checklist item was not found.');
           itemId = selectedItem.id;
+          const previousSchedule = await scheduleApi.get({
+            sourceType: 'checklist_item', taskId: selectedParent.id, checklistItemId: itemId,
+          });
+          if (!previousSchedule.success) throw new Error(previousSchedule.error || 'Could not check this checklist schedule.');
+          if (previousSchedule.data) {
+            throw new Error('This checklist item is already scheduled. Open its existing calendar block to change its date or time.');
+          }
         } else {
           itemId = crypto.randomUUID();
           const checklistBlocks = appendChecklistItemToTipTap(selectedParent.checklistBlocks, {
