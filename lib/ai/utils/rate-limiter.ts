@@ -98,20 +98,29 @@ export const reserveAIQuota = async (
   organizationId: string,
   feature: string,
   requestKey: string = randomUUID(),
+  planLimits?: { dailyRequestsPerUser: number; monthlyRequestsPerOrg: number },
 ): Promise<AIQuotaDecision> => {
   if (process.env.AI_ATOMIC_QUOTA_ENABLED !== 'true') {
-    return checkRateLimit(userId, organizationId, feature);
+    // A public, paid-plan-aware request must never fall back to the old
+    // non-atomic quota check, which cannot enforce the plan's limits.
+    return planLimits ? quotaBackendFailureDecision() : checkRateLimit(userId, organizationId, feature);
   }
 
   const config = getAIConfig();
+  const effectiveLimits = planLimits ?? config.limits;
+  if (!Number.isInteger(effectiveLimits.dailyRequestsPerUser) ||
+      !Number.isInteger(effectiveLimits.monthlyRequestsPerOrg) ||
+      effectiveLimits.dailyRequestsPerUser < 1 || effectiveLimits.monthlyRequestsPerOrg < 1) {
+    return quotaBackendFailureDecision();
+  }
   try {
     const { data, error } = await db.rpc('reserve_ai_quota', {
       p_request_key: requestKey,
       p_user_id: userId,
       p_organization_id: organizationId,
       p_feature: feature,
-      p_daily_user_limit: config.limits.dailyRequestsPerUser,
-      p_monthly_org_limit: config.limits.monthlyRequestsPerOrg,
+      p_daily_user_limit: effectiveLimits.dailyRequestsPerUser,
+      p_monthly_org_limit: effectiveLimits.monthlyRequestsPerOrg,
     });
     if (error) throw error;
     const row = Array.isArray(data) ? data[0] : data;
