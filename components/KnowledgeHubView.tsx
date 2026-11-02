@@ -1,40 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTaskContext } from '@/components/TaskContext';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { cn } from '@/lib/utils';
-import { BookOpen, FileText, Inbox, Search, Sparkles, LayoutGrid, Star, Info } from 'lucide-react';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
-import {
-  formatKnowledgeEntryDate,
-  normalizeKnowledgePinId,
-  searchKnowledgeCards,
-  setChecklistItemChecked,
-  type KnowledgeContentFilter,
-  type KnowledgeHubCard,
-} from '@/lib/knowledge-retrieval';
+import { KnowledgeHubWorkspace } from '@/components/knowledge/KnowledgeHubWorkspace';
 import { useKnowledgeRetrieval } from '@/hooks/useKnowledgeRetrieval';
 import type { ApiResponse, Note, Project, Task, TaskUpdateFields, Team } from '@/lib/types';
 export type { KnowledgeHubCard } from '@/lib/knowledge-retrieval';
-
-const PIN_KEY = 'taskflow:pinnedKnowledgeEntryIds';
 
 export type KnowledgeHubRuntime = {
   tasks: Task[];
@@ -49,30 +21,21 @@ export type KnowledgeHubRuntime = {
   loadNotes?: (teamId: string, limit?: number) => Promise<ApiResponse<Note[]>>;
 };
 
-/** Platform-neutral Knowledge Hub presentation shared by Next.js and Capacitor. */
+/** Web and Capacitor share one curated, accessible knowledge workspace.
+ * The canonical notes/checklists and their permissions remain in existing APIs.
+ */
 export function KnowledgeHubViewContent({ runtime }: { runtime: KnowledgeHubRuntime }) {
   const { tasks, projects, teams, currentTeam, loading, openTaskEditor, updateTask, canEditTask, navigate, loadNotes } = runtime;
-  const [query, setQuery] = useState('');
-  const [typeFilter, setTypeFilter] = useState<KnowledgeContentFilter>('all');
-  const [projectFilter, setProjectFilter] = useState<string>('all');
-  const [pinnedIds, setPinnedIds] = useState<string[]>([]);
 
-  const tasksScoped = useMemo(() => {
-    if (!currentTeam) return tasks;
-    return tasks.filter((t) => t.teamId === currentTeam.id);
-  }, [tasks, currentTeam]);
-
-  const projectsScoped = useMemo(() => {
-    if (!currentTeam) return projects;
-    return projects.filter((p) => !p.teamId || p.teamId === currentTeam.id);
-  }, [projects, currentTeam]);
-
-  const {
-    cards: allCards,
-    notesLoading,
-    notesError,
-    retryNotes,
-  } = useKnowledgeRetrieval({
+  const tasksScoped = useMemo(
+    () => currentTeam ? tasks.filter((task) => task.teamId === currentTeam.id) : tasks,
+    [tasks, currentTeam],
+  );
+  const projectsScoped = useMemo(
+    () => currentTeam ? projects.filter((project) => !project.teamId || project.teamId === currentTeam.id) : projects,
+    [projects, currentTeam],
+  );
+  const { cards, notesLoading, notesError, retryNotes } = useKnowledgeRetrieval({
     tasks: tasksScoped,
     projects: projectsScoped,
     teams,
@@ -80,381 +43,21 @@ export function KnowledgeHubViewContent({ runtime }: { runtime: KnowledgeHubRunt
     loadNotes,
   });
 
-  const filtered = useMemo(() => {
-    return searchKnowledgeCards(allCards, {
-      query,
-      content: typeFilter,
-      projectId: projectFilter,
-    });
-  }, [allCards, query, typeFilter, projectFilter]);
-
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(PIN_KEY);
-      const arr = raw ? (JSON.parse(raw) as unknown) : [];
-      const list = Array.isArray(arr) ? arr.filter((x): x is string => typeof x === 'string') : [];
-      setPinnedIds(list.map(normalizeKnowledgePinId));
-    } catch {
-      setPinnedIds([]);
-    }
-  }, []);
-
-  const persistPins = (next: string[]) => {
-    setPinnedIds(next);
-    try {
-      localStorage.setItem(PIN_KEY, JSON.stringify(next));
-    } catch {
-      // ignore
-    }
-  };
-
-  const togglePin = (cardId: string) => {
-    const id = normalizeKnowledgePinId(cardId);
-    persistPins(pinnedIds.includes(id) ? pinnedIds.filter((x) => x !== id) : [id, ...pinnedIds]);
-  };
-
-  const openAxiomAI = () => {
-    const params = new URLSearchParams({ origin: 'knowledge_hub' });
-    if (currentTeam?.id) params.set('teamId', currentTeam.id);
-    if (projectFilter !== 'all' && projectFilter !== '__none__') params.set('processId', projectFilter);
-    navigate(`/ai?${params.toString()}`);
-  };
-
   return (
-    <div className="mx-auto max-w-6xl space-y-8">
-      <div
-        className={cn(
-          'relative overflow-hidden rounded-2xl border border-border/50 bg-gradient-to-br from-violet-500/10 via-background to-cyan-500/10',
-          'p-8 md:p-10'
-        )}
-      >
-        <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-violet-500/10 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-0 -left-16 h-48 w-48 rounded-full bg-cyan-500/10 blur-3xl" />
-        <div className="relative flex flex-col gap-3">
-          <div className="flex items-center gap-2 text-violet-600 dark:text-violet-400">
-            <Sparkles className="h-5 w-5" />
-            <span className="text-sm font-medium uppercase tracking-wide">Second brain</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold tracking-tight md:text-4xl">Knowledge Hub</h1>
-            <Popover>
-              <PopoverTrigger asChild>
-                <button type="button" className="text-muted-foreground hover:text-foreground transition-colors mt-1">
-                  <Info className="h-6 w-6" />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent side="bottom" align="start" className="max-w-[320px] p-4 text-sm leading-relaxed z-[100]">
-                Search across your <span className="font-medium text-foreground">actions</span>,{' '}
-                <span className="font-medium text-foreground">checklists</span>, and{' '}
-                <span className="font-medium text-foreground">notes</span>. Results stay grouped by action so you can return to the full context.
-              </PopoverContent>
-            </Popover>
-          </div>
-          <div className="mt-2">
-            <Button type="button" className="gap-2" onClick={openAxiomAI}>
-              <Sparkles className="h-4 w-4" />
-              Ask Actiproc AI
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex flex-col flex-wrap gap-3 sm:flex-row">
-        <div className="relative min-w-[200px] flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search…"
-            className="h-11 bg-background pl-10"
-            aria-label="Knowledge Hub search"
-          />
-        </div>
-        <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as KnowledgeContentFilter)}>
-          <SelectTrigger className="h-11 w-full sm:w-[220px]">
-            <SelectValue placeholder="Content" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All content</SelectItem>
-            <SelectItem value="notes">Notes</SelectItem>
-            <SelectItem value="checklist">Checklist</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={projectFilter} onValueChange={setProjectFilter}>
-          <SelectTrigger className="h-11 w-full sm:min-w-[220px]">
-            <SelectValue placeholder="Process" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All processes</SelectItem>
-            <SelectItem value="__none__">No process</SelectItem>
-            {projectsScoped.map((p) => (
-              <SelectItem key={p.id} value={p.id}>
-                {p.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {notesError && !notesLoading ? (
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
-          <span>Notes could not be loaded. Action and checklist results are still available.</span>
-          <Button type="button" variant="ghost" size="sm" className="h-7" onClick={() => void retryNotes()}>
-            Retry
-          </Button>
-        </div>
-      ) : null}
-
-      {loading || notesLoading ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
-      ) : allCards.length === 0 ? (
-        <div className="columns-1 gap-4 [column-fill:_balance] md:columns-2 lg:columns-3 xl:columns-4">
-          <div className="mb-4 break-inside-avoid">
-            <div className="rounded-lg border border-amber-200/60 bg-amber-50/60 shadow-md dark:border-amber-900/40 dark:bg-amber-950/20">
-              <div className="h-1.5 w-full rounded-t-lg bg-amber-500/70" />
-              <div className="p-4">
-                <Badge variant="secondary" className="gap-1">
-                  <FileText className="h-3 w-3" />
-                  Checklist
-                </Badge>
-                <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
-                  Example: a checklist item tied to an action…
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="mb-4 break-inside-avoid">
-            <Card className="border-dashed border-violet-200/70 shadow-sm dark:border-violet-900/50">
-              <CardContent className="space-y-4 px-5 py-10 text-left">
-                <div className="flex items-start gap-3">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500/15 to-cyan-500/10 text-violet-600 dark:text-violet-400">
-                    <Inbox className="h-6 w-6" aria-hidden />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="font-semibold text-foreground">No knowledge yet</p>
-                    <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                      Open an action on the board and add checklist items or notes.
-                    </p>
-                    <Button variant="default" className="mt-4 gap-2" onClick={() => navigate('/board')}>
-                      <LayoutGrid className="h-4 w-4" />
-                      Go to board
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="columns-1 gap-4 [column-fill:_balance] md:columns-2 lg:columns-3 xl:columns-4">
-          <div className="mb-4 break-inside-avoid">
-            <Card className="border-dashed shadow-sm">
-              <CardContent className="space-y-2 p-5 text-muted-foreground">
-                <p className="font-medium text-foreground">No results</p>
-                <p className="text-sm">Try resetting your filters or search.</p>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      ) : (
-        <div className="columns-1 gap-4 [column-fill:_balance] md:columns-2 lg:columns-3 xl:columns-4">
-          {filtered.map(({ card, matches }) => {
-            const pinId = normalizeKnowledgePinId(card.id);
-            const isPinned = pinnedIds.includes(pinId);
-            const hasNotes = card.notes.length > 0;
-            const hasList = card.checklistItems.length > 0;
-            const accent = hasNotes && !hasList ? 'emerald' : 'amber';
-            const primaryMatch = query.trim()
-              ? matches.find((match) => match.sourceType !== 'action') ?? matches[0]
-              : null;
-
-            return (
-              <div key={card.id} className="mb-4 break-inside-avoid">
-                <Card
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => openTaskEditor(card.taskId)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      openTaskEditor(card.taskId);
-                    }
-                  }}
-                  className={cn(
-                    'group cursor-pointer overflow-hidden rounded-lg border shadow-md transition-shadow hover:shadow-lg',
-                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                    accent === 'emerald'
-                      ? 'border-emerald-200/70 bg-emerald-50/70 dark:border-emerald-900/40 dark:bg-emerald-950/20'
-                      : 'border-amber-200/70 bg-amber-50/70 dark:border-amber-900/40 dark:bg-amber-950/20'
-                  )}
-                >
-                  <div
-                    className={cn('h-1 w-full', accent === 'emerald' ? 'bg-emerald-500/70' : 'bg-amber-500/70')}
-                  />
-                  <CardContent className="p-4">
-                    <div className="mb-3 flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex flex-wrap items-center gap-2">
-                        {hasNotes ? (
-                          <Badge className="gap-1 bg-emerald-600 hover:bg-emerald-600">
-                            <BookOpen className="h-3 w-3" />
-                            Notes
-                          </Badge>
-                        ) : null}
-                        {hasList ? (
-                          <Badge variant="secondary" className="gap-1">
-                            <FileText className="h-3 w-3" />
-                            Checklist
-                          </Badge>
-                        ) : null}
-                        {!hasNotes && !hasList ? <Badge variant="secondary">Action</Badge> : null}
-                        {isPinned && <span aria-label="Pinned">⭐</span>}
-                      </div>
-                      <div className="flex shrink-0 items-center gap-1">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          aria-label={isPinned ? 'Unpin' : 'Pin'}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            togglePin(card.id);
-                          }}
-                        >
-                          <Star className={cn('h-4 w-4', isPinned && 'fill-current')} />
-                        </Button>
-                        <span className="text-[11px] tabular-nums text-muted-foreground">
-                          {formatKnowledgeEntryDate(card.sortDate)}
-                        </span>
-                      </div>
-                    </div>
-
-                    <p className="mb-3 line-clamp-2 text-base font-medium leading-snug text-foreground">
-                      {card.taskTitle}
-                    </p>
-
-                    <div className="-mr-1 max-h-80 overflow-y-auto overscroll-contain pr-1 [scrollbar-width:thin]">
-                    {hasList && (
-                      <ul className="mb-3 space-y-1.5">
-                        {card.checklistItems.slice(0, 6).map((item) => {
-                          const task = tasksScoped.find((candidate) => candidate.id === card.taskId);
-                          const editable = task ? canEditTask(task.createdBy, task.assigneeId) : false;
-                          return (
-                            <li
-                              key={item.id}
-                              className="flex items-start gap-2 text-sm leading-relaxed"
-                              onClick={(e) => e.stopPropagation()}
-                              onPointerDown={(e) => e.stopPropagation()}
-                            >
-                              <Checkbox
-                                checked={item.done}
-                                disabled={!editable || !item.persistedId}
-                                className="mt-0.5"
-                                onCheckedChange={(v) => {
-                                  const currentTask = tasksScoped.find(
-                                    (candidate) => candidate.id === card.taskId,
-                                  );
-                                  if (!currentTask || !editable || !item.persistedId) return;
-                                  const next = setChecklistItemChecked(
-                                    currentTask.checklistBlocks,
-                                    item.persistedId,
-                                    v === true,
-                                  );
-                                  if (next) void updateTask(card.taskId, { checklistBlocks: next });
-                                }}
-                              />
-                              <span
-                                className={cn(
-                                  'min-w-0 flex-1 [overflow-wrap:anywhere]',
-                                  item.done && 'text-muted-foreground line-through'
-                                )}
-                              >
-                                {item.text}
-                              </span>
-                            </li>
-                          );
-                        })}
-                        {card.checklistItems.length > 6 && (
-                          <li className="text-xs text-muted-foreground">+{card.checklistItems.length - 6} more…</li>
-                        )}
-                      </ul>
-                    )}
-
-                    {hasNotes ? (
-                      <div className="mb-3 space-y-2">
-                        {card.notes.slice(0, 2).map((note) => (
-                          <div key={note.id} className="rounded-md border border-border/50 bg-background/35 px-2.5 py-2">
-                            <div className="flex items-center gap-2">
-                              <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                                {note.type}
-                              </span>
-                              <span className="truncate text-xs font-medium">
-                                {note.title || note.text || 'Untitled note'}
-                              </span>
-                            </div>
-                            {note.title && note.text ? (
-                              <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
-                                {note.text}
-                              </p>
-                            ) : null}
-                          </div>
-                        ))}
-                        {card.notes.length > 2 ? (
-                          <p className="text-xs text-muted-foreground">+{card.notes.length - 2} more notes…</p>
-                        ) : null}
-                      </div>
-                    ) : null}
-
-                    {primaryMatch ? (
-                      <div className="mb-3 rounded-md bg-primary/5 px-2.5 py-2 text-xs leading-relaxed">
-                        <span className="font-medium text-primary">Matched {primaryMatch.label}</span>
-                        {primaryMatch.snippet ? (
-                          <p className="mt-1 line-clamp-2 text-muted-foreground">{primaryMatch.snippet}</p>
-                        ) : null}
-                      </div>
-                    ) : null}
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
-                      {card.projectName ? (
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            'font-normal',
-                            accent === 'emerald'
-                              ? 'border-emerald-200/80 bg-background/50 dark:border-emerald-900/50'
-                              : 'border-amber-200/80 bg-background/50 dark:border-amber-900/50'
-                          )}
-                        >
-                          {card.projectName}
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="font-normal text-muted-foreground">
-                          No process
-                        </Badge>
-                      )}
-                      <Badge variant="outline" className="font-normal">
-                        {card.teamName}
-                      </Badge>
-                    </div>
-
-                    <p className="mt-2 text-[11px] text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">
-                      Click for details
-                    </p>
-                  </CardContent>
-                </Card>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {!loading && !notesLoading && allCards.length > 0 && (
-        <p className="text-center text-xs text-muted-foreground">
-          {filtered.length} / {allCards.length} cards
-        </p>
-      )}
-    </div>
+    <KnowledgeHubWorkspace
+      cards={cards}
+      tasks={tasksScoped}
+      projects={projectsScoped}
+      teamId={currentTeam?.id ?? null}
+      loading={loading}
+      notesLoading={notesLoading}
+      notesError={notesError}
+      retryNotes={retryNotes}
+      openTaskEditor={openTaskEditor}
+      updateTask={updateTask}
+      canEditTask={canEditTask}
+      navigate={navigate}
+    />
   );
 }
 
