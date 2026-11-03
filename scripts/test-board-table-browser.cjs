@@ -228,6 +228,22 @@ async function main() {
         await page.waitForTimeout(250);
         assert.equal(await page.evaluate(() => window.qa.tasks.find(task => task.id === 'dense0').status), 'open'); checks++;
       }
+      // Check the rendered positions after keyboard DnD instead of trusting a
+      // fixed animation delay: overlapping Action cards must never be
+      // accepted as a stable desktop Board state.
+      if (width >= 768) {
+        await page.waitForFunction(() => {
+          const stage = document.querySelector('section[aria-label^="Yapılacaklar:"]');
+          const cards = [...(stage?.querySelectorAll('[data-board-action-card]') ?? [])];
+          return cards.length >= 2 && cards.every((card, index) => {
+            if (index === 0) return true;
+            const previous = cards[index - 1].getBoundingClientRect();
+            const current = card.getBoundingClientRect();
+            return current.top >= previous.bottom - 2;
+          });
+        }, null, { timeout: 10000 });
+        checks++;
+      }
       // Capture the populated workspace, not just the single-card fallback Process.
       // Radix Select/Popover exit animations must finish before visual snapshots.
       await page.getByRole('option', { name: 'Stage', exact: true }).waitFor({ state: 'hidden' });
