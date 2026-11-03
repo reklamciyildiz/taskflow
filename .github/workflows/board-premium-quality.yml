@@ -67,7 +67,7 @@ jobs:
       - name: Verify real Board interactions at five responsive widths
         run: |
           set +e
-          node scripts/test-board-table-browser.cjs node_modules/playwright-core "$(node -p "require('playwright').chromium.executablePath()")"
+          node scripts/test-board-table-browser.cjs node_modules/playwright-core "$(node -p "require('playwright').chromium.executablePath()")" --board-only
           result=$?
           set -e
           mkdir -p /tmp/board-qa
