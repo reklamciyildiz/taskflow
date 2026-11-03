@@ -126,7 +126,15 @@ async function main() {
       await priority.focus(); await page.keyboard.press('ArrowDown'); await page.keyboard.press('Escape');
       assert.equal(await priority.evaluate(element => document.activeElement === element), true); checks++;
       await page.getByRole('button', { name: 'Board fixture' }).click();
-      await page.getByRole('button', { name: 'Move or edit Open Action', exact: true }).waitFor();
+      try {
+        await page.getByRole('button', { name: 'Move or edit Open Action', exact: true }).waitFor({ timeout: 12000 });
+      } catch (error) {
+        console.error('Board failed to render expected Action menu:', errors);
+        console.error('Board DOM text:', (await page.locator('body').innerText()).slice(0, 3500));
+        console.error('Board HTML excerpt:', (await page.locator('#root').innerHTML()).slice(0, 3000));
+        await page.screenshot({ path: path.join(output, `board-failure-${width}.png`), fullPage: true });
+        throw error;
+      }
       await page.getByRole('heading', { name: 'SmartSafe AI', exact: true }).waitFor();
       const premiumCard = page.locator('[data-board-action-card="a"]');
       await premiumCard.waitFor();
