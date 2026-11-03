@@ -34,7 +34,7 @@ async function main() {
   try {
     for (const width of [320, 375, 430, 768, 1440]) {
       const page = await browser.newPage({ viewport: { width, height: 900 }, hasTouch: width < 768 });
-      page.on('pageerror', error => errors.push(error.message));
+      page.on('pageerror', error => errors.push(error.stack || error.message));
       let failNext = false;
       let failProperty = false;
       let readDelay = 0;
@@ -130,6 +130,14 @@ async function main() {
         await page.getByRole('button', { name: 'Move or edit Open Action', exact: true }).waitFor({ timeout: 12000 });
       } catch (error) {
         console.error('Board failed to render expected Action menu:', errors);
+        const firstScriptLocation = errors.join('\n').match(/app\.js:(\d+):(\d+)/);
+        if (firstScriptLocation) {
+          const lineNo = Number(firstScriptLocation[1]);
+          const bundled = fs.readFileSync(path.join(output, 'app.js'), 'utf8').split('\n');
+          const nearby = bundled.slice(Math.max(0, lineNo - 10), lineNo + 9)
+            .map((line, index) => String(lineNo - 9 + index) + ': ' + line.slice(0, 240)).join('\n');
+          console.error('Bundled JS at first failure:', nearby);
+        }
         console.error('Board DOM text:', (await page.locator('body').innerText()).slice(0, 3500));
         console.error('Board HTML excerpt:', (await page.locator('#root').innerHTML()).slice(0, 3000));
         await page.screenshot({ path: path.join(output, `board-failure-${width}.png`), fullPage: true });
