@@ -127,6 +127,24 @@ async function main() {
       assert.equal(await priority.evaluate(element => document.activeElement === element), true); checks++;
       await page.getByRole('button', { name: 'Board fixture' }).click();
       await page.getByRole('button', { name: 'Move or edit Open Action', exact: true }).waitFor();
+      await page.getByRole('heading', { name: 'SmartSafe AI', exact: true }).waitFor();
+      const premiumCard = page.locator('[data-board-action-card="a"]');
+      await premiumCard.waitFor();
+      const cardStyle = await premiumCard.evaluate(element => {
+        const computed = getComputedStyle(element);
+        return { radius: parseFloat(computed.borderTopLeftRadius), padding: computed.paddingTop,
+          background: computed.backgroundColor, minHeight: parseFloat(computed.minHeight) };
+      });
+      assert.ok(cardStyle.radius >= 14, 'Action cards must retain premium rounded surfaces');
+      assert.ok(cardStyle.minHeight >= 140, 'Action cards must keep a stable reading rhythm');
+      assert.equal(cardStyle.padding, '0px', 'Card content owns its inner spacing');
+      if (width >= 768) {
+        const stage = page.locator('section[aria-label^="Yapılacaklar:"]').first();
+        await stage.waitFor();
+        assert.ok((await stage.boundingBox()).width >= 260, 'Responsive stage width must remain readable');
+        assert.ok(await stage.getByText('Stage 01', { exact: true }).count());
+      }
+      checks += 5;
       await noOverflow('Board');
       if (width === 375) {
         await page.getByRole('button', { name: 'Active process / project' }).click();
@@ -172,7 +190,7 @@ async function main() {
       if (width < 768) {
         await page.getByRole('combobox', { name: 'Active board group' }).click();
         await page.getByRole('option', { name: 'Empty group (0)', exact: true }).click();
-        await page.getByText('No Actions in this group.', { exact: true }).waitFor();
+        await page.getByText('Nothing here yet', { exact: true }).waitFor();
         await page.getByRole('combobox', { name: 'Active board group' }).click();
         await page.getByRole('option', { name: /Yapılacaklar/ }).click(); checks++;
       }
