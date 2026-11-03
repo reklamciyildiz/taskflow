@@ -8,6 +8,7 @@ import { requireAuthedUser } from "@/lib/server-authz";
 import {
   signatureMatches,
   validateAttachmentInput,
+  normalizeAttachmentMime,
   type AttachmentTarget,
 } from "@/lib/attachments";
 import {
@@ -74,20 +75,20 @@ function diagnosticError(error: unknown) {
     retryLimit: storageError?.retryLimit ?? null,
   };
 }
-function scannerConfigured() {
-  return Boolean(
-    process.env.ATTACHMENT_SCANNER_URL?.startsWith("https://") &&
-    process.env.ATTACHMENT_SCANNER_TOKEN,
-  );
+export function pdfScanningConfigured(): boolean {
+  const address = process.env.ATTACHMENT_SCANNER_URL;
+  const token = process.env.ATTACHMENT_SCANNER_TOKEN;
+  if (!address || !token?.trim()) return false;
+  try {
+    const url = new URL(address);
+    return url.protocol === "https:" && !url.username && !url.password;
+  } catch {
+    return false;
+  }
 }
-function trustedBetaUser(userId: string) {
-  if (process.env.ATTACHMENT_PDF_SECURITY_MODE !== "trusted_beta") return false;
-  return (process.env.ATTACHMENT_PDF_BETA_USER_IDS ?? "")
-    .split(",")
-    .map((id) => id.trim())
-    .filter(Boolean)
-    .includes(userId);
-}
+
+// Historical unscanned-beta documents remain download-only. Never treat an
+// old file as scanned because new public uploads use a scanner.
 export function isUnscannedBetaPdf(file: {
   mime_type: string;
   object_key: string;
@@ -205,19 +206,13 @@ export async function beginAttachment(
   target: AttachmentTarget,
   input: any,
 ) {
-  const filename = validateAttachmentInput(
-    String(input.filename ?? ""),
-    input.mimeType,
-    input.size,
-  );
-  const betaPdf =
-    input.mimeType === "application/pdf" &&
-    !scannerConfigured() &&
-    trustedBetaUser(access.user.id);
-  if (input.mimeType === "application/pdf" && !scannerConfigured() && !betaPdf)
+  const originalFilename = String(input.filename ?? "");
+  const mimeType = normalizeAttachmentMime(originalFilename, input.mimeType);
+  const filename = validateAttachmentInput(originalFilename, mimeType, input.size);
+  if (mimeType === "application/pdf" && !pdfScanningConfigured())
     throw new AttachmentError(
-      "PDF uploads require security scanning or explicit trusted-beta access.",
-      403,
+      "PDF uploads are temporarily unavailable: document security scanning is not configured.",
+      503,
     );
   const id = randomUUID();
   const prefix = `${access.task.organization_id}/${id}`;
@@ -228,12 +223,10 @@ export async function beginAttachment(
     team_id: access.task.team_id,
     uploaded_by: access.user.id,
     filename,
-    mime_type: input.mimeType,
+    mime_type: mimeType,
     size_bytes: input.size,
     staging_key: `pending/${prefix}`,
-    object_key: betaPdf
-      ? `files/unscanned-pdf/${prefix}/document`
-      : `files/${prefix}/document`,
+    object_key: `files/${prefix}/document`,
     thumbnail_key: `files/${prefix}/thumbnail`,
   };
   // Database trigger serializes organization quota reservations, including in-flight uploads.
@@ -297,7 +290,7 @@ async function boundedObject(
 export async function processAttachmentBytes(
   bytes: Buffer,
   mime: string,
-  options: { trustedBeta?: boolean; measure?: StageMeasure } = {},
+  options: { measure?: StageMeasure } = {},
 ) {
   const measure: StageMeasure =
     options.measure ?? (async (_stage, operation) => operation());
@@ -310,32 +303,36 @@ export async function processAttachmentBytes(
   });
   if (mime === "application/pdf") {
     const scanner = process.env.ATTACHMENT_SCANNER_URL;
-    if (!scannerConfigured()) {
-      if (options.trustedBeta)
-        return { bytes, mime, thumbnail: null, width: null, height: null };
+    if (!pdfScanningConfigured())
       throw new AttachmentError(
-        "Document security scanning is unavailable.",
+        "PDF uploads are temporarily unavailable: document security scanning is not configured.",
         503,
       );
-    }
     const checksum = createHash("sha256").update(bytes).digest("hex");
-    const result = await measure("validate", () =>
-      fetch(scanner!, {
-        method: "POST",
-        redirect: "error",
-        headers: {
-          "Content-Type": mime,
-          Authorization: `Bearer ${process.env.ATTACHMENT_SCANNER_TOKEN}`,
-        },
-        body: bytes,
-        signal: AbortSignal.timeout(25000),
-      }),
-    );
-    const scan = result.ok ? await result.json() : null;
-    if (scan?.verdict !== "clean" || scan?.sha256 !== checksum)
-      throw new AttachmentError(
-        "Document security scan did not approve this PDF.",
+    let result: Response;
+    try {
+      result = await measure("validate", () =>
+        fetch(scanner!, {
+          method: "POST",
+          redirect: "error",
+          headers: {
+            "Content-Type": mime,
+            Authorization: `Bearer ${process.env.ATTACHMENT_SCANNER_TOKEN}`,
+          },
+          body: bytes,
+          signal: AbortSignal.timeout(25000),
+        }),
       );
+    } catch {
+      throw new AttachmentError("PDF security scanning is temporarily unavailable. Please retry.", 503);
+    }
+    if (!result.ok)
+      throw new AttachmentError("PDF security scanning is temporarily unavailable. Please retry.", 503);
+    const scan = await result.json().catch(() => null);
+    if (scan?.verdict === "infected" || scan?.verdict === "malicious")
+      throw new AttachmentError("This PDF failed the security scan and cannot be uploaded.", 422);
+    if (scan?.verdict !== "clean" || scan?.sha256 !== checksum)
+      throw new AttachmentError("PDF security scanning could not verify this document. Please retry.", 503);
     return { bytes, mime, thumbnail: null, width: null, height: null };
   }
   return measure("sharp_process", async () => {
@@ -420,14 +417,9 @@ export async function finalizeAttachment(file: any) {
       Number(file.size_bytes),
       measure,
     );
-    const betaPdf = isUnscannedBetaPdf(file);
-    if (betaPdf && !scannerConfigured() && !trustedBetaUser(file.uploaded_by))
-      throw new AttachmentError(
-        "Trusted-beta PDF access is no longer enabled.",
-        403,
-      );
+    // Old pending beta files now require scanning too. Existing unscanned
+    // object keys remain marked download-only even if successfully scanned.
     const processed = await processAttachmentBytes(bytes, file.mime_type, {
-      trustedBeta: betaPdf,
       measure,
     });
     // Keys exposed by PUT are never served. Validated content has a separate immutable key.
