@@ -514,85 +514,135 @@ export function TaskBoard() {
               </div>
             </section>
           )}
-          {isMobileBoard ? <section className="min-w-0 space-y-3" aria-label="Board actions">
-            {mobileGroup && <>
-              <Select value={mobileGroup.id} onValueChange={setMobileGroupId}>
-                <SelectTrigger aria-label="Active board group" className="h-11 w-full"><SelectValue /></SelectTrigger>
-                <SelectContent>{mobileGroups.map(group => <SelectItem key={group.id} value={group.id}>{group.label} ({group.tasks.length})</SelectItem>)}</SelectContent>
-              </Select>
-              <div className="space-y-2" aria-label={mobileGroup.label}>
-                {mobileGroup.tasks.map(task => <TaskCard key={task.id} task={task} onTaskClick={item => openTaskEditor(item.id)} propertyBadges={propertyBadgesForTask(task.id)} />)}
-                {!mobileGroup.tasks.length && <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">No Actions in this group.</p>}
-              </div>
-            </>}
-          </section> : groupedProperty && properties.data ? (
-            <PropertyBoard tasks={filteredTasks} property={groupedProperty} data={properties.data} onOpen={openTaskEditor} cardPropertyIds={cardPropertyIds} />
-          ) : <DragDropContext onDragEnd={onDragEnd}>
-            <>
-              {/* Responsive Board Container */}
-              <div
-                className="flex -mx-1 snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-3 pt-0.5 overscroll-x-contain [scrollbar-width:thin] [-webkit-overflow-scrolling:touch] md:grid md:gap-4 md:snap-none md:overflow-visible md:mx-0 md:px-0 md:pb-0 md:pt-0"
-                style={{
-                  gridTemplateColumns: isMobileBoard ? undefined : 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))',
-                }}
-              >
-                {boardColumns.map((column) => {
+          {isMobileBoard ? (
+            <section className="min-w-0 space-y-3" aria-label="Board actions">
+              {mobileGroup && (
+                <>
+                  <div className="flex items-center justify-between gap-3 rounded-2xl border border-border/65 bg-card/85 p-3 shadow-sm">
+                    <div className="min-w-0 flex-1 space-y-1.5">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">Viewing group</p>
+                      <Select value={mobileGroup.id} onValueChange={setMobileGroupId}>
+                        <SelectTrigger aria-label="Active board group" className="h-11 w-full rounded-xl border-border/70 bg-background/80 font-semibold shadow-sm">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>{mobileGroups.map(group =>
+                          <SelectItem key={group.id} value={group.id}>{group.label} ({group.tasks.length})</SelectItem>
+                        )}</SelectContent>
+                      </Select>
+                    </div>
+                    <span className="mt-4 rounded-xl border border-primary/15 bg-primary/[0.07] px-3 py-2 text-sm font-semibold tabular-nums text-primary">{mobileGroup.tasks.length}</span>
+                  </div>
+                  <div className="space-y-2.5 rounded-[22px] border border-border/60 bg-muted/15 p-3" aria-label={mobileGroup.label}>
+                    {mobileGroup.tasks.map(task =>
+                      <TaskCard key={task.id} task={task} onTaskClick={item => openTaskEditor(item.id)}
+                        propertyBadges={propertyBadgesForTask(task.id)} />
+                    )}
+                    {!mobileGroup.tasks.length && (
+                      <div className="flex min-h-[180px] flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border/70 bg-card/65 p-6 text-center">
+                        <CircleCheck className="h-6 w-6 text-muted-foreground/55" aria-hidden />
+                        <p className="text-sm font-semibold">Nothing here yet</p>
+                        <p className="text-xs text-muted-foreground">Actions in this group will appear here.</p>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </section>
+          ) : groupedProperty && properties.data ? (
+            <PropertyBoard tasks={filteredTasks} property={groupedProperty} data={properties.data}
+              onOpen={openTaskEditor} cardPropertyIds={cardPropertyIds} />
+          ) : (
+            <DragDropContext onDragEnd={onDragEnd}>
+              <div className="-mx-1 flex snap-x snap-proximity items-stretch gap-3 overflow-x-auto px-1 pb-5 pt-1 overscroll-x-contain [scrollbar-width:thin] [-webkit-overflow-scrolling:touch] lg:gap-4"
+                aria-label="Process stages — drag Actions between columns">
+                {boardColumns.map((column, columnIndex) => {
                   const columnTasks = orderedColumnTasks(filteredTasks, column.id, boardColumns);
                   const shouldScroll = columnTasks.length >= DESKTOP_SCROLL_THRESHOLD;
-
+                  const terminal = isTerminalBoardColumn(column.id, boardColumns);
+                  const skin = terminal
+                    ? { panel: 'border-emerald-500/20 bg-emerald-500/[0.04]', dot: 'bg-emerald-400', text: 'text-emerald-500' }
+                    : STAGE_SKINS[columnIndex % STAGE_SKINS.length];
+                  const share = filteredTasks.length ? Math.round((columnTasks.length / filteredTasks.length) * 100) : 0;
                   return (
-                    <div
-                      key={column.id}
-                      className="w-[min(88vw,300px)] max-w-[min(88vw,300px)] shrink-0 snap-center snap-always flex flex-col gap-2 md:w-auto md:max-w-none md:shrink md:snap-align-none md:min-h-0"
-                    >
-                      <div className="flex items-center justify-between gap-2 md:gap-0">
-                        <h3 className="min-w-0 truncate font-medium md:min-w-auto">{column.title}</h3>
-                        <Badge variant="secondary" className="shrink-0">{columnTasks.length}</Badge>
+                    <section key={column.id}
+                      className={cn(
+                        'relative flex min-w-[270px] w-[min(85vw,330px)] shrink-0 snap-start flex-col overflow-hidden rounded-[23px] border shadow-[0_16px_40px_-34px_rgba(15,23,42,0.6)] md:min-w-[292px] md:flex-[1_0_292px] xl:max-w-[440px]',
+                        skin.panel,
+                      )}
+                      aria-label={`${column.title}: ${columnTasks.length} Actions`}>
+                      <div aria-hidden="true" className={cn('absolute inset-x-0 top-0 h-1 opacity-85', column.color ?? skin.dot)} />
+                      <div className="flex items-center justify-between gap-3 border-b border-border/50 bg-card/50 px-4 py-4">
+                        <div className="flex min-w-0 items-center gap-2.5">
+                          <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border/50 bg-background/65', skin.text)}>
+                            {terminal ? <CircleCheck className="h-[18px] w-[18px]" aria-hidden />
+                              : <span aria-hidden="true" className={cn('h-2.5 w-2.5 rounded-full ring-[5px] ring-current/10', skin.dot)} />}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="mb-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                              {terminal ? 'Completed' : `Stage ${String(columnIndex + 1).padStart(2, '0')}`}
+                            </p>
+                            <h3 className="truncate text-[13px] font-semibold leading-snug tracking-[-0.01em]" title={column.title}>
+                              {column.title}
+                            </h3>
+                          </div>
+                        </div>
+                        <span className="flex h-7 min-w-7 shrink-0 items-center justify-center rounded-full border border-border/65 bg-background/80 px-2 text-xs font-semibold tabular-nums text-foreground shadow-sm">
+                          {columnTasks.length}
+                        </span>
                       </div>
                       <Droppable droppableId={column.id}>
-                        {(provided) => (
-                          <div
-                            ref={provided.innerRef}
-                            {...provided.droppableProps}
+                        {(provided, snapshot) => (
+                          <div ref={provided.innerRef} {...provided.droppableProps}
                             className={cn(
-                              'max-h-[min(58dvh,520px)] min-h-[200px] overflow-y-auto rounded-lg p-3 transition-colors touch-pan-y md:p-4 md:max-h-none',
-                              shouldScroll && 'md:max-h-[min(72dvh,680px)]',
-                              column.color ?? 'bg-muted/40'
-                            )}
-                          >
+                              'flex min-h-[208px] flex-1 flex-col gap-2.5 p-2.5 transition-[background-color,box-shadow] duration-150 touch-pan-y md:p-3',
+                              shouldScroll && 'max-h-[min(75dvh,780px)] overflow-y-auto overscroll-contain [scrollbar-width:thin]',
+                              snapshot.isDraggingOver && 'bg-primary/[0.075] ring-2 ring-inset ring-primary/25',
+                            )}>
                             {columnTasks.map((task, index) => (
-                              <Draggable
-                                key={task.id}
-                                draggableId={task.id}
-                                index={index}
-                                isDragDisabled={isMobileBoard}
-                              >
-                                {(provided) => (
-                                  <div
-                                    ref={provided.innerRef}
-                                    {...provided.draggableProps}
-                                    className="mb-2"
-                                  >
-                                    <TaskCard
-                                      task={task}
-                                      dragHandleProps={isMobileBoard ? undefined : provided.dragHandleProps}
-                                      onTaskClick={(t) => openTaskEditor(t.id)}
-                                      propertyBadges={propertyBadgesForTask(task.id)}
-                                    />
+                              <Draggable key={task.id} draggableId={task.id} index={index} isDragDisabled={isMobileBoard}>
+                                {(drag, state) => (
+                                  <div ref={drag.innerRef} {...drag.draggableProps}
+                                    className={cn('min-w-0', state.isDragging && 'z-50 opacity-95 drop-shadow-2xl')}>
+                                    <TaskCard task={task}
+                                      dragHandleProps={isMobileBoard ? undefined : drag.dragHandleProps}
+                                      onTaskClick={(item) => openTaskEditor(item.id)}
+                                      propertyBadges={propertyBadgesForTask(task.id)} />
                                   </div>
                                 )}
                               </Draggable>
                             ))}
+                            {columnTasks.length === 0 && !snapshot.isDraggingOver && (
+                              <div className="flex min-h-[170px] flex-1 flex-col items-center justify-center gap-2 rounded-[16px] border border-dashed border-border/65 bg-background/30 px-5 text-center">
+                                <span className={cn('flex h-10 w-10 items-center justify-center rounded-2xl bg-background/80', skin.text)}>
+                                  {terminal ? <CircleCheck className="h-5 w-5 opacity-60" aria-hidden />
+                                    : <ListChecks className="h-5 w-5 opacity-60" aria-hidden />}
+                                </span>
+                                <p className="text-xs font-medium text-foreground/80">No Actions in this stage</p>
+                                <p className="text-[11px] leading-relaxed text-muted-foreground">
+                                  {terminal ? 'Completed work will appear here.' : 'Move an Action here as work progresses.'}
+                                </p>
+                              </div>
+                            )}
                             {provided.placeholder}
                           </div>
                         )}
                       </Droppable>
-                    </div>
+                      <div className="flex items-center justify-between gap-3 border-t border-border/50 bg-card/35 px-4 py-2.5">
+                        <span className="text-[10px] font-medium text-muted-foreground">{columnTasks.length} {columnTasks.length === 1 ? 'Action' : 'Actions'}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-medium tabular-nums text-muted-foreground">{share}% of view</span>
+                          <span className="h-1.5 w-11 overflow-hidden rounded-full bg-border/70">
+                            <span className={cn('block h-full rounded-full', skin.dot)}
+                              style={{ width: `${share}%` }} />
+                          </span>
+                        </div>
+                      </div>
+                    </section>
                   );
                 })}
               </div>
-            </>
-          </DragDropContext>}
+            </DragDropContext>
+          )}
         </>
       )}
 
