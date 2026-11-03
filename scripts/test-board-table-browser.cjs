@@ -259,7 +259,9 @@ async function main() {
       assert.equal(await priority.isDisabled(), true); checks++;
       await noOverflow('read-only Table');
       await page.screenshot({ path: path.join(output, `table-${width}.png`), fullPage: true });
-      if (width === 1440) {
+      if (width === 1440 && !process.argv.includes('--board-only')) {
+        // Separate Planner integration exercise: excluded only from Board-only CI.
+        // Original combined Board + Planner coverage remains available without --board-only.
         // Real Planner component: Process Done changes, while every task stays unchanged.
         await page.evaluate(() => window.qa.setViewer(false));
         let done = false;
