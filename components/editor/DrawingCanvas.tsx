@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { toast } from 'sonner';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Download, Eraser, Highlighter, Pencil, Redo2, RotateCcw, Undo2 } from 'lucide-react';
 import {
   INK_WIDTH, INK_HEIGHT, INK_COLORS, INK_MAX_POINTS_PER_STROKE,
@@ -321,15 +322,20 @@ export function InkStudio({
       </div>
       <div className="actiproc-ink-footer">
         {!readOnly && (
-          <label className="actiproc-ink-background">
-            Paper
-            <select value={value.background} aria-label="Drawing paper style"
-              onChange={event => commit({ ...latest.current, background: event.target.value as InkBackground })}>
-              <option value="ruled">Ruled</option>
-              <option value="grid">Grid</option>
-              <option value="plain">Plain</option>
-            </select>
-          </label>
+          <div className="actiproc-ink-background">
+            <span>Paper</span>
+            <Select value={value.background} onValueChange={next =>
+              commit({ ...latest.current, background: next as InkBackground })}>
+              <SelectTrigger aria-label="Drawing paper style" className="h-8 w-28 border-border bg-background text-foreground">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-popover text-popover-foreground">
+                <SelectItem value="ruled">Ruled</SelectItem>
+                <SelectItem value="grid">Grid</SelectItem>
+                <SelectItem value="plain">Plain</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         )}
         <span className="actiproc-ink-hint">
           {readOnly ? 'Read-only drawing' : 'Changes are saved in the note after each stroke · Pen, touch or mouse'}
