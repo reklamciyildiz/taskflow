@@ -66,10 +66,16 @@ jobs:
           npx playwright install chromium --with-deps
       - name: Verify real Board interactions at five responsive widths
         run: |
+          set +e
           node scripts/test-board-table-browser.cjs node_modules/playwright-core "$(node -p "require('playwright').chromium.executablePath()")"
+          result=$?
+          set -e
           mkdir -p /tmp/board-qa
           dir=$(ls -dt /tmp/axiom-board-table-qa-* | head -n 1)
-          cp "$dir"/board-*.png /tmp/board-qa/
+          if compgen -G "$dir/board-*.png" > /dev/null; then
+            cp "$dir"/board-*.png /tmp/board-qa/
+          fi
+          exit "$result"
       - name: Upload fixture Board screenshots
         if: always()
         uses: actions/upload-artifact@v4
