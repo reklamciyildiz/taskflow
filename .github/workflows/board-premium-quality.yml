@@ -49,7 +49,9 @@ jobs:
         run: npx tsc --noEmit
 
   board-browser:
-    runs-on: ubuntu-latest
+    # Playwright 1.56 Chromium/OS packages target Ubuntu 24.04. GitHub's
+    # ubuntu-latest recently moved to Ubuntu 26.04, which this release rejects.
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
