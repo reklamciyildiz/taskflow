@@ -448,6 +448,82 @@ async function main() {
       0,
     );
     checks++;
+    // Actiproc Notes rich editing: Chromium paste, typed code and round-trip.
+    await page.setViewportSize({ width: 375, height: 900 });
+    await page.evaluate(() => {
+      const editor = document.querySelector('[data-test="note"] .tiptap').editor;
+      editor.commands.setContent({ type: 'doc', content: [{ type: 'paragraph' }] });
+      editor.commands.focus('end');
+    });
+    await page.getByRole('button', { name: 'Insert code block' }).click();
+    await page.locator('.actiproc-codeblock-content').waitFor();
+    await page.getByLabel('Code language').selectOption('typescript');
+    await page.locator('.actiproc-codeblock-content').click();
+    await page.keyboard.type('const message: string = "hello";');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('console.log(message);');
+    const editorSnapshot = await page.evaluate(() =>
+      document.querySelector('[data-test="note"] .tiptap').editor.getJSON());
+    const activeCode = editorSnapshot.content.find(node => node.type === 'codeBlock');
+    assert.equal(activeCode.attrs.language, 'typescript');
+    assert.equal(activeCode.content[0].text, 'const message: string = "hello";\nconsole.log(message);');
+    assert.equal(await page.getByRole('button', { name: 'Copy code' }).count(), 1);
+    checks += 3;
+    await page.evaluate((doc) => {
+      const editor = document.querySelector('[data-test="note"] .tiptap').editor;
+      editor.commands.setContent(doc);
+    }, editorSnapshot);
+    assert.deepEqual(
+      await page.evaluate(() => document.querySelector('[data-test="note"] .tiptap').editor.getJSON()),
+      editorSnapshot,
+    );
+    checks++;
+
+    // HTML clipboard should be parsed by Tiptap with structure/marks preserved.
+    await page.evaluate(() => {
+      const editor = document.querySelector('[data-test="note"] .tiptap').editor;
+      editor.commands.setContent({ type: 'doc', content: [{ type: 'paragraph' }] });
+      editor.commands.focus('end');
+      const transfer = new DataTransfer();
+      transfer.setData('text/html',
+        '<h2>Imported heading</h2><p>Strong <strong>bold</strong> and <a href="https://example.org">link</a>.</p><ul><li>Item A</li></ul><pre><code class="language-python">def add(a, b):\n    return a + b</code></pre>');
+      transfer.setData('text/plain', 'Imported heading\nStrong bold and link.\nItem A');
+      editor.view.dom.dispatchEvent(new ClipboardEvent('paste', {
+        bubbles: true, cancelable: true, clipboardData: transfer,
+      }));
+    });
+    const pastedHtml = await page.evaluate(() =>
+      document.querySelector('[data-test="note"] .tiptap').editor.getJSON());
+    assert.ok(pastedHtml.content.some(node => node.type === 'heading' && node.attrs.level === 2));
+    assert.ok(pastedHtml.content.some(node => node.type === 'bulletList'));
+    assert.ok(pastedHtml.content.some(node => node.type === 'codeBlock' && node.attrs.language === 'python'));
+    assert.ok(JSON.stringify(pastedHtml).includes('"type":"bold"'));
+    assert.ok(JSON.stringify(pastedHtml).includes('"href":"https://example.org"'));
+    checks += 5;
+
+    // Fenced Markdown pasted as text becomes a code block, preserving newlines.
+    await page.evaluate(() => {
+      const editor = document.querySelector('[data-test="note"] .tiptap').editor;
+      editor.commands.setContent({ type: 'doc', content: [{ type: 'paragraph' }] });
+      editor.commands.focus('end');
+      const transfer = new DataTransfer();
+      transfer.setData('text/plain', '~~~python\ndef func():\n    return 42\n~~~');
+      editor.view.dom.dispatchEvent(new ClipboardEvent('paste', {
+        bubbles: true, cancelable: true, clipboardData: transfer,
+      }));
+    });
+    const pastedCode = await page.evaluate(() =>
+      document.querySelector('[data-test="note"] .tiptap').editor.getJSON());
+    assert.equal(pastedCode.content.find(node => node.type === 'codeBlock')?.attrs.language, 'python');
+    assert.equal(pastedCode.content.find(node => node.type === 'codeBlock')?.content[0]?.text,
+      'def func():\n    return 42');
+    checks += 2;
+    for (const width of [320, 1440]) {
+      await page.setViewportSize({ width, height: 1000 });
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+        'rich note ' + width + 'px overflow');
+      checks++;
+    }
     assert.deepEqual(errors, []);
     console.log(
       JSON.stringify({ browserChecks: checks, screenshots: output, errors }),
