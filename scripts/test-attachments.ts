@@ -368,7 +368,7 @@ async function main() {
       { filename: "document.PDF", mimeType: "application/octet-stream", size: pdf.length },
     );
     assert.equal(lastAttachmentInsert.mime_type, "application/pdf");
-    assert.match(lastAttachmentInsert.object_key, /^files\\/unscanned-pdf\\//);
+    assert.ok(lastAttachmentInsert.object_key.startsWith("files/unscanned-pdf/"));
     checks += 2;
   }
 
@@ -380,7 +380,7 @@ async function main() {
     { taskId: id(4) },
     { filename: "ordinary.pdf", mimeType: "application/pdf", size: pdf.length },
   );
-  assert.match(lastAttachmentInsert.object_key, /^files\\/unscanned-pdf\\//);
+    assert.ok(lastAttachmentInsert.object_key.startsWith("files/unscanned-pdf/"));
   checks++;
 
   // Optional scanner must still reject infection, changed checksum and outages.
@@ -416,7 +416,7 @@ async function main() {
       { taskId: id(4) },
       { filename: "scanned.pdf", mimeType: "application/pdf", size: pdf.length },
     );
-    assert.match(lastAttachmentInsert.object_key, /^files\\/[^/]/);
+    assert.ok(lastAttachmentInsert.object_key.startsWith("files/"));
     assert.ok(!lastAttachmentInsert.object_key.includes("unscanned-pdf"));
     checks += 2;
   }
