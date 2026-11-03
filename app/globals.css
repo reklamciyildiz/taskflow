@@ -887,7 +887,8 @@
   font-size: 0.69rem;
   font-weight: 600;
 }
-.actiproc-code-language { max-width: min(29vw, 9rem); background: transparent; }
+.actiproc-code-language { min-width: 6.7rem; width: auto; max-width: min(40vw, 10rem); height: 1.95rem; padding: 0 0.42rem; border: 1px solid hsl(var(--border) / 0.7); background: hsl(var(--background) / 0.8); color: hsl(var(--foreground)); box-shadow: none; }
+.actiproc-code-language:hover, .actiproc-code-language[data-state=open] { background: hsl(var(--muted)); color: hsl(var(--foreground)); }
 .actiproc-code-language:disabled { opacity: 0.8; }
 .actiproc-code-copy:hover,
 .actiproc-code-language:not(:disabled):hover { background: hsl(var(--primary) / 0.1); }
