@@ -28,6 +28,8 @@ import {
 } from "@/components/ui/dialog";
 import {
   ATTACHMENT_ACCEPT,
+  IMAGE_ATTACHMENT_ACCEPT,
+  normalizeAttachmentMime,
   validateAttachmentInput,
   type Attachment,
   type AttachmentTarget,
@@ -57,6 +59,7 @@ type Context = {
   taskId: string;
   canEdit: boolean;
   enabled: boolean;
+  pdfUploadsEnabled: boolean;
   files: Attachment[];
   error: string | null;
   load: () => Promise<void>;
@@ -79,6 +82,7 @@ const fetchAttachmentUrl = (id: string, thumbnail: boolean) =>
 function putFile(
   url: string,
   file: File,
+  mimeType: string,
   signal: AbortSignal,
   progress: (value: number) => void,
 ) {
@@ -95,7 +99,7 @@ function putFile(
     }
     signal.addEventListener("abort", abort, { once: true });
     xhr.open("PUT", url);
-    xhr.setRequestHeader("Content-Type", file.type);
+    xhr.setRequestHeader("Content-Type", mimeType);
     xhr.timeout = 120000;
     xhr.upload.onprogress = (event) =>
       event.lengthComputable &&
@@ -125,6 +129,7 @@ export function AttachmentProvider({
 }) {
   const [files, setFiles] = useState<Attachment[]>([]);
   const [enabled, setEnabled] = useState(false);
+  const [pdfUploadsEnabled, setPdfUploadsEnabled] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [uploads, setUploads] = useState<Upload[]>([]);
@@ -152,6 +157,7 @@ export function AttachmentProvider({
         if (active.current) {
           setFiles(body.files);
           setEnabled(body.enabled);
+          setPdfUploadsEnabled(body.pdfUploadsEnabled === true);
           setHasMore(body.hasMore);
           setLoadError(null);
           loadedAt.current = Date.now();
@@ -205,14 +211,17 @@ export function AttachmentProvider({
       if (job.controller.signal.aborted || !active.current) return;
       let attachmentId: string | undefined;
       try {
-        validateAttachmentInput(job.file.name, job.file.type, job.file.size);
+        const mimeType = normalizeAttachmentMime(job.file.name, job.file.type);
+        validateAttachmentInput(job.file.name, mimeType, job.file.size);
+        if (mimeType === "application/pdf" && !pdfUploadsEnabled)
+          throw new Error("PDF uploads are temporarily unavailable: document security scanning is not configured.");
         const signed = await attachmentRequest("/api/attachments", {
           method: "POST",
           signal: job.controller.signal,
           body: JSON.stringify({
             target: job.target,
             filename: job.file.name,
-            mimeType: job.file.type,
+            mimeType,
             size: job.file.size,
           }),
         });
@@ -220,6 +229,7 @@ export function AttachmentProvider({
         await putFile(
           signed.uploadUrl,
           job.file,
+          mimeType,
           job.controller.signal,
           (value) => {
             job.progress = value;
@@ -264,6 +274,10 @@ export function AttachmentProvider({
       return;
     }
     for (const file of selected) {
+      if (normalizeAttachmentMime(file.name, file.type) === "application/pdf" && !pdfUploadsEnabled) {
+        toast.error("PDF uploads are temporarily unavailable: document security scanning is not configured.");
+        continue;
+      }
       const job: Upload = {
         key: crypto.randomUUID(),
         file,
@@ -283,6 +297,7 @@ export function AttachmentProvider({
         taskId,
         canEdit,
         enabled,
+        pdfUploadsEnabled,
         files,
         error: loadError,
         load: refresh,
@@ -519,7 +534,7 @@ export function AttachmentList({
             ref={input}
             type="file"
             multiple
-            accept={ATTACHMENT_ACCEPT}
+            accept={ctx.pdfUploadsEnabled ? ATTACHMENT_ACCEPT : IMAGE_ATTACHMENT_ACCEPT}
             className="sr-only"
             aria-label="Choose attachments"
             onChange={(e) => {
@@ -644,7 +659,9 @@ export function AttachmentList({
       )}
       {!files.length && (
         <p className="text-xs text-muted-foreground">
-          PNG, JPEG, WebP · 10 MiB. PDF · 25 MiB.
+          {ctx.pdfUploadsEnabled
+            ? "PNG, JPEG, WebP · 10 MiB. PDF · 25 MiB."
+            : "PNG, JPEG, WebP · 10 MiB. PDF uploads temporarily unavailable until security scanning is configured."}
         </p>
       )}
     </div>
