@@ -209,11 +209,10 @@ export async function beginAttachment(
   const originalFilename = String(input.filename ?? "");
   const mimeType = normalizeAttachmentMime(originalFilename, input.mimeType);
   const filename = validateAttachmentInput(originalFilename, mimeType, input.size);
-  if (mimeType === "application/pdf" && !pdfScanningConfigured())
-    throw new AttachmentError(
-      "PDF uploads are temporarily unavailable: document security scanning is not configured.",
-      503,
-    );
+  // When scanning is unavailable, preserve the original beta security boundary
+  // for EVERY authorized editor: immutable, private, download-only storage.
+  // Unscanned documents are never offered as an inline preview.
+  const unscannedPdf = mimeType === "application/pdf" && !pdfScanningConfigured();
   const id = randomUUID();
   const prefix = `${access.task.organization_id}/${id}`;
   const file = {
@@ -226,7 +225,9 @@ export async function beginAttachment(
     mime_type: mimeType,
     size_bytes: input.size,
     staging_key: `pending/${prefix}`,
-    object_key: `files/${prefix}/document`,
+    object_key: unscannedPdf
+      ? `files/unscanned-pdf/${prefix}/document`
+      : `files/${prefix}/document`,
     thumbnail_key: `files/${prefix}/thumbnail`,
   };
   // Database trigger serializes organization quota reservations, including in-flight uploads.
@@ -290,7 +291,7 @@ async function boundedObject(
 export async function processAttachmentBytes(
   bytes: Buffer,
   mime: string,
-  options: { measure?: StageMeasure } = {},
+  options: { allowUnscanned?: boolean; measure?: StageMeasure } = {},
 ) {
   const measure: StageMeasure =
     options.measure ?? (async (_stage, operation) => operation());
@@ -303,11 +304,16 @@ export async function processAttachmentBytes(
   });
   if (mime === "application/pdf") {
     const scanner = process.env.ATTACHMENT_SCANNER_URL;
-    if (!pdfScanningConfigured())
+    if (!pdfScanningConfigured()) {
+      if (options.allowUnscanned)
+        return { bytes, mime, thumbnail: null, width: null, height: null };
+      // A pending document reserved as scanned must never silently fall back
+      // to download-only if scanner configuration disappears mid-upload.
       throw new AttachmentError(
-        "PDF uploads are temporarily unavailable: document security scanning is not configured.",
+        "PDF scanning became unavailable during upload. Please retry.",
         503,
       );
+    }
     const checksum = createHash("sha256").update(bytes).digest("hex");
     let result: Response;
     try {
@@ -417,9 +423,10 @@ export async function finalizeAttachment(file: any) {
       Number(file.size_bytes),
       measure,
     );
-    // Old pending beta files now require scanning too. Existing unscanned
-    // object keys remain marked download-only even if successfully scanned.
+    // Only a server-generated unscanned object key permits the scannerless
+    // path. Scanned keys fail closed if the scanner goes down mid-upload.
     const processed = await processAttachmentBytes(bytes, file.mime_type, {
+      allowUnscanned: isUnscannedBetaPdf(file),
       measure,
     });
     // Keys exposed by PUT are never served. Validated content has a separate immutable key.
