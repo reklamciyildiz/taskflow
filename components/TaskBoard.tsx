@@ -428,7 +428,7 @@ export function TaskBoard() {
         <>
           <div className="rounded-[16px] border border-border/70 bg-card/75 p-1.5 shadow-[0_10px_28px_-25px_rgba(15,23,42,0.4)] md:px-2.5 md:py-2">
             <Button variant="ghost" className="h-10 w-full justify-between rounded-xl bg-muted/45 px-3 text-xs font-medium text-foreground hover:text-foreground md:hidden" aria-expanded={showControls} aria-controls="board-controls" onClick={() => setShowControls(value => !value)}><span>Group by {groupedProperty?.name ?? 'Stage'}{statusFilter ? ' · filtered' : ''}</span><Settings2 className="h-4 w-4" /></Button>
-            <div id="board-controls" className={cn('flex-col gap-2 md:flex md:flex-row md:items-center md:justify-between md:gap-3 max-md:[&_button]:min-h-[40px]', showControls ? 'flex' : 'hidden')}>
+            <div id="board-controls" className={cn('flex-col gap-2 md:flex md:flex-col md:gap-2 lg:flex-row lg:items-center lg:justify-between lg:gap-3 max-md:[&_button]:min-h-[40px]', showControls ? 'flex' : 'hidden')}>
               <div className="flex min-w-0 shrink-0 flex-wrap items-center gap-2">
                 <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.13em] text-muted-foreground"><SlidersHorizontal className="h-3.5 w-3.5" aria-hidden /> Group by</span>
                 <Select value={groupedProperty ? groupBy : 'stage'} onValueChange={setGroupBy} disabled={!processId || properties.loading || !!properties.error}>
