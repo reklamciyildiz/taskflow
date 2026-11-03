@@ -532,6 +532,64 @@ async function main() {
         'rich note ' + width + 'px overflow');
       checks++;
     }
+    // Handwriting block: draw with a pointer, change paper, undo/redo and
+    // save/reload the editable vector strokes through canonical Note JSON.
+    await page.setViewportSize({ width: 850, height: 900 });
+    await page.getByRole('button', { name: 'Insert handwriting / drawing' }).click();
+    await page.locator('[data-actiproc-drawing]').first().waitFor();
+    assert.equal(await page.locator('[data-actiproc-drawing]').count(), 1);
+    await page.getByRole('button', { name: 'Edit handwriting' }).click();
+    const inkCanvas = page.getByLabel('Ink drawing canvas');
+    await inkCanvas.waitFor();
+    const bounds = await inkCanvas.boundingBox();
+    assert.ok(bounds && bounds.width > 200 && bounds.height > 120);
+    await page.mouse.move(bounds.x + bounds.width * 0.25, bounds.y + bounds.height * 0.35);
+    await page.mouse.down();
+    await page.mouse.move(bounds.x + bounds.width * 0.65, bounds.y + bounds.height * 0.60, { steps: 12 });
+    await page.mouse.up();
+    await page.waitForFunction(() => {
+      const note = document.querySelector('[data-test="note"] .tiptap').editor.getJSON();
+      return note.content.find(node => node.type === 'drawing')?.attrs?.drawing?.strokes?.length === 1;
+    });
+    const afterInk = await page.evaluate(() =>
+      document.querySelector('[data-test="note"] .tiptap').editor.getJSON());
+    const firstInk = afterInk.content.find(node => node.type === 'drawing')?.attrs?.drawing;
+    assert.ok(firstInk.strokes[0].points.length > 2);
+    assert.ok(firstInk.strokes[0].points.every(point => point.p > 0 && point.p <= 1));
+    checks += 4;
+
+    await page.getByRole('combobox', { name: 'Drawing paper style' }).click();
+    await page.getByRole('option', { name: 'Grid' }).click();
+    const gridInk = await page.evaluate(() =>
+      document.querySelector('[data-test="note"] .tiptap').editor.getJSON()
+        .content.find(node => node.type === 'drawing').attrs.drawing);
+    assert.equal(gridInk.background, 'grid');
+    await page.getByRole('button', { name: 'Undo drawing' }).click();
+    const afterUndo = await page.evaluate(() =>
+      document.querySelector('[data-test="note"] .tiptap').editor.getJSON()
+        .content.find(node => node.type === 'drawing').attrs.drawing);
+    assert.equal(afterUndo.background, 'ruled');
+    await page.getByRole('button', { name: 'Redo drawing' }).click();
+    const afterRedo = await page.evaluate(() =>
+      document.querySelector('[data-test="note"] .tiptap').editor.getJSON()
+        .content.find(node => node.type === 'drawing').attrs.drawing);
+    assert.equal(afterRedo.background, 'grid');
+    checks += 3;
+    await page.getByRole('button', { name: 'Done' }).click();
+
+    const snapshot = await page.evaluate(() =>
+      document.querySelector('[data-test="note"] .tiptap').editor.getJSON());
+    await page.evaluate((documentJSON) => {
+      const editor = document.querySelector('[data-test="note"] .tiptap').editor;
+      editor.commands.setContent(documentJSON);
+    }, snapshot);
+    assert.deepEqual(await page.evaluate(() =>
+      document.querySelector('[data-test="note"] .tiptap').editor.getJSON()), snapshot);
+    checks++;
+    await page.setViewportSize({ width: 320, height: 850 });
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+      'Handwriting preview must not overflow mobile screen');
+    checks++;
     assert.deepEqual(errors, []);
     console.log(
       JSON.stringify({ browserChecks: checks, screenshots: output, errors }),
