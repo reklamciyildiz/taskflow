@@ -93,6 +93,7 @@ export function TaskCard({ task, dragHandleProps, onTaskClick, propertyBadges = 
     <Card 
       className="group relative flex min-h-[152px] min-w-0 cursor-pointer flex-col overflow-hidden rounded-[18px] border border-border/70 bg-card/90 p-0 shadow-[0_8px_26px_-19px_rgba(15,23,42,0.6)] transition-[border-color,box-shadow,background-color] duration-200 hover:border-primary/30 hover:bg-card hover:shadow-[0_15px_32px_-18px_rgba(15,23,42,0.5)] focus-within:border-primary/40 focus-within:ring-1 focus-within:ring-primary/15
       aria-busy={movePending}
+      data-board-action-card={task.id}
       onClick={handleCardClick}
     >
       <div aria-hidden="true" className={cn('absolute inset-y-0 left-0 w-[3px]', priorityAccents[task.priority])} />
