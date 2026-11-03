@@ -8,6 +8,7 @@ import { Plugin, PluginKey } from '@tiptap/pm/state';
 import { Check, Copy, FileCode2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { CODE_LANGUAGES, normalizeCodeLanguage } from '../rich-paste';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 
 const JS_KEYWORDS = new Set([
   'import', 'export', 'from', 'default', 'const', 'let', 'var', 'function', 'return',
@@ -93,15 +94,20 @@ function PremiumCodeBlockView({ node, updateAttributes, editor }: NodeViewProps)
       <div className="actiproc-codeblock-header" contentEditable={false}>
         <span className="actiproc-codeblock-label"><FileCode2 aria-hidden="true" className="h-3.5 w-3.5" /> CODE</span>
         <div className="actiproc-codeblock-actions">
-          <select
-            aria-label="Code language"
-            className="actiproc-code-language"
+          <Select
             value={language}
             disabled={!editor.isEditable}
-            onChange={event => updateAttributes({ language: event.target.value })}
+            onValueChange={value => updateAttributes({ language: value })}
           >
-            {CODE_LANGUAGES.map(([value, label]) => <option value={value} key={value}>{label}</option>)}
-          </select>
+            <SelectTrigger aria-label="Code language" className="actiproc-code-language">
+              <SelectValue placeholder="Language" />
+            </SelectTrigger>
+            <SelectContent className="max-h-[min(22rem,70dvh)] min-w-40 border-border bg-popover text-popover-foreground">
+              {CODE_LANGUAGES.map(([value, label]) => (
+                <SelectItem key={value} value={value}>{label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <button
             type="button"
             aria-label={copied ? 'Code copied' : 'Copy code'}
