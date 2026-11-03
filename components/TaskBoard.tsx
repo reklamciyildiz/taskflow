@@ -5,7 +5,7 @@ import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-p
 import { TaskCard } from '@/components/TaskCard';
 import { useTaskContext, type TaskStatus } from '@/components/TaskContext';
 import { Badge } from '@/components/ui/badge';
-import { Plus, X, Layers, Settings2, Columns3 } from 'lucide-react';
+import { Plus, X, Layers, Settings2, Columns3, LayoutDashboard, ListChecks, CircleCheck, SlidersHorizontal, ArrowUpRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { CreateTaskModal } from '@/components/CreateTaskModal';
@@ -36,6 +36,14 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+
+const STAGE_SKINS = [
+  { panel: 'border-sky-500/15 bg-sky-500/[0.035]', dot: 'bg-sky-400', text: 'text-sky-500' },
+  { panel: 'border-violet-500/15 bg-violet-500/[0.035]', dot: 'bg-violet-400', text: 'text-violet-500' },
+  { panel: 'border-amber-500/15 bg-amber-500/[0.035]', dot: 'bg-amber-400', text: 'text-amber-500' },
+  { panel: 'border-teal-500/15 bg-teal-500/[0.035]', dot: 'bg-teal-400', text: 'text-teal-500' },
+  { panel: 'border-rose-500/15 bg-rose-500/[0.035]', dot: 'bg-rose-400', text: 'text-rose-500' },
+] as const;
 
 export function TaskBoard() {
   const preferences = useUserPreferences();
@@ -276,110 +284,131 @@ export function TaskBoard() {
       id: column.id, label: column.title, tasks: orderedColumnTasks(filteredTasks, column.id, boardColumns),
     }));
   const mobileGroup = mobileGroups.find(group => group.id === mobileGroupId) ?? mobileGroups[0];
+  const completedCount = filteredTasks.filter(task => isTerminalBoardColumn(task.status, boardColumns)).length;
+  const progressPercent = filteredTasks.length ? Math.round((completedCount / filteredTasks.length) * 100) : 0;
+  const boardTitle = boardScope.type === 'project' ? boardProject?.name ?? 'Selected process' : 'Team inbox';
 
   return (
-    <div className="min-w-0 max-w-full space-y-3 md:space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex min-w-0 flex-wrap items-center gap-3">
-          <h2 className="sr-only md:not-sr-only md:text-2xl md:font-bold">Panel</h2>
-          {(
-            <div className="flex min-w-0 items-center gap-2 w-full sm:w-auto">
-              <ProcessSwitcher
-                projects={orderedProjectsForTeam}
-                value={boardScope.type === 'project' ? boardScope.projectId : ''}
-                onValueChange={(projectId) => setBoardScope(projectId ? { type: 'project', projectId } : { type: 'general' })}
-                onReorder={(projectIds) => {
-                  if (currentTeam) void preferences.setProcessOrder(currentTeam.id, projectIds);
-                }}
-              />
-              {currentUserRole === 'admin' && (
-                <>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-11 w-11 shrink-0 p-0 md:h-10 md:w-auto md:gap-2 md:px-3"
-                    onClick={() => setIsCreateProjectOpen(true)}
-                    title="Create a new process (project)"
-                  >
-                    <Layers className="h-4 w-4" />
-                    <span className="sr-only md:not-sr-only">New process</span>
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    className="h-11 w-11 shrink-0 md:h-10 md:w-10"
-                    onClick={() => {
-                      setEditingProjectId(boardProject?.id ?? null);
-                    }}
-                    disabled={!boardProject}
-                    title="Edit selected process"
-                    aria-label="Edit selected process"
-                  >
-                    <Settings2 className="h-4 w-4" />
-                  </Button>
-                </>
+    <div className="min-w-0 max-w-full space-y-5 pb-4 md:space-y-6">
+      <header className="relative isolate overflow-hidden rounded-[26px] border border-border/70 bg-gradient-to-br from-card via-card to-primary/[0.055] shadow-[0_20px_65px_-46px_rgba(15,23,42,0.5)]">
+        <div aria-hidden="true" className="pointer-events-none absolute -right-20 -top-28 h-72 w-72 rounded-full bg-primary/[0.07] blur-3xl" />
+        <div aria-hidden="true" className="pointer-events-none absolute bottom-0 right-10 h-px w-1/3 bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
+        <div className="relative space-y-5 p-4 sm:p-5 lg:p-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="min-w-0 space-y-2">
+              <p className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.19em] text-muted-foreground">
+                <span className="flex h-6 w-6 items-center justify-center rounded-lg border border-primary/15 bg-primary/10 text-primary">
+                  <LayoutDashboard className="h-3.5 w-3.5" aria-hidden />
+                </span>
+                Workspace <span className="text-border">/</span> Projects &amp; Board
+              </p>
+              <h1 className="max-w-3xl break-words text-[25px] font-semibold leading-tight tracking-[-0.035em] text-foreground sm:text-[30px]">
+                {boardTitle}
+              </h1>
+              <p className="text-xs leading-relaxed text-muted-foreground sm:text-[13px]">
+                Organize work, follow progress, and move Actions through your workflow.
+              </p>
+            </div>
+            <div className="grid grid-cols-3 gap-2 sm:gap-2.5 lg:min-w-[350px]">
+              <div className="rounded-2xl border border-border/65 bg-background/65 px-3 py-3.5 shadow-sm">
+                <div className="mb-2 flex items-center gap-1.5 text-muted-foreground"><ListChecks className="h-3.5 w-3.5" aria-hidden /><span className="text-[10px] font-medium">Actions</span></div>
+                <p className="text-xl font-semibold tabular-nums tracking-tight sm:text-2xl">{filteredTasks.length}</p>
+              </div>
+              <div className="rounded-2xl border border-border/65 bg-background/65 px-3 py-3.5 shadow-sm">
+                <div className="mb-2 flex items-center gap-1.5 text-muted-foreground"><Layers className="h-3.5 w-3.5" aria-hidden /><span className="text-[10px] font-medium">Stages</span></div>
+                <p className="text-xl font-semibold tabular-nums tracking-tight sm:text-2xl">{boardColumns.length}</p>
+              </div>
+              <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.055] px-3 py-3.5 shadow-sm">
+                <div className="mb-2 flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400"><CircleCheck className="h-3.5 w-3.5" aria-hidden /><span className="text-[10px] font-medium">Complete</span></div>
+                <p className="text-xl font-semibold tabular-nums tracking-tight sm:text-2xl">{progressPercent}<span className="ml-0.5 text-xs font-medium text-muted-foreground">%</span></p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3 border-t border-border/60 pt-4 xl:flex-row xl:items-end xl:justify-between">
+            <div className="min-w-0 space-y-2">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">Active process</p>
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <ProcessSwitcher
+                  projects={orderedProjectsForTeam}
+                  value={boardScope.type === 'project' ? boardScope.projectId : ''}
+                  onValueChange={(projectId) => setBoardScope(projectId ? { type: 'project', projectId } : { type: 'general' })}
+                  onReorder={(projectIds) => {
+                    if (currentTeam) void preferences.setProcessOrder(currentTeam.id, projectIds);
+                  }}
+                />
+                {currentUserRole === 'admin' && (
+                  <>
+                    <Button type="button" variant="outline" size="sm"
+                      className="h-11 gap-2 rounded-xl border-border/70 bg-background/70 px-3 text-xs font-semibold shadow-sm hover:border-primary/35 hover:bg-primary/[0.065]"
+                      onClick={() => setIsCreateProjectOpen(true)} title="Create a new process (project)">
+                      <Layers className="h-4 w-4" aria-hidden /> <span className="hidden sm:inline">New process</span>
+                    </Button>
+                    <Button type="button" variant="outline" size="icon" className="h-11 w-11 rounded-xl border-border/70 bg-background/70 shadow-sm hover:border-primary/35"
+                      onClick={() => setEditingProjectId(boardProject?.id ?? null)} disabled={!boardProject}
+                      title="Edit selected process" aria-label="Edit selected process">
+                      <Settings2 className="h-4 w-4" aria-hidden />
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {customers.length > 0 && (
+                <Select value={customerFilter ?? '__all_customers__'}
+                  onValueChange={(value) => setCustomerFilter(value === '__all_customers__' ? null : value)}>
+                  <SelectTrigger className="h-11 min-w-[160px] flex-1 rounded-xl border-border/70 bg-background/70 shadow-sm sm:w-auto sm:flex-none"
+                    aria-label={`Filter by ${customerSingularLabel.toLowerCase()}`}>
+                    <SelectValue placeholder={`All ${customerDirectoryLabel}`} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__all_customers__">All {customerDirectoryLabel}</SelectItem>
+                    {customers.map((customer) => <SelectItem key={customer.id} value={customer.id}>{customer.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              )}
+              {permissions.canCreateTask && (
+                <Button className="h-11 flex-1 gap-2 rounded-xl px-5 font-semibold shadow-[0_8px_24px_-12px_hsl(var(--primary)/0.75)] transition-[box-shadow,background-color] hover:shadow-[0_10px_28px_-10px_hsl(var(--primary)/0.7)] sm:flex-none"
+                  onClick={handleCreateTask}>
+                  <Plus className="h-4 w-4" aria-hidden /> New Action <ArrowUpRight className="ml-1 h-3.5 w-3.5 opacity-70" aria-hidden />
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {(filter || customerFilter) && (
+            <div className="flex flex-wrap items-center gap-2 border-t border-border/50 pt-3">
+              <span className="text-[11px] font-medium text-muted-foreground">Active filters</span>
+              {filter && (
+                <Badge variant="secondary" className="flex items-center gap-1.5 rounded-full border border-primary/15 bg-primary/[0.07] px-2.5 py-1 text-[11px]">
+                  {getFilterLabel()}
+                  <button type="button" aria-label="Clear quick filter" onClick={() => setFilter(null)}
+                    className="rounded-full p-0.5 hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                    <X className="h-3 w-3" aria-hidden />
+                  </button>
+                </Badge>
+              )}
+              {customerFilter && (
+                <Badge variant="outline" className="flex items-center gap-1.5 rounded-full border border-violet-500/20 bg-violet-500/[0.055] px-2.5 py-1 text-[11px] text-foreground">
+                  {customers.find(c => c.id === customerFilter)?.name || 'Customer'}
+                  <button type="button" aria-label="Clear client filter" onClick={() => setCustomerFilter(null)}
+                    className="rounded-full p-0.5 hover:bg-violet-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                    <X className="h-3 w-3" aria-hidden />
+                  </button>
+                </Badge>
               )}
             </div>
           )}
-          {filter && (
-            <Badge variant="secondary" className="flex items-center gap-1 px-3 py-1">
-              {getFilterLabel()}
-              <button aria-label="Clear quick filter" onClick={() => setFilter(null)} className="ml-1 hover:text-red-500">
-                <X className="h-3 w-3" />
-              </button>
-            </Badge>
-          )}
-          {customerFilter && (
-            <Badge variant="outline" className="flex items-center gap-1 px-3 py-1 bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-700">
-              {customers.find(c => c.id === customerFilter)?.name || 'Customer'}
-              <button aria-label="Clear client filter" onClick={() => setCustomerFilter(null)} className="ml-1 hover:text-red-500">
-                <X className="h-3 w-3" />
-              </button>
-            </Badge>
-          )}
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {customers.length > 0 && (
-            <Select
-              value={customerFilter ?? '__all_customers__'}
-              onValueChange={(v) =>
-                setCustomerFilter(v === '__all_customers__' ? null : v)
-              }
-            >
-              <SelectTrigger
-                className="h-11 min-w-0 flex-1 md:h-10 md:min-w-[180px] sm:w-auto"
-                aria-label={`Filter by ${customerSingularLabel.toLowerCase()}`}
-              >
-                <SelectValue placeholder={`All ${customerDirectoryLabel}`} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__all_customers__">All {customerDirectoryLabel}</SelectItem>
-                {customers.map((customer) => (
-                  <SelectItem key={customer.id} value={customer.id}>
-                    {customer.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-          {permissions.canCreateTask && (
-            <Button className="h-11 md:h-10" onClick={handleCreateTask}>
-              <Plus className="mr-2 h-4 w-4" />
-              Yeni aksiyon
-            </Button>
-          )}
-        </div>
-      </div>
+      </header>
 
       {/* First-run empty state: no processes yet */}
       {loading ? (
-        <div className="rounded-lg border border-dashed p-8 text-center space-y-2 bg-muted/10">
+        <div className="space-y-3 rounded-[24px] border border-border/65 bg-card/70 p-8 text-center shadow-sm">
           <p className="text-sm text-muted-foreground animate-pulse">Loading processes...</p>
         </div>
       ) : !hasProcesses && boardScope.type !== 'general' ? (
-        <div className="rounded-lg border border-dashed p-8 text-center space-y-2 bg-muted/30">
+        <div className="space-y-3 rounded-[24px] border border-dashed border-border/75 bg-card/75 p-10 text-center shadow-sm">
           <p className="text-sm font-medium text-foreground">No processes yet</p>
           <p className="text-sm text-muted-foreground">
             Create your first process, then select it on the board to link actions to that flow.
@@ -397,20 +426,20 @@ export function TaskBoard() {
         </div>
       ) : (
         <>
-          <div className="rounded-xl border border-border/60 bg-card/40 p-2 md:p-3 shadow-sm">
-            <Button variant="ghost" className="h-11 w-full justify-between md:hidden" aria-expanded={showControls} aria-controls="board-controls" onClick={() => setShowControls(value => !value)}><span>Group by {groupedProperty?.name ?? 'Stage'}{statusFilter ? ' · filtered' : ''}</span><Settings2 className="h-4 w-4" /></Button>
-            <div id="board-controls" className={cn('flex-col gap-3 md:flex lg:flex-row lg:items-center lg:justify-between max-md:[&_button]:min-h-[44px]', showControls ? 'flex' : 'hidden')}>
+          <div className="rounded-[20px] border border-border/70 bg-card/75 p-2.5 shadow-[0_14px_35px_-28px_rgba(15,23,42,0.45)] md:p-3.5">
+            <Button variant="ghost" className="h-11 w-full justify-between rounded-xl bg-muted/45 px-3 text-xs font-medium md:hidden" aria-expanded={showControls} aria-controls="board-controls" onClick={() => setShowControls(value => !value)}><span>Group by {groupedProperty?.name ?? 'Stage'}{statusFilter ? ' · filtered' : ''}</span><Settings2 className="h-4 w-4" /></Button>
+            <div id="board-controls" className={cn('flex-col gap-3 md:flex xl:flex-row xl:items-center xl:justify-between max-md:[&_button]:min-h-[44px]', showControls ? 'flex' : 'hidden')}>
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Group board by</span>
+                <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.13em] text-muted-foreground"><SlidersHorizontal className="h-3.5 w-3.5" aria-hidden /> Group by</span>
                 <Select value={groupedProperty ? groupBy : 'stage'} onValueChange={setGroupBy} disabled={!processId || properties.loading || !!properties.error}>
-                  <SelectTrigger aria-label="Group board by" className="h-8 w-48"><SelectValue /></SelectTrigger>
+                  <SelectTrigger aria-label="Group board by" className="h-10 w-44 rounded-xl border-border/70 bg-background/70 text-xs shadow-sm"><SelectValue /></SelectTrigger>
                   <SelectContent><SelectItem value="stage">Stage</SelectItem>
                     {activeProperties.map(property => <SelectItem key={property.id} value={property.id}>{property.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
                 {activeProperties.length > 0 && (
                   <DropdownMenu>
-                    <DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs"><Columns3 className="h-3.5 w-3.5" />Card fields</Button></DropdownMenuTrigger>
+                    <DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="h-10 gap-1.5 rounded-xl border-border/70 bg-background/70 px-3 text-xs shadow-sm"><Columns3 className="h-3.5 w-3.5" />Card fields</Button></DropdownMenuTrigger>
                     <DropdownMenuContent align="start" className="w-56">
                       <DropdownMenuLabel>Show up to 2 properties</DropdownMenuLabel>
                       {activeProperties.map(property => {
@@ -423,12 +452,12 @@ export function TaskBoard() {
                 {properties.error && <button type="button" className="text-xs text-destructive underline" onClick={() => void properties.reload()}>Properties unavailable · Retry</button>}
               </div>
               {isMobileBoard ? <Select value={statusFilter ?? '__all__'} onValueChange={value => setStatusFilter(value === '__all__' ? null : value)}>
-                <SelectTrigger aria-label="Filter by stage" className="h-11"><SelectValue /></SelectTrigger>
+                <SelectTrigger aria-label="Filter by stage" className="h-11 rounded-xl border-border/70 bg-background/70"><SelectValue /></SelectTrigger>
                 <SelectContent><SelectItem value="__all__">All stages</SelectItem>{boardColumns.map(column => <SelectItem key={column.id} value={column.id}>{column.title}</SelectItem>)}</SelectContent>
-              </Select> : <div className="flex min-w-0 items-center gap-2 overflow-x-auto pb-1 lg:pb-0">
-                <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Filter by stage</span>
-                <Button variant={!statusFilter ? 'default' : 'outline'} onClick={() => setStatusFilter(null)} size="sm" className="h-8 shrink-0">All</Button>
-                {boardColumns.map((column) => <Button key={column.id} variant={statusFilter === column.id ? 'default' : 'outline'} onClick={() => setStatusFilter(column.id)} size="sm" className="h-8 shrink-0">{column.title}</Button>)}
+              </Select> : <div className="flex min-w-0 items-center gap-1.5 overflow-x-auto pb-1 [scrollbar-width:thin] xl:pb-0">
+                <span className="mr-1 shrink-0 text-[10px] font-semibold uppercase tracking-[0.13em] text-muted-foreground">Stages</span>
+                <Button variant={!statusFilter ? 'default' : 'outline'} onClick={() => setStatusFilter(null)} size="sm" className="h-9 shrink-0 rounded-full px-3.5 text-xs font-medium">All</Button>
+                {boardColumns.map((column) => <Button key={column.id} variant={statusFilter === column.id ? 'default' : 'outline'} onClick={() => setStatusFilter(column.id)} size="sm" className="h-9 shrink-0 rounded-full border-border/65 bg-background/50 px-3.5 text-xs font-medium data-[state=active]:bg-primary">{column.title}</Button>)}
               </div>}
             </div>
           </div>
