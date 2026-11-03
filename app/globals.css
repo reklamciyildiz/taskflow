@@ -748,3 +748,186 @@
   .planner-v2-row-title-line h3 { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
   .planner-v2-all-day { margin-inline: 0; }
 }
+
+
+/* Actiproc Notes: editor semantics, responsive authoring controls and code blocks.
+   Scoped to Notes; the existing checklist/Planner editor remains unchanged. */
+.actiproc-note-editor .tiptap {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: hsl(var(--foreground));
+  line-height: 1.72;
+  font-size: 0.875rem;
+}
+.actiproc-note-editor .tiptap > p { margin: 0.5rem 0; }
+.actiproc-note-editor .tiptap > h1,
+.actiproc-note-editor .tiptap > h2,
+.actiproc-note-editor .tiptap > h3 { margin: 1.1rem 0 0.38rem; font-weight: 700; line-height: 1.32; letter-spacing: -0.02em; }
+.actiproc-note-editor .tiptap > h1 { font-size: clamp(1.25rem, 3vw, 1.6rem); }
+.actiproc-note-editor .tiptap > h2 { font-size: clamp(1.12rem, 2.7vw, 1.3rem); }
+.actiproc-note-editor .tiptap > h3 { font-size: 1.05rem; }
+.actiproc-note-editor .tiptap > blockquote {
+  margin: 0.9rem 0;
+  padding: 0.55rem 0.95rem;
+  border-inline-start: 3px solid hsl(var(--primary) / 0.75);
+  border-radius: 0 0.65rem 0.65rem 0;
+  background: hsl(var(--primary) / 0.045);
+  color: hsl(var(--foreground) / 0.84);
+}
+.actiproc-note-editor .tiptap a { color: hsl(var(--primary)); text-decoration: underline; text-underline-offset: 3px; }
+.actiproc-note-editor .tiptap p code,
+.actiproc-note-editor .tiptap li code,
+.actiproc-note-editor .tiptap blockquote code {
+  padding: 0.14rem 0.35rem;
+  border: 1px solid hsl(var(--border) / 0.7);
+  border-radius: 0.32rem;
+  background: hsl(var(--muted) / 0.85);
+  font-size: 0.84em;
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  overflow-wrap: anywhere;
+}
+.actiproc-note-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.26rem;
+  min-height: 2.65rem;
+  max-width: 100%;
+  padding: 0.32rem 0.38rem;
+  margin: 0.15rem 0 0.35rem;
+  overflow-x: auto;
+  border-radius: 0.75rem;
+  border: 1px solid hsl(var(--border) / 0.65);
+  background: hsl(var(--background) / 0.72);
+  scrollbar-width: thin;
+}
+.actiproc-note-style {
+  flex-shrink: 0;
+  min-height: 2rem;
+  max-width: 7.9rem;
+  padding: 0 1.2rem 0 0.55rem;
+  border-radius: 0.45rem;
+  background: hsl(var(--muted) / 0.6);
+  color: hsl(var(--foreground));
+  font-size: 0.75rem;
+  font-weight: 600;
+  outline-offset: 2px;
+}
+.actiproc-note-style:focus-visible,
+.actiproc-code-language:focus-visible { outline: 2px solid hsl(var(--ring)); }
+.actiproc-note-toolbar-divider {
+  width: 1px;
+  height: 1.15rem;
+  margin: 0 0.28rem;
+  flex-shrink: 0;
+  background: hsl(var(--border) / 0.9);
+}
+.actiproc-note-format-button {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-width: 2rem;
+  min-height: 2rem;
+  padding: 0 0.48rem;
+  border-radius: 0.48rem;
+  color: hsl(var(--muted-foreground));
+  transition: background-color 130ms ease, color 130ms ease;
+}
+.actiproc-note-format-button:hover,
+.actiproc-note-format-button.is-active {
+  background: hsl(var(--primary) / 0.12);
+  color: hsl(var(--foreground));
+}
+.actiproc-note-format-button:focus-visible,
+.actiproc-code-copy:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+.actiproc-note-code-button { font-size: 0.71rem; font-weight: 600; }
+.actiproc-codeblock {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  margin: 0.9rem 0;
+  border: 1px solid hsl(var(--border) / 0.82);
+  border-radius: 0.8rem;
+  background: hsl(var(--muted) / 0.42);
+  box-shadow: 0 9px 22px -21px hsl(var(--foreground) / 0.3);
+}
+.dark .actiproc-codeblock { background: hsl(223 27% 11%); border-color: hsl(216 24% 28%); }
+.actiproc-codeblock-header {
+  display: flex;
+  min-height: 2.4rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.34rem 0.55rem 0.34rem 0.8rem;
+  border-bottom: 1px solid hsl(var(--border) / 0.65);
+  background: hsl(var(--muted) / 0.42);
+  user-select: none;
+}
+.dark .actiproc-codeblock-header { background: hsl(216 25% 17%); }
+.actiproc-codeblock-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: hsl(var(--muted-foreground));
+  font-weight: 700;
+  font-size: 0.61rem;
+  letter-spacing: 0.11em;
+}
+.actiproc-codeblock-actions { display: flex; align-items: center; gap: 0.3rem; min-width: 0; }
+.actiproc-code-language,
+.actiproc-code-copy {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 1.9rem;
+  padding: 0 0.42rem;
+  border-radius: 0.4rem;
+  color: hsl(var(--foreground));
+  font-size: 0.69rem;
+  font-weight: 600;
+}
+.actiproc-code-language { max-width: min(29vw, 9rem); background: transparent; }
+.actiproc-code-language:disabled { opacity: 0.8; }
+.actiproc-code-copy:hover,
+.actiproc-code-language:not(:disabled):hover { background: hsl(var(--primary) / 0.1); }
+.actiproc-codeblock-body {
+  display: block;
+  overflow-x: auto;
+  max-width: 100%;
+  min-height: 3.1rem;
+  margin: 0;
+  padding: 0.85rem 1rem 1rem;
+  white-space: pre;
+  tab-size: 2;
+  scrollbar-width: thin;
+}
+.actiproc-codeblock-content {
+  display: block;
+  min-width: max-content;
+  min-height: 1.5rem;
+  white-space: pre !important;
+  word-break: normal !important;
+  overflow-wrap: normal !important;
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  font-size: 0.79rem;
+  line-height: 1.68;
+  color: hsl(var(--foreground));
+}
+.dark .actiproc-codeblock-content { color: hsl(213 35% 88%); }
+.actiproc-syntax-keyword { color: #8c53d3; font-weight: 600; }
+.actiproc-syntax-string { color: #0f796a; }
+.actiproc-syntax-number { color: #af6029; }
+.actiproc-syntax-comment { color: #64748b; font-style: italic; }
+.dark .actiproc-syntax-keyword { color: #c5a2ff; }
+.dark .actiproc-syntax-string { color: #81dcb4; }
+.dark .actiproc-syntax-number { color: #ffbf89; }
+.dark .actiproc-syntax-comment { color: #94a3b8; }
+@media (max-width: 390px) {
+  .actiproc-codeblock-header { padding-inline: 0.48rem; }
+  .actiproc-codeblock-label { letter-spacing: 0.05em; }
+  .actiproc-codeblock-body { padding: 0.75rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .actiproc-note-format-button { transition: none; }
+}
