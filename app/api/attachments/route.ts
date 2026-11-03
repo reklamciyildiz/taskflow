@@ -46,7 +46,9 @@ export async function GET(request: NextRequest) {
           }),
         })),
         enabled: true,
-        pdfUploadsEnabled: pdfScanningConfigured(),
+        // Scannerless PDFs retain private, download-only protection.
+        pdfUploadsEnabled: true,
+        pdfScanningEnabled: pdfScanningConfigured(),
         hasMore: data.length === 50,
       },
       { headers: { "Cache-Control": "no-store" } },
