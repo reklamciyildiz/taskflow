@@ -144,6 +144,23 @@ async function main() {
         throw error;
       }
       await page.getByRole('heading', { name: 'SmartSafe AI', exact: true }).waitFor();
+      // Process button hover must preserve text contrast on dark surfaces.
+      // The shared outline variant normally switches foreground to accent-foreground,
+      // which is nearly black in dark mode and hides text on the custom dark background.
+      for (const label of ['Active process / project', 'Create a new process']) {
+        const button = page.getByRole('button', { name: label, exact: true });
+        await button.waitFor({ state: 'visible' });
+        const initialColor = await button.evaluate(element => getComputedStyle(element).color);
+        await button.hover();
+        await page.waitForTimeout(80);
+        const hoverColor = await button.evaluate(element => getComputedStyle(element).color);
+        assert.equal(hoverColor, initialColor, `${width}px: ${label} must not darken its label on hover`);
+        checks++;
+      }
+      const workspaceHeaderHeight = await page.locator('main header').first().evaluate(element => element.getBoundingClientRect().height);
+      assert.ok(workspaceHeaderHeight <= (width < 768 ? 310 : width < 1024 ? 240 : 190),
+        `${width}px: compact Board header unexpectedly tall (${workspaceHeaderHeight}px)`);
+      checks++;
       const premiumCard = page.locator('[data-board-action-card="a"]');
       await premiumCard.waitFor();
       const cardStyle = await premiumCard.evaluate(element => {
