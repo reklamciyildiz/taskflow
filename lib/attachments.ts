@@ -1,5 +1,15 @@
-export const ATTACHMENT_ACCEPT =
-  "image/png,image/jpeg,image/webp,application/pdf";
+export const IMAGE_ATTACHMENT_ACCEPT = "image/png,image/jpeg,image/webp";
+export const ATTACHMENT_ACCEPT = `${IMAGE_ATTACHMENT_ACCEPT},application/pdf`;
+
+// Some browsers return an empty or generic MIME for a valid PDF. Never trust
+// extension alone: the server also verifies the document and scans the bytes.
+export function normalizeAttachmentMime(filename: string, reported: unknown): string {
+  const mime = typeof reported === "string" ? reported.trim().toLowerCase() : "";
+  if (/\.pdf$/i.test(filename) &&
+      ["", "application/octet-stream", "application/x-pdf"].includes(mime))
+    return "application/pdf";
+  return mime;
+}
 export const FILE_LIMIT = 25 * 1024 * 1024;
 export const IMAGE_LIMIT = 10 * 1024 * 1024;
 export type AttachmentTarget = {
