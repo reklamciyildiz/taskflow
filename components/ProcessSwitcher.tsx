@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { DragDropContext, Draggable, Droppable, type DropResult } from '@hello-pangea/dnd';
-import { Check, ChevronDown, ChevronUp, ChevronsUpDown, GripVertical } from 'lucide-react';
+import { Check, ChevronDown, ChevronUp, ChevronsUpDown, GripVertical, Layers3, Inbox } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
@@ -54,24 +54,25 @@ export function ProcessSwitcher({
         <Button
           type="button"
           variant="outline"
-          className="h-11 min-w-0 flex-1 justify-between gap-2 px-3 font-normal md:h-10 sm:w-auto sm:min-w-[160px]"
+          className="h-11 min-w-0 flex-1 justify-between gap-2 rounded-xl border-border/70 bg-background/80 px-3.5 text-sm font-semibold shadow-sm transition-[border-color,box-shadow,background-color] hover:border-primary/35 hover:bg-background hover:shadow-md sm:w-auto sm:min-w-[178px]"
           aria-label="Active process / project"
           aria-expanded={open}
         >
-          <span className="truncate">{selected ? processLabel(selected.name) : 'Inbox'}</span>
+          <span className="flex min-w-0 items-center gap-2.5"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/[0.09] text-primary">{selected ? <Layers3 className="h-3.5 w-3.5" aria-hidden /> : <Inbox className="h-3.5 w-3.5" aria-hidden />}</span><span className="truncate">{selected ? processLabel(selected.name) : 'Inbox'}</span></span>
           <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-60" aria-hidden />
         </Button>
       </PopoverTrigger>
       <PopoverContent
         align="start"
-        className="w-[min(22rem,calc(100vw-1rem))] p-1.5"
+        className="w-[min(23rem,calc(100vw-1rem))] overflow-hidden rounded-2xl border-border/75 bg-popover p-2 shadow-[0_18px_55px_-22px_rgba(15,23,42,0.65)]"
         onOpenAutoFocus={(event) => event.preventDefault()}
       >
+        <p className="px-2.5 pb-2 pt-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Switch workspace</p>
         <button
           type="button"
           aria-current={!value ? 'page' : undefined}
           className={cn(
-            'mb-1 flex min-h-11 w-full items-center gap-2 rounded-md px-2 text-left text-sm transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
+            'mb-1 flex min-h-11 w-full items-center gap-2.5 rounded-xl px-3 text-left text-sm transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
             !value && 'bg-primary/10 text-primary',
           )}
           onClick={() => {
@@ -82,9 +83,9 @@ export function ProcessSwitcher({
           <span className="flex h-4 w-4 shrink-0 items-center justify-center">
             {!value ? <Check className="h-4 w-4" aria-hidden /> : null}
           </span>
-          <span className="font-medium">Inbox</span>
+          <span className="flex min-w-0 items-center gap-2 font-semibold"><Inbox className="h-4 w-4 text-muted-foreground" aria-hidden /> Inbox</span>
         </button>
-        <div className="mb-1 border-b border-border/60" role="separator" />
+        <div className="mx-1 mb-1 border-b border-border/60" role="separator" />
         <DragDropContext onDragEnd={onDragEnd}>
           <Droppable
             droppableId="process-order"
@@ -114,7 +115,7 @@ export function ProcessSwitcher({
                 ref={drop.innerRef}
                 {...drop.droppableProps}
                 className={cn(
-                  'max-h-[min(22rem,var(--radix-popover-content-available-height))] overflow-y-auto overscroll-contain rounded-lg p-0.5',
+                  'max-h-[min(22rem,var(--radix-popover-content-available-height))] overflow-y-auto overscroll-contain rounded-xl p-1 [scrollbar-width:thin]',
                   snapshot.isDraggingOver && 'bg-muted/20',
                 )}
                 aria-label="Processes"
@@ -131,14 +132,14 @@ export function ProcessSwitcher({
                         ref={drag.innerRef}
                         {...drag.draggableProps}
                         className={cn(
-                          'group mb-0.5 flex min-h-10 items-center rounded-md border border-transparent bg-popover transition-[background-color,border-color,box-shadow] last:mb-0',
+                          'group mb-1 flex min-h-11 items-center rounded-xl border border-transparent bg-popover transition-[background-color,border-color,box-shadow] hover:border-border/60 hover:bg-muted/40 last:mb-0',
                           state.isDragging && 'z-[460] border-primary/35 bg-popover shadow-lg',
                         )}
                       >
                         <button
                           ref={project.id === value ? selectedRef : undefined}
                           type="button"
-                          className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-2 text-left text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                          className="flex min-w-0 flex-1 items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-left text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
                           onClick={() => {
                             onValueChange(project.id);
                             setOpen(false);
@@ -147,7 +148,7 @@ export function ProcessSwitcher({
                           <span className="flex h-4 w-4 shrink-0 items-center justify-center">
                             {project.id === value ? <Check className="h-4 w-4" aria-hidden /> : null}
                           </span>
-                          <span className="truncate">{processLabel(project.name)}</span>
+                          <span className="flex min-w-0 items-center gap-2"><Layers3 className="h-3.5 w-3.5 shrink-0 text-primary/70" aria-hidden /><span className="truncate">{processLabel(project.name)}</span></span>
                         </button>
                         <div className="mr-1 flex shrink-0 items-center">
                           <button
