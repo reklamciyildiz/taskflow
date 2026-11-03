@@ -26,7 +26,7 @@
     "test:board:premium": "tsx scripts/test-board-premium.ts",
     "test:planner:staging": "node scripts/test-planner-v2-staging.mjs",
     "test:planner:visual": "node scripts/test-planner-v2-visual.cjs",
-    "test:editor": "tsx scripts/test-editor-slash-commands.ts && tsx scripts/test-note-rich-editor.ts",
+    "test:editor": "tsx scripts/test-editor-slash-commands.ts && tsx scripts/test-note-rich-editor.ts && tsx scripts/test-note-drawing.ts",
     "test:knowledge-hub": "tsx scripts/test-knowledge-hub.ts",
     "test:ai:public": "tsx scripts/test-ai-public-access.ts",
     "test:ai:typo": "tsx scripts/test-ai-entity-matching.ts",
