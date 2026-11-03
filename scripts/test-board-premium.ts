@@ -38,8 +38,8 @@ for (const [file, source, required] of [
 assert.match(board, /rounded-\[20px\]/);
 assert.match(board, /rounded-\[23px\]/);
 assert.match(card, /rounded-\[18px\]/);
-assert.ok(board.includes('md:px-2.5 md:py-2') && board.includes('md:flex-row md:flex-wrap'),
- 'Compact toolbar must remain responsive across desktop and tablet widths');
+assert.ok(board.includes('md:px-2.5 md:py-2') && board.includes('lg:flex-row lg:items-center lg:justify-between'),
+ 'Compact toolbar must stack at tablet widths and align horizontally only when enough space exists');
 assert.ok(board.includes('aria-label="Create a new process"') &&
  board.includes('hover:bg-muted/60 hover:text-foreground'),
  'Process creation must keep a visible label on dark hover');
