@@ -54,7 +54,7 @@ export function ProcessSwitcher({
         <Button
           type="button"
           variant="outline"
-          className="h-11 min-w-0 flex-1 justify-between gap-2 rounded-xl border-border/70 bg-background/80 px-3.5 text-sm font-semibold shadow-sm transition-[border-color,box-shadow,background-color] hover:border-primary/35 hover:bg-background hover:shadow-md sm:w-auto sm:min-w-[178px]"
+          className="h-10 min-w-[135px] max-w-[260px] flex-[1_1_150px] justify-between gap-2 rounded-xl border-border/70 bg-background/80 px-3 text-sm font-semibold text-foreground shadow-sm transition-[border-color,box-shadow,background-color,color] hover:border-primary/35 hover:bg-muted/60 hover:text-foreground hover:shadow-md focus-visible:text-foreground sm:w-[210px] sm:flex-none"
           aria-label="Active process / project"
           aria-expanded={open}
         >
