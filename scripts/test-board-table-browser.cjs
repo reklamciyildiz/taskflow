@@ -161,6 +161,15 @@ async function main() {
       assert.ok(workspaceHeaderHeight <= (width < 768 ? 310 : width < 1024 ? 240 : 190),
         `${width}px: compact Board header unexpectedly tall (${workspaceHeaderHeight}px)`);
       checks++;
+      if (width === 768) {
+        const controlGroups = page.locator('#board-controls > div');
+        assert.equal(await controlGroups.count(), 2, 'Tablet toolbar must have two control groups');
+        const groupControls = await controlGroups.nth(0).boundingBox();
+        const stageControls = await controlGroups.nth(1).boundingBox();
+        assert.ok(groupControls && stageControls && stageControls.y >= groupControls.y + groupControls.height - 1,
+          'Tablet stage filters must be below grouping controls, never under an intercepting button');
+        checks += 2;
+      }
       const premiumCard = page.locator('[data-board-action-card="a"]');
       await premiumCard.waitFor();
       const cardStyle = await premiumCard.evaluate(element => {
