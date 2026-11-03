@@ -1,0 +1,48 @@
+name: Rich Notes editor quality
+
+on:
+  pull_request:
+    paths:
+      - 'components/editor/**'
+      - 'components/action/ActionNotes.tsx'
+      - 'app/globals.css'
+      - 'scripts/test-editor-slash-commands.ts'
+      - 'scripts/test-note-rich-editor.ts'
+      - 'scripts/test-attachments-browser.cjs'
+      - '.github/workflows/rich-notes-quality.yml'
+      - 'package.json'
+      - 'package-lock.json'
+  push:
+    branches: [main]
+    paths:
+      - 'components/editor/**'
+      - 'components/action/ActionNotes.tsx'
+      - 'app/globals.css'
+      - 'scripts/test-editor-slash-commands.ts'
+      - 'scripts/test-note-rich-editor.ts'
+      - 'scripts/test-attachments-browser.cjs'
+      - '.github/workflows/rich-notes-quality.yml'
+      - 'package.json'
+      - 'package-lock.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  notes-editor-contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Code blocks, Markdown paste, stable checklist IDs and JSON roundtrip
+        run: npm run test:editor
+      - name: Knowledge Hub compatibility
+        run: npm run test:knowledge-hub
+      - name: TypeScript
+        run: npx tsc --noEmit
