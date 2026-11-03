@@ -35,9 +35,18 @@ for (const [file, source, required] of [
   }
 }
 
-assert.match(board, /rounded-\[26px\]/);
+assert.match(board, /rounded-\[20px\]/);
 assert.match(board, /rounded-\[23px\]/);
 assert.match(card, /rounded-\[18px\]/);
+assert.ok(board.includes('md:px-2.5 md:py-2') && board.includes('md:flex-row md:flex-wrap'),
+ 'Compact toolbar must remain responsive across desktop and tablet widths');
+assert.ok(board.includes('aria-label="Create a new process"') &&
+ board.includes('hover:bg-muted/60 hover:text-foreground'),
+ 'Process creation must keep a visible label on dark hover');
+assert.ok(process.includes('hover:text-foreground') && process.includes('focus-visible:text-foreground'),
+ 'Process picker must not inherit the low-contrast outline hover foreground');
+assert.ok(browserQA.includes('Process button hover must preserve text contrast'),
+ 'Dark-mode hover behavior must be checked in a real browser fixture');
 assert.ok(board.includes('share = filteredTasks.length ? Math.round') &&
  board.includes('progressPercent = filteredTasks.length ? Math.round'),
  'Visible progress summaries must be based on actual filtered Actions');
