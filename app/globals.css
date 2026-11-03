@@ -932,3 +932,211 @@
 @media (prefers-reduced-motion: reduce) {
   .actiproc-note-format-button { transition: none; }
 }
+
+
+/* Notes handwriting & sketching: private, editable vector ink paper. */
+.actiproc-drawing-block {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  margin: 1rem 0;
+  padding: 0.75rem;
+  border-radius: 1rem;
+  border: 1px solid hsl(var(--border) / 0.9);
+  background: hsl(var(--background) / 0.65);
+  box-shadow: 0 12px 26px -24px hsl(var(--foreground) / 0.4);
+}
+.actiproc-drawing-block.is-selected {
+  border-color: hsl(var(--primary) / 0.55);
+  box-shadow: 0 0 0 1px hsl(var(--primary) / 0.25);
+}
+.actiproc-drawing-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  align-items: center;
+  margin: 0.15rem 0 0.62rem;
+  font-size: 0.73rem;
+  font-weight: 600;
+  color: hsl(var(--muted-foreground));
+}
+.actiproc-drawing-heading span:first-child {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: hsl(var(--foreground));
+}
+.actiproc-drawing-preview {
+  display: block;
+  width: min(100%, 680px);
+  max-width: 100%;
+  margin: 0 auto;
+  position: relative;
+  overflow: hidden;
+  border-radius: 0.65rem;
+  border: 1px solid #d5e1ea;
+  background: #fffdf9;
+  box-shadow: 0 8px 18px -18px #334155;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+.actiproc-drawing-preview:hover,
+.actiproc-drawing-preview:focus-visible {
+  border-color: hsl(var(--primary));
+  box-shadow: 0 0 0 2px hsl(var(--primary) / 0.17);
+  outline: none;
+}
+.actiproc-drawing-open {
+  position: absolute;
+  right: 0.55rem;
+  bottom: 0.55rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2rem;
+  padding: 0 0.65rem;
+  border-radius: 0.48rem;
+  background: hsl(218 42% 17% / 0.92);
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 600;
+  box-shadow: 0 3px 9px #1e293b30;
+}
+.actiproc-ink-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+  background: hsl(var(--background));
+}
+.actiproc-ink-studio { display: flex; flex-direction: column; gap: 0.6rem; min-width: 0; }
+.actiproc-ink-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0.52rem;
+  border: 1px solid hsl(var(--border) / 0.8);
+  border-radius: 0.75rem;
+  background: hsl(var(--card) / 0.88);
+}
+.actiproc-ink-tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 2.25rem;
+  border-radius: 0.56rem;
+  padding: 0 0.58rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+  border: 1px solid transparent;
+}
+.actiproc-ink-tool:hover,
+.actiproc-ink-tool.is-active,
+.actiproc-ink-tool:focus-visible {
+  background: hsl(var(--primary) / 0.13);
+  border-color: hsl(var(--primary) / 0.18);
+  color: hsl(var(--foreground));
+}
+.actiproc-ink-tool:disabled { opacity: 0.35; cursor: not-allowed; }
+.actiproc-ink-divider {
+  height: 1.35rem;
+  width: 1px;
+  background: hsl(var(--border));
+  margin: 0 0.22rem;
+}
+.actiproc-ink-palette { display: flex; flex-wrap: nowrap; gap: 0.33rem; align-items: center; }
+.actiproc-ink-swatch {
+  width: 1.3rem;
+  height: 1.3rem;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  border: 2px solid hsl(var(--background));
+  box-shadow: 0 0 0 1px hsl(var(--border));
+}
+.actiproc-ink-swatch.is-active {
+  box-shadow: 0 0 0 2px hsl(var(--primary)), 0 0 0 4px hsl(var(--background));
+}
+.actiproc-ink-swatch:focus-visible { outline: 2px solid hsl(var(--primary)); outline-offset: 3px; }
+.actiproc-ink-size {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.48rem;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.71rem;
+  font-weight: 600;
+}
+.actiproc-ink-size input { width: 5rem; accent-color: hsl(var(--primary)); cursor: pointer; }
+.actiproc-ink-layout {
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  justify-content: center;
+  padding: clamp(0.5rem, 2vw, 1.2rem);
+  border-radius: 0.88rem;
+  border: 1px solid hsl(var(--border) / 0.7);
+  background: repeating-linear-gradient(
+    45deg, hsl(var(--muted) / 0.8), hsl(var(--muted) / 0.8) 12px,
+    hsl(var(--background) / 0.5) 12px, hsl(var(--background) / 0.5) 24px
+  );
+  overflow: hidden;
+}
+.actiproc-ink-paper {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  background: #fffdf9;
+  border-radius: 0.36rem;
+  box-shadow: 0 14px 30px -24px #15223f88;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  cursor: crosshair;
+}
+.actiproc-drawing-preview .actiproc-ink-paper { cursor: pointer; box-shadow: none; border-radius: 0; }
+.actiproc-ink-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.71rem;
+  color: hsl(var(--muted-foreground));
+}
+.actiproc-ink-background { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 600; }
+.actiproc-ink-hint { flex: 1 1 12rem; min-width: 9rem; }
+.actiproc-ink-export,
+.actiproc-ink-done {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 2.1rem;
+  padding: 0 0.8rem;
+  border-radius: 0.55rem;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+.actiproc-ink-export:hover { background: hsl(var(--muted)); }
+.actiproc-ink-done {
+  border-color: hsl(var(--primary));
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+.actiproc-ink-done:hover { background: hsl(var(--primary) / 0.85); }
+@media (max-width: 640px) {
+  .actiproc-drawing-block { padding: 0.5rem; }
+  .actiproc-ink-dialog { gap: 0.6rem; padding: 0.75rem; }
+  .actiproc-ink-tool { min-height: 2.5rem; padding-inline: 0.5rem; }
+  .actiproc-ink-toolbar { gap: 0.25rem; padding: 0.4rem; }
+  .actiproc-ink-size { margin-left: auto; }
+  .actiproc-ink-hint { flex-basis: 100%; order: 3; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .actiproc-drawing-preview { transition: none; }
+}
