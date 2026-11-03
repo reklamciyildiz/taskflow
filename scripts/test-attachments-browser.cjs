@@ -63,6 +63,7 @@ async function main() {
     if (url.pathname === "/api/attachments" && req.method === "GET") {
       json(res, {
         enabled: true,
+        pdfUploadsEnabled: true,
         hasMore: false,
         files: [...rows.values()].filter(
           (row) => row.taskId === url.searchParams.get("taskId") && row.ready,
