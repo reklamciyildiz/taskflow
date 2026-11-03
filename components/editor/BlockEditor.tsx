@@ -2,6 +2,7 @@ import React, { forwardRef, useImperativeHandle } from 'react';
 import { useEditor, useEditorState, EditorContent } from '@tiptap/react';
 import { BubbleMenu } from '@tiptap/react/menus';
 import StarterKit from '@tiptap/starter-kit';
+import { Fragment, Slice } from '@tiptap/pm/model';
 import TaskList from '@tiptap/extension-task-list';
 import Placeholder from '@tiptap/extension-placeholder';
 import Highlight from '@tiptap/extension-highlight';
@@ -9,11 +10,14 @@ import { TextSelection } from '@tiptap/pm/state';
 import type { EditorView } from '@tiptap/pm/view';
 import { createPortal } from 'react-dom';
 import { AdvancedTaskItem } from './extensions/AdvancedTaskItem';
+import { PremiumCodeBlock } from './extensions/PremiumCodeBlock';
+import { parseRichNoteClipboard } from './rich-paste';
 import { Button } from '@/components/ui/button';
 import {
   Bold,
   CheckSquare,
   Code2,
+  List as ListIcon,
   Heading1,
   Heading2,
   Highlighter,
@@ -92,6 +96,7 @@ export type ChecklistSlashCommand =
   | 'text'
   | 'bulletList'
   | 'orderedList'
+  | 'codeBlock'
   | 'bold'
   | 'italic'
   | 'underline'
@@ -128,6 +133,7 @@ const CHECKLIST_SLASH_COMMANDS: Array<{
   { id: 'text', label: 'Text', keywords: 'text paragraph', icon: Type },
   { id: 'bulletList', label: 'Bulleted list', keywords: 'bullet list', icon: List },
   { id: 'orderedList', label: 'Numbered list', keywords: 'numbered ordered list', icon: ListOrdered },
+  { id: 'codeBlock', label: 'Code block', keywords: 'code block snippet programming terminal paste', icon: Code2 },
   { id: 'divider', label: 'Divider', keywords: 'divider separator rule', icon: Minus },
 ];
 
@@ -228,6 +234,12 @@ export function applyChecklistSlashCommand(
     transaction.setSelection(
       TextSelection.near(transaction.doc.resolve(menu.blockFrom + 3)),
     );
+  } else if (command === 'codeBlock') {
+    // Replace slash placeholder with a real code node; untouched remaining
+    // text is kept verbatim, including code indentation and line breaks.
+    transaction.replaceWith(menu.blockFrom, menu.blockTo,
+      schema.nodes.codeBlock.create({ language: 'plaintext' }, remainingContent));
+    transaction.setSelection(TextSelection.near(transaction.doc.resolve(menu.blockFrom + 1)));
   } else if (command === 'divider') {
     if (menu.hasTrailingContent) return false;
     transaction.replaceWith(menu.blockFrom, menu.blockTo, schema.nodes.horizontalRule.create());
@@ -358,6 +370,7 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
     shouldRerenderOnTransaction: false,
     extensions: [
       StarterKit.configure({
+        codeBlock: checklistMode ? {} : false,
         bulletList: { keepMarks: true, keepAttributes: false },
         orderedList: { keepMarks: true, keepAttributes: false },
         // In Checklist mode these are compact semantic section levels. Notes
@@ -370,6 +383,7 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
         },
       }),
       Highlight.configure({ multicolor: true }),
+      ...(!checklistMode ? [PremiumCodeBlock] : []),
       TaskList,
       ...(!checklistMode ? [AttachmentNode] : []),
       AdvancedTaskItem.configure({
@@ -448,10 +462,26 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
       });
     },
     editorProps: {
-      handlePaste: (_view,event) => {
-        const files=Array.from(event.clipboardData?.files??[]);
-        if(!prepareAttachmentTarget || !attachments?.canEdit || !files.length)return false;
-        uploadAtSelectionRef.current(files);return true;
+      handlePaste: (view, event) => {
+        const files = Array.from(event.clipboardData?.files ?? []);
+        if (prepareAttachmentTarget && attachments?.canEdit && files.length) {
+          uploadAtSelectionRef.current(files);
+          return true;
+        }
+        // HTML carries source semantics (headings, lists, links, bold, code).
+        // Let ProseMirror parse it with its schema; never flatten it to text.
+        if (checklistMode || !view.editable || event.clipboardData?.getData('text/html')?.trim()) return false;
+        const blocks = parseRichNoteClipboard(event.clipboardData?.getData('text/plain') ?? '');
+        if (!blocks?.length) return false;
+        try {
+          const fragment = Fragment.fromArray(blocks.map(block => view.state.schema.nodeFromJSON(block)));
+          view.dispatch(view.state.tr.replaceSelection(new Slice(fragment, 0, 0)).scrollIntoView());
+          event.preventDefault();
+          return true;
+        } catch {
+          // An unfamiliar structure should paste normally, never vanish.
+          return false;
+        }
       },
       handleDrop: (view,event) => {
         const files=Array.from(event.dataTransfer?.files??[]);
@@ -660,6 +690,12 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
       underline: Boolean(currentEditor?.isActive('underline')),
       strike: Boolean(currentEditor?.isActive('strike')),
       code: Boolean(currentEditor?.isActive('code')),
+      codeBlock: Boolean(currentEditor?.isActive('codeBlock')),
+      blockStyle: currentEditor?.isActive('codeBlock') ? 'codeBlock'
+        : currentEditor?.isActive('heading', { level: 1 }) ? 'heading1'
+        : currentEditor?.isActive('heading', { level: 2 }) ? 'heading2'
+        : currentEditor?.isActive('heading', { level: 3 }) ? 'heading3'
+        : currentEditor?.isActive('blockquote') ? 'blockquote' : 'paragraph',
       link: Boolean(currentEditor?.isActive('link')),
       highlight: Boolean(currentEditor?.isActive('highlight')),
     }),
@@ -845,7 +881,7 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
   };
 
   return (
-    <div data-attachment-note={prepareAttachmentTarget ? '' : undefined} className={cn('relative flex flex-col w-full', className)}>
+    <div data-attachment-note={prepareAttachmentTarget ? '' : undefined} className={cn('relative flex flex-col w-full', !checklistMode && 'actiproc-note-editor', className)}>
       {prepareAttachmentTarget && attachments?.enabled && attachments.canEdit && <div className="flex py-1">
         <input ref={fileInput} type="file" multiple accept={attachments.pdfUploadsEnabled ? ATTACHMENT_ACCEPT : IMAGE_ATTACHMENT_ACCEPT} className="sr-only" aria-label={attachments.pdfUploadsEnabled ? "Insert image or PDF" : "Insert image"} onChange={e=>{uploadAtSelectionRef.current(Array.from(e.target.files??[]));e.target.value='';}}/>
         <button type="button" className="flex min-h-9 items-center gap-1 rounded px-2 text-xs text-muted-foreground hover:bg-muted" onMouseDown={e=>e.preventDefault()} onClick={()=>fileInput.current?.click()}><Paperclip className="h-3.5 w-3.5"/>Image / file</button>
@@ -861,6 +897,68 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
           </DialogContent>
         </Dialog>
       </div>}
+      {!checklistMode && editable && (
+        <div className="actiproc-note-toolbar" role="toolbar" aria-label="Note formatting">
+          <select
+            aria-label="Block style"
+            title="Block style"
+            className="actiproc-note-style"
+            value={formattingState?.blockStyle ?? 'paragraph'}
+            onChange={event => {
+              const style = event.target.value;
+              if (style === 'codeBlock') editor.chain().focus().setCodeBlock({ language: 'plaintext' }).run();
+              else if (style === 'blockquote') editor.chain().focus().setBlockquote().run();
+              else if (style.startsWith('heading')) editor.chain().focus().setHeading({ level: Number(style.slice(-1)) as 1 | 2 | 3 }).run();
+              else editor.chain().focus().setParagraph().run();
+            }}
+          >
+            <option value="paragraph">Text</option>
+            <option value="heading1">Heading 1</option>
+            <option value="heading2">Heading 2</option>
+            <option value="heading3">Heading 3</option>
+            <option value="blockquote">Quote</option>
+            <option value="codeBlock">Code block</option>
+          </select>
+          <span className="actiproc-note-toolbar-divider" aria-hidden="true" />
+          {[
+            { label: 'Bold', icon: Bold, action: () => editor.chain().focus().toggleBold().run(), active: Boolean(formattingState?.bold) },
+            { label: 'Italic', icon: Italic, action: () => editor.chain().focus().toggleItalic().run(), active: Boolean(formattingState?.italic) },
+            { label: 'Underline', icon: Underline, action: () => editor.chain().focus().toggleUnderline().run(), active: Boolean(formattingState?.underline) },
+            { label: 'Inline code', icon: Code2, action: () => editor.chain().focus().toggleCode().run(), active: Boolean(formattingState?.code) },
+            { label: 'Bulleted list', icon: ListIcon, action: () => editor.chain().focus().toggleBulletList().run(), active: editor.isActive('bulletList') },
+            { label: 'Numbered list', icon: ListOrdered, action: () => editor.chain().focus().toggleOrderedList().run(), active: editor.isActive('orderedList') },
+          ].map(item => {
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.label}
+                type="button"
+                className={cn('actiproc-note-format-button', item.active && 'is-active')}
+                aria-label={item.label}
+                aria-pressed={item.active}
+                title={item.label}
+                onMouseDown={event => event.preventDefault()}
+                onClick={item.action}
+              >
+                <Icon aria-hidden="true" className="h-4 w-4" />
+              </button>
+            );
+          })}
+          <span className="actiproc-note-toolbar-divider" aria-hidden="true" />
+          <button
+            type="button"
+            className={cn('actiproc-note-format-button actiproc-note-code-button', formattingState?.codeBlock && 'is-active')}
+            title="Insert code block"
+            aria-label="Insert code block"
+            aria-pressed={Boolean(formattingState?.codeBlock)}
+            onMouseDown={event => event.preventDefault()}
+            onClick={() => editor.chain().focus().toggleCodeBlock({ language: 'plaintext' }).run()}
+          >
+            <Code2 aria-hidden="true" className="h-4 w-4" />
+            <span>Code block</span>
+          </button>
+        </div>
+      )}
       {hideToolbar || !editable ? null : (
       <div className="flex items-center gap-1 px-1 py-1.5 opacity-40 hover:opacity-100 focus-within:opacity-100 transition-opacity">
         <Button
