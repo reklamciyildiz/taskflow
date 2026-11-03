@@ -32,7 +32,7 @@ import type { NoteType } from '@/lib/types';
 import { AttachmentNode } from './extensions/AttachmentNode';
 import { AttachmentList, useAttachments } from '@/components/attachments/AttachmentProvider';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { ATTACHMENT_ACCEPT, type AttachmentTarget } from '@/lib/attachments';
+import { ATTACHMENT_ACCEPT, IMAGE_ATTACHMENT_ACCEPT, type AttachmentTarget } from '@/lib/attachments';
 import { Paperclip, Image as ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -847,7 +847,7 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
   return (
     <div data-attachment-note={prepareAttachmentTarget ? '' : undefined} className={cn('relative flex flex-col w-full', className)}>
       {prepareAttachmentTarget && attachments?.enabled && attachments.canEdit && <div className="flex py-1">
-        <input ref={fileInput} type="file" multiple accept={ATTACHMENT_ACCEPT} className="sr-only" aria-label="Insert image or PDF" onChange={e=>{uploadAtSelectionRef.current(Array.from(e.target.files??[]));e.target.value='';}}/>
+        <input ref={fileInput} type="file" multiple accept={attachments.pdfUploadsEnabled ? ATTACHMENT_ACCEPT : IMAGE_ATTACHMENT_ACCEPT} className="sr-only" aria-label={attachments.pdfUploadsEnabled ? "Insert image or PDF" : "Insert image"} onChange={e=>{uploadAtSelectionRef.current(Array.from(e.target.files??[]));e.target.value='';}}/>
         <button type="button" className="flex min-h-9 items-center gap-1 rounded px-2 text-xs text-muted-foreground hover:bg-muted" onMouseDown={e=>e.preventDefault()} onClick={()=>fileInput.current?.click()}><Paperclip className="h-3.5 w-3.5"/>Image / file</button>
         <button type="button" className="min-h-9 rounded px-2 text-xs text-muted-foreground hover:bg-muted" onMouseDown={e=>e.preventDefault()} onClick={()=>setLibraryOpen(true)}>Existing file</button>
         <Dialog open={libraryOpen} onOpenChange={setLibraryOpen}>
