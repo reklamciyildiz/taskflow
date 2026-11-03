@@ -11,12 +11,15 @@ import type { EditorView } from '@tiptap/pm/view';
 import { createPortal } from 'react-dom';
 import { AdvancedTaskItem } from './extensions/AdvancedTaskItem';
 import { PremiumCodeBlock } from './extensions/PremiumCodeBlock';
+import { DrawingNode } from './extensions/DrawingNode';
+import { emptyInk } from './drawing-model';
 import { parseRichNoteClipboard } from './rich-paste';
 import { Button } from '@/components/ui/button';
 import {
   Bold,
   CheckSquare,
   Code2,
+  PenLine,
   List as ListIcon,
   Heading1,
   Heading2,
@@ -97,6 +100,7 @@ export type ChecklistSlashCommand =
   | 'bulletList'
   | 'orderedList'
   | 'codeBlock'
+  | 'drawing'
   | 'bold'
   | 'italic'
   | 'underline'
@@ -134,6 +138,7 @@ const CHECKLIST_SLASH_COMMANDS: Array<{
   { id: 'bulletList', label: 'Bulleted list', keywords: 'bullet list', icon: List },
   { id: 'orderedList', label: 'Numbered list', keywords: 'numbered ordered list', icon: ListOrdered },
   { id: 'codeBlock', label: 'Code block', keywords: 'code block snippet programming terminal paste', icon: Code2 },
+  { id: 'drawing', label: 'Handwriting / drawing', keywords: 'draw sketch pen tablet handwriting canvas whiteboard ink', icon: PenLine },
   { id: 'divider', label: 'Divider', keywords: 'divider separator rule', icon: Minus },
 ];
 
@@ -234,6 +239,12 @@ export function applyChecklistSlashCommand(
     transaction.setSelection(
       TextSelection.near(transaction.doc.resolve(menu.blockFrom + 3)),
     );
+  } else if (command === 'drawing') {
+    const drawing = schema.nodes.drawing.create({ drawing: emptyInk() });
+    transaction.replaceWith(menu.blockFrom, menu.blockTo, [
+      drawing, schema.nodes.paragraph.create(null, remainingContent),
+    ]);
+    transaction.setSelection(TextSelection.near(transaction.doc.resolve(menu.blockFrom + drawing.nodeSize + 1)));
   } else if (command === 'codeBlock') {
     // Replace slash placeholder with a real code node; untouched remaining
     // text is kept verbatim, including code indentation and line breaks.
@@ -383,7 +394,7 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
         },
       }),
       Highlight.configure({ multicolor: true }),
-      ...(!checklistMode ? [PremiumCodeBlock] : []),
+      ...(!checklistMode ? [PremiumCodeBlock, DrawingNode] : []),
       TaskList,
       ...(!checklistMode ? [AttachmentNode] : []),
       AdvancedTaskItem.configure({
@@ -944,6 +955,21 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
               </button>
             );
           })}
+          <span className="actiproc-note-toolbar-divider" aria-hidden="true" />
+          <button
+            type="button"
+            className="actiproc-note-format-button actiproc-note-code-button"
+            title="Insert handwriting / drawing"
+            aria-label="Insert handwriting / drawing"
+            onMouseDown={event => event.preventDefault()}
+            onClick={() => editor.chain().focus().insertContent([
+              { type: 'drawing', attrs: { drawing: emptyInk() } },
+              { type: 'paragraph' },
+            ]).run()}
+          >
+            <PenLine aria-hidden="true" className="h-4 w-4" />
+            <span>Draw</span>
+          </button>
           <span className="actiproc-note-toolbar-divider" aria-hidden="true" />
           <button
             type="button"
