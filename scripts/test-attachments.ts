@@ -337,66 +337,67 @@ async function main() {
   checks += 3;
   delete process.env.ATTACHMENT_SCANNER_URL;
   delete process.env.ATTACHMENT_SCANNER_TOKEN;
-  delete process.env.ATTACHMENT_PDF_SECURITY_MODE;
-  delete process.env.ATTACHMENT_PDF_BETA_USER_IDS;
-  await assert.rejects(processAttachmentBytes(pdf, "application/pdf"));
-  checks++;
+  // Deprecated beta flags must not bypass scanning for any user.
   process.env.ATTACHMENT_PDF_SECURITY_MODE = "trusted_beta";
   process.env.ATTACHMENT_PDF_BETA_USER_IDS = id(1);
-  assert.deepEqual(
-    (
-      await processAttachmentBytes(pdf, "application/pdf", {
-        trustedBeta: true,
-      })
-    ).bytes,
-    pdf,
+  await assert.rejects(
+    processAttachmentBytes(pdf, "application/pdf"),
+    /document security scanning is not configured/,
   );
-  checks++;
+  await assert.rejects(
+    beginAttachment(
+      { task: { id: id(4), organization_id: id(2), team_id: id(3) }, user: { id: id(1) } },
+      { taskId: id(4) },
+      { filename: "beta.pdf", mimeType: "application/pdf", size: pdf.length },
+    ),
+    /document security scanning is not configured/,
+  );
+  checks += 2;
+
+  process.env.ATTACHMENT_SCANNER_URL = "https://scanner.example.test/scan";
+  process.env.ATTACHMENT_SCANNER_TOKEN = "test";
+  const scannerOriginalFetch = global.fetch;
+  global.fetch = async () => new Response(JSON.stringify({ verdict: "infected" }));
+  await assert.rejects(
+    processAttachmentBytes(pdf, "application/pdf"),
+    /failed the security scan/,
+  );
+  global.fetch = async () => new Response(JSON.stringify({
+    verdict: "clean", sha256: "0".repeat(64),
+  }));
+  await assert.rejects(
+    processAttachmentBytes(pdf, "application/pdf"),
+    /could not verify/,
+  );
+  global.fetch = async () => new Response(JSON.stringify({
+    verdict: "clean", sha256: createHash("sha256").update(pdf).digest("hex"),
+  }));
+  assert.deepEqual((await processAttachmentBytes(pdf, "application/pdf")).bytes, pdf);
+  global.fetch = scannerOriginalFetch;
+  checks += 3;
+
+  // PDF reservations work for ALL authorized users, including those not in
+  // the obsolete beta list. They always use the scanned-object namespace.
   process.env.R2_ACCOUNT_ID = "fixture";
   process.env.R2_ACCESS_KEY_ID = "fixture";
   process.env.R2_SECRET_ACCESS_KEY = "fixture";
   process.env.R2_BUCKET = "fixture";
-  await beginAttachment(
-    {
-      task: { id: id(4), organization_id: id(2), team_id: id(3) },
-      user: { id: id(1) },
-    },
-    { taskId: id(4) },
-    { filename: "beta.pdf", mimeType: "application/pdf", size: pdf.length },
-  );
-  assert.match(lastAttachmentInsert.object_key, /^files\/unscanned-pdf\//);
-  process.env.ATTACHMENT_PDF_BETA_USER_IDS = id(99);
-  await assert.rejects(
-    beginAttachment(
+  for (const userId of [id(1), id(99)]) {
+    await beginAttachment(
       {
         task: { id: id(4), organization_id: id(2), team_id: id(3) },
-        user: { id: id(1) },
+        user: { id: userId },
       },
       { taskId: id(4) },
-      { filename: "denied.pdf", mimeType: "application/pdf", size: pdf.length },
-    ),
-  );
-  checks += 2;
-  process.env.ATTACHMENT_SCANNER_URL = "https://scanner.example.test/scan";
-  process.env.ATTACHMENT_SCANNER_TOKEN = "test";
-  const originalFetch = global.fetch;
-  global.fetch = async () =>
-    new Response(JSON.stringify({ verdict: "infected" }));
-  await assert.rejects(processAttachmentBytes(pdf, "application/pdf"));
-  checks++;
-  global.fetch = async () =>
-    new Response(
-      JSON.stringify({
-        verdict: "clean",
-        sha256: createHash("sha256").update(pdf).digest("hex"),
-      }),
+      { filename: "document.PDF", mimeType: "application/octet-stream", size: pdf.length },
     );
-  assert.deepEqual(
-    (await processAttachmentBytes(pdf, "application/pdf")).bytes,
-    pdf,
-  );
-  checks++;
-  global.fetch = originalFetch;
+    assert.equal(lastAttachmentInsert.mime_type, "application/pdf");
+    assert.ok(lastAttachmentInsert.object_key.startsWith("files/"));
+    assert.ok(!lastAttachmentInsert.object_key.includes("unscanned-pdf"));
+    checks += 3;
+  }
+  delete process.env.ATTACHMENT_PDF_SECURITY_MODE;
+  delete process.env.ATTACHMENT_PDF_BETA_USER_IDS;
   const url = new URL(
     await signedObjectUrl("pending/opaque", "PUT", "image/png", undefined, 100),
   );
