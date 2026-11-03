@@ -34,7 +34,7 @@ async function main() {
   try {
     for (const width of [320, 375, 430, 768, 1440]) {
       const page = await browser.newPage({ viewport: { width, height: 900 }, hasTouch: width < 768 });
-      page.on('pageerror', error => errors.push(error.message));
+      page.on('pageerror', error => errors.push(error.stack || error.message));
       let failNext = false;
       let failProperty = false;
       let readDelay = 0;
@@ -126,7 +126,41 @@ async function main() {
       await priority.focus(); await page.keyboard.press('ArrowDown'); await page.keyboard.press('Escape');
       assert.equal(await priority.evaluate(element => document.activeElement === element), true); checks++;
       await page.getByRole('button', { name: 'Board fixture' }).click();
-      await page.getByRole('button', { name: 'Move or edit Open Action', exact: true }).waitFor();
+      try {
+        await page.getByRole('button', { name: 'Move or edit Open Action', exact: true }).waitFor({ timeout: 12000 });
+      } catch (error) {
+        console.error('Board failed to render expected Action menu:', errors);
+        const firstScriptLocation = errors.join('\n').match(/app\.js:(\d+):(\d+)/);
+        if (firstScriptLocation) {
+          const lineNo = Number(firstScriptLocation[1]);
+          const bundled = fs.readFileSync(path.join(output, 'app.js'), 'utf8').split('\n');
+          const nearby = bundled.slice(Math.max(0, lineNo - 10), lineNo + 9)
+            .map((line, index) => String(lineNo - 9 + index) + ': ' + line.slice(0, 240)).join('\n');
+          console.error('Bundled JS at first failure:', nearby);
+        }
+        console.error('Board DOM text:', (await page.locator('body').innerText()).slice(0, 3500));
+        console.error('Board HTML excerpt:', (await page.locator('#root').innerHTML()).slice(0, 3000));
+        await page.screenshot({ path: path.join(output, `board-failure-${width}.png`), fullPage: true });
+        throw error;
+      }
+      await page.getByRole('heading', { name: 'SmartSafe AI', exact: true }).waitFor();
+      const premiumCard = page.locator('[data-board-action-card="a"]');
+      await premiumCard.waitFor();
+      const cardStyle = await premiumCard.evaluate(element => {
+        const computed = getComputedStyle(element);
+        return { radius: parseFloat(computed.borderTopLeftRadius), padding: computed.paddingTop,
+          background: computed.backgroundColor, minHeight: parseFloat(computed.minHeight) };
+      });
+      assert.ok(cardStyle.radius >= 14, 'Action cards must retain premium rounded surfaces');
+      assert.ok(cardStyle.minHeight >= 140, 'Action cards must keep a stable reading rhythm');
+      assert.equal(cardStyle.padding, '0px', 'Card content owns its inner spacing');
+      if (width >= 768) {
+        const stage = page.locator('section[aria-label^="Yapılacaklar:"]').first();
+        await stage.waitFor();
+        assert.ok((await stage.boundingBox()).width >= 260, 'Responsive stage width must remain readable');
+        assert.ok(await stage.getByText('Stage 01', { exact: true }).count());
+      }
+      checks += 5;
       await noOverflow('Board');
       if (width === 375) {
         await page.getByRole('button', { name: 'Active process / project' }).click();
@@ -172,7 +206,7 @@ async function main() {
       if (width < 768) {
         await page.getByRole('combobox', { name: 'Active board group' }).click();
         await page.getByRole('option', { name: 'Empty group (0)', exact: true }).click();
-        await page.getByText('No Actions in this group.', { exact: true }).waitFor();
+        await page.getByText('Nothing here yet', { exact: true }).waitFor();
         await page.getByRole('combobox', { name: 'Active board group' }).click();
         await page.getByRole('option', { name: /Yapılacaklar/ }).click(); checks++;
       }
@@ -225,7 +259,9 @@ async function main() {
       assert.equal(await priority.isDisabled(), true); checks++;
       await noOverflow('read-only Table');
       await page.screenshot({ path: path.join(output, `table-${width}.png`), fullPage: true });
-      if (width === 1440) {
+      if (width === 1440 && !process.argv.includes('--board-only')) {
+        // Separate Planner integration exercise: excluded only from Board-only CI.
+        // Original combined Board + Planner coverage remains available without --board-only.
         // Real Planner component: Process Done changes, while every task stays unchanged.
         await page.evaluate(() => window.qa.setViewer(false));
         let done = false;

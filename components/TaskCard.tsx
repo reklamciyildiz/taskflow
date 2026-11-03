@@ -13,7 +13,9 @@ import {
   AlertTriangle,
   Calendar,
   GripVertical,
-  ArrowRightLeft
+  ArrowRightLeft,
+  ListTodo,
+  CheckCircle2
 } from 'lucide-react';
 import { useTaskContext, type Task } from '@/components/TaskContext';
 import { cn } from '@/lib/utils';
@@ -36,10 +38,16 @@ interface TaskCardProps {
 }
 
 const priorityColors = {
-  low: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
-  medium: 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400',
-  high: 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400',
-  urgent: 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400'
+  low: 'border-slate-500/20 bg-slate-500/[0.075] text-slate-600 dark:text-slate-300',
+  medium: 'border-blue-500/20 bg-blue-500/[0.085] text-blue-600 dark:text-blue-300',
+  high: 'border-amber-500/25 bg-amber-500/[0.09] text-amber-700 dark:text-amber-300',
+  urgent: 'border-rose-500/25 bg-rose-500/[0.09] text-rose-600 dark:text-rose-300',
+};
+const priorityAccents = {
+  low: 'bg-slate-400/75',
+  medium: 'bg-blue-400/85',
+  high: 'bg-amber-400/90',
+  urgent: 'bg-rose-400',
 };
 
 export function TaskCard({ task, dragHandleProps, onTaskClick, propertyBadges = [] }: TaskCardProps) {
@@ -64,7 +72,8 @@ export function TaskCard({ task, dragHandleProps, onTaskClick, propertyBadges = 
     return format(task.dueDate, 'MMM d');
   };
   
-  const isDueSoon = task.dueDate && isPast(task.dueDate) && !isTerminalBoardColumn(task.status, boardColumns);
+  const isCompleted = isTerminalBoardColumn(task.status, boardColumns);
+  const isDueSoon = task.dueDate && isPast(task.dueDate) && !isCompleted;
 
   const handleCardClick = (e: React.MouseEvent) => {
     if (Date.now() < blockCardOpenUntilRef.current) {
@@ -82,26 +91,35 @@ export function TaskCard({ task, dragHandleProps, onTaskClick, propertyBadges = 
 
   return (
     <Card 
-      className="min-w-0 cursor-pointer border bg-card p-3 transition-shadow duration-200 hover:shadow-md group"
+      className="group relative flex min-h-[152px] min-w-0 cursor-pointer flex-col overflow-hidden rounded-[18px] border border-border/70 bg-card/90 p-0 shadow-[0_8px_26px_-19px_rgba(15,23,42,0.6)] transition-[border-color,box-shadow,background-color] duration-200 hover:border-primary/30 hover:bg-card hover:shadow-[0_15px_32px_-18px_rgba(15,23,42,0.5)] focus-within:border-primary/40 focus-within:ring-1 focus-within:ring-primary/15"
       aria-busy={movePending}
+      data-board-action-card={task.id}
       onClick={handleCardClick}
     >
-      <div className="space-y-2">
+      <div aria-hidden="true" className={cn('absolute inset-y-0 left-0 w-[3px]', priorityAccents[task.priority])} />
+      <div className="flex min-w-0 flex-1 flex-col gap-2.5 px-3.5 pb-3.5 pt-3.5 sm:px-4">
         {/* Header */}
         <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-2 flex-1 min-w-0">
+          <div className="min-w-0 flex-1">
+            <div className="mb-2 flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-[0.15em] text-muted-foreground/85">
+              {isCompleted ? <CheckCircle2 className="h-3 w-3 text-emerald-500" aria-hidden />
+                : <ListTodo className="h-3 w-3 text-primary/65" aria-hidden />}
+              {isCompleted ? 'Completed Action' : 'Action'}
+            </div>
+            <div className="flex min-w-0 items-start gap-1.5">
             {dragHandleProps ? (
               <div 
                 {...dragHandleProps}
                 data-drag-handle="true"
-                className="cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity flex-shrink-0"
+                className="mt-0.5 shrink-0 cursor-grab rounded p-0.5 text-muted-foreground/70 opacity-30 transition-opacity hover:bg-muted/70 hover:opacity-100 active:cursor-grabbing group-hover:opacity-100 focus-visible:opacity-100" aria-label="Drag Action to reorder"
               >
-                <GripVertical className="h-4 w-4 text-muted-foreground" />
+                <GripVertical className="h-4 w-4 text-muted-foreground/70" />
               </div>
             ) : null}
-            <button type="button" onClick={() => onTaskClick?.(task)} className="min-w-0 flex-1 break-words text-left text-sm font-medium leading-snug line-clamp-3 md:line-clamp-2 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" title={task.title}>
+            <button type="button" onClick={() => onTaskClick?.(task)} className="min-w-0 flex-1 break-words text-left text-[13px] font-semibold leading-[1.5] tracking-[-0.012em] text-foreground line-clamp-3 hover:text-primary focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" title={task.title}>
               {task.title}
             </button>
+            </div>
           </div>
           {(canEdit || canDelete) && (
             <DropdownMenu>
@@ -112,12 +130,12 @@ export function TaskCard({ task, dragHandleProps, onTaskClick, propertyBadges = 
                   aria-label={`Move or edit ${task.title}`}
                   disabled={movePending}
                   className={cn(
-                    'h-11 shrink-0 gap-1 px-2 md:h-7 md:w-7 md:p-0 transition-opacity',
+                    'h-11 shrink-0 gap-1 rounded-xl border border-transparent px-2 text-muted-foreground md:mt-0.5 md:h-8 md:w-8 md:p-0 transition-[opacity,background-color,border-color] hover:border-border/60 hover:bg-muted/65',
                     // Mobile: always visible. Desktop: show on hover.
-                    'opacity-100 md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100'
+                    'opacity-100 md:opacity-25 md:group-hover:opacity-100 md:focus-visible:opacity-100'
                   )}
                 >
-                  <MoreVertical className="h-3 w-3" />
+                  <MoreVertical className="h-4 w-4" aria-hidden />
                   <span className="text-xs md:hidden">{canEdit ? 'Move to' : 'Actions'}</span>
                 </Button>
               </DropdownMenuTrigger>
@@ -193,7 +211,7 @@ export function TaskCard({ task, dragHandleProps, onTaskClick, propertyBadges = 
 
         {/* Description */}
         {task.description && (
-          <p className="line-clamp-1 text-xs leading-relaxed text-muted-foreground">
+          <p className="line-clamp-2 text-[11px] leading-[1.55] text-muted-foreground">
             {task.description}
           </p>
         )}
@@ -202,13 +220,13 @@ export function TaskCard({ task, dragHandleProps, onTaskClick, propertyBadges = 
         {task.attachments.length > 0 && (
           <div className="flex flex-wrap gap-1">
             {task.attachments.slice(0, 2).map((attachment, index) => (
-              <div key={index} className="flex items-center gap-1 text-xs bg-muted/50 px-2 py-1 rounded">
+              <div key={index} className="flex max-w-full items-center gap-1 rounded-lg border border-border/50 bg-muted/40 px-2 py-1 text-[10px] text-muted-foreground">
                 <Paperclip className="h-3 w-3" />
                 <span className="truncate max-w-20">{attachment}</span>
               </div>
             ))}
             {task.attachments.length > 2 && (
-              <div className="text-xs text-muted-foreground px-2 py-1">
+              <div className="px-2 py-1 text-[10px] text-muted-foreground">
                 +{task.attachments.length - 2} more
               </div>
             )}
@@ -219,7 +237,7 @@ export function TaskCard({ task, dragHandleProps, onTaskClick, propertyBadges = 
         {task.customerName && (
           <Badge 
             variant="outline" 
-            className="max-w-full truncate text-xs px-2 py-0.5 bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-900/50 dark:text-purple-200 dark:border-purple-700"
+            className="max-w-full truncate rounded-full border-violet-500/20 bg-violet-500/[0.075] px-2.5 py-0.5 text-[10px] font-semibold text-violet-700 dark:text-violet-300"
           >
             {task.customerName}
           </Badge>
@@ -228,7 +246,7 @@ export function TaskCard({ task, dragHandleProps, onTaskClick, propertyBadges = 
         {propertyBadges.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
             {propertyBadges.slice(0, 2).map((badge) => (
-              <Badge key={badge.id} variant="outline" className="max-w-full gap-1.5 px-2 py-0.5 text-[11px] font-normal">
+              <Badge key={badge.id} variant="outline" className="max-w-full gap-1.5 rounded-full border-border/60 bg-muted/25 px-2.5 py-1 text-[10px] font-medium text-foreground/85">
                 <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', badge.colorClass)} />
                 <span className="truncate">{badge.label}</span>
               </Badge>
@@ -237,20 +255,21 @@ export function TaskCard({ task, dragHandleProps, onTaskClick, propertyBadges = 
         )}
 
         {/* Priority and Due Date */}
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="mt-auto flex flex-wrap items-center gap-1.5 border-t border-border/45 pt-2.5">
           <Badge 
             variant="secondary" 
-            className={cn("text-xs px-2 py-0.5", priorityColors[task.priority])}
+            className={cn("gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-semibold tracking-[0.025em] shadow-none", priorityColors[task.priority])}
           >
-            {task.priority.toUpperCase()}
+            <span aria-hidden="true" className={cn('h-1.5 w-1.5 rounded-full', priorityAccents[task.priority])} />
+              {task.priority.toUpperCase()}
           </Badge>
           
           {task.dueDate && (
             <div className={cn(
-              "flex items-center gap-1 text-xs px-2 py-0.5 rounded-md",
+              "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-medium",
               isDueSoon 
-                ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300" 
-                : "bg-muted text-muted-foreground"
+                ? "border-rose-500/20 bg-rose-500/[0.08] text-rose-600 dark:text-rose-300"
+                : "border-border/60 bg-muted/35 text-muted-foreground"
             )}>
               {isDueSoon ? (
                 <AlertTriangle className="h-3 w-3" />
@@ -263,18 +282,18 @@ export function TaskCard({ task, dragHandleProps, onTaskClick, propertyBadges = 
         </div>
 
         {/* Footer */}
-        {(assignee || task.attachments.length > 0 || task.comments.length > 0) && <div className="flex items-center justify-between pt-1">
+        {(assignee || task.attachments.length > 0 || task.comments.length > 0) && <div className="flex items-center justify-between gap-2 pt-0.5">
           {/* Assignee */}
           <div className="flex items-center gap-2">
             {assignee && (
               <div className="flex items-center gap-2">
-                <Avatar className="h-6 w-6">
+                <Avatar className="h-6 w-6 border border-border/70 ring-2 ring-background">
                   <AvatarImage src={assignee.avatar} alt={assignee.name} />
                   <AvatarFallback className="text-xs">
                     {assignee.name.charAt(0)}
                   </AvatarFallback>
                 </Avatar>
-                <span className="text-xs text-muted-foreground">
+                <span className="max-w-[110px] truncate text-[11px] font-medium text-muted-foreground">
                   {assignee.name.split(' ')[0]}
                 </span>
               </div>
@@ -282,7 +301,7 @@ export function TaskCard({ task, dragHandleProps, onTaskClick, propertyBadges = 
           </div>
 
           {/* Stats */}
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2.5 text-[11px] text-muted-foreground">
             {task.attachments.length > 0 && (
               <div className="flex items-center gap-1">
                 <Paperclip className="h-3 w-3" />

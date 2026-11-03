@@ -1,0 +1,86 @@
+name: Premium Board workspace quality
+
+on:
+  pull_request:
+    paths:
+      - 'components/TaskBoard.tsx'
+      - 'components/TaskCard.tsx'
+      - 'components/PropertyBoard.tsx'
+      - 'components/ProcessSwitcher.tsx'
+      - 'scripts/test-board-premium.ts'
+      - 'scripts/test-board-table-browser.cjs'
+      - 'scripts/fixtures/board-table.tsx'
+      - 'package.json'
+      - '.github/workflows/board-premium-quality.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'components/TaskBoard.tsx'
+      - 'components/TaskCard.tsx'
+      - 'components/PropertyBoard.tsx'
+      - 'components/ProcessSwitcher.tsx'
+      - 'scripts/test-board-premium.ts'
+      - 'scripts/test-board-table-browser.cjs'
+      - 'package.json'
+      - '.github/workflows/board-premium-quality.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  board-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Board UI, ACL and Kanban contracts
+        run: npm run test:board:premium
+      - name: Preserve stage identity and reordering
+        run: npx tsx scripts/test-stage-identity.ts
+      - name: Shared mobile-web contract
+        run: npm run test:mobile-web
+      - name: Next/TypeScript compile
+        run: npx tsc --noEmit
+
+  board-browser:
+    # Playwright 1.56 Chromium/OS packages target Ubuntu 24.04. GitHub's
+    # ubuntu-latest recently moved to Ubuntu 26.04, which this release rejects.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Install isolated QA browser
+        run: |
+          npm install --no-save --package-lock=false playwright@1.56.1
+          npx playwright install chromium --with-deps
+      - name: Verify real Board interactions at five responsive widths
+        run: |
+          set +e
+          node scripts/test-board-table-browser.cjs node_modules/playwright-core "$(node -p "require('playwright').chromium.executablePath()")" --board-only
+          result=$?
+          set -e
+          mkdir -p /tmp/board-qa
+          dir=$(ls -dt /tmp/axiom-board-table-qa-* | head -n 1)
+          if compgen -G "$dir/board-*.png" > /dev/null; then
+            cp "$dir"/board-*.png /tmp/board-qa/
+          fi
+          exit "$result"
+      - name: Upload fixture Board screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: premium-board-fixture-screenshots
+          path: /tmp/board-qa/*.png
+          if-no-files-found: ignore
+          retention-days: 5
