@@ -457,7 +457,15 @@ async function main() {
     });
     await page.getByRole('button', { name: 'Insert code block' }).click();
     await page.locator('.actiproc-codeblock-content').waitFor();
-    await page.getByLabel('Code language').selectOption('typescript');
+    await page.getByRole('combobox', { name: 'Code language' }).click();
+    const codeOption = page.getByRole('option', { name: 'TypeScript' });
+    await codeOption.waitFor();
+    assert.equal(await codeOption.evaluate(element => {
+      const color = getComputedStyle(element).color;
+      const background = getComputedStyle(element.closest('[role="listbox"]') ?? element).backgroundColor;
+      return color !== background;
+    }), true, 'Language options must be visible in dark mode');
+    await codeOption.click();
     await page.locator('.actiproc-codeblock-content').click();
     await page.keyboard.type('const message: string = "hello";');
     await page.keyboard.press('Enter');
