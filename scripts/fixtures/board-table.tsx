@@ -73,7 +73,13 @@ function Fixture() {
   };
   const context = { tasks, currentTeam: { id: 'team', members: [{ id: 'user', name: 'Yiğit' }] },
     currentUser: { id: 'user' }, organizationId: 'org', boardScope: scope, setBoardScope: setScope,
-    boardProject: project, projects: processes, boardColumns: project.columnConfig, currentUserRole: viewer ? 'viewer' : 'admin',
+    boardProject: project, projects: processes, boardColumns: project.columnConfig,
+    // InboxStageRecoveryDialog is always mounted even when closed. Match the
+    // complete production TaskContext contract so a Board fixture cannot crash
+    // on unrelated, missing test-provider fields.
+    generalBoardColumns: columns, inboxBoardStatus: 'ready',
+    inboxCanInitialize: false, syncInboxStages: async () => true,
+    currentUserRole: viewer ? 'viewer' : 'admin',
     permissions: { canCreateTask: !viewer }, canEditTask: () => !viewer, canCompleteTask: () => !viewer,
     canDeleteTask: () => false, updateTask, deleteTask: async () => {}, openTaskEditor: setEditor,
     applyTaskUpdates: async (items: any[]) => (await Promise.all(items.map(item => updateTask(item.id, item.changes)))).every(Boolean),
