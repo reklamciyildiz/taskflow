@@ -337,23 +337,53 @@ async function main() {
   checks += 3;
   delete process.env.ATTACHMENT_SCANNER_URL;
   delete process.env.ATTACHMENT_SCANNER_TOKEN;
-  // Deprecated beta flags must not bypass scanning for any user.
-  process.env.ATTACHMENT_PDF_SECURITY_MODE = "trusted_beta";
-  process.env.ATTACHMENT_PDF_BETA_USER_IDS = id(1);
+  delete process.env.ATTACHMENT_PDF_SECURITY_MODE;
+  delete process.env.ATTACHMENT_PDF_BETA_USER_IDS;
+
+  // Without a scanner, only the server-marked download-only path can be finalized.
   await assert.rejects(
     processAttachmentBytes(pdf, "application/pdf"),
-    /document security scanning is not configured/,
+    /PDF scanning became unavailable/,
   );
-  await assert.rejects(
-    beginAttachment(
-      { task: { id: id(4), organization_id: id(2), team_id: id(3) }, user: { id: id(1) } },
-      { taskId: id(4) },
-      { filename: "beta.pdf", mimeType: "application/pdf", size: pdf.length },
-    ),
-    /document security scanning is not configured/,
+  assert.deepEqual(
+    (await processAttachmentBytes(pdf, "application/pdf", { allowUnscanned: true })).bytes,
+    pdf,
   );
   checks += 2;
 
+  process.env.R2_ACCOUNT_ID = "fixture";
+  process.env.R2_ACCESS_KEY_ID = "fixture";
+  process.env.R2_SECRET_ACCESS_KEY = "fixture";
+  process.env.R2_BUCKET = "fixture";
+
+  // Both previously privileged and ordinary users must receive identical,
+  // private unscanned storage keys; no beta variable is required.
+  for (const userId of [id(1), id(99)]) {
+    await beginAttachment(
+      {
+        task: { id: id(4), organization_id: id(2), team_id: id(3) },
+        user: { id: userId },
+      },
+      { taskId: id(4) },
+      { filename: "document.PDF", mimeType: "application/octet-stream", size: pdf.length },
+    );
+    assert.equal(lastAttachmentInsert.mime_type, "application/pdf");
+    assert.match(lastAttachmentInsert.object_key, /^files\\/unscanned-pdf\\//);
+    checks += 2;
+  }
+
+  // Legacy beta flags must not change policy or bypass verification.
+  process.env.ATTACHMENT_PDF_SECURITY_MODE = "trusted_beta";
+  process.env.ATTACHMENT_PDF_BETA_USER_IDS = id(1);
+  await beginAttachment(
+    { task: { id: id(4), organization_id: id(2), team_id: id(3) }, user: { id: id(99) } },
+    { taskId: id(4) },
+    { filename: "ordinary.pdf", mimeType: "application/pdf", size: pdf.length },
+  );
+  assert.match(lastAttachmentInsert.object_key, /^files\\/unscanned-pdf\\//);
+  checks++;
+
+  // Optional scanner must still reject infection, changed checksum and outages.
   process.env.ATTACHMENT_SCANNER_URL = "https://scanner.example.test/scan";
   process.env.ATTACHMENT_SCANNER_TOKEN = "test";
   const scannerOriginalFetch = global.fetch;
@@ -376,12 +406,7 @@ async function main() {
   global.fetch = scannerOriginalFetch;
   checks += 3;
 
-  // PDF reservations work for ALL authorized users, including those not in
-  // the obsolete beta list. They always use the scanned-object namespace.
-  process.env.R2_ACCOUNT_ID = "fixture";
-  process.env.R2_ACCESS_KEY_ID = "fixture";
-  process.env.R2_SECRET_ACCESS_KEY = "fixture";
-  process.env.R2_BUCKET = "fixture";
+  // With a scanner, all editors use normal previewable keys.
   for (const userId of [id(1), id(99)]) {
     await beginAttachment(
       {
@@ -389,12 +414,11 @@ async function main() {
         user: { id: userId },
       },
       { taskId: id(4) },
-      { filename: "document.PDF", mimeType: "application/octet-stream", size: pdf.length },
+      { filename: "scanned.pdf", mimeType: "application/pdf", size: pdf.length },
     );
-    assert.equal(lastAttachmentInsert.mime_type, "application/pdf");
-    assert.ok(lastAttachmentInsert.object_key.startsWith("files/"));
+    assert.match(lastAttachmentInsert.object_key, /^files\\/[^/]/);
     assert.ok(!lastAttachmentInsert.object_key.includes("unscanned-pdf"));
-    checks += 3;
+    checks += 2;
   }
   delete process.env.ATTACHMENT_PDF_SECURITY_MODE;
   delete process.env.ATTACHMENT_PDF_BETA_USER_IDS;
