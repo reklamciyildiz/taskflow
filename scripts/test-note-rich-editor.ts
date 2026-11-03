@@ -39,7 +39,7 @@ checks += 6;
 const wrapped = { type: 'doc', content: pasted };
 const serialized = schema.nodeFromJSON(wrapped).toJSON();
 assert.deepEqual(schema.nodeFromJSON(serialized).toJSON(), serialized);
-assert.ok(serialized.content.some(node => node.type === 'codeBlock'));
+assert.ok(serialized.content.some((node: { type?: string }) => node.type === 'codeBlock'));
 checks += 2;
 
 const codeSources = [
