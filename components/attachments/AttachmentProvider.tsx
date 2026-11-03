@@ -60,6 +60,7 @@ type Context = {
   canEdit: boolean;
   enabled: boolean;
   pdfUploadsEnabled: boolean;
+  pdfScanningEnabled: boolean;
   files: Attachment[];
   error: string | null;
   load: () => Promise<void>;
@@ -130,6 +131,7 @@ export function AttachmentProvider({
   const [files, setFiles] = useState<Attachment[]>([]);
   const [enabled, setEnabled] = useState(false);
   const [pdfUploadsEnabled, setPdfUploadsEnabled] = useState(false);
+  const [pdfScanningEnabled, setPdfScanningEnabled] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [uploads, setUploads] = useState<Upload[]>([]);
@@ -158,6 +160,7 @@ export function AttachmentProvider({
           setFiles(body.files);
           setEnabled(body.enabled);
           setPdfUploadsEnabled(body.pdfUploadsEnabled === true);
+          setPdfScanningEnabled(body.pdfScanningEnabled === true);
           setHasMore(body.hasMore);
           setLoadError(null);
           loadedAt.current = Date.now();
@@ -214,7 +217,7 @@ export function AttachmentProvider({
         const mimeType = normalizeAttachmentMime(job.file.name, job.file.type);
         validateAttachmentInput(job.file.name, mimeType, job.file.size);
         if (mimeType === "application/pdf" && !pdfUploadsEnabled)
-          throw new Error("PDF uploads are temporarily unavailable: document security scanning is not configured.");
+          throw new Error("PDF uploads are unavailable because file storage is not ready. Please retry.");
         const signed = await attachmentRequest("/api/attachments", {
           method: "POST",
           signal: job.controller.signal,
@@ -275,7 +278,7 @@ export function AttachmentProvider({
     }
     for (const file of selected) {
       if (normalizeAttachmentMime(file.name, file.type) === "application/pdf" && !pdfUploadsEnabled) {
-        toast.error("PDF uploads are temporarily unavailable: document security scanning is not configured.");
+        toast.error("PDF uploads are unavailable because file storage is not ready. Please retry.");
         continue;
       }
       const job: Upload = {
@@ -298,6 +301,7 @@ export function AttachmentProvider({
         canEdit,
         enabled,
         pdfUploadsEnabled,
+        pdfScanningEnabled,
         files,
         error: loadError,
         load: refresh,
@@ -660,8 +664,10 @@ export function AttachmentList({
       {!files.length && (
         <p className="text-xs text-muted-foreground">
           {ctx.pdfUploadsEnabled
-            ? "PNG, JPEG, WebP · 10 MiB. PDF · 25 MiB."
-            : "PNG, JPEG, WebP · 10 MiB. PDF uploads temporarily unavailable until security scanning is configured."}
+            ? ctx.pdfScanningEnabled
+              ? "PNG, JPEG, WebP · 10 MiB. PDF · 25 MiB (security-scanned)."
+              : "PNG, JPEG, WebP · 10 MiB. PDF · 25 MiB (not malware-scanned; download-only)."
+            : "PNG, JPEG, WebP · 10 MiB. PDF uploads unavailable while file storage is offline."}
         </p>
       )}
     </div>
