@@ -14,7 +14,8 @@ import {
   Calendar,
   GripVertical,
   ArrowRightLeft,
-  ListTodo
+  ListTodo,
+  CheckCircle2
 } from 'lucide-react';
 import { useTaskContext, type Task } from '@/components/TaskContext';
 import { cn } from '@/lib/utils';
@@ -71,7 +72,8 @@ export function TaskCard({ task, dragHandleProps, onTaskClick, propertyBadges = 
     return format(task.dueDate, 'MMM d');
   };
   
-  const isDueSoon = task.dueDate && isPast(task.dueDate) && !isTerminalBoardColumn(task.status, boardColumns);
+  const isCompleted = isTerminalBoardColumn(task.status, boardColumns);
+  const isDueSoon = task.dueDate && isPast(task.dueDate) && !isCompleted;
 
   const handleCardClick = (e: React.MouseEvent) => {
     if (Date.now() < blockCardOpenUntilRef.current) {
@@ -94,13 +96,14 @@ export function TaskCard({ task, dragHandleProps, onTaskClick, propertyBadges = 
       onClick={handleCardClick}
     >
       <div aria-hidden="true" className={cn('absolute inset-y-0 left-0 w-[3px]', priorityAccents[task.priority])} />
-      <div className="flex h-full min-w-0 flex-col gap-2.5 px-3.5 pb-3.5 pt-3.5 sm:px-4">
+      <div className="flex min-w-0 flex-1 flex-col gap-2.5 px-3.5 pb-3.5 pt-3.5 sm:px-4">
         {/* Header */}
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
             <div className="mb-2 flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-[0.15em] text-muted-foreground/85">
-              <ListTodo className="h-3 w-3 text-primary/65" aria-hidden />
-              Action
+              {isCompleted ? <CheckCircle2 className="h-3 w-3 text-emerald-500" aria-hidden />
+                : <ListTodo className="h-3 w-3 text-primary/65" aria-hidden />}
+              {isCompleted ? 'Completed Action' : 'Action'}
             </div>
             <div className="flex min-w-0 items-start gap-1.5">
             {dragHandleProps ? (
@@ -256,7 +259,8 @@ export function TaskCard({ task, dragHandleProps, onTaskClick, propertyBadges = 
             variant="secondary" 
             className={cn("gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-semibold tracking-[0.025em] shadow-none", priorityColors[task.priority])}
           >
-            {task.priority.toUpperCase()}
+            <span aria-hidden="true" className={cn('h-1.5 w-1.5 rounded-full', priorityAccents[task.priority])} />
+              {task.priority.toUpperCase()}
           </Badge>
           
           {task.dueDate && (
