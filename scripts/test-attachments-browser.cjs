@@ -163,6 +163,9 @@ async function main() {
     page.on("pageerror", (e) => errors.push(e.message));
     await page.goto(`http://127.0.0.1:${server.address().port}`);
     await page.getByRole("button", { name: "Files", exact: true }).click();
+    // Without scanner configuration, the PDF picker stays available but the
+    // user sees the explicit download-only warning before uploading.
+    await page.getByText(/not malware-scanned; download-only/).waitFor();
     const file = { name: "diagram.png", mimeType: "image/png", buffer: png };
     await page.getByLabel("Choose attachments").setInputFiles(file);
     await page
