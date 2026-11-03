@@ -6,6 +6,7 @@ import {
   beginAttachment,
   requireAttachmentOrigin,
   isUnscannedBetaPdf,
+  pdfScanningConfigured,
 } from "@/lib/attachment-server";
 import { attachmentStorageConfigured } from "@/lib/attachment-storage-server";
 
@@ -17,7 +18,7 @@ export async function GET(request: NextRequest) {
     if (access instanceof NextResponse) return access;
     if (!attachmentStorageConfigured())
       return NextResponse.json(
-        { files: [], enabled: false },
+        { files: [], enabled: false, pdfUploadsEnabled: false },
         { headers: { "Cache-Control": "no-store" } },
       );
     const offset = Math.max(
@@ -45,6 +46,7 @@ export async function GET(request: NextRequest) {
           }),
         })),
         enabled: true,
+        pdfUploadsEnabled: pdfScanningConfigured(),
         hasMore: data.length === 50,
       },
       { headers: { "Cache-Control": "no-store" } },
