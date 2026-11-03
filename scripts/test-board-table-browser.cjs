@@ -228,6 +228,11 @@ async function main() {
         await page.waitForTimeout(250);
         assert.equal(await page.evaluate(() => window.qa.tasks.find(task => task.id === 'dense0').status), 'open'); checks++;
       }
+      // Capture the populated workspace, not just the single-card fallback Process.
+      // Radix Select/Popover exit animations must finish before visual snapshots.
+      await page.getByRole('option', { name: 'Stage', exact: true }).waitFor({ state: 'hidden' });
+      await page.getByText('Switch workspace', { exact: true }).waitFor({ state: 'hidden' });
+      await page.screenshot({ path: path.join(output, `board-workspace-${width}.png`), fullPage: true });
       if (width < 768) {
         await page.getByRole('combobox', { name: 'Filter by stage', exact: true }).click();
         await page.getByRole('option', { name: 'İşimiz Bitti', exact: true }).click();
@@ -235,7 +240,10 @@ async function main() {
       await page.getByRole('button', { name: 'Active process / project' }).click();
       await page.getByRole('button', { name: 'Other Process', exact: true }).click();
       await page.getByRole('button', { name: 'Other Process Action', exact: true }).waitFor(); checks++;
-      await page.screenshot({ path: path.join(output, `board-${width}.png`), fullPage: true });
+      await page.getByText('Switch workspace', { exact: true }).waitFor({ state: 'hidden' });
+      assert.equal(await page.getByRole('button', { name: 'Active process / project' }).getAttribute('aria-expanded'), 'false',
+        `${width}px: Process switcher must close after selecting a Process`); checks++;
+      await page.screenshot({ path: path.join(output, `board-other-${width}.png`), fullPage: true });
       await page.getByRole('button', { name: 'Table fixture' }).click();
       assert.equal(await page.getByRole('checkbox', { name: 'No terminal stage configured for Other Process Action', exact: true }).isDisabled(), true); checks++;
       await page.getByRole('button', { name: 'Board fixture' }).click();
