@@ -457,7 +457,7 @@ export function TaskBoard() {
               </Select> : <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:thin] md:justify-end">
                 <span className="mr-1 shrink-0 text-[10px] font-semibold uppercase tracking-[0.13em] text-muted-foreground">Stages</span>
                 <Button variant={!statusFilter ? 'default' : 'outline'} onClick={() => setStatusFilter(null)} size="sm" className="h-8 shrink-0 rounded-full px-3 text-xs font-medium">All</Button>
-                {boardColumns.map((column) => <Button key={column.id} variant={statusFilter === column.id ? 'default' : 'outline'} onClick={() => setStatusFilter(column.id)} size="sm" className="h-8 shrink-0 rounded-full border-border/65 bg-background/50 px-3 text-xs font-medium hover:text-foreground data-[state=active]:bg-primary">{column.title}</Button>)}
+                {boardColumns.map((column) => <Button key={column.id} variant={statusFilter === column.id ? 'default' : 'outline'} onClick={() => setStatusFilter(column.id)} size="sm" className={cn('h-8 shrink-0 rounded-full px-3 text-xs font-medium', statusFilter === column.id ? 'bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground' : 'border-border/65 bg-background/50 text-foreground hover:bg-muted/60 hover:text-foreground')}>{column.title}</Button>)}
               </div>}
             </div>
           </div>
