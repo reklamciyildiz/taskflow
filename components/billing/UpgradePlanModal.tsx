@@ -166,6 +166,9 @@ export function UpgradePlanModal(props: {
                         <span className="ml-1 text-[10.5px] font-normal text-slate-300">requests/month</span>
                       </p>
                       <p className="mt-0.5 text-[10px] leading-4 text-slate-400">{aiPlanDailyDescription(plan)}</p>
+                      {(plan === "pro" || plan === "team") && (
+                        <p className="mt-1 text-[10px] leading-4 text-slate-400">Per verified paid seat · shared organization allowance (up to 20 funded seats).</p>
+                      )}
                     </div>
                     <ul className="mt-4 flex-1 space-y-2.5 text-[11px] leading-5 text-slate-300">
                       {FEATURES[plan].map(feature => <li key={feature} className="flex gap-2">
