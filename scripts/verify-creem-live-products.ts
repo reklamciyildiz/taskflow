@@ -14,7 +14,7 @@ async function main() {
     throw new Error('CREEM_MODE=live is required for a live read-only preflight');
   const env = { ...process.env, VERCEL_ENV:'production' };
   const config = getCreemConfig(env);
-  assertCreemLiveReturnOrigin(env.NEXT_PUBLIC_APP_URL || env.NEXTAUTH_URL || '');
+  assertCreemLiveReturnOrigin(process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || '');
   if (creemResponseMode(config) !== 'prod')
     throw new Error('Live mode does not map to Creem production');
   if (/^creem_test_/i.test(config.apiKey))
