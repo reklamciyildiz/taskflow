@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { NextRequest,NextResponse } from 'next/server';
 import { z } from 'zod';
 import { GroqChatProvider } from '@/lib/ai/providers/groq-chat-provider';
-import { createRequestSignal } from '@/lib/ai/providers/provider-http';
+import { createRequestSignal,abortableDelay } from '@/lib/ai/providers/provider-http';
 import { retrieveKnowledge } from '@/lib/ai/retrieval/retrieval-server';
 import { retrieveStructuredActions } from '@/lib/ai/retrieval/structured-retrieval-server';
 import { createCitationRegistry } from '@/lib/ai/retrieval/citation';
@@ -11,7 +11,10 @@ import { aiChatLimits,isAIChatRuntimeReady,areAIActionMutationToolsEnabled,areAI
 import { citationIdsFromAnswer,sanitizeAnswerCitations } from '@/lib/ai/chat/citations';
 import { classifyChatIntent,fixedProductHelp,shouldAttemptKnowledgeRetrieval } from '@/lib/ai/chat/intent';
 import { chatRetrievalLimit,planChatContext } from '@/lib/ai/chat/context-budget';
-import { finalizeGroqTokens,reserveGroqTokens } from '@/lib/ai/chat/provider-token-admission';
+import { finalizeGroqTokens,reserveGroqTokens,reserveProviderTokens,backupTokenBudget } from '@/lib/ai/chat/provider-token-admission';
+import { createOptionalOpenAIBackup } from '@/lib/ai/chat/backup-provider';
+import { AI_RETRYING_MESSAGE, AI_TEMPORARY_CAPACITY_MESSAGE, AI_TEMPORARY_SERVICE_MESSAGE,
+  mayFailOverBeforeResponse, shortRetryDelayMs } from '@/lib/ai/chat/reliability-policy';
 import { formatAIQuotaMessage,shouldRefundAIUserQuota } from '@/lib/ai/chat/quota-policy';
 import {
   createTurnMessages,finalizeAssistantMessage,finishChatRun,getConversation,
@@ -77,14 +80,13 @@ function safeError(error:unknown,provider?:GroqChatProvider) {
     const normalized=provider.normalizeError(error);
     if (normalized.code==='rate_limited') {
       const retryAfterSeconds=normalized.retryAfterMs?Math.max(1,Math.ceil(normalized.retryAfterMs/1_000)):undefined;
-      return { code:'PROVIDER_RATE_LIMITED',message:retryAfterSeconds
-        ? `The Groq request limit was reached. Try again in about ${retryAfterSeconds} seconds.`
-        : 'The Groq request limit was reached. Please retry shortly.',retryable:true,retryAfterSeconds };
+      return { code:'PROVIDER_RATE_LIMITED',message:AI_TEMPORARY_CAPACITY_MESSAGE,
+        retryable:true,retryAfterSeconds };
     }
-    if (normalized.code==='timeout') return { code:'PROVIDER_TIMEOUT',message:'The response took too long. Please retry.',retryable:true };
-    if (normalized.code==='configuration') return { code:'PROVIDER_CONFIGURATION',message:'Actiproc AI provider is not configured.',retryable:false };
+    if (normalized.code==='timeout') return { code:'PROVIDER_TIMEOUT',message:AI_TEMPORARY_SERVICE_MESSAGE,retryable:true };
+    if (normalized.code==='configuration') return { code:'PROVIDER_CONFIGURATION',message:AI_TEMPORARY_SERVICE_MESSAGE,retryable:false };
   }
-  return { code:'AI_UNAVAILABLE',message:'Actiproc AI could not complete this response. Please retry.',retryable:true };
+  return { code:'AI_UNAVAILABLE',message:AI_TEMPORARY_SERVICE_MESSAGE,retryable:true };
 }
 
 export async function POST(request:NextRequest) {
@@ -121,6 +123,9 @@ export async function POST(request:NextRequest) {
         let inputTokens:number|undefined,outputTokens:number|undefined,model:string|undefined;
         let provider:GroqChatProvider|undefined,billableAttempt=false;
         let tokenReservationId:string|undefined;
+        let fallbackUsed=false;
+        let fallbackStartingTokens=0;
+        let definitelyNoNewProviderTokens=false;
         let quotaReserved=false;
         let retrievalLatencyMs:number|undefined,firstTokenMs:number|undefined;
         let citations:Awaited<ReturnType<typeof retrieveKnowledge>>['citations']=[];
