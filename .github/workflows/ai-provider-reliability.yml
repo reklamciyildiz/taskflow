@@ -1,0 +1,54 @@
+name: Actiproc AI provider reliability
+
+on:
+  pull_request:
+    paths:
+      - 'app/api/ai/chat/route.ts'
+      - 'components/ai/**'
+      - 'lib/ai/chat/**'
+      - 'lib/ai/agent/selector.ts'
+      - 'lib/ai/providers/**'
+      - 'supabase/migrations/20261104190000_ai_provider_zero_usage_finalization.sql'
+      - 'scripts/test-ai-reliability.ts'
+      - '.github/workflows/ai-provider-reliability.yml'
+      - 'package.json'
+  push:
+    branches: [main]
+    paths:
+      - 'app/api/ai/chat/route.ts'
+      - 'components/ai/**'
+      - 'lib/ai/chat/**'
+      - 'lib/ai/agent/selector.ts'
+      - 'lib/ai/providers/**'
+      - 'supabase/migrations/20261104190000_ai_provider_zero_usage_finalization.sql'
+      - 'scripts/test-ai-reliability.ts'
+      - '.github/workflows/ai-provider-reliability.yml'
+      - 'package.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ai-provider-reliability:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Capacity, retry, failover, SQL and privacy contracts
+        run: npm run test:ai:reliability
+      - name: Existing provider compatibility
+        run: npx tsx scripts/test-ai-providers.ts
+      - name: Existing conversation, quota and citation behavior
+        run: npx tsx scripts/test-ai-chat.ts
+      - name: Existing public-rollout and permission contract
+        run: npm run test:ai:public
+      - name: Write proposal remains subject to explicit approval
+        run: npx tsx scripts/test-ai-write-tools.ts
+      - name: TypeScript
+        run: npx tsc --noEmit
