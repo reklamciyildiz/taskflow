@@ -48,11 +48,32 @@ export function getCreemConfig(env: NodeJS.ProcessEnv = process.env): CreemConfi
   };
   if (Object.values(products).some(p => !/^prod_[A-Za-z0-9]+$/.test(p)) || new Set(Object.values(products)).size !== 3)
     throw new Error('Creem product IDs must be three distinct prod_* identifiers');
+  const apiKey=required('CREEM_API_KEY');
+  const secret=required('CREEM_WEBHOOK_SECRET');
+  // Creem test API keys are not authorized to operate in the production
+  // checkout environment. A live endpoint must never silently use them.
+  if (mode==='live' && /^creem_test_/i.test(apiKey))
+    throw new Error('Creem test API key cannot be used in live mode');
+  if (mode==='test' && /^creem_live_/i.test(apiKey))
+    throw new Error('Creem live API key cannot be used in test mode');
   return {
-    apiKey: required('CREEM_API_KEY'), secret: required('CREEM_WEBHOOK_SECRET'),
+    apiKey, secret,
     mode, products, baseUrl: mode === 'live' ? 'https://api.creem.io' : 'https://test-api.creem.io',
   };
 }
+/** Prevent a real checkout from sending customers back to localhost, an
+ * unapproved domain or a staging URL after a successful live payment. */
+export function assertCreemLiveReturnOrigin(appUrl: string): void {
+  let parsed: URL;
+  try { parsed = new URL(appUrl); }
+  catch { throw new Error('Invalid live checkout return URL'); }
+  if (parsed.protocol !== 'https:' ||
+      !['actiproc.com','www.actiproc.com'].includes(parsed.hostname) ||
+      parsed.port !== '' || (parsed.pathname !== '' && parsed.pathname !== '/') ||
+      parsed.search || parsed.hash || parsed.username || parsed.password)
+    throw new Error('Live checkout requires an approved Actiproc HTTPS return origin');
+}
+
 export function creemProductForPlan(plan: PaidActiprocPlan, config: CreemConfig): string { return config.products[plan]; }
 export function creemPlanForProduct(productId: string, config: CreemConfig): PaidActiprocPlan | null {
   return (Object.entries(config.products).find(([, id]) => id === productId)?.[0] ?? null) as PaidActiprocPlan | null;
