@@ -1,67 +1,72 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Check, Sparkles, X, Info } from 'lucide-react';
+import { ArrowRight, Check, CircleAlert, CreditCard, Info, ShieldCheck, Sparkles, X } from 'lucide-react';
 import { AI_PLAN_LIMITS, aiPlanDailyDescription } from '@/lib/ai/ai-plan-catalog';
+import { ACTIPROC_PLANS } from '@/lib/billing-plans';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { isCapacitorNative } from '@/lib/client/is-capacitor-native';
 
-type Interval = 'monthly' | 'yearly';
 type UpgradePlan = 'individual' | 'pro' | 'team';
 type UpgradeReason = 'teams' | 'processes' | 'webhooks' | 'seats';
 
-const PRICES = {
-  individual: { monthly: 1, yearly: 12 },
-  pro: { monthly: 4 },
-  team: { monthly: 6 }
-} as const;
-
 const FEATURES: Record<UpgradePlan, readonly string[]> = {
-  individual: ['1 seat', '1 workspace', 'Up to 3 processes', 'Annual billing'],
-  pro: [
-    'Up to 3 teams / workspaces',
-    'Up to 10 processes',
-    'Advanced reminders + Google Calendar',
-  ],
-  team: [
-    'Unlimited teams / workspaces',
-    'Unlimited processes',
-    'Webhooks',
-    'Per-seat billing (matches org size at checkout)',
-  ],
-} as const;
+  individual: ['1 verified seat', '1 workspace', 'Up to 3 processes', 'Annual billing'],
+  pro: ['Up to 3 workspaces', 'Up to 10 processes', 'Advanced reminders', 'Google Calendar'],
+  team: ['Unlimited workspaces', 'Unlimited processes', 'Webhooks', 'Per-seat subscription'],
+};
 
-function isHighlightedFeature(reason: UpgradeReason | undefined, plan: UpgradePlan, feature: string): boolean {
-  if (!reason) return false;
-  if (reason === 'teams') return plan === 'team' && feature === 'Unlimited teams / workspaces';
-  if (reason === 'processes') return plan === 'team' && feature === 'Unlimited processes';
-  if (reason === 'webhooks') return plan === 'team' && feature === 'Webhooks';
-  if (reason === 'seats') return plan === 'team' && feature === 'Per-seat billing (matches org size at checkout)';
-  return false;
-}
+const DESCRIPTIONS: Record<UpgradePlan, string> = {
+  individual: 'Focused work for one person',
+  pro: 'More room for growing workflows',
+  team: 'Collaboration without workspace limits',
+};
 
-async function openCheckout(plan: UpgradePlan, billingInterval: Interval): Promise<void> {
-  const summary = await fetch('/api/billing/summary').then(r => r.json()).catch(() => null);
-  if (!summary?.success) throw new Error('Unable to verify current subscription');
+const reasonCopy: Record<UpgradeReason, { title: string; description: string }> = {
+  teams: { title: 'More room for your team',
+    description: 'Your current plan has reached its workspace limit. Move to Team to scale without a fixed workspace cap.' },
+  processes: { title: 'Keep work moving',
+    description: 'Your current plan has reached its Process limit. Choose more capacity without changing your existing work.' },
+  webhooks: { title: 'Connect your workflows',
+    description: 'Webhooks are included with the Team plan. Connect Actiproc to your existing tools and automations.' },
+  seats: { title: 'Grow your workspace',
+    description: 'Your organization has reached its seat allowance. Review the available plans or manage seats in Billing.' },
+};
+
+async function startUpgrade(plan: UpgradePlan): Promise<void> {
+  const response = await fetch('/api/billing/summary', { cache: 'no-store' });
+  const summary = await response.json().catch(() => null);
+  if (!response.ok || !summary?.success)
+    throw new Error('We could not verify your billing access. Please open Billing settings and retry.');
   const current = String(summary.data?.plan ?? 'free');
-  const existing = Boolean(summary.data?.subscriptionId) && current !== 'free';
-  const order = ['individual','pro','team'];
-  if (existing && order.indexOf(plan) <= order.indexOf(current))
-    throw new Error('Only higher plans can be selected here. Use Billing settings to manage your subscription.');
-  const resp = await fetch(existing ? '/api/billing/switch-plan' : '/api/billing/checkout', {
+  const existingSubscription = Boolean(summary.data?.subscriptionId);
+  const currentOrder = ['free', 'individual', 'pro', 'team'];
+  if (currentOrder.indexOf(plan) <= currentOrder.indexOf(current))
+    throw new Error('This plan is already active or below your current plan. Manage it from Billing settings.');
+
+  if (existingSubscription || current !== 'free') {
+    // An existing subscription MUST pass the dedicated preview + signed
+    // confirmation flow. Never POST to switch-plan from an upgrade popover.
+    window.location.assign('/settings/billing?plan=' + encodeURIComponent(plan));
+    return;
+  }
+
+  const checkout = await fetch('/api/billing/checkout', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ plan, billingInterval }),
+    body: JSON.stringify({ plan, billingInterval: plan === 'individual' ? 'yearly' : 'monthly' }),
   });
-  const json = await resp.json().catch(() => null);
-  if (!resp.ok || !json?.success) {
-    throw new Error(json?.error || 'Could not start checkout');
+  const result = await checkout.json().catch(() => null);
+  if (!checkout.ok || !result?.success) {
+    if (checkout.status === 503)
+      throw new Error('Secure checkout is not yet available. Your plan has not changed.');
+    throw new Error(result?.error || 'Checkout could not be started. No payment was initiated.');
   }
-  const url = json?.data?.url;
-  if (existing) { window.location.reload(); return; }
-  if (typeof url !== 'string' || !url) throw new Error('Checkout URL missing');
+  const url = result?.data?.url;
+  if (typeof url !== 'string' || !/^https:\/\/[^/]+/i.test(url))
+    throw new Error('The secure checkout link could not be verified.');
   window.location.assign(url);
 }
 
@@ -70,234 +75,132 @@ export function UpgradePlanModal(props: {
   onClose: () => void;
   title?: string;
   description?: string;
-  /** Suggested plan to pre-highlight. */
   recommendedPlan?: UpgradePlan | null;
-  /** Why the user hit this upgrade wall (for personalized copy). */
   reason?: UpgradeReason;
 }) {
   const { open, onClose, title, description, recommendedPlan, reason } = props;
   const [busy, setBusy] = useState<UpgradePlan | null>(null);
-  const isNativeApp = typeof window !== 'undefined' ? isCapacitorNative() : false;
-
-  const plans: UpgradePlan[] = useMemo(() => {
-    // If Team is explicitly required (e.g. user is already on Pro), remove Pro to reduce decision fatigue.
+  const [error, setError] = useState<string | null>(null);
+  const isNativeApp = typeof window !== 'undefined' && isCapacitorNative();
+  const plans = useMemo<UpgradePlan[]>(() => {
     if (recommendedPlan === 'team' || reason === 'webhooks' || reason === 'teams') return ['team'];
     if (reason === 'seats' || recommendedPlan === 'pro') return ['pro', 'team'];
     return ['individual', 'pro', 'team'];
   }, [recommendedPlan, reason]);
+  const onePlan = plans.length === 1;
+  const message = reasonCopy[reason ?? 'processes'];
 
-  const defaultCopy = useMemo(() => {
-    const wants = reason ?? 'processes';
-    if (wants === 'teams') {
-      return {
-        title: 'Unlock more workspaces',
-        description: 'You’ve hit your team/workspace limit. Upgrade to create more.',
-      };
-    }
-    if (wants === 'webhooks') {
-      return {
-        title: 'Unlock webhooks',
-        description: 'Webhooks are available on the Team plan — upgrade to connect Actiproc to the outside world.',
-      };
-    }
-    if (wants === 'seats') {
-      return {
-        title: 'Add more seats',
-        description: 'You’ve reached your seat limit. Upgrade or add seats to invite more people.',
-      };
-    }
-    return {
-      title: 'Unlock more processes',
-      description: 'You’ve hit your process limit. Upgrade to create more.',
-    };
-  }, [reason]);
-
-  const handleUpgrade = async (plan: UpgradePlan) => {
+  const close = () => { if (!busy) { setError(null); onClose(); } };
+  const upgrade = async (plan: UpgradePlan) => {
+    if (busy) return;
+    setError(null);
     setBusy(plan);
-    try {
-      await openCheckout(plan, plan === 'individual' ? 'yearly' : 'monthly');
-    } finally {
-      setBusy(null);
-    }
+    try { await startUpgrade(plan); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : 'Unable to start billing.'); }
+    finally { setBusy(null); }
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => (!v ? onClose() : null)}>
+    <Dialog open={open} onOpenChange={(value) => { if (!value) close(); }}>
       <DialogContent
+        aria-describedby="upgrade-plan-description"
         className={cn(
-          // Ensure this overlay sits above any already-open dialog (e.g. Create Team).
-          'z-[520] max-w-5xl p-0 overflow-hidden border-white/10 bg-[#0b0b10]/85 text-zinc-50',
-          'shadow-[0_30px_120px_-24px_rgba(0,0,0,0.85)] backdrop-blur-xl',
-          'sm:rounded-[28px] max-h-[92dvh] overflow-y-auto'
+          'z-[520] w-[calc(100vw-1.5rem)] max-h-[min(92dvh,850px)] overflow-y-auto rounded-[24px] border border-white/[0.13] bg-[#131b29] p-0 text-zinc-50 shadow-[0_32px_100px_-25px_rgba(0,0,0,.75)]',
+          onePlan ? 'sm:max-w-[790px]' : plans.length === 2 ? 'sm:max-w-[820px]' : 'sm:max-w-[1040px]'
         )}
-        overlayClassName={cn(
-          // Softer, more premium background + blur.
-          'z-[519] bg-black/60 backdrop-blur-md'
-        )}
+        overlayClassName="z-[519] bg-black/70 backdrop-blur-sm"
         hideClose
       >
-        {/* Top bar: close + interval */}
-        <div className="relative flex items-center justify-end gap-3 px-6 pt-5">
-          <div className="mr-auto" />
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-zinc-200/80 transition-colors hover:bg-white/[0.07] hover:text-zinc-50"
-            disabled={busy !== null}
-          >
+        <div className="relative overflow-hidden px-5 pb-5 pt-5 sm:px-7 sm:pb-7 sm:pt-7">
+          <div aria-hidden className="pointer-events-none absolute -right-20 -top-40 h-80 w-80 rounded-full bg-sky-500/[0.10] blur-[75px]" />
+          <button type="button" onClick={close} disabled={busy !== null} aria-label="Close upgrade dialog"
+            className="absolute right-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-zinc-300 transition-colors hover:border-white/25 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 disabled:opacity-50">
             <X className="h-4 w-4" aria-hidden />
           </button>
-        </div>
-
-        <div className="grid grid-cols-1 gap-8 px-6 pb-7 pt-4 md:grid-cols-[1.15fr_1.85fr] md:gap-10">
-          {/* Left: message */}
-          <div className="relative">
-            <div className="absolute -inset-6 -z-10 rounded-[28px] bg-violet-500/10 blur-2xl" aria-hidden />
-            <DialogHeader className="text-left">
-              <DialogTitle className="text-4xl font-semibold tracking-tight text-zinc-50">
-                {title ?? defaultCopy.title.split(' ').slice(0, 2).join(' ')}{' '}
-                <span className="bg-gradient-to-r from-violet-200 via-white to-emerald-200 bg-clip-text text-transparent">
-                  {title ? '' : defaultCopy.title.split(' ').slice(2).join(' ')}
-                </span>
-              </DialogTitle>
-              <DialogDescription className="mt-3 max-w-sm text-base leading-relaxed text-zinc-300/80">
-                {description ?? defaultCopy.description}
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="mt-6 text-sm leading-relaxed text-zinc-200/70">
-              Grow your workflows with an included monthly AI allowance, transparent limits and no automatic overage charges.
+          <div className={cn('relative grid min-w-0 gap-6', onePlan && 'md:grid-cols-[minmax(0,1fr)_minmax(0,345px)] md:items-center md:gap-8')}>
+            <div className={cn('min-w-0 pr-8', !onePlan && 'max-w-2xl')}>
+              <div className="mb-5 inline-flex h-11 w-11 items-center justify-center rounded-[14px] border border-sky-400/20 bg-sky-400/10 text-sky-300">
+                <Sparkles className="h-[21px] w-[21px]" aria-hidden />
+              </div>
+              <DialogHeader className="space-y-2 text-left">
+                <DialogTitle className="text-balance text-[27px] font-semibold tracking-[-0.045em] text-white sm:text-[32px]">
+                  {title ?? message.title}
+                </DialogTitle>
+                <DialogDescription id="upgrade-plan-description" className="max-w-lg text-[13px] leading-[1.7] text-slate-300">
+                  {description ?? message.description}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="mt-5 flex flex-wrap items-center gap-3 text-[11px] leading-5 text-slate-400">
+                <span className="inline-flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5 text-emerald-400" aria-hidden /> Verified billing</span>
+                <span className="inline-flex items-center gap-1.5"><CreditCard className="h-3.5 w-3.5 text-sky-300" aria-hidden /> Secured by Creem</span>
+              </div>
+              {onePlan && <Button variant="ghost" onClick={close} disabled={busy !== null}
+                className="mt-6 hidden h-9 px-0 text-slate-300 hover:bg-transparent hover:text-white md:inline-flex">
+                Not now
+              </Button>}
             </div>
-
-            <Button
-              type="button"
-              variant="outline"
-              className="mt-8 w-full border-white/15 bg-white/[0.04] text-zinc-100 hover:bg-white/[0.07]"
-              onClick={onClose}
-              disabled={busy !== null}
-            >
-              Not now
-            </Button>
-          </div>
-
-          {/* Right: plans */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            {plans.map((p) => {
-              const isRecommended = recommendedPlan === p;
-              const price = p === 'individual' ? 12 : PRICES[p].monthly;
-              const suffix = p === 'individual' ? '' : '/seat';
-              const period = p === 'individual' ? '/yr' : '/mo';
-              const accent =
-                // Superlist-ish: keep the palette cohesive and premium (violet for both, emerald as a subtle hint).
-                p === 'team'
-                  ? 'from-violet-500/16 via-emerald-500/5 to-transparent'
-                  : 'from-violet-500/16 via-violet-500/6 to-transparent';
-
-              return (
-                <div
-                  key={p}
-                  className={cn(
-                    // Softer surfaces: lower-contrast border + slightly dimmer card fill.
-                    'relative overflow-hidden rounded-3xl border border-white/[0.10] bg-white/[0.035] p-5',
-                    'shadow-[0_20px_70px_-40px_rgba(0,0,0,0.9)]',
-                    isRecommended && 'ring-1 ring-violet-400/30'
-                  )}
-                >
-                  <div className={cn('pointer-events-none absolute inset-0 bg-gradient-to-b', accent)} aria-hidden />
-
-                  <div className="relative flex items-start justify-between gap-3">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-semibold text-zinc-50">{p === 'individual' ? 'Individual' : p === 'pro' ? 'Pro' : 'Team'}</p>
-                        {p === 'team' ? <Sparkles className="h-4 w-4 text-emerald-400" aria-hidden /> : null}
-                        {isRecommended ? (
-                          <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-medium text-zinc-100/85">
-                            Recommended
-                          </span>
-                        ) : null}
+            <div className={cn('grid min-w-0 gap-3.5', onePlan ? 'grid-cols-1' : plans.length === 2 ? 'sm:grid-cols-2' : 'sm:grid-cols-2 lg:grid-cols-3')}>
+              {plans.map((plan) => {
+                const featured = recommendedPlan === plan || (onePlan && plan === 'team');
+                const annual = plan === 'individual';
+                const price = ACTIPROC_PLANS[plan].priceUsd;
+                return (
+                  <section key={plan} aria-label={plan + ' plan'} className={cn(
+                    'relative flex min-w-0 flex-col rounded-[20px] border bg-white/[0.045] p-[19px] shadow-[0_20px_46px_-33px_rgba(0,0,0,0.7)]',
+                    featured ? 'border-sky-400/40 ring-1 ring-sky-400/[0.12]' : 'border-white/[0.12]'
+                  )}>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <h3 className="text-[15px] font-semibold text-white capitalize">{plan}</h3>
+                      {featured && <span className="rounded-full border border-sky-400/20 bg-sky-400/[0.10] px-2 py-0.5 text-[10px] font-semibold text-sky-200">Recommended</span>}
+                    </div>
+                    <p className="mt-1 text-[11px] text-slate-400">{DESCRIPTIONS[plan]}</p>
+                    <div className="mt-5 flex flex-wrap items-baseline gap-1">
+                      <strong className="text-[38px] font-semibold leading-none tracking-[-0.055em] text-white">${price}</strong>
+                      <span className="text-[11px] text-slate-400">{annual ? '/year' : '/seat/month'}</span>
+                    </div>
+                    <div className="mt-4 rounded-[13px] border border-emerald-400/15 bg-emerald-400/[0.07] px-3.5 py-3">
+                      <div className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-emerald-300">
+                        <Sparkles className="h-3.5 w-3.5" aria-hidden /> Included AI
                       </div>
-                      <p className="mt-1 text-xs leading-snug text-zinc-100/60">
-                        {p === 'individual' ? 'For yourself' : p === 'pro' ? 'More capacity' : 'Scale + webhooks'}
+                      <p className="mt-1 text-[18px] font-semibold tabular-nums text-white">{AI_PLAN_LIMITS[plan].monthlyBase.toLocaleString('en-US')}
+                        <span className="ml-1 text-[10.5px] font-normal text-slate-300">requests/month</span>
                       </p>
+                      <p className="mt-0.5 text-[10px] leading-4 text-slate-400">{aiPlanDailyDescription(plan)}</p>
                     </div>
-                    <div className="text-right">
-                      <div className="flex items-baseline justify-end gap-1">
-                        <p className="text-[42px] leading-none font-semibold tabular-nums text-zinc-50">${price}</p>
-                        <p className="text-xs leading-none text-zinc-100/55">
-                          {suffix}
-                          <span className="text-zinc-100/45">{period}</span>
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="relative mt-5 rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.085] px-3.5 py-4">
-                    <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-emerald-300">
-                      <Sparkles className="h-3.5 w-3.5" aria-hidden /> Included AI allowance
-                    </div>
-                    <p className="mt-2 text-2xl font-semibold tabular-nums text-white">
-                      {AI_PLAN_LIMITS[p].monthlyBase.toLocaleString('en-US')}
-                      <span className="ml-1 text-xs font-medium text-emerald-100/70">requests/month</span>
-                    </p>
-                    <p className="mt-1 text-[11px] leading-relaxed text-zinc-300">
-                      {AI_PLAN_LIMITS[p].perSeat ? 'Per verified paid seat · shared organization pool' : 'Included in your personal plan'}
-                    </p>
-                    <p className="mt-1 text-[11px] text-zinc-400">{aiPlanDailyDescription(p)}</p>
-                  </div>
-
-                  {isNativeApp ? (
-                    <div className="relative mt-4 rounded-xl border border-sky-500/20 bg-sky-500/10 p-2.5 text-center text-xs text-sky-200">
-                      Purchases and plan upgrades are unavailable in the native app. Existing account entitlements remain synchronized.
-                    </div>
-                  ) : (
-                    <Button
-                      type="button"
-                      className={cn(
-                        'relative mt-4 h-10 w-full rounded-full font-semibold tracking-tight',
-                        p === 'team'
-                          ? 'bg-violet-500 text-white hover:bg-violet-400'
-                          : 'bg-violet-500 text-white hover:bg-violet-400'
-                      )}
-                      disabled={busy !== null}
-                      onClick={() => void handleUpgrade(p)}
-                    >
-                      {busy === p ? 'Opening checkout…' : 'Upgrade'}
-                    </Button>
-                  )}
-
-                  <ul className="relative mt-4 space-y-2.5 text-xs leading-relaxed text-zinc-100/75">
-                    {FEATURES[p].map((f) => (
-                      <li key={f} className="flex gap-2">
-                        <Check
-                          className={cn(
-                            'mt-0.5 h-3.5 w-3.5 shrink-0',
-                            isHighlightedFeature(reason, p, f) ? 'text-emerald-300' : 'text-zinc-100/45'
-                          )}
-                          aria-hidden
-                        />
-                        <span
-                          className={cn(
-                            isHighlightedFeature(reason, p, f) &&
-                              'rounded-full bg-emerald-500/15 px-2 py-0.5 text-emerald-200'
-                          )}
-                        >
-                          {f}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              );
-            })}
+                    <ul className="mt-4 flex-1 space-y-2.5 text-[11px] leading-5 text-slate-300">
+                      {FEATURES[plan].map(feature => <li key={feature} className="flex gap-2">
+                        <Check className="mt-[3px] h-3.5 w-3.5 shrink-0 text-emerald-300" aria-hidden /><span>{feature}</span>
+                      </li>)}
+                    </ul>
+                    {isNativeApp ? (
+                      <p className="mt-5 rounded-lg border border-sky-400/20 bg-sky-400/[0.08] px-3 py-2.5 text-[11px] leading-5 text-sky-200">
+                        Purchases and plan upgrades are unavailable in the native app. Manage your subscription on the web.
+                      </p>
+                    ) : (
+                      <Button type="button" onClick={() => void upgrade(plan)} disabled={busy !== null}
+                        className="mt-5 h-10 w-full gap-2 rounded-xl bg-sky-500 font-semibold text-[#091425] hover:bg-sky-400 focus-visible:ring-sky-300">
+                        {busy === plan ? 'Checking billing…' : 'Continue securely'}
+                        {busy !== plan && <ArrowRight className="h-4 w-4" aria-hidden />}
+                      </Button>
+                    )}
+                  </section>
+                );
+              })}
+            </div>
           </div>
+          {error && <div role="alert" className="relative mt-5 flex items-start gap-2.5 rounded-xl border border-amber-400/25 bg-amber-400/[0.08] px-4 py-3 text-[12px] leading-5 text-amber-100">
+            <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /> {error}
+          </div>}
+          <div className="relative mt-5 flex items-start gap-2.5 rounded-xl border border-white/[0.08] bg-white/[0.035] px-3.5 py-3 text-[10.5px] leading-[1.65] text-slate-400">
+            <Info className="mt-[2px] h-3.5 w-3.5 shrink-0 text-sky-300" aria-hidden />
+            <p>Prices are shown in USD. Final payable totals, renewal dates, and any applicable taxes are confirmed during Creem checkout or the Billing review. No automatic usage overage charges. AI limits reset monthly (UTC).</p>
+          </div>
+          {!onePlan && <button type="button" onClick={close} disabled={busy !== null}
+            className="relative mt-4 text-[12px] font-medium text-slate-400 hover:text-white focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400">
+            Not now
+          </button>}
         </div>
-        <p className="mx-6 mb-6 flex items-start gap-2 rounded-xl border border-white/10 bg-white/[0.04] p-3 text-[11px] leading-relaxed text-zinc-400">
-          <Info className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" aria-hidden />
-          AI limits reset each UTC calendar month. Pro/Team allowances are shared across the organization and scale with verified paid seats up to 20. AI may remain beta-only until public activation; no usage-based automatic charges.
-        </p>
       </DialogContent>
     </Dialog>
   );
 }
-
