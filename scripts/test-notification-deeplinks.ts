@@ -75,6 +75,7 @@ async function simulateClick(incoming: string | null, existing: boolean) {
   return calls;
 }
 
+async function main() {
 const expected = 'https://actiproc.com/board?task=action-123&note=note-42';
 const windowCalls = await simulateClick('/board?task=action-123&note=note-42', true);
 assert.deepEqual(windowCalls, ['close', 'navigate:' + expected, 'focus']);
@@ -107,3 +108,6 @@ assert.match(native, /notificationTargetFromLink\(url\)/);
 assert.match(adapter, /consumeNoteFocusForTask/);
 checks += 11;
 console.log(JSON.stringify({ checks, pushNavigation: true, noteChecklistTargets: true, androidAppLinkContract: true }));
+}
+
+void main().catch(error => { console.error(error); process.exitCode = 1; });
