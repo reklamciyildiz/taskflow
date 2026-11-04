@@ -60,3 +60,7 @@ jobs:
         run: npx tsc --noEmit
       - name: App Link and mobile contract sanity
         run: npm run test:mobile-web
+      - name: Install local native workspace dependencies
+        run: npm ci --prefix mobile --no-audit --no-fund
+      - name: Validate mobile TypeScript and production-bound UI bundle
+        run: npm --prefix mobile run build
