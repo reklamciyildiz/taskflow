@@ -73,6 +73,8 @@ function MobileProductContent({
   } = useTaskContext();
   const editingTask = editingTaskId ? tasks.find((task) => task.id === editingTaskId) ?? null : null;
   const deepLinkLookupRef = useRef<string | null>(null);
+  const latestDeepLinkRef = useRef(deepLinkTarget);
+  latestDeepLinkRef.current = deepLinkTarget;
 
   // Android verified App Links should open the canonical native Action panel.
   // Lookup is authorized by /api/mobile/actions/[id] before switching teams.
@@ -95,11 +97,11 @@ function MobileProductContent({
     const lookupKey = currentTeam.id + ':' + deepLinkTarget.taskId;
     if (deepLinkLookupRef.current === lookupKey) return;
     deepLinkLookupRef.current = lookupKey;
-    let active = true;
-    void authenticatedFetch('/api/mobile/actions/' + encodeURIComponent(deepLinkTarget.taskId))
+    const requestedId = deepLinkTarget.taskId;
+    void authenticatedFetch('/api/mobile/actions/' + encodeURIComponent(requestedId))
       .then(async response => {
         const result = await response.json().catch(() => null) as { success?: boolean; data?: MobileActionDetail } | null;
-        if (!active) return;
+        if (latestDeepLinkRef.current?.taskId !== requestedId) return;
         const teamId = result?.success && result.data?.teamId;
         if (!response.ok || !teamId || !teams.some(team => team.id === teamId)) {
           onDeepLinkError('This notification\'s Action is no longer available or your access has changed.');
@@ -109,11 +111,10 @@ function MobileProductContent({
         if (teamId !== currentTeam.id) setCurrentTeam(teamId);
         else void refreshData();
       }).catch(() => {
-        if (!active) return;
+        if (latestDeepLinkRef.current?.taskId !== requestedId) return;
         onDeepLinkError('Could not load this notification. Check your connection and try again.');
         onDeepLinkConsumed();
       });
-    return () => { active = false; };
   }, [deepLinkTarget, currentTeam?.id, loading, tasks, teams,
       setCurrentTeam, setBoardScope, refreshData, openTaskEditor,
       onDeepLinkConsumed, onDeepLinkError]);
@@ -196,6 +197,8 @@ export function App() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [nativeNotificationTarget, setNativeNotificationTarget] = useState<NotificationTarget | null>(null);
+  const clearNativeNotificationTarget = useCallback(() => setNativeNotificationTarget(null), []);
+  const reportNativeNotificationError = useCallback((message: string) => setError(message), []);
   const [googleOAuthEnabled, setGoogleOAuthEnabled] = useState(false);
   const [googleOAuthChecked, setGoogleOAuthChecked] = useState(false);
 
@@ -360,8 +363,8 @@ export function App() {
             selectRoot={selectRoot}
             signOut={signOut}
             deepLinkTarget={nativeNotificationTarget}
-            onDeepLinkConsumed={() => setNativeNotificationTarget(null)}
-            onDeepLinkError={setError}
+            onDeepLinkConsumed={clearNativeNotificationTarget}
+            onDeepLinkError={reportNativeNotificationError}
           />
         </MobilePlannerRuntime>
       ) : null}
