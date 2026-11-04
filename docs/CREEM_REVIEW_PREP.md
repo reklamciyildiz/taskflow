@@ -11,7 +11,7 @@ Actiproc now has a single Creem runtime. Production checkout is disabled until a
 Creem TEST products must be recurring, USD, SaaS, **inclusive** tax mode, and use respective intervals. The $12/$4/$6 listed prices are tax-inclusive where applicable; verify the final country-specific checkout amount before enabling live sales. Switching to exclusive tax mode later requires explicit price and product review. Create in **Test Mode first**; never substitute test product IDs for live IDs.
 
 ## Environment variables (server-side only)
-- `NEW_BILLING_PROVIDER=creem` enables Creem for **new** subscriptions; omit in production until approved.
+- Creem is the only active application gateway. `NEW_BILLING_PROVIDER` is obsolete; production checkout is controlled exclusively by `CREEM_CHECKOUT_ENABLED` and `CREEM_MODE=live`.
 - `CREEM_MODE=test` in local/preview; `live` only in production after approval.
 - `CREEM_API_KEY`
 - `CREEM_WEBHOOK_SECRET`
@@ -45,7 +45,7 @@ The API key and webhook secret must be generated from Creem's **Test Mode** sett
 Use `CREEM_MODE=test` and `CREEM_CHECKOUT_ENABLED=true` only against the dedicated staging Supabase project. Checkout is off by default.
 After a Test Mode API key is saved locally, run `npm run creem:verify-products`.
 The command checks price, recurrence, tax mode, test environment and activity directly against Creem without printing any credentials.
-Only enable `NEW_BILLING_PROVIDER=creem` against a migrated **staging database**, never against an unmigrated production database.
+Only enable Creem checkout against a reviewed and migrated database; `CREEM_CHECKOUT_ENABLED` defaults to false. See [live launch gate](CREEM_LIVE_LAUNCH.md).
 Checkout callback and webhook delivery need an accessible test origin, not a local-only localhost callback.
 
 ## Staging migration inventory (important)
