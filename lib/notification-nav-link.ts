@@ -9,7 +9,8 @@ const DUMMY_ORIGIN = 'http://localhost';
 export function canonicalNotificationLink(link: string | null | undefined): string | null {
   if (typeof link !== 'string') return null;
   const value = link.trim();
-  if (!value || value.startsWith('//') || value.startsWith('\\')) return null;
+  if (!value || value.startsWith('//') || value.startsWith('\\') ||
+      (/^[a-z][a-z0-9+.-]*:/i.test(value) && !/^https?:\/\//i.test(value))) return null;
   try {
     const absolute = /^https?:\/\//i.test(value);
     const url = new URL(absolute ? value : value.startsWith('/') ? value : `/${value}`, DUMMY_ORIGIN);
