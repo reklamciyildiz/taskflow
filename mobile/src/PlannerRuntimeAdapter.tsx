@@ -148,6 +148,8 @@ export function MobilePlannerRuntime({ children, onOpenAction, onError }: {
   const [filter, setFilter] = useState<FilterType>(null);
   const [customerFilter, setCustomerFilter] = useState<string | null>(null);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const editingTaskRef = useRef<string | null>(null);
+  editingTaskRef.current = editingTaskId;
   const [actionPanelTabOrderByTask, setActionPanelTabOrderByTask] = useState<Record<string, ActionPanelTabOrder>>({});
   const [processOrderByTeam, setProcessOrderByTeam] = useState<Record<string, string[]>>({});
   const suppressEditorUntil = useRef(0);
@@ -301,6 +303,12 @@ export function MobilePlannerRuntime({ children, onOpenAction, onError }: {
 
   const openTaskEditor = useCallback((taskId: string, checklistItemId?: string | null, noteId?: string | null) => {
     if (Date.now() < suppressEditorUntil.current) return;
+    if (editingTaskRef.current === taskId && (checklistItemId || noteId)) {
+      window.dispatchEvent(new CustomEvent('actiproc:action-target', {
+        detail: { taskId, checklistItemId: checklistItemId ?? null, noteId: noteId ?? null },
+      }));
+      return;
+    }
     checklistFocus.current = checklistItemId ? { taskId, checklistItemId } : null;
     noteFocus.current = noteId ? { taskId, noteId } : null;
     setEditingTaskId(taskId);
