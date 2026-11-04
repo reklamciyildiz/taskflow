@@ -91,6 +91,9 @@ export type MobileProcessDetail = {
 
 export type MobileActionDetail = {
   id: string;
+  /** Included after authorization for native App Link navigation. */
+  teamId?: string | null;
+  projectId?: string | null;
   title: string;
   description: string;
   priority: string | null;
