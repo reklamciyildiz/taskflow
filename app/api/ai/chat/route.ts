@@ -243,21 +243,48 @@ export async function POST(request:NextRequest) {
             citations,structured,agentContext,configuredMaxOutputTokens:aiChatLimits.maxOutputTokens });
 
           provider=new GroqChatProvider(); model=provider.modelId;
+          // Backup is opt-in, separately metered, and never used to repeat
+          // a mutation/proposal flow. It inherits exactly the same authorized
+          // retrieval, citation validation, and context as the primary.
+          const backupProvider=!writeRequested ? createOptionalOpenAIBackup() : null;
+          const requestedInputTokens=contextPlan.estimatedInputTokens+(writeRequested?1_200:0);
+          const requestedOutputTokens=contextPlan.maxOutputTokens+(needsModelToolSelection?3_500:0)+(writeRequested?500:0);
+          const reserveBackup=async():Promise<GroqChatProvider|null>=>{
+            if (!backupProvider||fallbackUsed||overallSignal.signal.aborted) return null;
+            const backupAdmission=await reserveProviderTokens({
+              // A distinct UUID is essential: provider token reservations use
+              // request_key UNIQUE, even across different model/provider pairs.
+              requestKey:randomUUID(),userId:scope.userId,organizationId:scope.organizationId,
+              model:backupProvider.modelId,provider:'openai',tokenLimit:backupTokenBudget(),
+              estimatedInputTokens:requestedInputTokens,maxOutputTokens:requestedOutputTokens,
+            });
+            if (!backupAdmission.allowed || !backupAdmission.reservationId) return null;
+            fallbackUsed=true;
+            tokenReservationId=backupAdmission.reservationId;
+            fallbackStartingTokens=(inputTokens??0)+(outputTokens??0);
+            return backupProvider;
+          };
 
-          const tokenAdmission=await reserveGroqTokens({ requestKey:input.clientRequestId,userId:scope.userId,
-            organizationId:scope.organizationId,model,
-            estimatedInputTokens:contextPlan.estimatedInputTokens+(writeRequested?1_200:0),
-            maxOutputTokens:contextPlan.maxOutputTokens+(needsModelToolSelection?3_500:0)+(writeRequested?500:0) });
+          const tokenAdmission=await reserveGroqTokens({
+            requestKey:input.clientRequestId,userId:scope.userId,organizationId:scope.organizationId,model,
+            estimatedInputTokens:requestedInputTokens,maxOutputTokens:requestedOutputTokens,
+          });
           tokenReservationId=tokenAdmission.reservationId;
           if (!tokenAdmission.allowed) {
-            const retryAfterSeconds=tokenAdmission.retryAfterSeconds??60;
-            const errorEvent={ type:'error',code:'PROVIDER_TOKEN_BUDGET',
-              message:`Actiproc AI is protecting the Groq minute limit. Try again in about ${retryAfterSeconds} seconds.`,
-              retryable:true,retryAfterSeconds } as const;
-            if (quotaReserved) await releaseAIQuotaReservation(input.clientRequestId,scope.userId,scope.organizationId);
-            quotaReserved=false;
-            send(errorEvent);await finalizeAssistantMessage({ messageId:turn.assistantMessageId,scope,content:'',
-              status:'failed',errorCode:errorEvent.code });assistantStatus='failed';return;
+            const backup=await reserveBackup();
+            if (backup) {
+              provider=backup;model=backup.modelId;
+              send({type:'tool_status',label:'Yanıtın hazırlanması için uygun kapasite seçiliyor…'});
+              console.info(JSON.stringify({event:'ai_fallback_selected',requestId:input.clientRequestId,reason:'primary_admission'}));
+            } else {
+              const errorEvent={ type:'error',code:'PROVIDER_TOKEN_BUDGET',
+                message:AI_TEMPORARY_CAPACITY_MESSAGE,
+                retryable:true,retryAfterSeconds:tokenAdmission.retryAfterSeconds } as const;
+              if (quotaReserved) await releaseAIQuotaReservation(input.clientRequestId,scope.userId,scope.organizationId);
+              quotaReserved=false;
+              send(errorEvent);await finalizeAssistantMessage({ messageId:turn.assistantMessageId,scope,content:'',
+                status:'failed',errorCode:errorEvent.code });assistantStatus='failed';return;
+            }
           }
 
           let finalContextPlan=contextPlan;
