@@ -35,7 +35,7 @@ checks+=3;
 assert.equal(shortRetryDelayMs(undefined),null);
 assert.equal(shortRetryDelayMs(30_000),null);
 assert.equal(shortRetryDelayMs(0),150);
-assert.equal(shortRetryDelayMs(1_800),1_800);
+assert.equal(shortRetryDelayMs(2_000),2_000);
 assert.equal(shortRetryDelayMs(-1),null);
 checks+=5;
 
