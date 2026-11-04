@@ -758,7 +758,7 @@ export function Settings() {
                       </Badge>
                     </CardTitle>
                     <CardDescription className="mt-1.5">
-                      Plans, checkout, invoices, and seats — managed via Lemon Squeezy.
+                      Plans, secure checkout, invoices and seats — managed through Creem.
                     </CardDescription>
                   </div>
                   <Button
