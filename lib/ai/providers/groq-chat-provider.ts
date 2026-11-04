@@ -85,6 +85,9 @@ export type GroqChatProviderOptions = {
   maxInputTokens?: number;
   maxOutputTokens?: number;
   parallelToolCalls?: boolean;
+  /** OpenAI Chat Completions-compatible fallback. Never accept an untrusted endpoint. */
+  providerId?: 'groq' | 'openai';
+  supportsGroqReasoning?: boolean;
 };
 
 function parseToolArguments(value: string): unknown {
@@ -104,7 +107,7 @@ function toUsage(value: z.infer<typeof usageSchema>): AIProviderUsage {
 }
 
 export class GroqChatProvider implements ChatProvider {
-  readonly providerId = 'groq';
+  readonly providerId: 'groq' | 'openai';
   readonly modelId: string;
   private readonly apiKey: string;
   private readonly endpoint: string;
@@ -112,8 +115,11 @@ export class GroqChatProvider implements ChatProvider {
   private readonly maxInputTokens: number;
   private readonly maxOutputTokens: number;
   private readonly parallelToolCalls: boolean;
+  private readonly supportsGroqReasoning: boolean;
 
   constructor(options: GroqChatProviderOptions = {}) {
+    this.providerId = options.providerId ?? 'groq';
+    this.supportsGroqReasoning = options.supportsGroqReasoning ?? true;
     this.apiKey = options.apiKey ?? process.env.GROQ_API_KEY ?? '';
     this.modelId = options.model ?? process.env.GROQ_CHAT_MODEL ?? 'qwen/qwen3.8-27b';
     this.endpoint = options.endpoint ?? 'https://api.groq.com/openai/v1/chat/completions';
@@ -187,8 +193,8 @@ export class GroqChatProvider implements ChatProvider {
         parallel_tool_calls: this.parallelToolCalls,
       } : {}),
       ...(request.temperature !== undefined ? { temperature: request.temperature } : {}),
-      ...(request.reasoning?.effort ? { reasoning_effort: request.reasoning.effort } : {}),
-      ...(request.reasoning?.format ? { reasoning_format: request.reasoning.format } : {}),
+      ...(this.supportsGroqReasoning && request.reasoning?.effort ? { reasoning_effort: request.reasoning.effort } : {}),
+      ...(this.supportsGroqReasoning && request.reasoning?.format ? { reasoning_format: request.reasoning.format } : {}),
       max_completion_tokens: maxOutputTokens,
       stream,
       ...(stream ? { stream_options: { include_usage: true } } : {}),
