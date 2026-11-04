@@ -602,6 +602,8 @@ function ActionPanelContent({
   /** A deep-linked Note takes precedence over the default Checklist tab.
    * Consumed once per ActionPanel mount so tab switches cannot reopen it. */
   const [initialNoteId] = useState(() => consumeNoteFocusForTask(taskId));
+  const [focusedNoteId, setFocusedNoteId] = useState<string | null>(initialNoteId);
+  const [noteFocusRevision, setNoteFocusRevision] = useState(0);
   const [tab, setTab] = useState<WorkTab>(initialNoteId ? "notes" : "checklist");
   /** Status / priority / assignee / due / description live behind the meta strip. */
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -626,6 +628,40 @@ function ActionPanelContent({
       if (timer) window.clearTimeout(timer);
     };
   }, [consumeChecklistFocusForTask, taskId]);
+
+  // A second notification can target a different Note/checklist inside an
+  // Action whose panel is already mounted. Never unmount unsaved editor drafts.
+  useEffect(() => {
+    let timer: number | null = null;
+    const onTarget = (event: Event) => {
+      const target = (event as CustomEvent<{
+        taskId?: string; noteId?: string | null; checklistItemId?: string | null;
+      }>).detail;
+      if (!target || target.taskId !== taskId) return;
+      if (target.noteId) {
+        setFocusedNoteId(target.noteId);
+        setNoteFocusRevision((value) => value + 1);
+        setTab("notes");
+        return;
+      }
+      if (target.checklistItemId) {
+        setTab("checklist");
+        setHideDone(false);
+        let count = 0;
+        const focus = () => {
+          if (checklistEditorRef.current?.focusTaskItem(target.checklistItemId!)) return;
+          if (++count < 40) timer = window.setTimeout(focus, 50);
+          else toast.error("This checklist item is no longer available.");
+        };
+        timer = window.setTimeout(focus, 0);
+      }
+    };
+    window.addEventListener('actiproc:action-target', onTarget);
+    return () => {
+      window.removeEventListener('actiproc:action-target', onTarget);
+      if (timer !== null) window.clearTimeout(timer);
+    };
+  }, [taskId]);
 
   // ── Persistence core ──
   // One place owns every debounce timer + dirty flag so close/unmount/switch can
@@ -1512,7 +1548,8 @@ function ActionPanelContent({
               members={currentTeam?.members}
               flushRef={notesFlushRef}
               onTrackSave={trackSave}
-              focusedNoteId={initialNoteId}
+              focusedNoteId={focusedNoteId}
+              focusRevision={noteFocusRevision}
             />
           </TabsContent>
         </div>
