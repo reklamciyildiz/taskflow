@@ -17,7 +17,7 @@ import { AI_RETRYING_MESSAGE, AI_TEMPORARY_CAPACITY_MESSAGE, AI_TEMPORARY_SERVIC
   mayFailOverBeforeResponse, shortRetryDelayMs } from '@/lib/ai/chat/reliability-policy';
 import { formatAIQuotaMessage,shouldRefundAIUserQuota } from '@/lib/ai/chat/quota-policy';
 import {
-  createTurnMessages,finalizeAssistantMessage,finishChatRun,getConversation,
+  claimFailedAssistantForRetry,createTurnMessages,finalizeAssistantMessage,finishChatRun,getConversation,
   getConversationMessages,historyForProvider,reserveChatRun,
 } from '@/lib/ai/chat/conversation-server';
 import { chatErrorResponse,requireAIChatUser } from '@/lib/ai/chat/http-server';
@@ -39,6 +39,7 @@ export const maxDuration=60;
 
 const requestSchema=z.object({
   conversationId:z.string().uuid(),clientRequestId:z.string().uuid(),
+  retryAssistantMessageId:z.string().uuid().optional(),
   message:z.string().trim().min(1).max(aiChatLimits.maxMessageChars),
   context:z.object({ origin:z.enum(['global','knowledge_hub']).default('global'),
     teamId:z.string().uuid().optional(),processId:z.string().uuid().optional() }).strict().default({ origin:'global' }),
@@ -110,7 +111,9 @@ export async function POST(request:NextRequest) {
     const effectiveContext={ ...conversation.context,...input.context };
     const availableHistory=historyForProvider(await getConversationMessages(scope,input.conversationId));
     const run=await reserveChatRun(scope,input.conversationId,input.clientRequestId);
-    const turn=await createTurnMessages(scope,input.conversationId,input.clientRequestId,input.message);
+    const turn=input.retryAssistantMessageId
+      ? await claimFailedAssistantForRetry(scope,input.conversationId,input.retryAssistantMessageId,input.message)
+      : await createTurnMessages(scope,input.conversationId,input.clientRequestId,input.message);
     if (turn.duplicate) {
       if (turn.assistantStatus!=='completed') {
         return NextResponse.json({ error:{ code:'REQUEST_IN_PROGRESS',message:'This message is already being processed' } },{ status:409 });
