@@ -37,6 +37,16 @@
                     android:pathPrefix="/mobile/auth/callback" />
             </intent-filter>
 
+            <!-- Verified HTTPS Action links open the installed app's exact
+                 target instead of falling back to the Actiproc homepage. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="actiproc.com" android:pathPrefix="/board" />
+                <data android:scheme="https" android:host="www.actiproc.com" android:pathPrefix="/board" />
+            </intent-filter>
+
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
