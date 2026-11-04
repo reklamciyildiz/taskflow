@@ -408,6 +408,8 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   const [filter, setFilter] = useState<FilterType>(null);
   const [customerFilter, setCustomerFilter] = useState<string | null>(null);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const editingTaskIdRef = useRef<string | null>(null);
+  editingTaskIdRef.current = editingTaskId;
   const suppressTaskEditorOpenUntilRef = useRef<number>(0);
   const pendingChecklistFocusRef = useRef<{ taskId: string; checklistId: string } | null>(null);
   const pendingNoteFocusRef = useRef<{ taskId: string; noteId: string } | null>(null);
@@ -440,6 +442,14 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
 
   const openTaskEditor = useCallback((taskId: string, checklistItemId?: string | null, noteId?: string | null) => {
     if (Date.now() < suppressTaskEditorOpenUntilRef.current) return;
+    if (editingTaskIdRef.current === taskId && (checklistItemId || noteId)) {
+      // Same Action is already mounted: tell it to focus the target again,
+      // without tearing down the editor and risking unsaved text changes.
+      window.dispatchEvent(new CustomEvent('actiproc:action-target', {
+        detail: { taskId, checklistItemId: checklistItemId ?? null, noteId: noteId ?? null },
+      }));
+      return;
+    }
     pendingChecklistFocusRef.current = checklistItemId
       ? { taskId, checklistId: checklistItemId } : null;
     pendingNoteFocusRef.current = noteId ? { taskId, noteId } : null;
