@@ -31,6 +31,7 @@
     "test:ai:public": "tsx scripts/test-ai-public-access.ts",
     "test:ai:typo": "tsx scripts/test-ai-entity-matching.ts",
     "test:ai:commercial-ui": "tsx scripts/test-ai-plan-ux.ts",
+    "test:notification:links": "tsx scripts/test-notification-deeplinks.ts",
     "test:mobile-web": "node scripts/test-mobile-web-contract.mjs",
     "test:ios-shell": "node scripts/test-ios-shell-contract.mjs",
     "test:ios-auth": "node scripts/test-ios-auth-security.mjs",
