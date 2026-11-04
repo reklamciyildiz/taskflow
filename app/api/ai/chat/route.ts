@@ -340,18 +340,71 @@ export async function POST(request:NextRequest) {
 
           billableAttempt=true;
           const registry=createCitationRegistry(citations);
-          const events=provider.stream({ messages:finalContextPlan.messages,
-            temperature:0.25,maxOutputTokens:finalContextPlan.maxOutputTokens,
-            reasoning:{ effort:finalContextPlan.profile==='general'&&model.startsWith('qwen/')?'none':'low',format:'hidden' } },
-            { requestId:randomUUID(),timeoutMs:aiChatLimits.timeoutMs,signal:overallSignal.signal });
-          for await (const event of events) {
-            if (event.type==='text_delta') {
-              if (firstTokenMs===undefined) firstTokenMs=Date.now()-startedAt;
-              answer+=event.text;send({ type:'delta',text:event.text });
-            }
-            else if (event.type==='usage') {
-              inputTokens=(inputTokens??0)+(event.usage.inputTokens??0);outputTokens=(outputTokens??0)+(event.usage.outputTokens??0);
-              send({ type:'usage',inputTokens,outputTokens });
+          let retriedOnce=false;
+          let emittedResponseText=false;
+          // A fallback/retry is permitted only before *any* text delta.
+          // Once streaming starts, never stitch responses from different models.
+          while (true) {
+            try {
+              const events=provider.stream({ messages:finalContextPlan.messages,
+                temperature:0.25,maxOutputTokens:finalContextPlan.maxOutputTokens,
+                reasoning:{ effort:finalContextPlan.profile==='general'&&model.startsWith('qwen/')?'none':'low',format:'hidden' } },
+                { requestId:randomUUID(),timeoutMs:aiChatLimits.timeoutMs,signal:overallSignal.signal });
+              for await (const event of events) {
+                if (event.type==='text_delta') {
+                  emittedResponseText=true;
+                  if (firstTokenMs===undefined) firstTokenMs=Date.now()-startedAt;
+                  answer+=event.text;send({ type:'delta',text:event.text });
+                } else if (event.type==='usage') {
+                  inputTokens=(inputTokens??0)+(event.usage.inputTokens??0);
+                  outputTokens=(outputTokens??0)+(event.usage.outputTokens??0);
+                  send({ type:'usage',inputTokens,outputTokens });
+                }
+              }
+              break;
+            } catch (providerError) {
+              if (overallSignal.signal.aborted) throw providerError;
+              const failure=provider.normalizeError(providerError);
+              // Single bounded, abortable retry. No queue held open for 30-60s
+              // and no repetition of tool effects or user chat turns.
+              const delay=shortRetryDelayMs(failure.retryAfterMs);
+              if (!emittedResponseText && !retriedOnce && failure.code==='rate_limited'
+                  && delay!==null && Date.now()-startedAt+delay<aiChatLimits.timeoutMs-4_000) {
+                retriedOnce=true;
+                send({type:'tool_status',label:AI_RETRYING_MESSAGE});
+                console.info(JSON.stringify({event:'ai_safe_retry',requestId:input.clientRequestId,delayMs:delay}));
+                await abortableDelay(delay,overallSignal.signal);
+                continue;
+              }
+
+              if (mayFailOverBeforeResponse({
+                code:failure.code,emittedText:emittedResponseText,
+                aborted:overallSignal.signal.aborted,fallbackAlreadyUsed:fallbackUsed,writeRequested,
+              })) {
+                const primaryReservationId=tokenReservationId;
+                const primaryUsage=(inputTokens??0)+(outputTokens??0);
+                const backup=await reserveBackup();
+                if (backup) {
+                  // A 429 happens before inference. A successful read-tool
+                  // selector may already have used primary tokens: count them.
+                  // A 5xx has unknown usage: keep the reserved estimate.
+                  await finalizeGroqTokens({
+                    reservationId:primaryReservationId,userId:scope.userId,status:'failed',
+                    actualTokens:failure.code==='rate_limited'?primaryUsage:undefined,
+                  }).catch(()=>undefined);
+                  provider=backup;model=backup.modelId;
+                  console.info(JSON.stringify({event:'ai_fallback_selected',requestId:input.clientRequestId,
+                    reason:failure.code}));
+                  send({type:'tool_status',label:'Yanıt için alternatif kapasite kullanılıyor…'});
+                  continue;
+                }
+              }
+              if (failure.code==='rate_limited' && !emittedResponseText) {
+                // Explicit pre-inference rejection. Preserve any known selector
+                // usage but release the unused generation reservation.
+                definitelyNoNewProviderTokens=true;
+              }
+              throw providerError;
             }
           }
           const allowed=new Set(registry.ids);
