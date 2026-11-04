@@ -100,6 +100,7 @@ export function AxiomAIChatView({
     if (!retryAssistantMessageId) setInput('');
     setLoading(true);const controller=new AbortController();abortRef.current=controller;
     let activeConversation=conversationId;
+    let optimisticAssistant=retryAssistantMessageId;
     try {
       if (!activeConversation) {
         const created=await request('/api/ai/conversations',{ method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ context }) });
@@ -108,7 +109,7 @@ export function AxiomAIChatView({
         activeConversation=createdPayload.conversation.id;setConversationId(activeConversation);
       }
       const requestId=crypto.randomUUID(),optimisticUser=`user-${requestId}`;
-      const optimisticAssistant=retryAssistantMessageId??`assistant-${requestId}`;
+      optimisticAssistant=retryAssistantMessageId??`assistant-${requestId}`;
       if (retryAssistantMessageId) {
         // Reuse the failed turn: backend claims its existing assistant record,
         // so both the live view and reloaded history have no duplicate question.
@@ -154,7 +155,7 @@ export function AxiomAIChatView({
       const cancelled=(error as Error)?.name==='AbortError'||controller.signal.aborted;
       const publicMessage=safeAIErrorMessage('AI_UNAVAILABLE',error instanceof Error?error.message:undefined);
       if (!cancelled) toast.error(publicMessage);
-      setMessages((current)=>current.map((item)=>item.id===optimisticAssistant && item.status==='streaming'
+      setMessages((current)=>current.map((item)=>optimisticAssistant && item.id===optimisticAssistant && item.status==='streaming'
         ? {...item,status:cancelled?'cancelled':'failed',content:item.content||(cancelled?'Generation stopped':publicMessage),
           errorCode:cancelled?'CANCELLED':'AI_UNAVAILABLE',activity:undefined}
         : item));
