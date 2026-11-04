@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { ChatMessage,ChatProvider } from '@/lib/ai/providers/contracts';
 import { AI_READ_TOOL_DEFINITIONS } from './definitions';
+import { estimateMessagesTokens, estimateTokens } from '@/lib/ai/utils/token-counter';
 import type { AIReadToolCall } from './types';
 
 const SELECTOR_SYSTEM=`Select at most two read-only Axiom tools needed for the user's question.
@@ -8,6 +9,14 @@ Understand informal Turkish, missing filler words and small spelling errors; sti
 Use no tool for ordinary conversation. Never invent IDs. Prefer processName when the user supplied a name, preserving the user's spelling for safe server-side resolution.
 Do not guess a different Process because one name looks familiar; the server will clarify ambiguous names.
 Do not answer the question. You have no write tools.`;
+
+/** Budget for actual selector prompt + registered tool schemas, not an
+ * arbitrary 3,500-token padding on every ambiguous question. */
+export function estimateAIReadToolSelectionTokens(question:string,history:ChatMessage[]):number {
+  return estimateMessagesTokens([
+    {role:'system',content:SELECTOR_SYSTEM},...history.slice(-2),{role:'user',content:question},
+  ]) + estimateTokens(JSON.stringify(AI_READ_TOOL_DEFINITIONS));
+}
 
 export async function selectAIReadTools(input:{
   provider:ChatProvider;question:string;history:ChatMessage[];signal:AbortSignal;timeoutMs:number;
