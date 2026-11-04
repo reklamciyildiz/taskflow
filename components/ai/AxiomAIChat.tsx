@@ -119,7 +119,7 @@ export function AxiomAIChatView({
       } else {
         setMessages((current)=>[...current,
           { id:optimisticUser,role:'user',content:message,status:'completed',model:null,createdAt:new Date().toISOString(),sources:[] },
-          { id:optimisticAssistant,role:'assistant',content:'',status:'streaming',model:null,createdAt:new Date().toISOString(),sources:[] },
+          { id:optimisticAssistant!,role:'assistant',content:'',status:'streaming',model:null,createdAt:new Date().toISOString(),sources:[] },
         ]);
       }
       const response=await request('/api/ai/chat',{ method:'POST',signal:controller.signal,headers:{'Content-Type':'application/json'},
