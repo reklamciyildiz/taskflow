@@ -236,7 +236,7 @@ export default function IntegrationsClient() {
       {webhooks.length === 0 ? (
         <Card className="p-12 text-center">
           <div className="text-6xl mb-4">🔌</div>
-          <h3 className="text-xl font-semibold mb-2">No webhooks yet</h3>
+          <h3 className="text-xl font-semibold mb-2">{webhooksPaywalled ? "Webhooks require Team" : "No webhooks yet"}</h3>
           <p className="text-muted-foreground mb-4">
             {webhooksPaywalled
               ? 'Upgrade to Team when you are ready to receive real-time notifications.'
