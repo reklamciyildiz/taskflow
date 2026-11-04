@@ -115,7 +115,8 @@ async function main() {
               userMessageId: 'user-real', assistantMessageId: 'assistant-real' }),
             sse({ type: 'tool_status', label: 'Checking accessible workspace records' }),
             sse({ type: 'delta', text: '## Summary\n\n- Action A is in progress.\n- Action B is done.\n\n' }),
-            sse({ type: 'delta', text: 'Here is a **verified reference** [cite:' + cited + '].' }),
+            sse({ type: 'delta', text: '| # | Action | Priority | Stage | Status |\n| --- | --- | :---: | --- | --- |\n| 1 | Implementation | High | In Progress | Open |\n| 2 | UI redesign | Medium | Done | Completed |\n\n~~~ts\nconst safe = true;\n~~~\n\n' }),
+            sse({ type: 'delta', text: '<img src=x onerror=alert(1)>\n\n[Avoid this](javascript:alert(1))\n\nHere is a **verified reference** [cite:' + cited + '].' }),
             sse({ type: 'sources', sources: [{
               citationId: cited, title: 'Source Action', snippet: 'Accessible Action description',
               navigation: { actionId: 'action-a' },
@@ -174,6 +175,21 @@ async function main() {
       await page.getByRole('button', { name: /Summarize my work/ }).click();
       await page.getByText('Here is a').waitFor();
       await page.getByRole('heading', { name: 'Summary' }).waitFor();
+      const dataTable = page.getByRole('table');
+      await dataTable.waitFor();
+      assert.equal(await dataTable.getByRole('row').count(), 3);
+      assert.equal(await dataTable.getByRole('cell', { name: 'Implementation' }).count(), 1);
+      await page.getByRole('button', { name: 'Copy table' }).waitFor();
+      await page.getByRole('button', { name: 'Copy code' }).waitFor();
+      assert.equal(await page.locator('.actiproc-ai-answer script').count(), 0);
+      assert.equal(await page.locator('.actiproc-ai-answer img').count(), 0);
+      assert.equal(await page.locator('.actiproc-ai-answer a[href^="javascript"]').count(), 0);
+      if (width <= 390) {
+        const region = page.getByRole('region', { name: 'Scrollable response table' });
+        assert.ok(await region.evaluate(node => node.scrollWidth > node.clientWidth),
+          width + 'px table must scroll inside its container');
+      }
+      checks += width <= 390 ? 8 : 7;
       await page.getByRole('button', { name: /Source Action/ }).click();
       assert.deepEqual(await page.evaluate(() => window.qa.opened), ['action-a']);
       checks += 3;
