@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { ACTIPROC_PLANS, CREEM_EXPECTED_TAX_MODE } from '../lib/billing-plans';
-import { getCreemConfig, creemPlanForProduct, creemResponseMode, creemCheckoutEnvironmentSafe } from '../lib/creem-config';
+import { assertCreemLiveReturnOrigin, getCreemConfig, creemPlanForProduct, creemResponseMode, creemCheckoutEnvironmentSafe } from '../lib/creem-config';
 import { normalizeCreemSubscription } from '../lib/creem-subscription-contract';
 import { validCreemEventId, verifyCreemSignature, paidCreemCheckoutMatches } from '../lib/creem-webhook-contract';
 import crypto from 'node:crypto';
@@ -24,6 +24,31 @@ const config=getCreemConfig(env);
 assert.equal(config.baseUrl,'https://test-api.creem.io');
 assert.equal(creemResponseMode(config),'test');
 assert.equal(creemResponseMode({...config,mode:'live'}),'prod');
+assert.doesNotThrow(()=>assertCreemLiveReturnOrigin('https://www.actiproc.com'));
+assert.doesNotThrow(()=>assertCreemLiveReturnOrigin('https://actiproc.com/'));
+for(const badReturn of [
+ 'http://actiproc.com','https://localhost:3000','https://staging.actiproc.com',
+ 'https://actiproc.com.attacker.example','https://actiproc.com@evil.example',
+ 'https://www.actiproc.com/redirect','https://www.actiproc.com/?next=bad'
+]) assert.throws(()=>assertCreemLiveReturnOrigin(badReturn));
+assert.throws(()=>getCreemConfig({...env,VERCEL_ENV:'production',CREEM_MODE:'live',
+ CREEM_API_KEY:'creem_test_wrong_mode'}));
+const modernInvite=fs.readFileSync('components/InviteMemberModal.tsx','utf8');
+const modernSettings=fs.readFileSync('components/Settings.tsx','utf8');
+const modernTerms=fs.readFileSync('app/(marketing)/terms/page.tsx','utf8');
+const modernUpgrade=fs.readFileSync('components/billing/UpgradePlanModal.tsx','utf8');
+assert.doesNotMatch(modernInvite,/LemonSqueezy|lemonsqueezy.com|lemon\.js/);
+assert.match(modernInvite,/\/settings\/billing\?plan=team/);
+assert.doesNotMatch(modernSettings,/Lemon Squeezy/);
+assert.doesNotMatch(modernTerms,/Lemon Squeezy/);
+assert.match(modernUpgrade,/plans.length === 1/);
+assert.doesNotMatch(modernUpgrade,/AI may remain beta-only|\/api\/billing\/switch-plan/);
+const liveProducts=fs.readFileSync('scripts/verify-creem-live-products.ts','utf8');
+const launchSql=fs.readFileSync('scripts/sql/creem-production-readiness.sql','utf8');
+assert.match(liveProducts,/'GET'/);
+assert.doesNotMatch(liveProducts,/'POST'/);
+assert.match(launchSql,/BEGIN READ ONLY/);
+assert.match(launchSql,/creem_test_mode/);
 assert.equal(creemPlanForProduct('prod_team123',config),'team');
 assert.equal(creemPlanForProduct('prod_wrong',config),null);
 assert.throws(()=>getCreemConfig({...env,VERCEL_ENV:'production'}));
