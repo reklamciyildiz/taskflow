@@ -73,8 +73,9 @@ export default function IntegrationsClient() {
         return;
       }
       if (res.status === 402) {
+        // An ordinary Integrations visit must never force open a billing modal.
+        // Show the entitlement context inline and only open upgrade on intent.
         setWebhooksPaywalled(true);
-        setShowUpgrade(true);
       }
     } catch (error) {
       console.error('Failed to fetch webhooks:', error);
@@ -221,12 +222,25 @@ export default function IntegrationsClient() {
         </div>
       </Card>
 
+      {webhooksPaywalled && (
+        <div role="status" className="mb-5 flex flex-col gap-3 rounded-2xl border border-primary/20 bg-primary/[0.045] p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-foreground">Webhooks are included with Team</p>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">Explore integrations without committing to a purchase. Upgrade when you are ready to connect external services.</p>
+          </div>
+          <Button type="button" size="sm" onClick={() => setShowUpgrade(true)} className="h-9 shrink-0 rounded-lg">
+            Review Team plan
+          </Button>
+        </div>
+      )}
       {webhooks.length === 0 ? (
         <Card className="p-12 text-center">
           <div className="text-6xl mb-4">🔌</div>
           <h3 className="text-xl font-semibold mb-2">No webhooks yet</h3>
           <p className="text-muted-foreground mb-4">
-            Create your first webhook to start receiving real-time notifications
+            {webhooksPaywalled
+              ? 'Upgrade to Team when you are ready to receive real-time notifications.'
+              : 'Create your first webhook to start receiving real-time notifications'}
           </p>
           <Button
             onClick={() => {
