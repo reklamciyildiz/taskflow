@@ -160,7 +160,7 @@ export interface TaskContextType {
   canCompleteTask: (taskAssigneeId?: string | null) => boolean;
   /** Global action editor (Board, List, Knowledge Hub) */
   editingTaskId: string | null;
-  openTaskEditor: (taskId: string, checklistItemId?: string | null) => void;
+  openTaskEditor: (taskId: string, checklistItemId?: string | null, noteId?: string | null) => void;
   /** Alias for `openTaskEditor` — opens the Aksiyon panel. */
   openActionEditor: (taskId: string) => void;
   closeTaskEditor: () => void;
@@ -171,6 +171,7 @@ export interface TaskContextType {
    * and store a one-time checklist row focus target. Consumers (ActionPanel) can claim it.
    */
   consumeChecklistFocusForTask: (taskId: string) => string | null;
+  consumeNoteFocusForTask: (taskId: string) => string | null;
 }
 
 const TaskContext = createContext<TaskContextType | undefined>(undefined);
@@ -336,6 +337,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   const projectQueryParam = searchParams.get('project');
   const taskQueryParam = searchParams.get('task');
   const checklistQueryParam = searchParams.get('checklist');
+  const noteQueryParam = searchParams.get('note');
   const [tasks, setTasks] = useState<Task[]>([]);
   const tasksRef = useRef(tasks);
   tasksRef.current = tasks;
@@ -408,6 +410,8 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const suppressTaskEditorOpenUntilRef = useRef<number>(0);
   const pendingChecklistFocusRef = useRef<{ taskId: string; checklistId: string } | null>(null);
+  const pendingNoteFocusRef = useRef<{ taskId: string; noteId: string } | null>(null);
+  const notificationLookupRef = useRef<string | null>(null);
 
   const consumeChecklistFocusForTask = useCallback((taskId: string) => {
     const cur = pendingChecklistFocusRef.current;
@@ -415,6 +419,13 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     if (cur.taskId !== taskId) return null;
     pendingChecklistFocusRef.current = null;
     return cur.checklistId;
+  }, []);
+
+  const consumeNoteFocusForTask = useCallback((taskId: string) => {
+    const current = pendingNoteFocusRef.current;
+    if (!current || current.taskId !== taskId) return null;
+    pendingNoteFocusRef.current = null;
+    return current.noteId;
   }, []);
 
   const suppressTaskEditorOpenFor = useCallback((ms: number) => {
@@ -425,11 +436,11 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     );
   }, []);
 
-  const openTaskEditor = useCallback((taskId: string, checklistItemId?: string | null) => {
+  const openTaskEditor = useCallback((taskId: string, checklistItemId?: string | null, noteId?: string | null) => {
     if (Date.now() < suppressTaskEditorOpenUntilRef.current) return;
     pendingChecklistFocusRef.current = checklistItemId
-      ? { taskId, checklistId: checklistItemId }
-      : null;
+      ? { taskId, checklistId: checklistItemId } : null;
+    pendingNoteFocusRef.current = noteId ? { taskId, noteId } : null;
     setEditingTaskId(taskId);
   }, []);
 
@@ -887,50 +898,83 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     );
   }, [projects]);
 
-  // Open action panel from /board?task=… (e.g. in-app notification deep link)
+  // Deep links resolve a task with the same access checks as GET /api/tasks/[id].
+  // The first team is often not the task's team. Never discard the target merely
+  // because the currently selected team's list does not contain it.
   useEffect(() => {
-    if (pathname !== '/board' || !taskQueryParam) return;
-    if (loading) return;
+    if (pathname !== '/board' || !taskQueryParam) {
+      notificationLookupRef.current = null;
+      return;
+    }
+    if (loading || !currentTeam?.id || !organizationId) return;
 
-    const task = tasks.find((t) => t.id === taskQueryParam);
-    const params = new URLSearchParams(searchParams.toString());
-    params.delete('task');
-    params.delete('checklist');
+    const task = tasks.find((item) => item.id === taskQueryParam && item.teamId === currentTeam.id);
+    if (task) {
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete('task');
+      params.delete('checklist');
+      params.delete('note');
+      if (task.projectId) {
+        const project = projects.find((item) => item.id === task.projectId);
+        if (project) {
+          setBoardScope({ type: 'project', projectId: task.projectId });
+          setCurrentProjectState(project);
+          params.set('project', task.projectId);
+        }
+      } else {
+        setBoardScope({ type: 'general' });
+        setCurrentProjectState(null);
+        params.delete('project');
+      }
 
-    if (!task) {
-      const q = params.toString();
-      router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false });
+      // Keep target in a one-shot focus request until its panel mounts.
+      openTaskEditor(task.id, checklistQueryParam, noteQueryParam);
+      const query = params.toString();
+      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
       return;
     }
 
-    if (task.projectId) {
-      const p = projects.find((pr) => pr.id === task.projectId);
-      if (p) {
-        setBoardScope({ type: 'project', projectId: task.projectId });
-        setCurrentProjectState(p);
-        params.set('project', task.projectId);
+    // Initial bootstrap/team changes are asynchronous. A missing task before
+    // that team has loaded is NOT evidence that the notification is invalid.
+    if (lastFetchedScopeRef.current?.teamId !== currentTeam.id ||
+        lastFetchedScopeRef.current?.orgId !== organizationId) return;
+    const lookupKey = `${currentTeam.id}:${taskQueryParam}`;
+    if (notificationLookupRef.current === lookupKey) return;
+    notificationLookupRef.current = lookupKey;
+    let active = true;
+    void taskApi.getById(taskQueryParam).then((result) => {
+      if (!active) return;
+      const currentTarget = new URLSearchParams(window.location.search).get('task');
+      if (window.location.pathname !== '/board' || currentTarget !== taskQueryParam) return;
+      if (!result.success || !result.data) {
+        // Deleted/revoked actions must not be opened. Give a useful destination
+        // instead of silently falling through to the general Board.
+        router.replace('/notifications?target=unavailable', { scroll: false });
+        return;
       }
-    } else {
-      setBoardScope({ type: 'general' });
-      setCurrentProjectState(null);
-      params.delete('project');
-    }
-
-    openTaskEditor(task.id, checklistQueryParam);
-
-    const q = params.toString();
-    router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false });
+      const resolved = transformTask(result.data);
+      if (resolved.teamId !== currentTeam.id) {
+        const targetTeam = teams.find((item) => item.id === resolved.teamId);
+        if (!targetTeam) {
+          router.replace('/notifications?target=unavailable', { scroll: false });
+          return;
+        }
+        setCurrentTeamState(targetTeam);
+        return; // team-scoped fetch then re-enters this effect
+      }
+      // Rare stale/incomplete team list: GET proved permission and provides the
+      // canonical Action, allowing us to open without dropping the deep link.
+      setTasks((previous) =>
+        previous.some((item) => item.id === resolved.id) ? previous : [...previous, resolved],
+      );
+    }).catch(() => {
+      if (active) router.replace('/notifications?target=unavailable', { scroll: false });
+    });
+    return () => { active = false; };
   }, [
-    pathname,
-    taskQueryParam,
-    checklistQueryParam,
-    loading,
-    tasks,
-    projects,
-    router,
-    searchParams,
-    setBoardScope,
-    openTaskEditor,
+    pathname, taskQueryParam, checklistQueryParam, noteQueryParam,
+    loading, tasks, projects, currentTeam?.id, organizationId, teams,
+    router, searchParams, setBoardScope, openTaskEditor,
   ]);
 
   // Fetch customers from API
@@ -1476,6 +1520,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       closeTaskEditor,
       suppressTaskEditorOpenFor,
       consumeChecklistFocusForTask,
+      consumeNoteFocusForTask,
     }}>
       {children}
     </TaskContext.Provider>
