@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { executeAIReadTool, AIReadToolError } from '@/lib/ai/agent/read-tools';
+import { taskDb } from '@/lib/db';
 import { authenticateMobileRequest, MobileAuthError, mobileErrorResponse, mobileJson, mobileOptions } from '@/lib/mobile-auth/server';
 import type { MobileActionDetail } from '@/shared/mobile-contracts';
 
@@ -17,7 +18,18 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       organizationId: String(user.organization_id),
       role: user.role ? String(user.role) : null,
     });
-    return mobileJson(request, { success: true, data: result.data as MobileActionDetail });
+    // The read tool has already enforced the user's organization, team and
+    // Process access. Only then expose target scope for native deep-link routing.
+    const task = await taskDb.getById(params.id);
+    const details = result.data as MobileActionDetail;
+    return mobileJson(request, {
+      success: true,
+      data: {
+        ...details,
+        teamId: task ? String((task as any).team_id) : null,
+        projectId: (task as any)?.project_id ?? null,
+      },
+    });
   } catch (error) {
     if (error instanceof AIReadToolError) {
       const status = error.code === 'forbidden' ? 403 : error.code === 'not_found' ? 404 : 503;
