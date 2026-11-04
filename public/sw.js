@@ -94,24 +94,54 @@ self.addEventListener('push', (event) => {
     icon: '/icon-192x192.png',
     badge: '/icon-192x192.png',
     tag: data.tag || 'taskflow',
-    data: { url: data.url || '/' },
+    data: { url: data.url || '/notifications' },
   };
 
   event.waitUntil(self.registration.showNotification(title, options));
 });
 
+/**
+ * Accept only Actiproc/internal destinations. A payload cannot use notification
+ * clicks to open arbitrary external sites or bypass our authenticated routes.
+ */
+function notificationDestination(raw) {
+  try {
+    const requested = typeof raw === 'string' && raw.trim() ? raw.trim() : '/notifications';
+    if (requested.startsWith('//') || requested.startsWith('\\\\')) return self.location.origin + '/notifications';
+    const url = new URL(requested, self.location.origin);
+    if (!['https:', 'http:'].includes(url.protocol)) throw new Error('scheme');
+    if (![self.location.hostname, 'actiproc.com', 'www.actiproc.com'].includes(url.hostname.toLowerCase()))
+      throw new Error('external');
+    return self.location.origin + url.pathname + url.search + url.hash;
+  } catch {
+    return self.location.origin + '/notifications';
+  }
+}
+
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const url = (event.notification && event.notification.data && event.notification.data.url) || '/';
+  const target = notificationDestination(event.notification?.data?.url);
 
-  event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientsArr) => {
-      const existing = clientsArr.find((c) => c.url && c.url.includes(self.location.origin));
-      if (existing) {
-        existing.focus();
-        return existing.navigate(url);
+  event.waitUntil((async () => {
+    const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    const local = windows.filter((client) => {
+      try { return new URL(client.url).origin === self.location.origin; }
+      catch { return false; }
+    });
+    const alreadyOnTarget = local.find((client) => client.url === target);
+    if (alreadyOnTarget) return alreadyOnTarget.focus();
+
+    // Navigate an existing app window before focusing it. Focusing first caused
+    // the homepage to appear while navigation was still pending or interrupted.
+    const existing = local.find((client) => client.visibilityState === 'visible') || local[0];
+    if (existing) {
+      try {
+        const navigated = await existing.navigate(target);
+        if (navigated) return navigated.focus();
+      } catch {
+        // An old/uncontrolled tab may not support navigation. Open an exact link.
       }
-      return self.clients.openWindow(url);
-    })
-  );
+    }
+    return self.clients.openWindow(target);
+  })());
 });
