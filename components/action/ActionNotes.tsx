@@ -134,6 +134,8 @@ interface ActionNotesProps {
   members?: { id: string; name: string }[];
   flushRef: MutableRefObject<(() => void) | null>;
   onTrackSave: (request: Promise<boolean>) => void;
+  /** One-shot target from an Action notification; opens after the note list loads. */
+  focusedNoteId?: string | null;
 }
 
 export function ActionNotes({
@@ -147,6 +149,7 @@ export function ActionNotes({
   members,
   flushRef,
   onTrackSave,
+  focusedNoteId,
 }: ActionNotesProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState<LocalNoteDraft | null>(null);
@@ -160,11 +163,24 @@ export function ActionNotes({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const resolvedDeepLinkRef = useRef<string | null>(null);
 
   const selectedNote = useMemo(
     () => notes.find((note) => note.id === selectedId) ?? null,
     [notes, selectedId],
   );
+
+  useEffect(() => {
+    if (!focusedNoteId || loading || loadError || resolvedDeepLinkRef.current === focusedNoteId) return;
+    resolvedDeepLinkRef.current = focusedNoteId;
+    if (notes.some((note) => note.id === focusedNoteId)) {
+      activeDraftRef.current = null;
+      setDraft(null);
+      setSelectedId(focusedNoteId);
+    } else {
+      toast.error('This note is no longer available or you do not have access.');
+    }
+  }, [focusedNoteId, loading, loadError, notes]);
 
   const trackInflightSave = useCallback((id: string, save: InflightNoteSave) => {
     const saves = inflightSavesRef.current.get(id) ?? new Set<InflightNoteSave>();
