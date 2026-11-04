@@ -76,10 +76,13 @@ async function run(){
   assert.match(chat,/AXIOM_AI_WRITE_TOOLS_ENABLED|areAIWriteToolsEnabled/);
   assert.match(chat,/writeExecuted:false/);
   const ui=readFileSync('components/ai/AxiomAIChat.tsx','utf8');
-  assert.match(ui,/Onayla ve uygula/);
+  const presentation=readFileSync('components/ai/AIChatPresentation.tsx','utf8');
+  assert.match(presentation,/Approve & apply/);
   assert.match(ui,/action:'approve'\|'reject'/);
   assert.match(ui,/await refreshData\(\)/);
-  assert.match(ui,/field\.oldValue/);
+  assert.match(presentation,/field\.oldValue/);
+  assert.match(presentation,/onProposal\(message\.id, proposal\.id, 'approve'\)/);
+  assert.match(presentation,/onProposal\(message\.id, proposal\.id, 'reject'\)/);
   const actionMutationMigration=readFileSync('supabase/migrations/20261019120000_ai_action_mutation_tools.sql','utf8');
   assert.match(actionMutationMigration,/update_action/);
   assert.match(actionMutationMigration,/schedule_action/);
