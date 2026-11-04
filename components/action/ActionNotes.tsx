@@ -136,6 +136,7 @@ interface ActionNotesProps {
   onTrackSave: (request: Promise<boolean>) => void;
   /** One-shot target from an Action notification; opens after the note list loads. */
   focusedNoteId?: string | null;
+  focusRevision?: number;
 }
 
 export function ActionNotes({
@@ -150,6 +151,7 @@ export function ActionNotes({
   flushRef,
   onTrackSave,
   focusedNoteId,
+  focusRevision = 0,
 }: ActionNotesProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState<LocalNoteDraft | null>(null);
@@ -171,8 +173,10 @@ export function ActionNotes({
   );
 
   useEffect(() => {
-    if (!focusedNoteId || loading || loadError || resolvedDeepLinkRef.current === focusedNoteId) return;
-    resolvedDeepLinkRef.current = focusedNoteId;
+    if (!focusedNoteId || loading || loadError) return;
+    const focusKey = `${focusedNoteId}:${focusRevision}`;
+    if (resolvedDeepLinkRef.current === focusKey) return;
+    resolvedDeepLinkRef.current = focusKey;
     if (notes.some((note) => note.id === focusedNoteId)) {
       activeDraftRef.current = null;
       setDraft(null);
@@ -180,7 +184,7 @@ export function ActionNotes({
     } else {
       toast.error('This note is no longer available or you do not have access.');
     }
-  }, [focusedNoteId, loading, loadError, notes]);
+  }, [focusedNoteId, focusRevision, loading, loadError, notes]);
 
   const trackInflightSave = useCallback((id: string, save: InflightNoteSave) => {
     const saves = inflightSavesRef.current.get(id) ?? new Set<InflightNoteSave>();
