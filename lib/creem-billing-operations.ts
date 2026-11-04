@@ -4,7 +4,7 @@ import { organizationDb } from '@/lib/db';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { getOrganizationSeatUsage } from '@/lib/entitlements';
 import { APP_URL } from '@/lib/site-config';
-import { creemApi, CreemApiError, creemProductForPlan, getCreemConfig, creemResponseMode } from '@/lib/creem-config';
+import { assertCreemLiveReturnOrigin, creemApi, CreemApiError, creemProductForPlan, getCreemConfig, creemResponseMode } from '@/lib/creem-config';
 import { parseCreemSeatState, seatUpdatePayload, SeatValidationError } from '@/lib/creem-seats';
 import { verifyCreemSeatIncreasePayment, type PendingSeatIncrease } from '@/lib/creem-seat-payment';
 import { issueBillingConsent, verifyBillingConsent, type BillingConsentState } from '@/lib/creem-billing-consent';
@@ -39,6 +39,7 @@ function isExistingSubscription(org:any) {
 export async function createCreemCheckout(request:NextRequest, orgId:string, email:string|null|undefined) {
  try{
   const config=getCreemConfig();
+  if (config.mode==='live') assertCreemLiveReturnOrigin(APP_URL);
   const org:any=await organizationDb.getById(orgId);
   const payload=await request.json().catch(()=>null);
   const replacing=payload?.resubscribe===true;
