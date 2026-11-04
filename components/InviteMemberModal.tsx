@@ -23,49 +23,13 @@ export function InviteMemberModal({ isOpen, onClose, teamId }: InviteMemberModal
   } | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const ensureLemon = async () => {
-    if (typeof window === 'undefined') return;
-    const w = window as any;
-    if (w.LemonSqueezy?.Url?.Open) return;
-    await new Promise<void>((resolve, reject) => {
-      const existing = document.querySelector('script[data-lemonsqueezy="lemonjs"]') as HTMLScriptElement | null;
-      if (existing) {
-        existing.addEventListener('load', () => resolve());
-        existing.addEventListener('error', () => reject(new Error('Failed to load lemon.js')));
-        return;
-      }
-      const s = document.createElement('script');
-      s.src = 'https://app.lemonsqueezy.com/js/lemon.js';
-      s.defer = true;
-      s.dataset.lemonsqueezy = 'lemonjs';
-      s.onload = () => resolve();
-      s.onerror = () => reject(new Error('Failed to load lemon.js'));
-      document.head.appendChild(s);
-    });
-    (window as any).createLemonSqueezy?.();
-  };
-
-  const openTeamUpgrade = async () => {
+  const openTeamUpgrade = () => {
+    // An invitation paywall is not authorization to charge a card. Existing
+    // paid subscriptions must review seats / plan changes in Billing first.
+    // Billing is the single canonical Creem checkout and confirmation surface.
+    setError(null);
     setUpgradeBusy(true);
-    try {
-      const resp = await fetch('/api/billing/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan: 'team', billingInterval: 'monthly' }),
-      });
-      const json = await resp.json();
-      if (!resp.ok || !json?.success) throw new Error(json?.error || 'Could not start checkout');
-      const url = json?.data?.url;
-      if (typeof url !== 'string' || !url) throw new Error('Checkout URL missing');
-      await ensureLemon();
-      const w = window as any;
-      if (w.LemonSqueezy?.Url?.Open) w.LemonSqueezy.Url.Open(url);
-      else window.location.href = url;
-    } catch (e: any) {
-      setError(e?.message || 'Could not start checkout');
-    } finally {
-      setUpgradeBusy(false);
-    }
+    window.location.assign('/settings/billing?plan=team');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
