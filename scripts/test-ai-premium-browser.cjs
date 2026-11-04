@@ -185,6 +185,20 @@ async function main() {
       await page.getByText('Help me plan tomorrow').waitFor();
       checks++;
       await checkLayout('composer');
+      if (width === 1440) {
+        await page.getByRole('button', { name: 'More options for New conversation', exact: true }).click();
+        await page.getByRole('menuitem', { name: 'Rename' }).click();
+        await page.getByRole('textbox', { name: 'Edit conversation title' }).fill('Renamed workspace chat');
+        await page.getByRole('button', { name: 'Save conversation title' }).click();
+        await page.getByRole('button', { name: /^Renamed workspace chat/ }).waitFor();
+        checks++;
+        await page.getByRole('button', { name: 'More options for Renamed workspace chat', exact: true }).click();
+        await page.getByRole('menuitem', { name: 'Delete' }).click();
+        await page.getByRole('button', { name: 'Delete conversation', exact: true }).click();
+        await page.getByRole('heading', { name: 'Work, clarified.' }).waitFor();
+        assert.equal(await page.getByRole('button', { name: /^Renamed workspace chat/ }).count(), 0);
+        checks++;
+      }
       await page.close();
     }
     assert.deepEqual(errors, []);
