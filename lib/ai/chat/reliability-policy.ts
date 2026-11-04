@@ -27,7 +27,7 @@ export function configuredTokenBudget(raw: string | undefined, fallback: number,
 /** Retry only before streaming content; never repeat tool effects or a partial answer. */
 export function shortRetryDelayMs(retryAfterMs: number | undefined): number | null {
   if (retryAfterMs === undefined || !Number.isFinite(retryAfterMs)) return null;
-  return retryAfterMs >= 0 && retryAfterMs <= 1_800
+  return retryAfterMs >= 0 && retryAfterMs <= 2_500
     ? Math.max(150, Math.ceil(retryAfterMs))
     : null;
 }
