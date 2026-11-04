@@ -120,7 +120,7 @@ function PremiumCodeBlockView({ node, updateAttributes, editor }: NodeViewProps)
         </div>
       </div>
       <pre className="actiproc-codeblock-body" spellCheck={false}>
-        <NodeViewContent as="code" className="actiproc-codeblock-content" spellCheck={false} />
+        <NodeViewContent className="actiproc-codeblock-content" spellCheck={false} />
       </pre>
     </NodeViewWrapper>
   );
