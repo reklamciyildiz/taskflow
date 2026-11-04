@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from '@/components/ui/sheet';
 import type { AIChatContext,AIChatMessage,AIConversationSummary } from '@/lib/ai/chat/types';
 import { parseChatSSEBuffer } from '@/lib/ai/chat/sse';
+import { safeAIErrorMessage } from '@/lib/ai/chat/reliability-policy';
 import { AIComposer, AIHistoryPanel, AIMessageRow, AIWelcome } from './AIChatPresentation';
 import { AIAllowanceIndicator } from './AIAllowanceIndicator';
 import { useTaskContext } from '@/components/TaskContext';
@@ -94,9 +95,10 @@ export function AxiomAIChatView({
     finally { setProposalBusy(null); }
   };
 
-  const send=async(raw:string)=>{
+  const send=async(raw:string,retryAssistantMessageId?:string)=>{
     const message=raw.trim();if (!message||loading||!enabled) return;
-    setInput('');setLoading(true);const controller=new AbortController();abortRef.current=controller;
+    if (!retryAssistantMessageId) setInput('');
+    setLoading(true);const controller=new AbortController();abortRef.current=controller;
     let activeConversation=conversationId;
     try {
       if (!activeConversation) {
@@ -105,13 +107,23 @@ export function AxiomAIChatView({
         const createdPayload=await created.json();
         activeConversation=createdPayload.conversation.id;setConversationId(activeConversation);
       }
-      const requestId=crypto.randomUUID(),optimisticUser=`user-${requestId}`,optimisticAssistant=`assistant-${requestId}`;
-      setMessages((current)=>[...current,
-        { id:optimisticUser,role:'user',content:message,status:'completed',model:null,createdAt:new Date().toISOString(),sources:[] },
-        { id:optimisticAssistant,role:'assistant',content:'',status:'streaming',model:null,createdAt:new Date().toISOString(),sources:[] },
-      ]);
+      const requestId=crypto.randomUUID(),optimisticUser=`user-${requestId}`;
+      const optimisticAssistant=retryAssistantMessageId??`assistant-${requestId}`;
+      if (retryAssistantMessageId) {
+        // Reuse the failed turn: backend claims its existing assistant record,
+        // so both the live view and reloaded history have no duplicate question.
+        setMessages((current)=>current.map((item)=>item.id===retryAssistantMessageId
+          ? {...item,status:'streaming',content:'',errorCode:undefined,activity:'Preparing your answer…'}
+          : item));
+      } else {
+        setMessages((current)=>[...current,
+          { id:optimisticUser,role:'user',content:message,status:'completed',model:null,createdAt:new Date().toISOString(),sources:[] },
+          { id:optimisticAssistant,role:'assistant',content:'',status:'streaming',model:null,createdAt:new Date().toISOString(),sources:[] },
+        ]);
+      }
       const response=await request('/api/ai/chat',{ method:'POST',signal:controller.signal,headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({ conversationId:activeConversation,clientRequestId:requestId,message,context }) });
+        body:JSON.stringify({ conversationId:activeConversation,clientRequestId:requestId,message,context,
+          ...(retryAssistantMessageId?{retryAssistantMessageId}:{}) }) });
       if (!response.ok||!response.body) {
         const payload=await response.json().catch(()=>null);throw new Error(payload?.error?.message ?? 'Actiproc AI is unavailable');
       }
@@ -127,15 +139,25 @@ export function AxiomAIChatView({
           else if(event.type==='tool_status') setMessages((current)=>current.map((item)=>item.id===realAssistantId||item.id===optimisticAssistant?{...item,activity:event.label}:item));
           else if(event.type==='proposal') setMessages((current)=>current.map((item)=>item.id===realAssistantId||item.id===optimisticAssistant?{...item,proposal:event.proposal}:item));
           else if(event.type==='done') setMessages((current)=>current.map((item)=>item.id===realAssistantId?{...item,status:event.finishReason==='cancelled'?'cancelled':'completed',activity:undefined}:item));
-          else if(event.type==='error') { setMessages((current)=>current.map((item)=>item.id===realAssistantId||item.id===optimisticAssistant?{
-            ...item,content:item.content||event.message,status:event.code==='CANCELLED'?'cancelled':'failed',activity:undefined,
-          }:item));toast.error(event.message); }
+          else if(event.type==='error') {
+            const publicMessage=safeAIErrorMessage(event.code,event.message);
+            setMessages((current)=>current.map((item)=>item.id===realAssistantId||item.id===optimisticAssistant?{
+              ...item,content:item.content||publicMessage,errorCode:event.code,
+              status:event.code==='CANCELLED'?'cancelled':'failed',activity:undefined,
+            }:item));
+            if (event.code!=='CANCELLED') toast.error(publicMessage);
+          }
         }
       }
       await refreshConversations();
     } catch(error) {
-      if ((error as Error).name!=='AbortError') toast.error(error instanceof Error?error.message:'Actiproc AI is unavailable');
-      setMessages((current)=>current.map((item)=>item.status==='streaming'?{...item,status:controller.signal.aborted?'cancelled':'failed'}:item));
+      const cancelled=(error as Error)?.name==='AbortError'||controller.signal.aborted;
+      const publicMessage=safeAIErrorMessage('AI_UNAVAILABLE',error instanceof Error?error.message:undefined);
+      if (!cancelled) toast.error(publicMessage);
+      setMessages((current)=>current.map((item)=>item.id===optimisticAssistant && item.status==='streaming'
+        ? {...item,status:cancelled?'cancelled':'failed',content:item.content||(cancelled?'Generation stopped':publicMessage),
+          errorCode:cancelled?'CANCELLED':'AI_UNAVAILABLE',activity:undefined}
+        : item));
     } finally {
       if(abortRef.current===controller) abortRef.current=null;
       setLoading(false);
@@ -143,7 +165,6 @@ export function AxiomAIChatView({
     }
   };
 
-  const lastUser=[...messages].reverse().find((message)=>message.role==='user');
   const activeConversation=conversations.find((item)=>item.id===conversationId);
   const contextLabel=context.processId?'Process context':context.teamId?'Team workspace':'Workspace context';
   const history=(
@@ -212,11 +233,12 @@ export function AxiomAIChatView({
             <AIWelcome onPrompt={(prompt)=>void send(prompt)} loading={loading}/>
           ) : (
             <div className="mx-auto max-w-[860px] space-y-3 pb-10 pt-5 sm:space-y-5 sm:pt-7">
-              {messages.map((message)=>(
-                <AIMessageRow key={message.id} message={message} lastUser={lastUser}
+              {messages.map((message,index)=>(
+                <AIMessageRow key={message.id} message={message}
+                  lastUser={messages.slice(0,index).reverse().find((candidate)=>candidate.role==='user')}
                   proposalBusy={proposalBusy} onProposal={handleProposal}
                   onOpenAction={openTaskEditor}
-                  onRetry={(text)=>void send(text)}/>
+                  onRetry={(text,assistantMessageId)=>void send(text,assistantMessageId)}/>
               ))}
             </div>
           )}
