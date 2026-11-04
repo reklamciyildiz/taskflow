@@ -380,15 +380,15 @@ export function AIMessageRow({ message, lastUser, proposalBusy, onProposal, onOp
           <Sparkles className="h-[17px] w-[17px]" strokeWidth={1.8} aria-hidden="true"/>
         </div>
       )}
-      <div className={cn('min-w-0', isAssistant ? 'w-full max-w-[790px]' : 'max-w-[88%] sm:max-w-[75%]')}>
-        {isAssistant && <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold text-foreground/90">
+      <div className={cn('min-w-0', isAssistant ? 'w-full max-w-[820px]' : 'max-w-[88%] sm:max-w-[75%]')}>
+        {isAssistant && <div className="mb-1.5 flex items-center gap-2 text-[11px] font-semibold text-foreground/90">
           Actiproc AI <span className="text-[10px] font-normal text-muted-foreground">· Workspace assistant</span>
         </div>}
         <div className={cn(
-          'min-w-0 rounded-[17px] border px-4 py-3.5 sm:px-5 sm:py-4',
+          'min-w-0',
           isAssistant
-            ? 'border-border/55 bg-card/60 text-foreground shadow-[0_10px_30px_-28px_hsl(var(--foreground)/0.25)]'
-            : 'rounded-tr-md border-primary/20 bg-primary/[0.095] text-foreground'
+            ? 'text-foreground'
+            : 'rounded-[17px] rounded-tr-md border border-primary/20 bg-primary/[0.095] px-4 py-3.5 text-foreground sm:px-5 sm:py-4'
         )}>
           {visibleContent ? <SafeAIMessage content={visibleContent} sources={message.sources}/> :
             message.status === 'streaming' ? (
