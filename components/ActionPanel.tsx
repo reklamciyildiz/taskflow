@@ -492,6 +492,7 @@ function ActionPanelContent({
     generalBoardColumns,
     customerSingularLabel,
     consumeChecklistFocusForTask,
+    consumeNoteFocusForTask,
     organizationId,
   } = useTaskContext();
   const {
@@ -598,8 +599,10 @@ function ActionPanelContent({
   }, [loadNotes]);
   const notesCount = notes.length;
 
-  /** Which Action workspace is open. */
-  const [tab, setTab] = useState<WorkTab>("checklist");
+  /** A deep-linked Note takes precedence over the default Checklist tab.
+   * Consumed once per ActionPanel mount so tab switches cannot reopen it. */
+  const [initialNoteId] = useState(() => consumeNoteFocusForTask(taskId));
+  const [tab, setTab] = useState<WorkTab>(initialNoteId ? "notes" : "checklist");
   /** Status / priority / assignee / due / description live behind the meta strip. */
   const [detailsOpen, setDetailsOpen] = useState(false);
 
@@ -1509,6 +1512,7 @@ function ActionPanelContent({
               members={currentTeam?.members}
               flushRef={notesFlushRef}
               onTrackSave={trackSave}
+              focusedNoteId={initialNoteId}
             />
           </TabsContent>
         </div>
