@@ -7,6 +7,7 @@ import {
 } from '../lib/ai/chat/reliability-policy';
 import { GroqChatProvider } from '../lib/ai/providers/groq-chat-provider';
 
+async function main() {
 let checks=0;
 for(const code of ['PROVIDER_RATE_LIMITED','PROVIDER_TOKEN_BUDGET','TEMPORARY_CAPACITY']) {
   assert.equal(safeAIErrorMessage(code,'Groq throttle 32s'),AI_TEMPORARY_CAPACITY_MESSAGE);
@@ -103,3 +104,6 @@ assert.match(presentation,/onRetry\(lastUser\.content,message\.id\)/);
 checks+=19;
 console.log(JSON.stringify({checks,networkCalls:0,migrationApplied:false,
   providerNeutralUI:true,inPlaceRetry:true,backupOptIn:true}));
+}
+
+void main().catch((error)=>{console.error(error);process.exitCode=1;});
