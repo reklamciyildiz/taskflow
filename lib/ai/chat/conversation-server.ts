@@ -207,6 +207,13 @@ export async function claimFailedAssistantForRetry(
   const {error:referenceError}=await supabaseAdmin.from('ai_message_references')
     .delete().eq('message_id',assistantMessageId);
   if (sourceError||referenceError) {
+    // Do not strand a reply in "streaming" if the cleanup failed.
+    await supabaseAdmin.from('ai_messages').update({
+      status:'failed',error_code:'AI_UNAVAILABLE',updated_at:new Date().toISOString(),
+      completed_at:new Date().toISOString(),
+    }).eq('id',assistantMessageId).eq('conversation_id',conversationId)
+      .eq('organization_id',scope.organizationId).eq('user_id',scope.userId)
+      .eq('status','streaming');
     throw new ConversationError('database_unavailable','Unable to prepare the previous response for retry');
   }
   return {
