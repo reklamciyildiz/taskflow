@@ -1,0 +1,62 @@
+name: Notification destination quality
+
+on:
+  pull_request:
+    paths:
+      - 'lib/notification-nav-link.ts'
+      - 'lib/push.ts'
+      - 'public/sw.js'
+      - 'components/NotificationBell.tsx'
+      - 'components/TaskContext.tsx'
+      - 'components/ActionPanel.tsx'
+      - 'components/action/ActionNotes.tsx'
+      - 'app/(shell)/notifications/page.tsx'
+      - 'app/api/mobile/actions/[id]/route.ts'
+      - 'mobile/src/App.tsx'
+      - 'mobile/src/PlannerRuntimeAdapter.tsx'
+      - 'mobile/android/app/src/main/AndroidManifest.xml'
+      - 'shared/mobile-contracts.ts'
+      - 'scripts/test-notification-deeplinks.ts'
+      - '.github/workflows/notification-deeplinks-quality.yml'
+      - 'package.json'
+  push:
+    branches: [main]
+    paths:
+      - 'lib/notification-nav-link.ts'
+      - 'lib/push.ts'
+      - 'public/sw.js'
+      - 'components/NotificationBell.tsx'
+      - 'components/TaskContext.tsx'
+      - 'components/ActionPanel.tsx'
+      - 'components/action/ActionNotes.tsx'
+      - 'app/(shell)/notifications/page.tsx'
+      - 'app/api/mobile/actions/[id]/route.ts'
+      - 'mobile/src/App.tsx'
+      - 'mobile/src/PlannerRuntimeAdapter.tsx'
+      - 'mobile/android/app/src/main/AndroidManifest.xml'
+      - 'shared/mobile-contracts.ts'
+      - 'scripts/test-notification-deeplinks.ts'
+      - '.github/workflows/notification-deeplinks-quality.yml'
+      - 'package.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  notification-destinations:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Push click, safe URL and Action/Notes/checklist navigation
+        run: npm run test:notification:links
+      - name: Web and server TypeScript
+        run: npx tsc --noEmit
+      - name: App Link and mobile contract sanity
+        run: npm run test:mobile-web
