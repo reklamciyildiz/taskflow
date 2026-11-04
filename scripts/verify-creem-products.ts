@@ -101,7 +101,7 @@ async function main(): Promise<void> {
     }
   }
   if (failed) {
-    console.error('Creem products are not ready for checkout. Do not enable NEW_BILLING_PROVIDER=creem.');
+    console.error('Creem products are not ready for checkout. Do not enable CREEM_CHECKOUT_ENABLED=true.');
     process.exitCode = 1;
   } else {
     console.log('All three Creem TEST products match Actiproc billing configuration.');
