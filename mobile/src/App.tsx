@@ -8,7 +8,8 @@ import {
   ShieldCheck, Sparkles, Wifi,
 } from 'lucide-react';
 import { SessionProvider } from './platform/next-auth-react';
-import type { MobileSessionTokens } from '../../shared/mobile-contracts';
+import type { MobileActionDetail, MobileSessionTokens } from '../../shared/mobile-contracts';
+import { notificationTargetFromLink, type NotificationTarget } from '../../lib/notification-nav-link';
 import {
   completeGoogleSignIn, credentialsSignIn, ensureDeviceId,
   googleOAuthAvailable, logout, mobileApiConfigured, restoreSession,
@@ -45,22 +46,77 @@ function MobileProductContent({
   busy,
   selectRoot,
   signOut,
+  deepLinkTarget,
+  onDeepLinkConsumed,
+  onDeepLinkError,
 }: {
   screen: Screen;
   session: MobileSessionTokens;
   busy: boolean;
   selectRoot: (screen: Extract<Screen, 'workspace' | 'planner' | 'knowledge' | 'ai' | 'settings' | 'more' | 'list'>) => void;
   signOut: () => Promise<void>;
+  deepLinkTarget: NotificationTarget | null;
+  onDeepLinkConsumed: () => void;
+  onDeepLinkError: (message: string) => void;
 }) {
   const {
     tasks,
+    teams,
+    currentTeam,
+    loading,
     editingTaskId,
     openTaskEditor,
     closeTaskEditor,
     setBoardScope,
+    setCurrentTeam,
     refreshData,
   } = useTaskContext();
   const editingTask = editingTaskId ? tasks.find((task) => task.id === editingTaskId) ?? null : null;
+  const deepLinkLookupRef = useRef<string | null>(null);
+
+  // Android verified App Links should open the canonical native Action panel.
+  // Lookup is authorized by /api/mobile/actions/[id] before switching teams.
+  useEffect(() => {
+    if (!deepLinkTarget) { deepLinkLookupRef.current = null; return; }
+    if (loading || !currentTeam?.id) return;
+    const match = tasks.find((item) =>
+      item.id === deepLinkTarget.taskId && item.teamId === currentTeam.id);
+    if (match) {
+      setBoardScope(match.projectId
+        ? { type: 'project', projectId: match.projectId }
+        : { type: 'general' });
+      window.dispatchEvent(new CustomEvent('axiom-mobile:set-screen', {
+        detail: { screen: 'process' },
+      }));
+      openTaskEditor(match.id, deepLinkTarget.checklistItemId, deepLinkTarget.noteId);
+      onDeepLinkConsumed();
+      return;
+    }
+    const lookupKey = currentTeam.id + ':' + deepLinkTarget.taskId;
+    if (deepLinkLookupRef.current === lookupKey) return;
+    deepLinkLookupRef.current = lookupKey;
+    let active = true;
+    void authenticatedFetch('/api/mobile/actions/' + encodeURIComponent(deepLinkTarget.taskId))
+      .then(async response => {
+        const result = await response.json().catch(() => null) as { success?: boolean; data?: MobileActionDetail } | null;
+        if (!active) return;
+        const teamId = result?.success && result.data?.teamId;
+        if (!response.ok || !teamId || !teams.some(team => team.id === teamId)) {
+          onDeepLinkError('This notification\'s Action is no longer available or your access has changed.');
+          onDeepLinkConsumed();
+          return;
+        }
+        if (teamId !== currentTeam.id) setCurrentTeam(teamId);
+        else void refreshData();
+      }).catch(() => {
+        if (!active) return;
+        onDeepLinkError('Could not load this notification. Check your connection and try again.');
+        onDeepLinkConsumed();
+      });
+    return () => { active = false; };
+  }, [deepLinkTarget, currentTeam?.id, loading, tasks, teams,
+      setCurrentTeam, setBoardScope, refreshData, openTaskEditor,
+      onDeepLinkConsumed, onDeepLinkError]);
 
   useEffect(() => {
     const navigate = (event: Event) => {
@@ -139,6 +195,7 @@ export function App() {
   const [online, setOnline] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [nativeNotificationTarget, setNativeNotificationTarget] = useState<NotificationTarget | null>(null);
   const [googleOAuthEnabled, setGoogleOAuthEnabled] = useState(false);
   const [googleOAuthChecked, setGoogleOAuthChecked] = useState(false);
 
@@ -171,7 +228,21 @@ export function App() {
     const networkHandle = Network.addListener('networkStatusChange', (status) => setOnline(status.connected));
     const handledUrls = new Set<string>();
     const handleIncomingUrl = (url: string) => {
-      if (!url || handledUrls.has(url)) return;
+      if (!url) return;
+      // Native links are trusted only for verified first-party HTTPS hosts.
+      try {
+        const parsed = new URL(url);
+        if (parsed.protocol === 'https:' &&
+            (parsed.hostname === 'actiproc.com' || parsed.hostname === 'www.actiproc.com') &&
+            parsed.pathname === '/board') {
+          const target = notificationTargetFromLink(url);
+          if (target) {
+            setNativeNotificationTarget(target);
+            return;
+          }
+        }
+      } catch { /* OAuth custom scheme is handled below. */ }
+      if (handledUrls.has(url)) return;
       if (!url.includes('/mobile/auth/callback') && !url.includes('/auth/callback')) return;
       handledUrls.add(url);
       setBusy(true);
@@ -288,6 +359,9 @@ export function App() {
             busy={busy}
             selectRoot={selectRoot}
             signOut={signOut}
+            deepLinkTarget={nativeNotificationTarget}
+            onDeepLinkConsumed={() => setNativeNotificationTarget(null)}
+            onDeepLinkError={setError}
           />
         </MobilePlannerRuntime>
       ) : null}
