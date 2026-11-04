@@ -68,7 +68,7 @@ export function NotificationBell() {
           // ignore
         }
         const nav = notificationLinkForNavigation(newestUnreadAssignment.link);
-        if (nav) router.push(nav, { scroll: false });
+        router.push(nav ?? '/notifications', { scroll: false });
       };
     } catch {
       // ignore
@@ -170,10 +170,8 @@ export function NotificationBell() {
       void markAsRead(notification.id);
     }
     const nav = notificationLinkForNavigation(notification.link);
-    if (nav) {
-      router.push(nav, { scroll: false });
-      setIsOpen(false);
-    }
+    router.push(nav ?? '/notifications', { scroll: false });
+    setIsOpen(false);
   };
 
   const getNotificationIcon = (type: string) => {
