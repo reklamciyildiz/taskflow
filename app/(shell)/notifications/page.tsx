@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Bell, CheckCheck, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -50,6 +50,8 @@ function formatRelativeTime(dateString: string, nowMs: number): string {
 
 export default function NotificationsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const unavailableTarget = searchParams.get('target') === 'unavailable';
   const [items, setItems] = useState<InAppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -106,7 +108,7 @@ export default function NotificationsPage() {
   const onRowActivate = (n: InAppNotification) => {
     if (!n.read) void markOneRead(n.id);
     const nav = notificationLinkForNavigation(n.link);
-    if (nav) router.push(nav, { scroll: false });
+    router.push(nav ?? '/notifications', { scroll: false });
   };
 
   const relative = useMemo(
@@ -116,6 +118,12 @@ export default function NotificationsPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
+      {unavailableTarget ? (
+        <div role="alert" className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-foreground">
+          This notification's Action is no longer available or your access has changed.
+          You can still review your other notifications below.
+        </div>
+      ) : null}
       <Card>
         <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
           <div>
