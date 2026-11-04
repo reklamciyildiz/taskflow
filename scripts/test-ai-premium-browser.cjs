@@ -150,16 +150,16 @@ async function main() {
       if (width < 1024) {
         await page.getByRole('button', { name: 'Open conversation history' }).click();
         await page.getByRole('textbox', { name: 'Search conversations' }).fill('Planning');
-        await page.getByRole('button', { name: /Planning decisions/ }).waitFor();
-        assert.equal(await page.getByRole('button', { name: /Ideas for onboarding/ }).count(), 0);
+        await page.getByRole('button', { name: /^Planning decisions/ }).waitFor();
+        assert.equal(await page.getByRole('button', { name: /^Ideas for onboarding/ }).count(), 0);
         await page.getByRole('textbox', { name: 'Search conversations' }).fill('');
-        await page.getByRole('button', { name: /Planning decisions/ }).click();
+        await page.getByRole('button', { name: /^Planning decisions/ }).click();
       } else {
         await page.getByRole('textbox', { name: 'Search conversations' }).fill('Planning');
-        await page.getByRole('button', { name: /Planning decisions/ }).waitFor();
-        assert.equal(await page.getByRole('button', { name: /Ideas for onboarding/ }).count(), 0);
+        await page.getByRole('button', { name: /^Planning decisions/ }).waitFor();
+        assert.equal(await page.getByRole('button', { name: /^Ideas for onboarding/ }).count(), 0);
         await page.getByRole('textbox', { name: 'Search conversations' }).fill('');
-        await page.getByRole('button', { name: /Planning decisions/ }).click();
+        await page.getByRole('button', { name: /^Planning decisions/ }).click();
       }
       await page.getByText('Existing conversation content').waitFor();
       checks += 3;
