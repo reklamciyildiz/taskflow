@@ -152,6 +152,7 @@ export function MobilePlannerRuntime({ children, onOpenAction, onError }: {
   const [processOrderByTeam, setProcessOrderByTeam] = useState<Record<string, string[]>>({});
   const suppressEditorUntil = useRef(0);
   const checklistFocus = useRef<{ taskId: string; checklistItemId: string } | null>(null);
+  const noteFocus = useRef<{ taskId: string; noteId: string } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -298,9 +299,10 @@ export function MobilePlannerRuntime({ children, onOpenAction, onError }: {
     }));
   }, []);
 
-  const openTaskEditor = useCallback((taskId: string, checklistItemId?: string | null) => {
+  const openTaskEditor = useCallback((taskId: string, checklistItemId?: string | null, noteId?: string | null) => {
     if (Date.now() < suppressEditorUntil.current) return;
-    if (checklistItemId) checklistFocus.current = { taskId, checklistItemId };
+    checklistFocus.current = checklistItemId ? { taskId, checklistItemId } : null;
+    noteFocus.current = noteId ? { taskId, noteId } : null;
     setEditingTaskId(taskId);
   }, []);
 
@@ -384,6 +386,12 @@ export function MobilePlannerRuntime({ children, onOpenAction, onError }: {
       if (checklistFocus.current?.taskId !== taskId) return null;
       const id = checklistFocus.current.checklistItemId;
       checklistFocus.current = null;
+      return id;
+    },
+    consumeNoteFocusForTask: (taskId) => {
+      if (noteFocus.current?.taskId !== taskId) return null;
+      const id = noteFocus.current.noteId;
+      noteFocus.current = null;
       return id;
     },
   }), [addTask, boardColumns, boardProject, boardScope, currentTeam, currentUser, customerFilter, editingTaskId, filter, generalBoardColumns, inboxBoardStatus, loading, openBoardForProject, openTaskEditor, payload?.inboxBoard, payload?.user, projects, refreshData, role, runtime, setBoardScope, tasks, teams, unsupported, updateTask]);
