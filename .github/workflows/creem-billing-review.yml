@@ -13,6 +13,8 @@ on:
       - 'components/marketing/**'
       - 'supabase/migrations/20261101110000_creem_parallel_billing.sql'
       - 'scripts/test-creem-billing-contract.ts'
+      - 'scripts/audit-retired-billing-provider.mjs'
+      - 'app/(shell)/integrations/**'
       - 'package.json'
       - '.github/workflows/creem-billing-review.yml'
   workflow_dispatch:
@@ -28,6 +30,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run test:creem
+      - name: Scan all project source for retired payment provider dependencies
+        run: node scripts/audit-retired-billing-provider.mjs
       - run: npm run test:mobile-web
       - run: npm run test:capacitor-oauth
       - run: node scripts/test-capacitor-mobile-shell.mjs
