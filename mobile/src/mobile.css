@@ -311,7 +311,7 @@ footer { width: min(100%, 47rem); margin: 1.5rem auto 0; color: rgb(148 163 184 
 .mobile-tab-bar button.is-active { color: #dbeafe; background: var(--primary-soft); }
 .mobile-tab-bar button.is-active svg { color: var(--mobile-primary); }
 .mobile-ai-view { width: min(100%, 80rem); padding-top: 0; }
-.mobile-ai-view .axiom-ai-chat { height: calc(100dvh - 9.75rem - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+.mobile-ai-view .axiom-ai-chat { height: calc(100dvh - 9.75rem - env(safe-area-inset-top) - env(safe-area-inset-bottom)); min-height: 0; }
 .mobile-knowledge-view { width: min(100%, 72rem); }
 .mobile-workspace-toolbar { display: flex; width: min(100%, 90rem); margin: 0 auto 1rem; justify-content: flex-end; }
 .mobile-workspace-toolbar .planner-team-switcher { width: min(100%, 22rem); }
