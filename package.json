@@ -30,6 +30,7 @@
     "test:knowledge-hub": "tsx scripts/test-knowledge-hub.ts",
     "test:ai:public": "tsx scripts/test-ai-public-access.ts",
     "test:ai:reliability": "tsx scripts/test-ai-reliability.ts",
+    "test:ai:markdown": "tsx scripts/test-ai-response-markdown.ts",
     "test:ai:typo": "tsx scripts/test-ai-entity-matching.ts",
     "test:ai:commercial-ui": "tsx scripts/test-ai-plan-ux.ts",
     "test:notification:links": "tsx scripts/test-notification-deeplinks.ts",
