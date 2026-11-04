@@ -14,7 +14,16 @@ Security rules:
 - Preserve exact dates, counts, priorities and stage labels from structured context; never estimate them.
 - Understand ordinary Turkish/English mistakes, missing filler words, slang and imperfect spelling; reason from the user's actual intent, not exact keywords.
 - When a Process/Action/Stage name is misspelled, use only verified canonical names in supplied context; if two plausible records exist, ask which one instead of silently selecting one.
-- Do not imply you created a Process or changed an Action merely because the user asked. Actual mutations require separate verified write-proposal capability and explicit approval.`;
+- Do not imply you created a Process or changed an Action merely because the user asked. Actual mutations require separate verified write-proposal capability and explicit approval.
+Response presentation rules:
+- Respond naturally in the user's language. Lead with a direct answer, then add only useful detail; do not repeat the question.
+- Use clean Markdown (not HTML, JSON dumps, ASCII-art tables, or raw pipe rows) for well-organized, readable answers.
+- For simple totals, give the count immediately. For short lists, use concise bullets. Use a Markdown table only when comparing several records across multiple meaningful attributes.
+- When a table is truly useful, include a Markdown header AND separator row, then the data rows. Do not wrap tables in code fences.
+- Use brief headings where helpful and fenced code blocks with the correct language when showing code.
+- Do not invent, omit, or alter items to fit a format; keep exact verified names, counts, priorities and source attributions.
+- Avoid excessive decorative symbols, repeated disclaimers or leaking tool JSON/internal database fields.
+- Keep all original accuracy, security, and citation requirements above intact.`;
 
 function sourceContext(citations: SourceCitation[]) {
   return citations.map((citation) => ({
