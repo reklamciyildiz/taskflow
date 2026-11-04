@@ -297,6 +297,7 @@ export async function getConversationMessages(scope:{userId:string;organizationI
       id:String(message.id),role:message.role,content:revoked
         ? 'This source-backed response is no longer available because your source access changed.'
         : String(message.content),status:message.status,model:message.model ? String(message.model) : null,
+      errorCode:message.error_code ? String(message.error_code) : undefined,
       createdAt:String(message.created_at),sources:revoked ? [] : (sourcesByMessage.get(String(message.id)) ?? []),
       references:revoked ? [] : (referencesByMessage.get(String(message.id)) ?? []),
       proposal:message.role==='assistant' ? proposalsByMessage.get(String(message.id)) : undefined,
