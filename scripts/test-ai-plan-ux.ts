@@ -58,10 +58,12 @@ assert.ok(pricing.includes('AI access: staged beta rollout') &&
  pricing.includes('no automatic overage')===false &&
  pricing.includes('No automatic overage charges'),
  'Marketing pricing must accurately describe beta, fair use and no overages');
-assert.ok(upgrade.includes('AI_PLAN_LIMITS[p].monthlyBase') &&
- upgrade.includes('AI may remain beta-only') &&
- upgrade.includes('isNativeApp') && upgrade.includes("Purchases and plan upgrades are unavailable"),
- 'Upgrade plans must show AI fair use but retain Capacitor purchase gate');
+assert.ok(upgrade.includes('AI_PLAN_LIMITS[plan].monthlyBase') &&
+ !upgrade.includes('AI may remain beta-only') &&
+ upgrade.includes('isNativeApp') && upgrade.includes("Purchases and plan upgrades are unavailable") &&
+ upgrade.includes('/settings/billing?plan=') && !upgrade.includes("existing ? '/api/billing/switch-plan'") &&
+ upgrade.includes('plans.length === 1') && upgrade.includes('secure checkout'),
+ 'Upgrade plans must use responsive single-card design, accurate AI terms and the signed existing-subscription review');
 assert.ok(billing.includes('<AIUsageBillingCard') &&
  billing.includes('id="billing-plans"') &&
  billing.includes('aiPlanMonthlyDescription(key)'),
