@@ -21,7 +21,7 @@ function Inline({ text, citations, depth = 0 }: {
   let previous = 0;
   for (const match of text.matchAll(inlinePattern)) {
     const value = match[0];
-    const start = match.index;
+    const start = match.index ?? previous;
     if (start > previous) output.push(text.slice(previous, start));
     const key = start;
     const citation = value.match(/^\[cite:([a-f0-9]{64})\]$/i);
