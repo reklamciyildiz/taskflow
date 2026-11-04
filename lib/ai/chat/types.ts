@@ -21,6 +21,7 @@ export type AIChatMessage = {
   references?: AIReadReference[];
   proposal?: AIWriteProposal;
   activity?: string;
+  errorCode?: string;
   sourceAccessRevoked?: boolean;
 };
 
