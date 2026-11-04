@@ -5,7 +5,7 @@
 - The local 8k TPM ceiling was removed. `AI_GROQ_TPM_BUDGET` now accepts explicit 1,000–250,000 TPM values, while the unchanged default remains 7,200 TPM. Never configure above your actual model/account limit.
 - Read tool selector admission estimates its own prompt and tool JSON rather than allocating an arbitrary 3,500 output tokens.
 - Known pre-inference provider 429 failures free their unused token reservation; uncertain failures retain conservative estimates.
-- A single bounded <=1.8 second retry may occur before first answer text. No infinite queues, no partial-response restarts.
+- A single bounded <=2.5 second retry may occur before first answer text. No infinite queues, no partial-response restarts.
 - An independent OpenAI Chat Completions-compatible backup is optionally available for read-only requests when primary capacity is unavailable. Write-proposal requests never automatically fall back.
 - Retry of a failed answer reclaims the same authorized, failed assistant message and does not duplicate persisted user messages. A fresh request/run/quota ID is still required.
 - Internal logs retain sanitized request IDs/status/usage, without raw prompts, keys, or source text.
