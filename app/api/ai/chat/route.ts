@@ -111,9 +111,16 @@ export async function POST(request:NextRequest) {
     const effectiveContext={ ...conversation.context,...input.context };
     const availableHistory=historyForProvider(await getConversationMessages(scope,input.conversationId));
     const run=await reserveChatRun(scope,input.conversationId,input.clientRequestId);
-    const turn=input.retryAssistantMessageId
-      ? await claimFailedAssistantForRetry(scope,input.conversationId,input.retryAssistantMessageId,input.message)
-      : await createTurnMessages(scope,input.conversationId,input.clientRequestId,input.message);
+    let turn:Awaited<ReturnType<typeof createTurnMessages>>;
+    try {
+      turn=input.retryAssistantMessageId
+        ? await claimFailedAssistantForRetry(scope,input.conversationId,input.retryAssistantMessageId,input.message)
+        : await createTurnMessages(scope,input.conversationId,input.clientRequestId,input.message);
+    } catch (error) {
+      // A rejected/concurrent retry must not retain a 90-second active lease.
+      await finishChatRun(run.runId,scope.userId,'failed').catch(()=>undefined);
+      throw error;
+    }
     if (turn.duplicate) {
       if (turn.assistantStatus!=='completed') {
         return NextResponse.json({ error:{ code:'REQUEST_IN_PROGRESS',message:'This message is already being processed' } },{ status:409 });
