@@ -13,9 +13,10 @@ import { join, relative, extname } from 'node:path';
 
 const ROOT = process.cwd();
 const IGNORED = new Set(['.git', '.next', 'node_modules', 'dist', 'coverage', '.turbo', '.vercel',
-  'android', 'Pods', 'build', '.gradle']);
+  'Pods', 'build', '.gradle']);
 const TEXT = new Set(['.ts','.tsx','.js','.jsx','.mjs','.cjs','.json','.md','.mdx','.sql',
-  '.yml','.yaml','.css','.html','.txt','.toml','.sh','.env']);
+  '.yml','.yaml','.css','.html','.txt','.toml','.sh','.env',
+  '.kt','.kts','.java','.xml','.gradle','.properties','.swift','.plist','.strings']);
 const fileNames = new Set(['Dockerfile','.gitignore','.env.example','.env.staging.example','README']);
 const patterns = [
   { name:'lemon-provider', re:/lemon[\s_-]*squeezy|lemonsqueezy|lemonWebhookEventDb|claim_lemon_webhook_event|lemon_webhook_events/gi },
