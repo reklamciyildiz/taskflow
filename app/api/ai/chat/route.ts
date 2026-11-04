@@ -251,6 +251,7 @@ export async function POST(request:NextRequest) {
           // a mutation/proposal flow. It inherits exactly the same authorized
           // retrieval, citation validation, and context as the primary.
           const backupProvider=!writeRequested ? createOptionalOpenAIBackup() : null;
+          let latestContextPlan=contextPlan;
           const requestedInputTokens=contextPlan.estimatedInputTokens
             +(needsModelToolSelection?estimateAIReadToolSelectionTokens(input.message,availableHistory):0)
             +(writeRequested?1_200:0);
@@ -263,7 +264,14 @@ export async function POST(request:NextRequest) {
               // request_key UNIQUE, even across different model/provider pairs.
               requestKey:randomUUID(),userId:scope.userId,organizationId:scope.organizationId,
               model:backupProvider.modelId,provider:'openai',tokenLimit:backupTokenBudget(),
-              estimatedInputTokens:requestedInputTokens,maxOutputTokens:requestedOutputTokens,
+              // If read-tool selection completed on primary, the backup
+              // reserves only its final inference. The verified read context
+              // may have grown since the initial admission estimate.
+              estimatedInputTokens:latestContextPlan.estimatedInputTokens
+                +(needsModelToolSelection&&!usedModelToolSelection
+                  ?estimateAIReadToolSelectionTokens(input.message,availableHistory):0),
+              maxOutputTokens:latestContextPlan.maxOutputTokens
+                +(needsModelToolSelection&&!usedModelToolSelection?280:0),
             });
             if (!backupAdmission.allowed || !backupAdmission.reservationId) return null;
             fallbackUsed=true;
@@ -341,6 +349,7 @@ export async function POST(request:NextRequest) {
                 :readToolReferences.length?{kind:'structured',teamId:effectiveContext.teamId,processId:effectiveContext.processId}:{kind:'none'};
               finalContextPlan=planChatContext({intent,question:input.message,history:availableHistory,citations,
                 agentContext,configuredMaxOutputTokens:aiChatLimits.maxOutputTokens});
+              latestContextPlan=finalContextPlan;
             }
           }
           citations=finalContextPlan.citations;
