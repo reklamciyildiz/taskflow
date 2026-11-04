@@ -412,6 +412,8 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   const pendingChecklistFocusRef = useRef<{ taskId: string; checklistId: string } | null>(null);
   const pendingNoteFocusRef = useRef<{ taskId: string; noteId: string } | null>(null);
   const notificationLookupRef = useRef<string | null>(null);
+  const notificationTargetRef = useRef<string | null>(null);
+  notificationTargetRef.current = taskQueryParam;
 
   const consumeChecklistFocusForTask = useCallback((taskId: string) => {
     const cur = pendingChecklistFocusRef.current;
@@ -941,9 +943,9 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     const lookupKey = `${currentTeam.id}:${taskQueryParam}`;
     if (notificationLookupRef.current === lookupKey) return;
     notificationLookupRef.current = lookupKey;
-    let active = true;
-    void taskApi.getById(taskQueryParam).then((result) => {
-      if (!active) return;
+    const requestedId = taskQueryParam;
+    void taskApi.getById(requestedId).then((result) => {
+      if (notificationTargetRef.current !== requestedId) return;
       const currentTarget = new URLSearchParams(window.location.search).get('task');
       if (window.location.pathname !== '/board' || currentTarget !== taskQueryParam) return;
       if (!result.success || !result.data) {
@@ -968,9 +970,9 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
         previous.some((item) => item.id === resolved.id) ? previous : [...previous, resolved],
       );
     }).catch(() => {
-      if (active) router.replace('/notifications?target=unavailable', { scroll: false });
+      if (notificationTargetRef.current === requestedId)
+        router.replace('/notifications?target=unavailable', { scroll: false });
     });
-    return () => { active = false; };
   }, [
     pathname, taskQueryParam, checklistQueryParam, noteQueryParam,
     loading, tasks, projects, currentTeam?.id, organizationId, teams,
