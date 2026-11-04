@@ -159,6 +159,62 @@ export async function createTurnMessages(scope:{userId:string;organizationId:str
   return { duplicate:false,userMessageId:String(data[0].id),assistantMessageId:String(data[1].id),assistantStatus:'streaming',assistantContent:'' };
 }
 
+/**
+ * Retry a failed response *in place*, preserving one user/assistant turn in
+ * persisted conversation history. The new request ID still receives a fresh
+ * rate-limit reservation and run lease; only the existing message IDs survive.
+ * Atomic UPDATE...WHERE status='failed' claims the turn once, so two retry
+ * clicks cannot overwrite one another. User/organization/conversation scoping
+ * is enforced again before every service-role operation.
+ */
+export async function claimFailedAssistantForRetry(
+  scope:{userId:string;organizationId:string},
+  conversationId:string,
+  assistantMessageId:string,
+  originalQuestion:string,
+) {
+  const {data:assistant,error:findError}=await supabaseAdmin.from('ai_messages')
+    .select('id,client_request_id,status,role,error_code')
+    .eq('id',assistantMessageId).eq('conversation_id',conversationId)
+    .eq('organization_id',scope.organizationId).eq('user_id',scope.userId).maybeSingle();
+  if (findError) throw new ConversationError('database_unavailable','Unable to verify the previous response');
+  const allowedCodes=new Set(['PROVIDER_RATE_LIMITED','PROVIDER_TOKEN_BUDGET','PROVIDER_TIMEOUT',
+    'AI_UNAVAILABLE','CITATION_REQUIRED']);
+  if (!assistant||assistant.role!=='assistant'||assistant.status!=='failed'
+      ||!allowedCodes.has(String(assistant.error_code))) {
+    throw new ConversationError('conflict','This response is not eligible for retry');
+  }
+  const {data:user,error:userError}=await supabaseAdmin.from('ai_messages')
+    .select('id,content').eq('conversation_id',conversationId)
+    .eq('client_request_id',String(assistant.client_request_id))
+    .eq('organization_id',scope.organizationId).eq('user_id',scope.userId)
+    .eq('role','user').maybeSingle();
+  if (userError||!user||String(user.content)!==originalQuestion) {
+    throw new ConversationError('conflict','The original message does not match this response');
+  }
+  const {data:claimed,error:claimError}=await supabaseAdmin.from('ai_messages')
+    .update({status:'streaming',content:'',model:null,error_code:null,input_tokens:null,
+      output_tokens:null,completed_at:null,updated_at:new Date().toISOString()})
+    .eq('id',assistantMessageId).eq('conversation_id',conversationId)
+    .eq('organization_id',scope.organizationId).eq('user_id',scope.userId)
+    .eq('status','failed').select('id').maybeSingle();
+  if (claimError) throw new ConversationError('database_unavailable','Unable to retry the previous response');
+  if (!claimed) throw new ConversationError('conflict','This response is already being retried');
+  // Failed replies have no validated citation snapshots. Discard stale
+  // pre-response read references so a new reply cannot inherit them.
+  const {error:sourceError}=await supabaseAdmin.from('ai_message_sources')
+    .delete().eq('message_id',assistantMessageId);
+  const {error:referenceError}=await supabaseAdmin.from('ai_message_references')
+    .delete().eq('message_id',assistantMessageId);
+  if (sourceError||referenceError) {
+    throw new ConversationError('database_unavailable','Unable to prepare the previous response for retry');
+  }
+  return {
+    duplicate:false,userMessageId:String(user.id),assistantMessageId,
+    assistantStatus:'streaming',assistantContent:'',
+  };
+}
+
 export async function finalizeAssistantMessage(input:{
   messageId:string;scope:{userId:string;organizationId:string};content:string;
   status:'completed'|'failed'|'cancelled';model?:string;inputTokens?:number;outputTokens?:number;
