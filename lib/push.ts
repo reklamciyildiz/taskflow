@@ -1,6 +1,7 @@
 import webpush from 'web-push';
 import { pushSubscriptionDb } from '@/lib/db';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { canonicalNotificationLink } from '@/lib/notification-nav-link';
 
 type PushPayload = {
   title: string;
@@ -70,7 +71,7 @@ export async function sendPushToUser(
   const body = JSON.stringify({
     title: payload.title,
     body: payload.body,
-    url: payload.url,
+    url: canonicalNotificationLink(payload.url) ?? '/notifications',
     tag: payload.tag,
     origin: process.env.NEXT_PUBLIC_APP_URL,
   });
