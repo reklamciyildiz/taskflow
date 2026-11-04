@@ -126,6 +126,7 @@ export async function POST(request:NextRequest) {
         let fallbackUsed=false;
         let fallbackStartingTokens=0;
         let definitelyNoNewProviderTokens=false;
+        let sawStreamUsage=false;
         let quotaReserved=false;
         let retrievalLatencyMs:number|undefined,firstTokenMs:number|undefined;
         let citations:Awaited<ReturnType<typeof retrieveKnowledge>>['citations']=[];
@@ -356,6 +357,7 @@ export async function POST(request:NextRequest) {
                   if (firstTokenMs===undefined) firstTokenMs=Date.now()-startedAt;
                   answer+=event.text;send({ type:'delta',text:event.text });
                 } else if (event.type==='usage') {
+                  sawStreamUsage=true;
                   inputTokens=(inputTokens??0)+(event.usage.inputTokens??0);
                   outputTokens=(outputTokens??0)+(event.usage.outputTokens??0);
                   send({ type:'usage',inputTokens,outputTokens });
@@ -429,7 +431,7 @@ export async function POST(request:NextRequest) {
               maxOutputTokens:finalContextPlan.maxOutputTokens,droppedHistoryMessages:finalContextPlan.droppedHistoryMessages,
               droppedCitations:finalContextPlan.droppedCitations,droppedStructuredActions:finalContextPlan.droppedStructuredActions,
               readTools:readToolExecutions.map((execution)=>execution.name),toolCallCount:readToolExecutions.length,
-              modelToolSelection:usedModelToolSelection });
+              modelToolSelection:usedModelToolSelection,fallbackUsed });
         } catch(error) {
           if (error instanceof AIWriteProposalError
               && (error.code==='ambiguous' || error.code==='not_found')) {
@@ -471,12 +473,18 @@ export async function POST(request:NextRequest) {
             inputTokens ?? 0,outputTokens ?? 0,
             estimateGroqChatCostUsd(model??'groq',inputTokens??0,outputTokens??0),
             Date.now()-startedAt,false,normalized.code,
-            { failed:true,userQuotaRefunded,plan:allowance.plan,costIsEstimate:true });
+            { failed:true,userQuotaRefunded,plan:allowance.plan,costIsEstimate:true,fallbackUsed });
           try { send({ type:'error',...normalized }); } catch { /* disconnected client */ }
         } finally {
           overallSignal.cleanup();
+          // Completed usage is only trusted if the generation stream actually
+          // reported usage. Unknown/partial attempts keep a conservative hold.
+          // Known pre-inference 429s explicitly settle to 0 (or selector usage)
+          // and free the unused rolling reservation immediately.
+          const usageKnown=sawStreamUsage||definitelyNoNewProviderTokens;
+          const currentProviderTokens=Math.max(0,(inputTokens??0)+(outputTokens??0)-fallbackStartingTokens);
           await finalizeGroqTokens({ reservationId:tokenReservationId,userId:scope.userId,status:assistantStatus,
-            actualTokens:inputTokens!==undefined||outputTokens!==undefined?(inputTokens??0)+(outputTokens??0):undefined }).catch(()=>undefined);
+            actualTokens:usageKnown?currentProviderTokens:undefined }).catch(()=>undefined);
           await finishChatRun(run.runId,scope.userId,assistantStatus).catch(()=>undefined);
           try { controller.close(); } catch { /* already closed */ }
         }
