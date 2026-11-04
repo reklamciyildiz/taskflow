@@ -26,7 +26,7 @@ import { encodeChatSSE } from '@/lib/ai/chat/sse';
 import { buildAIReadToolContext } from '@/lib/ai/agent/context';
 import { executeAIReadTool,AIReadToolError } from '@/lib/ai/agent/read-tools';
 import { planDirectAIReadTools,shouldUseModelToolSelection } from '@/lib/ai/agent/router';
-import { selectAIReadTools } from '@/lib/ai/agent/selector';
+import { selectAIReadTools,estimateAIReadToolSelectionTokens } from '@/lib/ai/agent/selector';
 import type { AIReadReference,AIReadToolCall,AIReadToolExecution } from '@/lib/ai/agent/types';
 import { shouldPlanAIWrite,selectAIWriteProposal } from '@/lib/ai/agent/write-selector';
 import { createAIWriteProposal,AIWriteProposalError } from '@/lib/ai/agent/write-proposals-server';
@@ -251,8 +251,11 @@ export async function POST(request:NextRequest) {
           // a mutation/proposal flow. It inherits exactly the same authorized
           // retrieval, citation validation, and context as the primary.
           const backupProvider=!writeRequested ? createOptionalOpenAIBackup() : null;
-          const requestedInputTokens=contextPlan.estimatedInputTokens+(writeRequested?1_200:0);
-          const requestedOutputTokens=contextPlan.maxOutputTokens+(needsModelToolSelection?3_500:0)+(writeRequested?500:0);
+          const requestedInputTokens=contextPlan.estimatedInputTokens
+            +(needsModelToolSelection?estimateAIReadToolSelectionTokens(input.message,availableHistory):0)
+            +(writeRequested?1_200:0);
+          const requestedOutputTokens=contextPlan.maxOutputTokens
+            +(needsModelToolSelection?280:0)+(writeRequested?500:0);
           const reserveBackup=async():Promise<GroqChatProvider|null>=>{
             if (!backupProvider||fallbackUsed||overallSignal.signal.aborted) return null;
             const backupAdmission=await reserveProviderTokens({
