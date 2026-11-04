@@ -1140,3 +1140,12 @@
 @media (prefers-reduced-motion: reduce) {
   .actiproc-drawing-preview { transition: none; }
 }
+
+
+/* Premium AI workspace: scoped scrollbars and reduced-motion behavior. */
+.actiproc-ai-scrollbar { scrollbar-width: thin; scrollbar-color: hsl(var(--border) / 0.9) transparent; }
+.actiproc-ai-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+.actiproc-ai-scrollbar::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 999px; }
+.actiproc-ai-shell { isolation: isolate; }
+@media (max-width: 640px) { .actiproc-ai-shell { min-height: 0; } }
+@media (prefers-reduced-motion: reduce) { .actiproc-ai-shell *, .actiproc-ai-shell *::before, .actiproc-ai-shell *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; } }
