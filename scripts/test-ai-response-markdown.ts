@@ -62,7 +62,7 @@ checks += 10;
 
 const split = parseAIResponseMarkdown([
   '| Label | Value |', '| --- | --- |',
-  '| Escaped \\\\| Pipe | '+String.fromCharCode(96)+'a|b'+String.fromCharCode(96)+' |',
+  '| Escaped \\| Pipe | '+String.fromCharCode(96)+'a|b'+String.fromCharCode(96)+' |',
 ].join('\n'));
 assert.equal(split[0].type,'table');
 if(split[0].type !== 'table')throw new Error('Expected escaped pipe table');
