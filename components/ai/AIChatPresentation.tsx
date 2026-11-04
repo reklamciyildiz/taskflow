@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import type { AIChatMessage, AIConversationSummary } from '@/lib/ai/chat/types';
 import { SafeAIMessage } from './SafeAIMessage';
+import { safeAIErrorMessage } from '@/lib/ai/chat/reliability-policy';
 
 type HistoryProps = {
   conversations: AIConversationSummary[];
@@ -359,12 +360,18 @@ type MessageProps = {
   proposalBusy: string | null;
   onProposal: (messageId: string, proposalId: string, action: 'approve' | 'reject') => Promise<void>;
   onOpenAction: (taskId: string, checklistItemId?: string | null) => void;
-  onRetry: (text: string) => void;
+  onRetry: (text: string, failedAssistantMessageId: string) => void;
 };
 
 export function AIMessageRow({ message, lastUser, proposalBusy, onProposal, onOpenAction, onRetry }: MessageProps) {
   const isAssistant = message.role === 'assistant';
   const proposal = message.proposal;
+  const visibleContent=isAssistant && message.status==='failed'
+    ? safeAIErrorMessage(message.errorCode??'unknown',message.content)
+    : message.content;
+  const retryEligible=message.status==='failed'&&lastUser
+    && new Set(['PROVIDER_RATE_LIMITED','PROVIDER_TOKEN_BUDGET','PROVIDER_TIMEOUT',
+      'AI_UNAVAILABLE','CITATION_REQUIRED']).has(message.errorCode??'');
   return (
     <article className={cn('group flex w-full gap-3 py-2 sm:gap-4', !isAssistant && 'justify-end')}
       aria-label={isAssistant ? 'Actiproc AI response' : 'Your message'}>
@@ -383,7 +390,7 @@ export function AIMessageRow({ message, lastUser, proposalBusy, onProposal, onOp
             ? 'border-border/55 bg-card/60 text-foreground shadow-[0_10px_30px_-28px_hsl(var(--foreground)/0.25)]'
             : 'rounded-tr-md border-primary/20 bg-primary/[0.095] text-foreground'
         )}>
-          {message.content ? <SafeAIMessage content={message.content} sources={message.sources}/> :
+          {visibleContent ? <SafeAIMessage content={visibleContent} sources={message.sources}/> :
             message.status === 'streaming' ? (
               <div className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
                 <Loader2 className="h-4 w-4 animate-spin text-primary" aria-hidden="true"/>
@@ -391,7 +398,7 @@ export function AIMessageRow({ message, lastUser, proposalBusy, onProposal, onOp
               </div>
             ) : null}
           {isAssistant && message.status === 'failed' && (
-            <p role="status" className="mt-2 text-xs text-destructive">Response interrupted. You can retry your request.</p>
+            <p role="status" className="mt-2 text-xs text-muted-foreground">This response wasn't completed. Your question has been preserved.</p>
           )}
           {message.sources.length > 0 && (
             <section className="mt-4 border-t border-border/60 pt-3" aria-label="Verified sources">
@@ -484,18 +491,18 @@ export function AIMessageRow({ message, lastUser, proposalBusy, onProposal, onOp
             </section>
           )}
         </div>
-        {isAssistant && message.content && (
+        {isAssistant && visibleContent && (
           <div className="mt-1.5 flex items-center gap-1 text-muted-foreground opacity-75 transition-opacity group-hover:opacity-100">
             <Button type="button" variant="ghost" size="icon" aria-label="Copy response"
               className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
-              onClick={() => void navigator.clipboard.writeText(message.content)
+              onClick={() => void navigator.clipboard.writeText(visibleContent)
                 .then(() => toast.success('Response copied'))
                 .catch(() => toast.error('Unable to copy response'))}>
               <Copy className="h-3.5 w-3.5" aria-hidden="true"/>
             </Button>
-            {message.status === 'failed' && lastUser && (
+            {retryEligible && lastUser && (
               <Button type="button" variant="ghost" size="sm" className="h-8 gap-1.5 rounded-lg text-muted-foreground hover:text-foreground"
-                onClick={() => onRetry(lastUser.content)}>
+                onClick={() => onRetry(lastUser.content,message.id)}>
                 <RotateCcw className="h-3.5 w-3.5" aria-hidden="true"/> Retry
               </Button>
             )}
