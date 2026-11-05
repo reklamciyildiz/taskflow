@@ -18,9 +18,11 @@ export function hasOnlyBasicReminderRules(rules: unknown, dueInstant?: string): 
     if (!item || typeof item !== 'object' || Array.isArray(item)) return false;
     const rule = item as Record<string, unknown>;
     if (rule.type === 'preset' && rule.preset === 'when_due') return true;
+    // A caller must not label an arbitrary absolute time as "when_due".
+    // Compare the actual instant to the canonical schedule due time.
     return rule.type === 'absolute' &&
-      (rule.preset === 'when_due' ||
-        (typeof rule.at === 'string' && !!dueInstant &&
-         Number.isFinite(Date.parse(rule.at)) && Date.parse(rule.at) === Date.parse(dueInstant)));
+      typeof rule.at === 'string' && !!dueInstant &&
+      Number.isFinite(Date.parse(rule.at)) &&
+      Date.parse(rule.at) === Date.parse(dueInstant);
   });
 }
