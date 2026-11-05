@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { invitationDb, userDb, organizationDb } from '@/lib/db';
+import { invitationDb, userDb, organizationDb, teamDb } from '@/lib/db';
 import { randomBytes } from 'crypto';
 import { sendInvitationEmail } from '@/lib/email';
 import { canInviteMembers, getOrganizationEntitlements } from '@/lib/entitlements';
@@ -78,6 +78,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (!user.organization_id) {
+      return NextResponse.json({ success: false, error: 'Organization required' }, { status: 403 });
+    }
     // Invitations are plan-gated.
     if (user.organization_id) {
       const ent = await getOrganizationEntitlements(user.organization_id);
@@ -121,8 +124,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if user already exists in the organization
-    const existingUser = await userDb.getByEmail(email);
+    if (!['admin', 'member', 'viewer'].includes(role)) {
+      return NextResponse.json({ success: false, error: 'Invalid invitation role' }, { status: 400 });
+    }
+    if (teamId) {
+      const targetTeam = await teamDb.getById(teamId);
+      if (!targetTeam || targetTeam.organization_id !== user.organization_id) {
+        return NextResponse.json({ success: false, error: 'Invitation team is outside your organization' }, { status: 403 });
+      }
+    }
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail || !normalizedEmail.includes('@')) {
+      return NextResponse.json({ success: false, error: 'Invalid email' }, { status: 400 });
+    }
+    const existingUser = await userDb.getByEmail(normalizedEmail);
     if (existingUser && existingUser.organization_id === user.organization_id) {
       return NextResponse.json(
         { success: false, error: 'User is already a member of this organization' },
@@ -138,7 +153,7 @@ export async function POST(request: NextRequest) {
     expiresAt.setDate(expiresAt.getDate() + 7);
 
     const invitation = await invitationDb.create({
-      email: email.toLowerCase().trim(),
+      email: normalizedEmail,
       organization_id: user.organization_id,
       team_id: teamId || null,
       role: role,
@@ -154,7 +169,7 @@ export async function POST(request: NextRequest) {
 
     // Send invitation email (don't block on failure)
     const emailResult = await sendInvitationEmail({
-      to: email.toLowerCase().trim(),
+      to: normalizedEmail,
       inviterName,
       organizationName,
       role,

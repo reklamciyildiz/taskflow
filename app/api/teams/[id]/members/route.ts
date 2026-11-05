@@ -96,11 +96,12 @@ export async function POST(
       );
     }
 
-    const member = await teamMemberDb.add(
-      params.id,
-      body.userId,
-      body.role || 'member'
-    );
+    const role = body.role ?? 'member';
+    if (!['admin', 'member', 'viewer'].includes(role)) {
+      return NextResponse.json<ApiResponse<null>>(
+        { success: false, error: 'Invalid team role' }, { status: 400 });
+    }
+    const member = await teamMemberDb.add(params.id, body.userId, role);
 
     return NextResponse.json<ApiResponse<any>>({
       success: true,

@@ -85,8 +85,13 @@ export async function PATCH(
       );
     }
 
-    // Add member to target team
-    await teamMemberDb.add(targetTeamId, params.memberId, 'member');
+    // Moving is not an implicit demotion or promotion.
+    if ((targetUser.role === 'owner' || targetUser.role === 'admin') && !isOrgAdmin(user)) {
+      return NextResponse.json<ApiResponse<null>>(
+        { success: false, error: 'Organization admins cannot be moved by team admins' },
+        { status: 403 });
+    }
+    await teamMemberDb.add(targetTeamId, params.memberId, movingMembership.role);
 
     // Remove from source team
     await teamMemberDb.remove(params.id, params.memberId);
