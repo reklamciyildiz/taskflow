@@ -4,7 +4,10 @@ import {
   createDescriptionPrompt,
 } from '../prompts/description-generator';
 import { getCachedResponse, setCachedResponse, CACHE_TTL } from '../utils/cache';
-import { reserveAIQuota, recordAIRequest } from '../utils/rate-limiter';
+import { reserveAIQuota, releaseAIQuotaReservation, recordAIRequest } from '../utils/rate-limiter';
+import { aiAllowanceForAuthenticatedOrganization } from '@/lib/ai/chat/plan-access-server';
+import { reserveProviderTokens, backupTokenBudget, finalizeGroqTokens } from '@/lib/ai/chat/provider-token-admission';
+import { randomUUID } from 'node:crypto';
 import { calculateDescriptionGeneratorCost } from '../utils/cost-calculator';
 import { estimateTokens } from '../utils/token-counter';
 import { getAIConfig, AI_ERROR_MESSAGES } from '../config';
@@ -19,6 +22,11 @@ export const generateTaskDescription = async (
 ): Promise<DescriptionGeneratorResponse> => {
   const startTime = Date.now();
   const config = getAIConfig();
+  let quotaRequestKey: string | null = null;
+  let quotaHeld = false;
+  let providerReservationId: string | undefined;
+  let providerAttempted = false;
+  let providerTokens: number | undefined;
 
   try {
     if (!config.enabled) {
@@ -57,25 +65,50 @@ export const generateTaskDescription = async (
       };
     }
 
+    // Same billing-authorized plan allowance as AI Chat. A legacy/default
+    // per-feature limit must not bypass or understate the customer's plan.
+    const allowance = await aiAllowanceForAuthenticatedOrganization(request.organizationId);
+    quotaRequestKey = randomUUID();
     const rateLimitCheck = await reserveAIQuota(
-      request.userId,
-      request.organizationId,
-      'description-generator'
+      request.userId, request.organizationId, 'description-generator', quotaRequestKey,
+      {
+        dailyRequestsPerUser: allowance.dailyRequestsPerUser,
+        monthlyRequestsPerOrg: allowance.monthlyRequestsPerOrg,
+      },
     );
 
-    if (!rateLimitCheck.allowed) {
+    if (!rateLimitCheck.allowed || !rateLimitCheck.reservationId) {
       return {
         success: false,
-        error: {
-          code: 'RATE_LIMIT_EXCEEDED',
-          message: rateLimitCheck.reason || AI_ERROR_MESSAGES.RATE_LIMIT,
-        },
+        error: { code: 'RATE_LIMIT_EXCEEDED',
+          message: rateLimitCheck.reason || 'AI quota could not be reserved. Try again later.' },
       };
     }
+    quotaHeld = true;
 
     const prompt = createDescriptionPrompt(request.taskTitle, request.context);
     const inputTokens = estimateTokens(DESCRIPTION_GENERATOR_SYSTEM_PROMPT + prompt);
-
+    const admission = await reserveProviderTokens({
+      requestKey: randomUUID(),
+      userId: request.userId,
+      organizationId: request.organizationId,
+      provider: 'openai',
+      model: config.models.text,
+      estimatedInputTokens: inputTokens,
+      maxOutputTokens: 800,
+      tokenLimit: backupTokenBudget(),
+    });
+    if (!admission.allowed || !admission.reservationId) {
+      await releaseAIQuotaReservation(quotaRequestKey, request.userId, request.organizationId);
+      quotaHeld = false;
+      return {
+        success: false,
+        error: { code: 'PROVIDER_CAPACITY',
+          message: 'AI is temporarily at capacity. Please try again shortly.' },
+      };
+    }
+    providerReservationId = admission.reservationId;
+    providerAttempted = true;
     const completionResult = await generateCompletion(
       prompt,
       {
@@ -86,6 +119,10 @@ export const generateTaskDescription = async (
     );
 
     const outputTokens = estimateTokens(completionResult.content);
+    // Exact usage when the upstream API reports it; otherwise keep the
+    // conservative token reservation instead of releasing uncertain capacity.
+    providerTokens = completionResult.usage?.totalTokens > 0
+      ? completionResult.usage.totalTokens : undefined;
     const costUsd = calculateDescriptionGeneratorCost(inputTokens, outputTokens);
     const latencyMs = Date.now() - startTime;
 
@@ -137,6 +174,11 @@ export const generateTaskDescription = async (
       data: responseData,
     };
   } catch (error) {
+    // If the provider call was never attempted, its user quota is refundable.
+    // Once inference begins, keep the request charged even on malformed output.
+    if (!providerAttempted && quotaHeld && quotaRequestKey) {
+      await releaseAIQuotaReservation(quotaRequestKey, request.userId, request.organizationId);
+    }
     const aiError = error as AIError;
     await recordAIRequest(
       request.userId,
@@ -153,11 +195,16 @@ export const generateTaskDescription = async (
 
     return {
       success: false,
-      error: {
-        code: aiError.code || 'UNKNOWN_ERROR',
-        message: aiError.message || AI_ERROR_MESSAGES.UNKNOWN_ERROR,
-        details: aiError.details,
-      },
+      error: { code: 'AI_UNAVAILABLE', message: 'AI description could not be generated. Please try again.' },
     };
+  } finally {
+    if (providerReservationId) {
+      await finalizeGroqTokens({
+        reservationId: providerReservationId,
+        userId: request.userId,
+        status: providerTokens === undefined ? 'failed' : 'completed',
+        actualTokens: providerTokens,
+      }).catch(() => undefined);
+    }
   }
 };

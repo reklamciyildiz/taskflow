@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuthedUser } from '@/lib/server-authz';
+import { requireAIChatUser } from '@/lib/ai/chat/http-server';
 import { generateTaskDescription } from '@/lib/ai/services/description-generator';
 import { getAIConfig } from '@/lib/ai/config';
 import {
@@ -12,14 +12,8 @@ export const maxDuration = 30;
 
 export async function POST(request: NextRequest) {
   try {
-    const authed = await requireAuthedUser();
-    if (authed instanceof NextResponse) return authed;
-    if (!authed.user.organization_id) {
-      return NextResponse.json(
-        { success: false, error: { code: 'FORBIDDEN', message: 'Organization required' } },
-        { status: 403 },
-      );
-    }
+    const scope = await requireAIChatUser(request);
+    if (scope instanceof NextResponse) return scope;
 
     const config = getAIConfig();
     if (!config.enabled || !config.features.descriptionGenerator) {
@@ -39,8 +33,8 @@ export async function POST(request: NextRequest) {
     const parsed = DescriptionGeneratorRequestSchema.safeParse({
       taskTitle: body.taskTitle,
       taskId: body.taskId,
-      organizationId: authed.user.organization_id,
-      userId: authed.user.id,
+      organizationId: scope.organizationId,
+      userId: scope.userId,
       context: body.context,
     });
     if (!parsed.success) {
@@ -54,7 +48,7 @@ export async function POST(request: NextRequest) {
     const result = await generateTaskDescription(descriptionRequest);
 
     if (!result.success) {
-      const statusCode = result.error?.code === 'RATE_LIMIT_EXCEEDED' ? 429 : 500;
+      const statusCode = result.error?.code === 'RATE_LIMIT_EXCEEDED' || result.error?.code === 'PROVIDER_CAPACITY' ? 429 : 503;
       return NextResponse.json(result, { status: statusCode });
     }
 
@@ -65,11 +59,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: {
-          code: 'INTERNAL_ERROR',
-          message: 'An unexpected error occurred',
-          details: error instanceof Error ? error.message : 'Unknown error',
-        },
+        error: { code: 'INTERNAL_ERROR', message: 'AI description is unavailable. Please try again.' },
       },
       { status: 500 }
     );

@@ -1,0 +1,30 @@
+name: M5 AI commercial readiness
+on:
+  pull_request:
+    paths:
+      - 'lib/ai/**'
+      - 'app/api/ai/**'
+      - 'scripts/test-ai-commercial-readiness.ts'
+      - '.github/workflows/m5-ai-commercial-quality.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'lib/ai/**'
+      - 'app/api/ai/**'
+      - 'scripts/test-ai-commercial-readiness.ts'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  ai-commercial:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npx tsx scripts/test-ai-commercial-readiness.ts
+      - run: npx tsc --noEmit
