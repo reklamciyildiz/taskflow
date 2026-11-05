@@ -1,0 +1,43 @@
+name: Premium landing page quality
+
+on:
+  pull_request:
+    paths:
+      - 'app/(marketing)/**'
+      - 'components/marketing/**'
+      - 'scripts/test-marketing-premium.ts'
+      - 'scripts/test-marketing-browser.cjs'
+      - '.github/workflows/marketing-premium-quality.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'app/(marketing)/**'
+      - 'components/marketing/**'
+      - 'scripts/test-marketing-premium.ts'
+      - 'scripts/test-marketing-browser.cjs'
+      - '.github/workflows/marketing-premium-quality.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  marketing-contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Marketing source and product truth
+        run: npx tsx scripts/test-marketing-premium.ts
+      - name: AI plan/allowance fidelity
+        run: npm run test:ai:commercial-ui
+      - name: Creem billing and paid plan regression
+        run: npm run test:creem
+      - name: Web TypeScript
+        run: npx tsc --noEmit
