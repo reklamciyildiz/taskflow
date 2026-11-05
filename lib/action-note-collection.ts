@@ -49,7 +49,7 @@ export function selectActionNotes(
     const left = a.note, right = b.note;
     if (sort === 'title') {
       return a.heading.localeCompare(b.heading, undefined, {sensitivity:'base'}) ||
-        right.note.updatedAt.localeCompare(left.note.updatedAt);
+        right.updatedAt.localeCompare(left.note.updatedAt);
     }
     const date = sort === 'created' ? 'createdAt' : 'updatedAt';
     const diff = timestamp(right[date]) - timestamp(left[date]);
