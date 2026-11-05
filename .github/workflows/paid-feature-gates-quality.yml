@@ -1,0 +1,56 @@
+name: Paid feature entitlement quality
+on:
+  pull_request:
+    paths:
+      - 'lib/paid-feature-policy.ts'
+      - 'lib/entitlements.ts'
+      - 'lib/google-calendar-*'
+      - 'lib/google-calendar-sync.ts'
+      - 'lib/webhook-trigger.ts'
+      - 'lib/work-schedule-server.ts'
+      - 'app/api/entitlements/**'
+      - 'app/api/integrations/google/**'
+      - 'components/settings/CalendarSettings.tsx'
+      - 'components/ActionPanel.tsx'
+      - 'components/schedule/WorkSchedulePicker.tsx'
+      - 'scripts/test-paid-feature-gates.ts'
+      - '.github/workflows/paid-feature-gates-quality.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'lib/paid-feature-policy.ts'
+      - 'lib/entitlements.ts'
+      - 'lib/google-calendar-*'
+      - 'lib/google-calendar-sync.ts'
+      - 'lib/webhook-trigger.ts'
+      - 'lib/work-schedule-server.ts'
+      - 'app/api/entitlements/**'
+      - 'app/api/integrations/google/**'
+      - 'components/settings/CalendarSettings.tsx'
+      - 'components/ActionPanel.tsx'
+      - 'components/schedule/WorkSchedulePicker.tsx'
+      - 'scripts/test-paid-feature-gates.ts'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  entitlement-quality:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Plan-feature policy and endpoint guards
+        run: npx tsx scripts/test-paid-feature-gates.ts
+      - name: Static types
+        run: npx tsc --noEmit
+      - name: Scheduling rules
+        run: npm run test:scheduling
+      - name: Creem safety contracts
+        run: npm run test:creem
+      - name: AI plan policy
+        run: npm run test:ai:commercial-ui
