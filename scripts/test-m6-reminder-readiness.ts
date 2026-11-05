@@ -13,7 +13,7 @@ for(const input of [
 assert.equal(validReminderCronBearer('Bearer '+secret,''),false);
 const oldEnv={ NODE_ENV:process.env.NODE_ENV, CRON_SECRET:process.env.CRON_SECRET };
 try {
- process.env.NODE_ENV='production';
+ Object.assign(process.env, { NODE_ENV: 'production' });
  delete process.env.CRON_SECRET;
  const uaOnly=new NextRequest('https://example.test/api/cron/reminders-tick',{
    headers:{ 'user-agent':'vercel-cron/1.0' },
