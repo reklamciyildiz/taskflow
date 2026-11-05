@@ -28,6 +28,7 @@ export function CalendarSettings() {
   const [mounted, setMounted] = useState(false);
   const [timeZone, setTimeZone] = useState('UTC');
   const [googleConnected, setGoogleConnected] = useState(false);
+  const [googleEligible, setGoogleEligible] = useState(false);
   const [googleEmail, setGoogleEmail] = useState<string | null>(null);
   const [googleSelectedCalendarId, setGoogleSelectedCalendarId] = useState('primary');
   const [googleSyncEnabled, setGoogleSyncEnabled] = useState(true);
@@ -60,6 +61,7 @@ export function CalendarSettings() {
       const json = await res.json();
       if (!json?.success) return;
       const d = json.data;
+      setGoogleEligible(d?.eligible === true);
       if (!d?.connected) {
         setGoogleConnected(false);
         setGoogleEmail(null);
@@ -132,9 +134,9 @@ export function CalendarSettings() {
   }, [mounted, browserTimeZone, loadGoogleStatus]);
 
   useEffect(() => {
-    if (!mounted || !googleConnected) return;
+    if (!mounted || !googleConnected || !googleEligible) return;
     void loadGoogleCalendars();
-  }, [mounted, googleConnected, loadGoogleCalendars]);
+  }, [mounted, googleConnected, googleEligible, loadGoogleCalendars]);
 
   const handleSaveTimeZone = (next: string) => {
     setTimeZone(next);
@@ -234,11 +236,16 @@ export function CalendarSettings() {
             Sync due dates to a calendar you choose. Each teammate uses their own Google account and time zone.
           </p>
           <Separator />
-
+          {!googleEligible && (
+            <div role="status" className="rounded-xl border border-primary/20 bg-primary/[.06] p-3 text-sm">
+              Google Calendar synchronization requires an active Pro or Team subscription.
+              <a href="/settings/billing" className="ml-2 font-semibold text-primary underline underline-offset-4">View plans</a>
+            </div>
+          )}
           {!googleConnected ? (
             <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
               <p className="text-sm text-muted-foreground">Not connected</p>
-              <Button type="button" onClick={handleGoogleConnect} disabled={googleBusy}>
+              <Button type="button" onClick={handleGoogleConnect} disabled={googleBusy || !googleEligible}>
                 Connect Google
               </Button>
             </div>
@@ -257,7 +264,7 @@ export function CalendarSettings() {
                 <Switch
                   checked={googleSyncEnabled}
                   onCheckedChange={(v) => void handleSyncToggle(v)}
-                  disabled={googleBusy}
+                  disabled={googleBusy || !googleEligible}
                 />
               </div>
 
@@ -266,7 +273,7 @@ export function CalendarSettings() {
                 <Select
                   value={googleSelectedCalendarId}
                   onValueChange={(v) => void handleCalendarChange(v)}
-                  disabled={googleBusy || googleCalendarsLoading || !googleSyncEnabled}
+                  disabled={googleBusy || googleCalendarsLoading || !googleSyncEnabled || !googleEligible}
                 >
                   <SelectTrigger className="bg-white dark:bg-gray-800">
                     <SelectValue
@@ -294,7 +301,7 @@ export function CalendarSettings() {
                   type="button"
                   variant="outline"
                   onClick={() => void loadGoogleCalendars()}
-                  disabled={googleBusy || googleCalendarsLoading}
+                  disabled={googleBusy || googleCalendarsLoading || !googleEligible}
                 >
                   Refresh calendars
                 </Button>
