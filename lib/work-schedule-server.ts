@@ -187,8 +187,13 @@ async function assertReminderPlanAccess(
   actor: SchedulingActor,
   input: WorkScheduleInput,
 ): Promise<void> {
-  const due = scheduleDueInstantIso(input, input.timeZone ?? 'UTC');
-  if (hasOnlyBasicReminderRules(input.reminderRules ?? [], due)) return;
+  if (!input.reminderRules?.length) return;
+  const due = scheduleDueInstantIso({
+    scheduleDate: input.scheduleDate,
+    scheduleTime: input.scheduleTime ?? null,
+    timeZone: input.timeZone ?? null,
+  }, input.timeZone ?? 'UTC');
+  if (hasOnlyBasicReminderRules(input.reminderRules, due)) return;
   const ent = await getOrganizationEntitlements(actor.organizationId);
   if (!canUsePaidFeature(ent, 'advanced_reminders')) {
     throw new SchedulingValidationError(
