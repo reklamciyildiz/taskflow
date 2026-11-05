@@ -105,7 +105,7 @@ export function UpgradePlanModal(props: {
       <DialogContent
         aria-describedby="upgrade-plan-description"
         className={cn(
-          'z-[520] w-[calc(100vw-1.5rem)] max-h-[min(92dvh,850px)] overflow-y-auto rounded-[24px] border border-white/[0.13] bg-[#12261b] p-0 text-zinc-50 shadow-[0_32px_100px_-25px_rgba(0,0,0,.75)]',
+          'z-[520] w-[calc(100vw-1.5rem)] max-h-[min(92dvh,850px)] overflow-y-auto rounded-[24px] border border-white/[0.13] bg-[#192126] p-0 text-zinc-50 shadow-[0_32px_100px_-25px_rgba(0,0,0,.75)]',
           onePlan ? 'sm:max-w-[790px]' : plans.length === 2 ? 'sm:max-w-[820px]' : 'sm:max-w-[1040px]'
         )}
         overlayClassName="z-[519] bg-black/70 backdrop-blur-sm"

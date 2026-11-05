@@ -216,7 +216,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
 
       <Dialog open={Boolean(billingReview)} onOpenChange={open=>{if(!open&&!reviewBusy){setBillingReview(null);setReviewError(null);setReviewAcknowledged(false);}}}>
         <DialogContent className="max-h-[92dvh] w-[calc(100vw-1rem)] max-w-[540px] gap-0 overflow-y-auto rounded-[26px] border border-border/60 bg-background p-0 shadow-[0_35px_100px_-30px_rgba(15,23,42,0.55)] sm:rounded-[30px]" hideClose>
-          <div className="relative isolate overflow-hidden bg-[#10251b] px-5 py-6 text-white sm:px-7 sm:py-7">
+          <div className="actiproc-billing-review-banner relative isolate overflow-hidden bg-[#10251b] px-5 py-6 text-white sm:px-7 sm:py-7">
             <div aria-hidden="true" className="pointer-events-none absolute -right-12 -top-24 h-56 w-56 rounded-full bg-[#C8FF93]/25 blur-[65px]" />
             <div aria-hidden="true" className="pointer-events-none absolute bottom-0 right-24 h-24 w-32 rounded-full bg-[#88C69A]/15 blur-[50px]" />
             <button type="button" aria-label="Close billing review" disabled={reviewBusy}
@@ -337,7 +337,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
         </DialogContent>
       </Dialog>
 
-      <header className="relative isolate overflow-hidden rounded-[28px] border border-[#365a42] bg-[#10241a] px-5 py-6 text-white shadow-[0_24px_70px_-43px_rgba(15,23,42,0.7)] sm:px-8 sm:py-8">
+      <header className="actiproc-billing-hero relative isolate overflow-hidden rounded-[28px] border border-[#365a42] bg-[#10241a] px-5 py-6 text-white shadow-[0_24px_70px_-43px_rgba(15,23,42,0.7)] sm:px-8 sm:py-8">
         <div aria-hidden="true" className="pointer-events-none absolute -right-20 -top-32 h-80 w-80 rounded-full bg-[#C8FF93]/20 blur-[90px]" />
         <div aria-hidden="true" className="pointer-events-none absolute -bottom-36 left-20 h-72 w-72 rounded-full bg-[#88C69A]/15 blur-[70px]" />
         <div className="relative">

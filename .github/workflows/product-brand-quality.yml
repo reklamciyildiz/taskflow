@@ -1,4 +1,4 @@
-name: Actiproc forest brand quality
+name: Actiproc graphite brand quality
 
 on:
   pull_request:
@@ -6,6 +6,8 @@ on:
       - 'app/globals.css'
       - 'components/Header.tsx'
       - 'components/Sidebar.tsx'
+      - 'components/TaskBoard.tsx'
+      - 'components/TaskCard.tsx'
       - 'components/shell/**'
       - 'components/billing/**'
       - 'components/ai/**'
@@ -20,6 +22,8 @@ on:
       - 'app/globals.css'
       - 'components/Header.tsx'
       - 'components/Sidebar.tsx'
+      - 'components/TaskBoard.tsx'
+      - 'components/TaskCard.tsx'
       - 'components/shell/**'
       - 'components/billing/**'
       - 'components/ai/**'
@@ -48,7 +52,7 @@ jobs:
           cache: npm
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
-      - name: Forest palette, contrast and surface contract
+      - name: Graphite palette, contrast and surface contract
         run: node scripts/test-brand-theme.cjs
       - name: TypeScript
         run: npx tsc --noEmit

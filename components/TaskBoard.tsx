@@ -289,8 +289,8 @@ export function TaskBoard() {
   const boardTitle = boardScope.type === 'project' ? boardProject?.name ?? 'Selected process' : 'Team inbox';
 
   return (
-    <div className="min-w-0 max-w-full space-y-3 pb-4 md:space-y-3.5">
-      <header className="relative isolate overflow-hidden rounded-[20px] border border-border/70 bg-gradient-to-br from-card via-card to-primary/[0.035] shadow-[0_15px_40px_-32px_rgba(15,23,42,0.45)]">
+    <div className="actiproc-board min-w-0 max-w-full space-y-3 pb-4 md:space-y-3.5">
+      <header className="actiproc-board-hero relative isolate overflow-hidden rounded-[20px] border border-border/70 bg-gradient-to-br from-card via-card to-primary/[0.035] shadow-[0_15px_40px_-32px_rgba(15,23,42,0.45)]">
         <div aria-hidden="true" className="pointer-events-none absolute -right-16 -top-20 h-44 w-44 rounded-full bg-primary/[0.05] blur-3xl" />
         <div aria-hidden="true" className="pointer-events-none absolute bottom-0 right-10 h-px w-1/3 bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
         <div className="relative space-y-3 px-3.5 py-3 sm:px-5 sm:py-3.5">
@@ -310,15 +310,15 @@ export function TaskBoard() {
               </p>
             </div>
             <div className="grid min-w-0 grid-cols-3 gap-1.5 sm:gap-2 lg:w-[335px] lg:shrink-0">
-              <div className="min-w-0 rounded-xl border border-border/65 bg-background/65 px-2.5 py-1.5 shadow-sm sm:px-3 sm:py-2">
+              <div className="actiproc-board-metric min-w-0 rounded-xl border border-border/65 bg-background/65 px-2.5 py-1.5 shadow-sm sm:px-3 sm:py-2">
                 <div className="mb-0.5 flex items-center gap-1 text-muted-foreground"><ListChecks className="hidden h-3.5 w-3.5 sm:block" aria-hidden /><span className="text-[10px] font-medium">Actions</span></div>
                 <p className="text-base font-semibold tabular-nums tracking-tight sm:text-lg">{filteredTasks.length}</p>
               </div>
-              <div className="min-w-0 rounded-xl border border-border/65 bg-background/65 px-2.5 py-1.5 shadow-sm sm:px-3 sm:py-2">
+              <div className="actiproc-board-metric min-w-0 rounded-xl border border-border/65 bg-background/65 px-2.5 py-1.5 shadow-sm sm:px-3 sm:py-2">
                 <div className="mb-0.5 flex items-center gap-1 text-muted-foreground"><Layers className="hidden h-3.5 w-3.5 sm:block" aria-hidden /><span className="text-[10px] font-medium">Stages</span></div>
                 <p className="text-base font-semibold tabular-nums tracking-tight sm:text-lg">{boardColumns.length}</p>
               </div>
-              <div className="min-w-0 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.055] px-2.5 py-1.5 shadow-sm sm:px-3 sm:py-2">
+              <div className="actiproc-board-metric actiproc-board-metric--complete min-w-0 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.055] px-2.5 py-1.5 shadow-sm sm:px-3 sm:py-2">
                 <div className="mb-0.5 flex items-center gap-1 text-emerald-600 dark:text-emerald-400"><CircleCheck className="hidden h-3.5 w-3.5 sm:block" aria-hidden /><span className="text-[10px] font-medium">Complete</span></div>
                 <p className="text-base font-semibold tabular-nums tracking-tight sm:text-lg">{progressPercent}<span className="ml-0.5 text-xs font-medium text-muted-foreground">%</span></p>
               </div>
@@ -426,7 +426,7 @@ export function TaskBoard() {
         </div>
       ) : (
         <>
-          <div className="rounded-[16px] border border-border/70 bg-card/75 p-1.5 shadow-[0_10px_28px_-25px_rgba(15,23,42,0.4)] md:px-2.5 md:py-2">
+          <div className="actiproc-board-controls rounded-[16px] border border-border/70 bg-card/75 p-1.5 shadow-[0_10px_28px_-25px_rgba(15,23,42,0.4)] md:px-2.5 md:py-2">
             <Button variant="ghost" className="h-10 w-full justify-between rounded-xl bg-muted/45 px-3 text-xs font-medium text-foreground hover:text-foreground md:hidden" aria-expanded={showControls} aria-controls="board-controls" onClick={() => setShowControls(value => !value)}><span>Group by {groupedProperty?.name ?? 'Stage'}{statusFilter ? ' · filtered' : ''}</span><Settings2 className="h-4 w-4" /></Button>
             <div id="board-controls" className={cn('flex-col gap-2 md:flex md:flex-col md:gap-2 lg:flex-row lg:items-center lg:justify-between lg:gap-3 max-md:[&_button]:min-h-[40px]', showControls ? 'flex' : 'hidden')}>
               <div className="flex min-w-0 shrink-0 flex-wrap items-center gap-2">
@@ -565,13 +565,14 @@ export function TaskBoard() {
                   const share = filteredTasks.length ? Math.round((columnTasks.length / filteredTasks.length) * 100) : 0;
                   return (
                     <section key={column.id}
+                      data-tone={terminal ? "emerald" : ["blue", "violet", "amber", "teal", "rose"][columnIndex % STAGE_SKINS.length]}
                       className={cn(
-                        'relative flex min-w-[270px] w-[min(85vw,330px)] shrink-0 snap-start flex-col overflow-hidden rounded-[23px] border shadow-[0_16px_40px_-34px_rgba(15,23,42,0.6)] md:min-w-[292px] md:flex-[1_0_292px] xl:max-w-[440px]',
+                        'actiproc-board-lane relative flex min-w-[270px] w-[min(85vw,330px)] shrink-0 snap-start flex-col overflow-hidden rounded-[23px] border shadow-[0_16px_40px_-34px_rgba(15,23,42,0.6)] md:min-w-[292px] md:flex-[1_0_292px] xl:max-w-[440px]',
                         skin.panel,
                       )}
                       aria-label={`${column.title}: ${columnTasks.length} Actions`}>
                       <div aria-hidden="true" className={cn('absolute inset-x-0 top-0 h-1 opacity-85', column.color ?? skin.dot)} />
-                      <div className="flex items-center justify-between gap-3 border-b border-border/50 bg-card/50 px-4 py-4">
+                      <div className="actiproc-board-lane-header flex items-center justify-between gap-3 border-b border-border/50 bg-card/50 px-4 py-4">
                         <div className="flex min-w-0 items-center gap-2.5">
                           <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border/50 bg-background/65', skin.text)}>
                             {terminal ? <CircleCheck className="h-[18px] w-[18px]" aria-hidden />
@@ -594,7 +595,7 @@ export function TaskBoard() {
                         {(provided, snapshot) => (
                           <div ref={provided.innerRef} {...provided.droppableProps}
                             className={cn(
-                              'flex min-h-[208px] flex-1 flex-col gap-2.5 p-2.5 transition-[background-color,box-shadow] duration-150 touch-pan-y md:p-3',
+                              'actiproc-board-lane-body flex min-h-[208px] flex-1 flex-col gap-2.5 p-2.5 transition-[background-color,box-shadow] duration-150 touch-pan-y md:p-3',
                               shouldScroll && 'max-h-[min(75dvh,780px)] overflow-y-auto overscroll-contain [scrollbar-width:thin]',
                               snapshot.isDraggingOver && 'bg-primary/[0.075] ring-2 ring-inset ring-primary/25',
                             )}>
@@ -612,7 +613,7 @@ export function TaskBoard() {
                               </Draggable>
                             ))}
                             {columnTasks.length === 0 && !snapshot.isDraggingOver && (
-                              <div className="flex min-h-[170px] flex-1 flex-col items-center justify-center gap-2 rounded-[16px] border border-dashed border-border/65 bg-background/30 px-5 text-center">
+                              <div className="actiproc-board-empty flex min-h-[170px] flex-1 flex-col items-center justify-center gap-2 rounded-[16px] border border-dashed border-border/65 bg-background/30 px-5 text-center">
                                 <span className={cn('flex h-10 w-10 items-center justify-center rounded-2xl bg-background/80', skin.text)}>
                                   {terminal ? <CircleCheck className="h-5 w-5 opacity-60" aria-hidden />
                                     : <ListChecks className="h-5 w-5 opacity-60" aria-hidden />}
@@ -627,7 +628,7 @@ export function TaskBoard() {
                           </div>
                         )}
                       </Droppable>
-                      <div className="flex items-center justify-between gap-3 border-t border-border/50 bg-card/35 px-4 py-2.5">
+                      <div className="actiproc-board-lane-footer flex items-center justify-between gap-3 border-t border-border/50 bg-card/35 px-4 py-2.5">
                         <span className="text-[10px] font-medium text-muted-foreground">{columnTasks.length} {columnTasks.length === 1 ? 'Action' : 'Actions'}</span>
                         <div className="flex items-center gap-2">
                           <span className="text-[10px] font-medium tabular-nums text-muted-foreground">{share}% of view</span>
