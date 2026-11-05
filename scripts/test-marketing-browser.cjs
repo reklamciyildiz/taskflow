@@ -56,7 +56,7 @@ async function main() {
           assert.equal(await page.getByRole('heading',{name:new RegExp(text)}).count(),1,'Missing section '+text);
           assertions++;
         }
-        for(const name of ['Preview Planner','Preview Knowledge','Preview Actiproc AI','Preview Boards']) {
+        for(const name of ['Preview Planner','Preview Knowledge','Preview Actiproc AI','Preview Boards','Preview Insights','Preview Team & customers']) {
           assert.equal(await page.getByRole('button',{name}).count(),1,'Missing interactive tab '+name);
           assertions++;
         }
@@ -68,7 +68,15 @@ async function main() {
         await page.getByText('Workspace-aware assistant').waitFor();
         await page.getByRole('button',{name:'Preview Boards'}).click();
         await page.getByText('Product launch').first().waitFor();
-        assertions+=4;
+        await page.getByRole('button',{name:'Mark done'}).click();
+        await page.getByText('Demo completed').waitFor();
+        await page.getByRole('button',{name:'Reset demo'}).click();
+        await page.getByRole('button',{name:'Mark done'}).waitFor();
+        await page.getByRole('button',{name:'Preview Insights'}).click();
+        await page.getByText('Workspace insights').waitFor();
+        await page.getByRole('button',{name:'Preview Team & customers'}).click();
+        await page.getByText('Shared product launch').waitFor();
+        assertions+=8;
 
         for (const mode of ['For my team','For an organization','For myself']) {
           await page.getByRole('tab',{name:mode}).click();
