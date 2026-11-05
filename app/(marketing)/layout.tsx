@@ -14,7 +14,7 @@ function getMetadataBase(): URL {
 }
 
 const base = getMetadataBase();
-const title = 'Actiproc — One connected workspace for real work';
+const title = 'Actiproc — Everything moves together';
 const description =
   'From idea to outcome: connect Processes, Actions, checklists, Planner, rich notes, Knowledge Hub and team workflows in one Actiproc workspace.';
 
@@ -85,7 +85,7 @@ const jsonLd = {
 
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="marketing-theme min-h-screen bg-[#050505] text-foreground antialiased">
+    <div className="marketing-theme min-h-screen bg-[#091512] text-foreground antialiased">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
