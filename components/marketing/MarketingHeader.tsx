@@ -21,7 +21,7 @@ export function MarketingHeader() {
             <Image src="/icon-192x192.png" alt="" aria-hidden width={36} height={36}
               sizes="36px" className="h-9 w-9 object-cover" priority />
           </span>
-          <span className="text-[18px] font-semibold tracking-[-0.045em] text-white">actiproc<span className="text-[#a2beff]">.</span></span>
+          <span className="ap-brand-wordmark text-[18px] font-semibold tracking-[-0.045em] text-white">actiproc<span className="text-[#a2beff]">.</span></span>
         </Link>
         <nav aria-label="Main navigation" className="hidden items-center gap-0.5 lg:flex">
           {links.map(link => <Link key={link.href} href={link.href}
