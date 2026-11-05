@@ -80,7 +80,7 @@ export function MarketingHero() {
               <span className="relative flex h-1.5 w-1.5"><span className="absolute inset-0 rounded-full bg-[#a9e4c6]" /></span>
               The connected workspace for real work
             </div>
-            <h1 id="marketing-hero-title" className="ap-enter ap-display max-w-[790px] text-[clamp(3.25rem,7.1vw,6.5rem)] font-semibold leading-[0.99] tracking-[-0.065em] text-white" style={{animationDelay:'80ms'}}>
+            <h1 id="marketing-hero-title" className="ap-enter ap-display max-w-[790px] text-[clamp(2.5rem,11.5vw,3.8rem)] sm:text-[clamp(3.5rem,6vw,6.5rem)] font-semibold leading-[0.99] tracking-[-0.065em] text-white" style={{animationDelay:'80ms'}}>
               Less noise.<br/>
               <span className="ap-headline-accent">More momentum.</span>
             </h1>
