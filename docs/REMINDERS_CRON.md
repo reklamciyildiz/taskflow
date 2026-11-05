@@ -1,6 +1,6 @@
 # Reminders & cron (production)
 
-Axiom has **two notification mechanisms**, both sourced from canonical `work_schedules`:
+Actiproc has **two notification mechanisms**, both sourced from canonical `work_schedules`:
 
 1. **Explicit reminders** — reminder rules are resolved to absolute instants for the relevant one-off or recurring occurrence. Processed by `processScheduledReminders()` (needs **frequent** ticks; deduped in DB).
 2. **Due-date buckets** — overdue / due today / due tomorrow for one-off Action and Checklist schedules, evaluated in the recipient's saved IANA time zone. Processed by `processTaskDueReminders()` (deduped; safe on the same cadence).
@@ -17,7 +17,8 @@ Implementation: `lib/cron-reminders-guard.ts`.
 
 - Set **`CRON_SECRET`** on Vercel (Production). Callers must send:
   - Header: `Authorization: Bearer <CRON_SECRET>` (exactly `Bearer` + one space + secret).
-- If **`CRON_SECRET` is unset** in production, only Vercel Cron (`User-Agent: vercel-cron/1.0`) may invoke the route — **cron-job.org / curl will get 401** until you set the secret.
+- **Production requires CRON_SECRET.** Missing configuration fails closed with HTTP 503. The User-Agent header does not prove that Vercel sent the request and is never accepted as authentication. Incorrect/missing Bearer tokens return HTTP 401.
+- Vercel Cron can attach the secret automatically when CRON_SECRET is configured in the correct deployment environment. External schedulers must send the same Bearer token.
 
 ---
 
@@ -41,7 +42,8 @@ GitHub Actions `schedule` is **best-effort**; short intervals (e.g. `*/10`) ofte
 **Operational notes**
 
 - Do **not** commit `CRON_SECRET` to git. Rotate by updating Vercel + cron-job.org together.
-- Overlapping triggers (Vercel daily + cron-job.org + GitHub) are **OK**: notification dedupe reduces duplicate user alerts; you still pay a few extra server invocations.
+- Overlapping triggers (Vercel daily + cron-job.org + GitHub) are tolerated by database notification dedupe, but do not create multiple primary schedulers unnecessarily. A push delivery that fails after an in-app notification is stored is **not** automatically re-sent; push delivery remains best effort.
+- The unified endpoint returns HTTP **503** if either processor fails even if the other processor succeeded. Configure scheduler alerts for non-2xx status; retries should run the same idempotent URL.
 
 ### Option B — Vercel Cron (Pro)
 

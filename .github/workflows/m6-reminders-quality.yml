@@ -1,0 +1,37 @@
+name: M6 cron and integrations readiness
+on:
+  pull_request:
+    paths:
+      - 'lib/cron-reminders-guard.ts'
+      - 'lib/reminder-delivery-policy.ts'
+      - 'lib/process-scheduled-reminders.ts'
+      - 'app/api/cron/**'
+      - 'scripts/test-m6-reminder-readiness.ts'
+      - 'docs/REMINDERS_CRON.md'
+      - '.github/workflows/m6-reminders-quality.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'lib/cron-reminders-guard.ts'
+      - 'lib/reminder-delivery-policy.ts'
+      - 'lib/process-scheduled-reminders.ts'
+      - 'app/api/cron/**'
+      - 'scripts/test-m6-reminder-readiness.ts'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  reminder-quality:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npx tsx scripts/test-m6-reminder-readiness.ts
+      - run: npm run test:scheduling
+      - run: npm run test:notification:links
+      - run: npx tsc --noEmit
