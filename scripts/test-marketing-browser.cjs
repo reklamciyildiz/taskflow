@@ -24,7 +24,7 @@ async function main() {
       try {
         const response=await page.goto(baseUrl+'/marketing',{waitUntil:'domcontentloaded',timeout:90_000});
         assert.equal(response.status(),200,'Expected public marketing 200');
-        await page.getByRole('heading',{level:1,name:/Less noise.*More momentum/s}).waitFor({timeout:90_000});
+        await page.getByRole('heading',{level:1,name:/Everything.*moves.*together/s}).waitFor({timeout:90_000});
         // SSR markup is visible before React attaches client events. Verify
         // the hydrated experience, not a pre-hydration click that gets lost.
         await page.waitForLoadState('load');
@@ -52,7 +52,7 @@ async function main() {
           'Document horizontally overflows at '+width+': '+JSON.stringify({scrollSize,overflowNodes}));
         assertions++;
 
-        for(const text of ['From scattered thoughts','Not another task list','Personal enough for one','Start small']) {
+        for(const text of ['An idea should never become','Not another task list','From one brilliant mind','Start small']) {
           assert.equal(await page.getByRole('heading',{name:new RegExp(text)}).count(),1,'Missing section '+text);
           assertions++;
         }
@@ -70,10 +70,19 @@ async function main() {
         await page.getByText('Product launch').first().waitFor();
         assertions+=4;
 
+        for (const mode of ['For my team','For an organization','For myself']) {
+          await page.getByRole('tab',{name:mode}).click();
+          assert.equal(await page.getByRole('tab',{name:mode}).getAttribute('aria-selected'),'true');
+          assertions++;
+        }
+        await page.getByText('A clearer day starts here.').waitFor();
+        await page.getByText('Good questions.').waitFor();
+        assertions+=2;
+
         if(width<1024){
           await page.getByRole('button',{name:'Open navigation menu'}).click();
           assert.equal(await page.getByRole('button',{name:'Close navigation menu'}).getAttribute('aria-expanded'),'true');
-          await page.getByRole('navigation',{name:'Mobile navigation'}).getByRole('link',{name:'Product'}).click();
+          await page.getByRole('navigation',{name:'Mobile navigation'}).getByRole('link',{name:'Everything inside'}).click();
           assert.equal(await page.getByRole('button',{name:'Open navigation menu'}).getAttribute('aria-expanded'),'false');
           assertions+=2;
           await page.getByRole('button',{name:'Open navigation menu'}).click();
