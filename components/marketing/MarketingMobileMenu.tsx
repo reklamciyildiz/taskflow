@@ -5,11 +5,13 @@ import Link from 'next/link';
 import { Menu, X } from 'lucide-react';
 
 const links = [
-  {title:'How it works',href:'#workflow'},
-  {title:'Product',href:'#product'},
-  {title:'Teams',href:'#teams'},
-  {title:'Integrations',href:'#integrations'},
-  {title:'Pricing',href:'#pricing'},
+  { title: 'Product tour', href: '#experience' },
+  { title: 'How it works', href: '#workflow' },
+  { title: 'Everything inside', href: '#product' },
+  { title: 'For teams', href: '#teams' },
+  { title: 'Integrations', href: '#integrations' },
+  { title: 'Pricing', href: '#pricing' },
+  { title: 'Questions', href: '#faq' },
 ] as const;
 
 export function MarketingMobileMenu() {
@@ -33,18 +35,18 @@ export function MarketingMobileMenu() {
       <button type="button" onClick={() => setOpen(value => !value)}
         aria-label={open ? 'Close navigation menu' : 'Open navigation menu'}
         aria-expanded={open} aria-controls="ap-mobile-marketing-menu"
-        className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#3b4b68] bg-[#1a2843] text-[#d4e0f7] transition-colors hover:bg-[#26385b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b4cbff]">
-        {open ? <X className="h-[18px] w-[18px]" aria-hidden/> : <Menu className="h-[18px] w-[18px]" aria-hidden/>}
+        className="flex h-10 w-10 items-center justify-center rounded-full border border-[#3e6549] bg-[#193326] text-[#daf5d0] transition-colors hover:bg-[#284736] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8ff93]">
+        {open ? <X className="h-[18px] w-[18px]" aria-hidden /> : <Menu className="h-[18px] w-[18px]" aria-hidden />}
       </button>
       {open && (
         <nav id="ap-mobile-marketing-menu" aria-label="Mobile navigation"
-          className="absolute right-0 top-[calc(100%+13px)] z-[60] w-[min(290px,calc(100vw-32px))] rounded-2xl border border-[#3a4b69] bg-[#111e34] p-2.5 shadow-[0_28px_70px_-18px_rgba(0,0,0,.65)]">
-          {links.map(link=><Link key={link.href} href={link.href} onClick={() => setOpen(false)}
-            className="flex min-h-11 items-center rounded-xl px-3 text-[13px] font-medium text-[#d0dcf0] transition-colors hover:bg-[#25375a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b4cbff]">
+          className="absolute right-0 top-[calc(100%+13px)] z-[60] w-[min(300px,calc(100vw-32px))] rounded-[22px] border border-[#375d43] bg-[#11251b] p-2.5 shadow-[0_28px_70px_-18px_rgba(0,0,0,.72)]">
+          {links.map(link => <Link key={link.href} href={link.href} onClick={() => setOpen(false)}
+            className="flex min-h-11 items-center rounded-xl px-3 text-[13px] font-medium text-[#c9e6cc] transition-colors hover:bg-[#284b33] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8ff93]">
             {link.title}
           </Link>)}
           <Link href="/auth/signin" onClick={() => setOpen(false)}
-            className="mt-2 flex min-h-11 items-center rounded-xl border-t border-[#30405e] px-3 text-[13px] font-medium text-[#b0c5ea] hover:bg-[#25375a] sm:hidden">Sign in</Link>
+            className="mt-2 flex min-h-11 items-center rounded-xl border-t border-[#32503a] px-3 text-[13px] font-medium text-[#d7ffd0] hover:bg-[#284b33] sm:hidden">Sign in</Link>
         </nav>
       )}
     </div>
