@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import './marketing.css';
-import { MarketingSmoothScroll } from '@/components/marketing/MarketingSmoothScroll';
 
 function getMetadataBase(): URL {
   const raw = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL;
@@ -15,9 +14,9 @@ function getMetadataBase(): URL {
 }
 
 const base = getMetadataBase();
-const title = 'Actiproc — From chaos to clarity';
+const title = 'Actiproc — One connected workspace for real work';
 const description =
-  'Turn mental noise into actionable workflows. Process boards, Knowledge Hub, and a personal productivity OS for teams.';
+  'From idea to outcome: connect Processes, Actions, checklists, Planner, rich notes, Knowledge Hub and team workflows in one Actiproc workspace.';
 
 export const metadata: Metadata = {
   metadataBase: base,
@@ -29,7 +28,10 @@ export const metadata: Metadata = {
     'kanban',
     'personal OS',
     'knowledge hub',
-    'second brain',
+    'knowledge management',
+    'planner',
+    'project collaboration',
+    'Actiproc AI',
     'workflow',
   ],
   openGraph: {
@@ -38,8 +40,7 @@ export const metadata: Metadata = {
     url: '/marketing',
     siteName: 'Actiproc',
     title,
-    description:
-      'Action-first task system with dynamic pipelines, second brain, and frictionless capture.',
+    description,
     images: [
       {
         url: '/icon-512x512.png',
@@ -52,8 +53,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title,
-    description:
-      'Dynamic processes, Knowledge Hub, and capture at the speed of thought. Built with Next.js and Supabase.',
+    description,
     images: ['/icon-512x512.png'],
   },
   alternates: {
@@ -71,20 +71,21 @@ const jsonLd = {
   description,
   url: new URL('/marketing', base).toString(),
   featureList: [
-    'Kanban board + list view',
-    'Dynamic process pipelines with terminal stages',
-    'Knowledge Hub (notes + checklists)',
-    'Multi-team collaboration, roles, assignments',
-    'Customers and webhooks (task/customer/team events)',
-    'Analytics, notifications, achievements',
-    'Installable PWA',
+    'Process boards and Action list view',
+    'Planner, due dates and reminders',
+    'Action checklists and rich notes',
+    'Knowledge Hub and searchable context',
+    'Actiproc AI assistant with verified workspace access when available',
+    'Multi-team collaboration and assignments',
+    'Customers, analytics, notifications and achievements',
+    'Google Calendar integrations and Team plan webhooks',
+    'Responsive web app and installable PWA',
   ].join('\\n'),
 };
 
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="marketing-theme min-h-screen bg-[#050505] text-foreground antialiased">
-      <MarketingSmoothScroll />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
