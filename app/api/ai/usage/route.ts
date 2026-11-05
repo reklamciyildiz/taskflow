@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
 export type AIUsageAccess = 'available' | 'beta_only' | 'not_ready';
 
 async function aiUsageAccess(userId: string, organizationId: string): Promise<AIUsageAccess> {
-  if (!isAIChatRuntimeReady()) return 'not_ready';
+  if (!isAIChatRuntimeReady() || process.env.AI_GROQ_TPM_ADMISSION_ENABLED !== 'true') return 'not_ready';
   if (isAIBetaModeEnabled()) {
     return isAIBetaScopeAllowed(userId, organizationId) ? 'available' : 'beta_only';
   }
