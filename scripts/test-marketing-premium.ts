@@ -7,6 +7,7 @@ const read = (path: string) => readFileSync(path,'utf8');
 const page = read('app/(marketing)/marketing/page.tsx');
 const experience = read('components/marketing/MarketingExperience.tsx');
 const preview = read('components/marketing/MarketingWorkspacePreview.tsx');
+const audience = read('components/marketing/MarketingAudienceSwitch.tsx');
 const header = read('components/marketing/MarketingHeader.tsx');
 const mobile = read('components/marketing/MarketingMobileMenu.tsx');
 const pricing = read('components/marketing/sections/MarketingPricing.tsx');
@@ -18,7 +19,7 @@ const vercel = JSON.parse(read('vercel.json'));
 let checks = 0;
 for (const name of ['MarketingHero','MarketingWorkflow','MarketingProductSystem',
   'MarketingConnectedWorkspace','MarketingIntegrations','MarketingPricing',
-  'MarketingFinalCta','MarketingFooter']) {
+  'MarketingFinalCta','MarketingFAQ','MarketingFooter']) {
   assert.match(page, new RegExp('<' + name + '\\b'));
   checks++;
 }
@@ -74,7 +75,20 @@ assert.match(css,/prefers-reduced-motion: reduce/);
 assert.match(css,/ap-preview-outer/);
 assert.match(css,/ap-section-title/);
 assert.match(css,/ap-skip-link:focus/);
-assert.match(metadata,/One connected workspace for real work/);
+assert.match(css,/ap-hero-title/);
+assert.match(css,/ap-feature-card/);
+assert.match(css,/ap-marquee-track/);
+assert.match(css,/prefers-reduced-motion: reduce/);
+assert.match(experience,/id="experience"/);
+assert.match(experience,/id="faq"/);
+assert.match(experience,/Illustrations are demonstrations, not live customer activity/);
+assert.match(experience,/Web & mobile access/);
+for(const mode of ["'solo'", "'team'", "'organization'"]) assert.ok(audience.includes(mode));
+assert.match(audience,/role="tablist"/);
+assert.match(audience,/aria-selected=\{selected === tab.key\}/);
+assert.match(audience,/not live statistics/);
+checks+=13;
+assert.match(metadata,/Everything moves together/);
 assert.match(metadata,/canonical: '\/marketing'/);
 assert.match(footer,/\/privacy/);
 assert.match(footer,/\/refunds/);
