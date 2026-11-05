@@ -6,12 +6,13 @@ import {
   MarketingConnectedWorkspace,
   MarketingIntegrations,
   MarketingFinalCta,
+  MarketingFAQ,
 } from '@/components/marketing/MarketingExperience';
 import { MarketingPricing } from '@/components/marketing/sections/MarketingPricing';
 import { MarketingFooter } from '@/components/marketing/MarketingFooter';
 
 /**
- * One cohesive marketing story, not a stack of competing demo experiments.
+ * Product-led editorial storytelling with interactive illustrative experiences.
  * The page remains a Server Component; only the preview tabs hydrate.
  */
 export default function MarketingPage() {
@@ -26,6 +27,7 @@ export default function MarketingPage() {
         <MarketingConnectedWorkspace />
         <MarketingIntegrations />
         <MarketingPricing />
+        <MarketingFAQ />
         <MarketingFinalCta />
       </main>
       <MarketingFooter />
