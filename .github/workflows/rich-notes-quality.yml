@@ -5,6 +5,8 @@ on:
     paths:
       - 'components/editor/**'
       - 'components/action/ActionNotes.tsx'
+      - 'lib/action-note-collection.ts'
+      - 'scripts/test-action-notes-workspace.ts'
       - 'app/globals.css'
       - 'scripts/test-editor-slash-commands.ts'
       - 'scripts/test-note-rich-editor.ts'
@@ -17,6 +19,8 @@ on:
     paths:
       - 'components/editor/**'
       - 'components/action/ActionNotes.tsx'
+      - 'lib/action-note-collection.ts'
+      - 'scripts/test-action-notes-workspace.ts'
       - 'app/globals.css'
       - 'scripts/test-editor-slash-commands.ts'
       - 'scripts/test-note-rich-editor.ts'
@@ -42,6 +46,8 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - name: Code blocks, Markdown paste, stable checklist IDs and JSON roundtrip
         run: npm run test:editor
+      - name: Action Notes navigation, search, sorting and responsive contracts
+        run: npm run test:action-notes
       - name: Knowledge Hub compatibility
         run: npm run test:knowledge-hub
       - name: TypeScript
