@@ -18,6 +18,10 @@ on:
       - '.github/workflows/marketing-premium-quality.yml'
   workflow_dispatch:
 
+concurrency:
+  group: premium-marketing-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
