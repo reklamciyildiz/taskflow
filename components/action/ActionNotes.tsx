@@ -16,7 +16,11 @@ import {
   CheckCircle2,
   Lightbulb,
   Loader2,
+  LayoutGrid,
+  List,
   Plus,
+  Search,
+  SlidersHorizontal,
   StickyNote,
   Trash2,
 } from "lucide-react";
@@ -45,6 +49,7 @@ import {
 import { noteApi } from "@/lib/api";
 import { notifyKnowledgeSourcesChanged } from "@/lib/knowledge-events";
 import { previewTextFromTipTap } from "@/lib/tiptap-parser";
+import { indexActionNotes, selectActionNotes, type ActionNoteSort, type ActionNoteTypeFilter } from "@/lib/action-note-collection";
 import type { Note, NoteType, UpdateNoteRequest } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -93,18 +98,6 @@ const NOTE_TYPE_META: Record<
     tone: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
   },
 };
-
-function noteHeading(note: Note): string {
-  const title = note.title.trim();
-  if (title) return title;
-  return previewTextFromTipTap(note.content, 90) || "Untitled note";
-}
-
-function notePreview(note: Note): string {
-  const preview = previewTextFromTipTap(note.content, 180);
-  if (!preview || preview === note.title.trim()) return "No content yet";
-  return preview;
-}
 
 function hasMeaningfulDraftContent(draft: LocalNoteDraft): boolean {
   return (
@@ -162,6 +155,11 @@ export function ActionNotes({
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const deletingIdsRef = useRef(new Set<string>());
   const inflightSavesRef = useRef(new Map<string, Set<InflightNoteSave>>());
+  const [query, setQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState<ActionNoteTypeFilter>("all");
+  const [sort, setSort] = useState<ActionNoteSort>("updated");
+  const [view, setView] = useState<"compact" | "cards">("compact");
+  const [visibleCount, setVisibleCount] = useState(20);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -171,6 +169,15 @@ export function ActionNotes({
     () => notes.find((note) => note.id === selectedId) ?? null,
     [notes, selectedId],
   );
+  const indexedNotes = useMemo(() => indexActionNotes(notes), [notes]);
+  const matchingNotes = useMemo(
+    () => selectActionNotes(indexedNotes, query, typeFilter, sort),
+    [indexedNotes, query, typeFilter, sort],
+  );
+  const selectedPosition = matchingNotes.findIndex(({ note }) => note.id === selectedId);
+  const shownNotes = matchingNotes.slice(0, Math.max(visibleCount, selectedPosition + 1));
+  const hasActiveFilters = Boolean(query.trim()) || typeFilter !== "all";
+  useEffect(() => { setVisibleCount(20); }, [query, typeFilter, sort]);
 
   useEffect(() => {
     if (!focusedNoteId || loading || loadError) return;
@@ -528,19 +535,19 @@ export function ActionNotes({
 
   const editorNote = draft ?? selectedNote;
 
-  if (editorNote) {
+  const editorPanel = editorNote ? (() => {
     const meta = NOTE_TYPE_META[editorNote.type];
     const persistedId = draft?.persistedId ?? selectedNote?.id ?? null;
     const editorKey = draft?.clientId ?? selectedNote!.id;
     const isDeleting = Boolean(persistedId && deletingId === persistedId);
     return (
-      <div className="mx-auto flex w-full min-w-0 max-w-3xl flex-col gap-4 px-3 py-4 sm:px-4 md:px-6">
+      <div className="flex min-w-0 flex-col gap-4 px-4 py-4 sm:px-6 sm:py-6">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            className="h-8 gap-1.5 px-2 text-muted-foreground"
+            className="h-8 gap-1.5 px-2 text-muted-foreground lg:hidden"
             disabled={isDeleting}
             onClick={closeNote}
           >
@@ -631,6 +638,10 @@ export function ActionNotes({
           ) : null}
         </div>
 
+        <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+          <span>{draft ? "New note" : "Action note"}</span>
+          <span>Changes autosave</span>
+        </div>
         <Input
           value={editorNote.title}
           autoFocus={Boolean(draft)}
@@ -649,7 +660,7 @@ export function ActionNotes({
           }}
         />
 
-        <div className="min-w-0 max-w-full overflow-x-hidden rounded-xl border border-border/60 bg-muted/[0.12] px-3 py-2 md:px-4">
+        <div className="min-w-0 max-w-full overflow-x-hidden rounded-2xl border border-border/60 bg-background/65 px-3 py-3 shadow-sm md:px-4">
           <BlockEditor
             key={editorKey}
             taskId={taskId}
@@ -678,70 +689,163 @@ export function ActionNotes({
           />
         </div>
       </div>
+
     );
-  }
+  })() : null;
 
   return (
-    <div className="mx-auto flex w-full min-w-0 max-w-3xl flex-col gap-4 px-3 py-4 sm:px-4 md:px-6">
-      <div className="rounded-xl border border-border/60 bg-muted/20 p-2">
-        <Button
-          type="button"
-          size="sm"
-          className="h-8 w-full gap-1.5"
-          disabled={!canEdit}
-          onClick={beginDraft}
-        >
-          <Plus className="h-3.5 w-3.5" aria-hidden />
-          New note
-        </Button>
-      </div>
+    <div className={cn(
+      "w-full min-w-0 overflow-hidden",
+      editorPanel && "lg:grid lg:grid-cols-[minmax(245px,290px)_minmax(0,1fr)] lg:divide-x lg:divide-border/50",
+    )}>
+      <section aria-label="Action notes navigator" className={cn(
+        "min-w-0 flex-col",
+        editorPanel ? "hidden lg:flex" : "flex",
+      )}>
+        <div className="shrink-0 border-b border-border/55 bg-muted/[0.17] px-4 pb-3 pt-4 sm:px-5">
+          <div className="flex min-w-0 items-center justify-between gap-3">
+            <div className="min-w-0">
+              <h3 className="text-[14px] font-semibold tracking-tight text-foreground">Your notes</h3>
+              <p className="mt-0.5 text-[11px] text-muted-foreground">
+                {hasActiveFilters
+                  ? matchingNotes.length + " of " + notes.length + " notes"
+                  : notes.length + (notes.length === 1 ? " note" : " notes") + " in this Action"}
+              </p>
+            </div>
+            <Button type="button" size="sm" onClick={beginDraft} disabled={!canEdit}
+              aria-label="Create note"
+              className="h-9 shrink-0 gap-1.5 rounded-xl px-3 text-[12px] font-semibold shadow-sm">
+              <Plus className="h-4 w-4" aria-hidden /> New note
+            </Button>
+          </div>
+          <div className="relative mt-4">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+            <input type="search" aria-label="Search action notes" placeholder="Search titles, content, people…"
+              value={query} onChange={(event) => setQuery(event.target.value)}
+              className="h-10 w-full min-w-0 rounded-xl border border-border/70 bg-background/80 pl-9 pr-3 text-[12px] text-foreground outline-none placeholder:text-muted-foreground/70 focus-visible:border-primary/50 focus-visible:ring-2 focus-visible:ring-primary/15" />
+          </div>
+          <div className="mt-2.5 flex flex-wrap items-center gap-2">
+            <Select value={typeFilter} onValueChange={(value: ActionNoteTypeFilter) => setTypeFilter(value)}>
+              <SelectTrigger aria-label="Filter note type" className="h-8 w-[min(140px,42vw)] min-w-0 rounded-lg border-border/60 bg-background/65 px-2.5 text-[11px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All types</SelectItem>
+                {(Object.keys(NOTE_TYPE_META) as NoteType[]).map(type => (
+                  <SelectItem key={type} value={type}>{NOTE_TYPE_META[type].label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={sort} onValueChange={(value: ActionNoteSort) => setSort(value)}>
+              <SelectTrigger aria-label="Sort notes" className="h-8 w-[min(135px,40vw)] min-w-0 rounded-lg border-border/60 bg-background/65 px-2.5 text-[11px]">
+                <SlidersHorizontal className="mr-1 h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="updated">Recently edited</SelectItem>
+                <SelectItem value="created">Newest created</SelectItem>
+                <SelectItem value="oldest">Oldest edited</SelectItem>
+                <SelectItem value="title">Title A–Z</SelectItem>
+              </SelectContent>
+            </Select>
+            {!editorPanel && (
+              <div className="ml-auto inline-flex shrink-0 items-center rounded-lg border border-border/60 bg-background/70 p-0.5">
+                <button type="button" aria-label="Compact note list" aria-pressed={view === "compact"}
+                  title="Compact list" onClick={() => setView("compact")}
+                  className={cn("flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+                    view === "compact" && "bg-primary/10 text-primary")}>
+                  <List className="h-3.5 w-3.5" aria-hidden />
+                </button>
+                <button type="button" aria-label="Note cards" aria-pressed={view === "cards"}
+                  title="Cards" onClick={() => setView("cards")}
+                  className={cn("flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+                    view === "cards" && "bg-primary/10 text-primary")}>
+                  <LayoutGrid className="h-3.5 w-3.5" aria-hidden />
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
 
-      {notes.length === 0 ? (
-        <div className="flex min-h-[220px] flex-col items-center justify-center rounded-xl border border-dashed border-border/70 px-6 text-center">
-          <StickyNote className="mb-3 h-8 w-8 text-muted-foreground/55" aria-hidden />
-          <p className="text-sm font-medium">No notes yet</p>
-          <p className="mt-1 max-w-sm text-xs leading-relaxed text-muted-foreground">
-            Capture notes, learning notes, ideas, and decisions without crowding the checklist.
-          </p>
-        </div>
-      ) : (
-        <div className="grid gap-2">
-          {notes.map((note) => {
-            const meta = NOTE_TYPE_META[note.type];
-            const Icon = meta.icon;
-            return (
-              <button
-                key={note.id}
-                type="button"
-                onClick={() => openNote(note.id)}
-                className="group block w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-border/60 bg-background/40 p-3 text-left transition-colors hover:border-border hover:bg-muted/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
-              >
-                <div className="flex min-w-0 max-w-full items-start gap-3">
-                  <span className={cn("mt-0.5 rounded-lg p-1.5", meta.tone)}>
-                    <Icon className="h-3.5 w-3.5" aria-hidden />
-                  </span>
-                  <span className="block min-w-0 max-w-full flex-1">
-                    <span className="flex min-w-0 items-start justify-between gap-2">
-                      <span className="min-w-0 flex-1 truncate text-sm font-medium">{noteHeading(note)}</span>
-                      <span className="shrink-0 text-[11px] text-muted-foreground">
-                        {noteDate(note.updatedAt)}
+        {notes.length === 0 ? (
+          <div className="flex min-h-[240px] flex-col items-center justify-center gap-2 px-5 py-10 text-center">
+            <span className="rounded-2xl bg-primary/[0.07] p-4 text-primary"><StickyNote className="h-7 w-7" aria-hidden /></span>
+            <p className="mt-2 text-[14px] font-semibold">Notes live alongside your work</p>
+            <p className="max-w-xs text-[12px] leading-relaxed text-muted-foreground">
+              Capture ideas, learnings and decisions. Search and organize them as your collection grows.
+            </p>
+            {canEdit && <Button type="button" size="sm" variant="outline" className="mt-2 gap-1.5" onClick={beginDraft}>
+              <Plus className="h-3.5 w-3.5" aria-hidden /> Create your first note
+            </Button>}
+          </div>
+        ) : matchingNotes.length === 0 ? (
+          <div className="flex min-h-[240px] flex-col items-center justify-center px-4 py-10 text-center">
+            <Search className="h-7 w-7 text-muted-foreground/45" aria-hidden />
+            <p className="mt-3 text-[13px] font-semibold">No matching notes</p>
+            <p className="mt-1 text-[12px] text-muted-foreground">Try another keyword or type.</p>
+            <Button type="button" size="sm" variant="outline" className="mt-4"
+              onClick={() => { setQuery(""); setTypeFilter("all"); }}>Clear filters</Button>
+          </div>
+        ) : (
+          <div className={cn(
+            "min-w-0 overscroll-contain overflow-y-auto px-3 py-3 sm:px-4",
+            editorPanel ? "lg:max-h-[min(62dvh,690px)]" : "max-h-[min(58dvh,560px)]",
+          )}>
+            <div className={cn("grid gap-1.5",
+              !editorPanel && view === "cards" ? "sm:grid-cols-2 sm:gap-3" : "grid-cols-1")}>
+              {shownNotes.map(({ note, heading, preview }) => {
+                const meta = NOTE_TYPE_META[note.type];
+                const Icon = meta.icon;
+                const active = note.id === selectedId;
+                const card = !editorPanel && view === "cards";
+                return (
+                  <button key={note.id} type="button" onClick={() => openNote(note.id)}
+                    aria-current={active ? "true" : undefined}
+                    className={cn(
+                      "group flex w-full min-w-0 items-start gap-2.5 rounded-xl border text-left transition-colors",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+                      card ? "min-h-[133px] bg-card/65 p-3.5" : "bg-transparent px-2.5 py-3",
+                      active ? "border-primary/35 bg-primary/[0.065]" :
+                        "border-transparent hover:border-border/60 hover:bg-muted/45",
+                      !editorPanel && "border-border/35",
+                    )}>
+                    <span className={cn("mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px]", meta.tone)}>
+                      <Icon className="h-[16px] w-[16px]" aria-hidden />
+                    </span>
+                    <span className="block min-w-0 flex-1">
+                      <span className="flex min-w-0 items-start justify-between gap-2">
+                        <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold leading-5 text-foreground" title={heading}>{heading}</span>
+                        <span className="shrink-0 pt-0.5 text-[10px] text-muted-foreground">{noteDate(note.updatedAt)}</span>
+                      </span>
+                      <span className={cn("mt-1 block min-w-0 break-words text-[11px] leading-[1.6] text-muted-foreground",
+                        card ? "line-clamp-2" : "line-clamp-1")}>{preview}</span>
+                      <span className="mt-2 flex min-w-0 items-center gap-2 text-[10px] text-muted-foreground/80">
+                        <span className={cn("shrink-0 rounded-md px-1.5 py-0.5 font-medium", meta.tone)}>{meta.label}</span>
+                        {note.authorName && <span className="min-w-0 truncate">{note.authorName}</span>}
                       </span>
                     </span>
-                    <span className="mt-1 line-clamp-2 block min-w-0 break-words text-xs leading-relaxed text-muted-foreground">
-                      {notePreview(note)}
-                    </span>
-                    <span className="mt-2 flex min-w-0 flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground/80">
-                      <span className={cn("rounded px-1.5 py-0.5 font-medium", meta.tone)}>
-                        {meta.label}
-                      </span>
-                      <span className="min-w-0 break-words">by {note.authorName}</span>
-                    </span>
-                  </span>
-                </div>
-              </button>
-            );
-          })}
-        </div>
+                  </button>
+                );
+              })}
+            </div>
+            {shownNotes.length < matchingNotes.length && (
+              <Button type="button" variant="ghost" size="sm"
+                className="mt-3 h-9 w-full rounded-lg border border-dashed border-border/70 text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => setVisibleCount(current => Math.max(current, shownNotes.length) + 20)}>
+                Show more ({matchingNotes.length - shownNotes.length} remaining)
+              </Button>
+            )}
+            <p className="mt-3 text-center text-[10px] text-muted-foreground/70" aria-live="polite">
+              Showing {shownNotes.length} of {matchingNotes.length} notes
+            </p>
+          </div>
+        )}
+      </section>
+      {editorPanel && (
+        <section aria-label="Note editor"
+          className="min-w-0 overflow-x-hidden overflow-y-auto overscroll-contain bg-background/35 lg:max-h-[min(68dvh,730px)]">
+          {editorPanel}
+        </section>
       )}
     </div>
   );
