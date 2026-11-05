@@ -166,8 +166,10 @@ assert.match(canonicalTaskList, /Sort by stage/);
 assert.match(canonicalTaskList, /SelectItem value="__inbox__">Inbox/);
 assert.match(actionPanel, /data-action-panel-sheet/);
 assert.match(actionPanel, /overflow-x-hidden overflow-y-auto/);
-assert.match(actionNotes, /max-w-full overflow-hidden rounded-xl/);
-assert.match(actionNotes, /min-w-0 flex-1 truncate text-sm font-medium/);
+assert.match(actionNotes, /aria-label="Action notes navigator"/, 'Action notes must retain a mobile-friendly navigation surface');
+assert.match(actionNotes, /editorPanel \? "hidden lg:flex" : "flex"/, 'The notes navigator must yield to a full-width editor on mobile');
+assert.match(actionNotes, /aria-label="Note editor"/, 'Editing must remain accessible inside the Action panel');
+assert.match(actionNotes, /min-w-0 overflow-x-hidden overflow-y-auto/, 'The editor must prevent horizontal overflow');
 assert.match(css, /mobile-operational-list/);
 assert.match(css, /\[data-action-panel-sheet\] \.ProseMirror/);
 
