@@ -1,134 +1,171 @@
-/* Scoped marketing / landing theme — Obsidian + emerald accents */
+/*
+ * Actiproc marketing v3 — editorial midnight blue and luminous porcelain.
+ * Isolated from the signed-in app. No images, trackers, layout thrash or
+ * perpetual motion are required to achieve the visual treatment.
+ */
 .marketing-theme {
-  --background: 0 0% 2%;
-  --foreground: 0 0% 96%;
-  --card: 0 0% 6%;
-  --card-foreground: 0 0% 96%;
-  --popover: 0 0% 5%;
-  --popover-foreground: 0 0% 96%;
-  --primary: 217 91% 60%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 160 84% 39%;
-  --muted: 0 0% 12%;
-  --muted-foreground: 0 0% 55%;
-  --border: 0 0% 14%;
-  --input: 0 0% 14%;
-  --ring: 160 84% 45%;
+  --background: 224 49% 9%;
+  --foreground: 217 100% 95%;
+  --card: 222 41% 13%;
+  --card-foreground: 217 100% 95%;
+  --popover: 223 45% 12%;
+  --popover-foreground: 217 100% 95%;
+  --primary: 219 100% 83%;
+  --primary-foreground: 224 62% 12%;
+  --secondary: 221 42% 19%;
+  --secondary-foreground: 218 92% 92%;
+  --muted: 223 32% 20%;
+  --muted-foreground: 219 25% 65%;
+  --border: 221 28% 26%;
+  --input: 221 28% 26%;
+  --ring: 219 94% 73%;
+  color-scheme: dark;
+  min-width: 0;
+  background: #0b1326;
+  color: #e7eeff;
 }
-
-.marketing-noise {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 1;
-  opacity: 0.35;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
-  mix-blend-mode: overlay;
+.marketing-theme, .marketing-theme * { box-sizing: border-box; }
+.marketing-theme ::selection { background: #7191d5; color: #09152d; }
+.marketing-theme a { -webkit-tap-highlight-color: transparent; }
+.marketing-theme [id] { scroll-margin-top: 94px; }
+.ap-skip-link {
+  position: fixed;
+  z-index: 999;
+  top: -100px;
+  left: 16px;
+  display: inline-flex;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: #c6d9ff;
+  color: #0f1e37;
+  font-size: 14px;
+  font-weight: 700;
 }
-
-.marketing-headline-primary {
-  color: #fafafa;
-  letter-spacing: -0.04em;
+.ap-skip-link:focus { top: 10px; }
+.ap-hero {
+  background:
+    radial-gradient(ellipse 78% 74% at 94% 24%, rgba(59,94,170,.25) 0, transparent 65%),
+    radial-gradient(ellipse 42% 45% at 5% 87%, rgba(54,83,159,.16) 0, transparent 75%),
+    #0b1326;
 }
-
-.marketing-kinetic-line {
-  display: block;
-  margin-top: 0.15em;
-  background: linear-gradient(
-    100deg,
-    #52525b 0%,
-    #a1a1aa 25%,
-    #fafafa 50%,
-    #a1a1aa 75%,
-    #52525b 100%
-  );
-  background-size: 200% auto;
-  -webkit-background-clip: text;
+.ap-hero-glow {
+  background:
+    radial-gradient(circle at 87% 43%, rgba(114,153,243,.13), transparent 34%),
+    radial-gradient(circle at 28% 10%, rgba(70,109,181,.07), transparent 34%);
+}
+.ap-hero-grid {
+  opacity: .33;
+  background-image:
+    linear-gradient(to right, rgba(157,188,255,.09) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(157,188,255,.065) 1px, transparent 1px);
+  background-size: 76px 76px;
+  mask-image: linear-gradient(to bottom, transparent, black 30%, transparent 90%);
+}
+.ap-display { font-feature-settings: "ss01" on, "cv11" on; }
+.ap-headline-accent {
+  background: linear-gradient(113deg, #a8c3ff 8%, #dce7ff 47%, #8ab4ff 85%);
   background-clip: text;
+  -webkit-background-clip: text;
   color: transparent;
-  animation: marketing-kinetic-shift 10s ease-in-out infinite;
 }
-
-@keyframes marketing-kinetic-shift {
-  0%,
-  100% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
+.ap-section-title {
+  font-weight: 650;
+  font-size: clamp(2.3rem, 4.65vw, 4.65rem);
+  line-height: 1.075;
+  letter-spacing: -.057em;
+  text-wrap: balance;
 }
-
+.ap-preview-outer {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  padding: 8px;
+  border-radius: 23px;
+  background: linear-gradient(140deg, rgba(164,194,255,.24), rgba(58,87,149,.17) 34%, rgba(104,147,228,.2) 86%, rgba(159,189,244,.38));
+  border: 1px solid rgba(167,197,254,.25);
+  box-shadow: 0 35px 120px -36px rgba(0,0,0,.82), 0 16px 58px -36px rgba(73,117,206,.75), inset 0 1px rgba(221,235,255,.16);
+}
+.ap-preview-window {
+  overflow: hidden;
+  min-width: 0;
+  border: 1px solid #415475;
+  border-radius: 16px;
+  background: #101b2e;
+  box-shadow: inset 0 1px rgba(203,219,251,.06);
+}
+.ap-preview-task {
+  min-width: 0;
+  border: 1px solid #354561;
+  border-radius: 10px;
+  padding: 12px;
+  background: linear-gradient(153deg, #233351, #1d2b43);
+  box-shadow: 0 6px 20px -15px rgba(0,0,0,.9);
+}
+.ap-task-tag {
+  border-radius: 5px;
+  padding: 3px 5px;
+  font-size: 9px;
+  font-weight: 650;
+  line-height: 1.3;
+}
+.ap-task-tag-blue { color: #b1cfff; background: #30476a; }
+.ap-task-tag-violet { color: #d0c1ff; background: #453b69; }
+.ap-task-tag-slate { color: #d3dcf0; background: #38465e; }
+.ap-task-tag-green { color: #b9e8cb; background: #27544c; }
+.ap-light-section {
+  background:
+    radial-gradient(ellipse 65% 60% at 100% 15%, rgba(206,220,246,.3), transparent 65%),
+    #f3f6fb;
+}
+.ap-product-section {
+  background:
+    radial-gradient(ellipse 75% 80% at 0% 55%, rgba(71,108,177,.12), transparent 65%),
+    radial-gradient(ellipse 65% 65% at 100% 20%, rgba(74,107,187,.11), transparent 60%),
+    #101d33;
+}
+.ap-capability {
+  transition: border-color .3s ease, transform .3s ease, box-shadow .3s ease;
+}
+.ap-capability:hover {
+  border-color: rgba(159,186,248,.49);
+  transform: translateY(-3px);
+  box-shadow: 0 28px 70px -46px rgba(15,40,87,.7);
+}
+.ap-capability-primary {
+  background: linear-gradient(145deg, #253e6d 0%, #162947 65%, #162440 100%);
+}
+.ap-pricing-section {
+  background:
+    radial-gradient(ellipse 85% 55% at 0% 0%, rgba(212,223,245,.45), transparent 70%),
+    #f2f5fa;
+}
+.ap-final-section {
+  background: radial-gradient(ellipse 75% 60% at 50% 0%, rgba(39,67,125,.3), transparent 68%), #0a1429;
+}
+.ap-mobile-nav[open] summary {
+  border-color: #7497dd;
+  background: #263c60;
+}
+.ap-mobile-nav summary::marker { content: ""; }
+.ap-enter { animation: ap-enter .78s cubic-bezier(.2,.85,.25,1) both; }
+@keyframes ap-enter {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (max-width: 639px) {
+  .ap-hero-grid { background-size: 47px 47px; opacity: .22; }
+  .ap-section-title { letter-spacing: -.049em; }
+  .ap-preview-outer { padding: 5px; border-radius: 19px; }
+  .ap-preview-window { border-radius: 13px; }
+  .ap-preview-task { padding: 9px; }
+}
 @media (prefers-reduced-motion: reduce) {
-  .marketing-kinetic-line {
-    animation: none;
-    background: linear-gradient(90deg, #d4d4d8, #fafafa);
-    background-size: 100%;
+  .marketing-theme *, .marketing-theme *::before, .marketing-theme *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
   }
-}
-
-.marketing-bento-float {
-  animation: marketing-float-y 5s ease-in-out infinite;
-}
-
-.marketing-bento-float-delay-1 {
-  animation-delay: 0.4s;
-}
-.marketing-bento-float-delay-2 {
-  animation-delay: 0.8s;
-}
-.marketing-bento-float-delay-3 {
-  animation-delay: 1.2s;
-}
-
-@keyframes marketing-float-y {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-6px);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .marketing-bento-float,
-  .marketing-bento-float-delay-1,
-  .marketing-bento-float-delay-2,
-  .marketing-bento-float-delay-3 {
-    animation: none;
-  }
-}
-
-html.marketing-smooth-scroll {
-  scroll-behavior: smooth;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  html.marketing-smooth-scroll {
-    scroll-behavior: auto;
-  }
-}
-
-/* Section fade-in (IntersectionObserver toggles [data-visible]) */
-.marketing-reveal {
-  opacity: 0;
-  transform: translateY(14px);
-  transition:
-    opacity 700ms cubic-bezier(0.22, 1, 0.36, 1),
-    transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
-  will-change: opacity, transform;
-}
-
-.marketing-reveal[data-visible='true'] {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .marketing-reveal {
-    opacity: 1;
-    transform: none;
-    transition: none;
-  }
+  .ap-enter { opacity: 1; transform: none; animation: none; }
+  .ap-capability:hover { transform: none; }
 }
