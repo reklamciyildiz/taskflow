@@ -6,7 +6,7 @@ export type ActionNoteSort = 'updated' | 'oldest' | 'title' | 'created';
 export type IndexedActionNote = { note: Note; searchText: string; heading: string; preview: string };
 
 function normalize(text: string): string {
-  return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/ı/g, 'i');
 }
 
 function timestamp(iso: string): number {
