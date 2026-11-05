@@ -1,0 +1,62 @@
+name: Actiproc forest brand quality
+
+on:
+  pull_request:
+    paths:
+      - 'app/globals.css'
+      - 'components/Header.tsx'
+      - 'components/Sidebar.tsx'
+      - 'components/shell/**'
+      - 'components/billing/**'
+      - 'components/ai/**'
+      - 'components/knowledge/**'
+      - 'components/planner/**'
+      - 'shared/product-ui/**'
+      - 'scripts/test-brand-theme.cjs'
+      - '.github/workflows/product-brand-quality.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'app/globals.css'
+      - 'components/Header.tsx'
+      - 'components/Sidebar.tsx'
+      - 'components/shell/**'
+      - 'components/billing/**'
+      - 'components/ai/**'
+      - 'components/knowledge/**'
+      - 'components/planner/**'
+      - 'shared/product-ui/**'
+      - 'scripts/test-brand-theme.cjs'
+  workflow_dispatch:
+
+concurrency:
+  group: actiproc-brand-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  design-regressions:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Forest palette, contrast and surface contract
+        run: node scripts/test-brand-theme.cjs
+      - name: TypeScript
+        run: npx tsc --noEmit
+      - name: Board regressions
+        run: npm run test:board:premium
+      - name: Knowledge Hub regressions
+        run: npm run test:knowledge-hub
+      - name: Creem billing regressions
+        run: npm run test:creem
+      - name: AI plan UI regressions
+        run: npm run test:ai:commercial-ui
