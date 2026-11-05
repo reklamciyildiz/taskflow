@@ -121,7 +121,7 @@ export function DayTimeline({
           </div>
         ) : null}
         {drag.preview?.target.date === date && (
-          <div aria-hidden="true" className="pointer-events-none absolute z-30 overflow-hidden rounded-lg border-2 border-dashed border-blue-500 bg-blue-500/25 px-2 py-1.5 text-[11px] font-semibold shadow-lg"
+          <div aria-hidden="true" className="pointer-events-none absolute z-30 overflow-hidden rounded-lg border-2 border-dashed border-primary/70 bg-primary/20 px-2 py-1.5 text-[11px] font-semibold shadow-lg"
             style={{ top: minutes(drag.preview.target.time) / 60 * DAY_PX_PER_HOUR,
               height: Math.max(36, (items.find((item) => item.id === drag.preview?.itemId)?.durationMinutes ?? 30) / 60 * DAY_PX_PER_HOUR), left: 2, right: 2 }}>
             Move to {drag.preview.target.time}
@@ -220,7 +220,7 @@ export function WeekTimeline({
                   ))}
                   {date === today ? <div className="planner-v2-now-line pointer-events-none absolute left-0 right-0 z-20" style={{ top: (nowMinutes / 60) * WEEK_PX_PER_HOUR }} /> : null}
                   {drag.preview?.target.date === date && (
-                    <div aria-hidden="true" className="pointer-events-none absolute left-0 right-0 z-30 rounded-md border-2 border-dashed border-blue-500 bg-blue-500/25 px-1 text-[10px] font-semibold"
+                    <div aria-hidden="true" className="pointer-events-none absolute left-0 right-0 z-30 rounded-md border-2 border-dashed border-primary/70 bg-primary/20 px-1 text-[10px] font-semibold"
                       style={{ top: minutes(drag.preview.target.time) / 60 * WEEK_PX_PER_HOUR,
                         height: Math.max(28, (items.find((item) => item.id === drag.preview?.itemId)?.durationMinutes ?? 30) / 60 * WEEK_PX_PER_HOUR) }}>
                       {drag.preview.target.time}

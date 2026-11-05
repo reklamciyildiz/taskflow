@@ -24,7 +24,7 @@ export function AIUsageBillingCard() {
   return (
     <section id="ai-allowance" aria-labelledby="ai-allowance-heading"
       className="relative overflow-hidden rounded-[24px] border border-border/75 bg-gradient-to-br from-primary/[0.065] via-card to-card shadow-[0_16px_50px_-36px_rgba(15,23,42,0.5)]">
-      <div aria-hidden="true" className="pointer-events-none absolute -right-16 -top-28 h-64 w-64 rounded-full bg-indigo-500/[0.08] blur-3xl" />
+      <div aria-hidden="true" className="pointer-events-none absolute -right-16 -top-28 h-64 w-64 rounded-full bg-emerald-500/[0.065] blur-3xl" />
       <div className="relative space-y-5 p-5 sm:p-6">
         <header className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex items-start gap-3">

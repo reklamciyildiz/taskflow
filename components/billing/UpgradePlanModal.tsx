@@ -105,21 +105,21 @@ export function UpgradePlanModal(props: {
       <DialogContent
         aria-describedby="upgrade-plan-description"
         className={cn(
-          'z-[520] w-[calc(100vw-1.5rem)] max-h-[min(92dvh,850px)] overflow-y-auto rounded-[24px] border border-white/[0.13] bg-[#131b29] p-0 text-zinc-50 shadow-[0_32px_100px_-25px_rgba(0,0,0,.75)]',
+          'z-[520] w-[calc(100vw-1.5rem)] max-h-[min(92dvh,850px)] overflow-y-auto rounded-[24px] border border-white/[0.13] bg-[#12261b] p-0 text-zinc-50 shadow-[0_32px_100px_-25px_rgba(0,0,0,.75)]',
           onePlan ? 'sm:max-w-[790px]' : plans.length === 2 ? 'sm:max-w-[820px]' : 'sm:max-w-[1040px]'
         )}
         overlayClassName="z-[519] bg-black/70 backdrop-blur-sm"
         hideClose
       >
         <div className="relative overflow-hidden px-5 pb-5 pt-5 sm:px-7 sm:pb-7 sm:pt-7">
-          <div aria-hidden className="pointer-events-none absolute -right-20 -top-40 h-80 w-80 rounded-full bg-sky-500/[0.10] blur-[75px]" />
+          <div aria-hidden className="pointer-events-none absolute -right-20 -top-40 h-80 w-80 rounded-full bg-[#C8FF93]/[0.10] blur-[75px]" />
           <button type="button" onClick={close} disabled={busy !== null} aria-label="Close upgrade dialog"
-            className="absolute right-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-zinc-300 transition-colors hover:border-white/25 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 disabled:opacity-50">
+            className="absolute right-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-zinc-300 transition-colors hover:border-white/25 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8FF93] disabled:opacity-50">
             <X className="h-4 w-4" aria-hidden />
           </button>
           <div className={cn('relative grid min-w-0 gap-6', onePlan && 'md:grid-cols-[minmax(0,1fr)_minmax(0,345px)] md:items-center md:gap-8')}>
             <div className={cn('min-w-0 pr-8', !onePlan && 'max-w-2xl')}>
-              <div className="mb-5 inline-flex h-11 w-11 items-center justify-center rounded-[14px] border border-sky-400/20 bg-sky-400/10 text-sky-300">
+              <div className="mb-5 inline-flex h-11 w-11 items-center justify-center rounded-[14px] border border-[#C8FF93]/20 bg-[#C8FF93]/10 text-[#C8FF93]">
                 <Sparkles className="h-[21px] w-[21px]" aria-hidden />
               </div>
               <DialogHeader className="space-y-2 text-left">
@@ -132,7 +132,7 @@ export function UpgradePlanModal(props: {
               </DialogHeader>
               <div className="mt-5 flex flex-wrap items-center gap-3 text-[11px] leading-5 text-slate-400">
                 <span className="inline-flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5 text-emerald-400" aria-hidden /> Verified billing</span>
-                <span className="inline-flex items-center gap-1.5"><CreditCard className="h-3.5 w-3.5 text-sky-300" aria-hidden /> Secured by Creem</span>
+                <span className="inline-flex items-center gap-1.5"><CreditCard className="h-3.5 w-3.5 text-[#C8FF93]" aria-hidden /> Secured by Creem</span>
               </div>
               {onePlan && <Button variant="ghost" onClick={close} disabled={busy !== null}
                 className="mt-6 hidden h-9 px-0 text-slate-300 hover:bg-transparent hover:text-white md:inline-flex">
@@ -147,11 +147,11 @@ export function UpgradePlanModal(props: {
                 return (
                   <section key={plan} aria-label={plan + ' plan'} className={cn(
                     'relative flex min-w-0 flex-col rounded-[20px] border bg-white/[0.045] p-[19px] shadow-[0_20px_46px_-33px_rgba(0,0,0,0.7)]',
-                    featured ? 'border-sky-400/40 ring-1 ring-sky-400/[0.12]' : 'border-white/[0.12]'
+                    featured ? 'border-[#C8FF93]/40 ring-1 ring-[#C8FF93]/[0.12]' : 'border-white/[0.12]'
                   )}>
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <h3 className="text-[15px] font-semibold text-white capitalize">{plan}</h3>
-                      {featured && <span className="rounded-full border border-sky-400/20 bg-sky-400/[0.10] px-2 py-0.5 text-[10px] font-semibold text-sky-200">Recommended</span>}
+                      {featured && <span className="rounded-full border border-[#C8FF93]/20 bg-[#C8FF93]/[0.10] px-2 py-0.5 text-[10px] font-semibold text-[#DBF6C8]">Recommended</span>}
                     </div>
                     <p className="mt-1 text-[11px] text-slate-400">{DESCRIPTIONS[plan]}</p>
                     <div className="mt-5 flex flex-wrap items-baseline gap-1">
@@ -176,12 +176,12 @@ export function UpgradePlanModal(props: {
                       </li>)}
                     </ul>
                     {isNativeApp ? (
-                      <p className="mt-5 rounded-lg border border-sky-400/20 bg-sky-400/[0.08] px-3 py-2.5 text-[11px] leading-5 text-sky-200">
+                      <p className="mt-5 rounded-lg border border-[#C8FF93]/20 bg-[#C8FF93]/[0.08] px-3 py-2.5 text-[11px] leading-5 text-[#DBF6C8]">
                         Purchases and plan upgrades are unavailable in the native app. Manage your subscription on the web.
                       </p>
                     ) : (
                       <Button type="button" onClick={() => void upgrade(plan)} disabled={busy !== null}
-                        className="mt-5 h-10 w-full gap-2 rounded-xl bg-sky-500 font-semibold text-[#091425] hover:bg-sky-400 focus-visible:ring-sky-300">
+                        className="mt-5 h-10 w-full gap-2 rounded-xl bg-[#C8FF93] font-semibold text-[#102518] hover:bg-[#E4FFC7] focus-visible:ring-[#C8FF93]">
                         {busy === plan ? 'Checking billing…' : 'Continue securely'}
                         {busy !== plan && <ArrowRight className="h-4 w-4" aria-hidden />}
                       </Button>
@@ -195,11 +195,11 @@ export function UpgradePlanModal(props: {
             <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /> {error}
           </div>}
           <div className="relative mt-5 flex items-start gap-2.5 rounded-xl border border-white/[0.08] bg-white/[0.035] px-3.5 py-3 text-[10.5px] leading-[1.65] text-slate-400">
-            <Info className="mt-[2px] h-3.5 w-3.5 shrink-0 text-sky-300" aria-hidden />
+            <Info className="mt-[2px] h-3.5 w-3.5 shrink-0 text-[#C8FF93]" aria-hidden />
             <p>Prices are shown in USD. Final payable totals, renewal dates, and any applicable taxes are confirmed during Creem checkout or the Billing review. No automatic usage overage charges. AI limits reset monthly (UTC).</p>
           </div>
           {!onePlan && <button type="button" onClick={close} disabled={busy !== null}
-            className="relative mt-4 text-[12px] font-medium text-slate-400 hover:text-white focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400">
+            className="relative mt-4 text-[12px] font-medium text-slate-400 hover:text-white focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8FF93]">
             Not now
           </button>}
         </div>
