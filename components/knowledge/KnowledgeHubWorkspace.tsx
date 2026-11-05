@@ -171,12 +171,12 @@ export function KnowledgeHubWorkspace({
 
   return (
     <div className="mx-auto w-full max-w-[1500px] space-y-6 px-3 pb-14 pt-2 text-foreground sm:px-5 lg:px-8">
-      <header className="relative isolate overflow-hidden rounded-[26px] border border-[#283a56] bg-[#101d30] p-6 text-white shadow-[0_24px_70px_-42px_rgba(6,15,32,0.6)] sm:p-8">
-        <div aria-hidden="true" className="pointer-events-none absolute -right-16 -top-32 h-80 w-80 rounded-full bg-blue-500/20 blur-[90px]" />
-        <div aria-hidden="true" className="pointer-events-none absolute -bottom-36 right-1/3 h-60 w-72 rounded-full bg-indigo-500/15 blur-[70px]" />
+      <header className="relative isolate overflow-hidden rounded-[26px] border border-[#365A42] bg-[#10251B] p-6 text-white shadow-[0_24px_70px_-42px_rgba(6,15,32,0.6)] sm:p-8">
+        <div aria-hidden="true" className="pointer-events-none absolute -right-16 -top-32 h-80 w-80 rounded-full bg-[#C8FF93]/15 blur-[90px]" />
+        <div aria-hidden="true" className="pointer-events-none absolute -bottom-36 right-1/3 h-60 w-72 rounded-full bg-[#78B78C]/15 blur-[70px]" />
         <div className="relative flex flex-col justify-between gap-6 md:flex-row md:items-center">
           <div className="max-w-2xl">
-            <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-300">
+            <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#C8FF93]">
               <Sparkles className="h-3.5 w-3.5" aria-hidden /> Your team's second brain
             </div>
             <h1 className="text-[28px] font-semibold tracking-tight sm:text-[35px]">Knowledge Hub</h1>
@@ -184,7 +184,7 @@ export function KnowledgeHubWorkspace({
               Find important notes, decisions and checklists without digging through every action.
             </p>
             <div className="mt-5 flex flex-wrap items-center gap-2.5">
-              <Button type="button" onClick={askAI} className="h-10 rounded-xl bg-blue-500 px-4 text-[13px] font-semibold text-[#08172c] shadow-[0_12px_26px_-16px_rgba(59,130,246,0.9)] hover:bg-blue-400">
+              <Button type="button" onClick={askAI} className="h-10 rounded-xl bg-[#C8FF93] px-4 text-[13px] font-semibold text-[#102518] shadow-[0_12px_26px_-16px_rgba(116,188,108,0.65)] hover:bg-[#E4FFC7]">
                 <Sparkles className="mr-2 h-4 w-4" aria-hidden /> Ask Actiproc AI
               </Button>
               <Button type="button" variant="outline" onClick={() => navigate('/board')} className="h-10 rounded-xl border-white/20 bg-white/[0.075] px-4 text-[13px] text-white hover:bg-white/[0.15] hover:text-white">
@@ -194,7 +194,7 @@ export function KnowledgeHubWorkspace({
           </div>
           <div className="grid grid-cols-2 gap-2.5 sm:min-w-[265px]">
             <div className="rounded-2xl border border-white/10 bg-white/[0.065] p-4 backdrop-blur-sm">
-              <BookOpen className="h-4 w-4 text-sky-300" aria-hidden />
+              <BookOpen className="h-4 w-4 text-[#C8FF93]" aria-hidden />
               <p className="mt-3 text-2xl font-semibold tabular-nums">{notesCount}</p>
               <p className="mt-0.5 text-[11px] text-slate-300">Saved notes</p>
             </div>
@@ -209,7 +209,7 @@ export function KnowledgeHubWorkspace({
 
       <section aria-label="Knowledge overview" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {[
-          { label: 'Knowledge entries', value: knowledgeCards.length, icon: FileText, tone: 'text-blue-500 bg-blue-500/10' },
+          { label: 'Knowledge entries', value: knowledgeCards.length, icon: FileText, tone: 'text-primary bg-primary/10' },
           { label: 'Notes', value: notesCount, icon: BookOpen, tone: 'text-violet-500 bg-violet-500/10' },
           { label: 'Checklist items', value: checklistCount, icon: CheckCircle2, tone: 'text-emerald-500 bg-emerald-500/10' },
           { label: 'Pinned', value: pinnedCount, icon: Star, tone: 'text-amber-500 bg-amber-500/10' },

@@ -209,16 +209,16 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
       ? utcBillingDate(billingCycle.nextChargeAt)
       : hasPaidSubscription ? 'Check Creem portal' : 'No payment scheduled';
   const actionSecondary = 'h-10 rounded-xl border-border/80 bg-background px-3.5 text-xs font-medium shadow-sm transition-all hover:-translate-y-px hover:border-primary/30 hover:bg-primary/[0.045] hover:shadow-md focus-visible:ring-primary/40';
-  const actionPrimary = 'h-10 rounded-xl bg-blue-600 px-4 text-xs font-semibold text-white shadow-[0_10px_20px_-12px_rgba(37,99,235,0.8)] transition-all hover:-translate-y-px hover:bg-blue-700 hover:shadow-lg focus-visible:ring-blue-500';
+  const actionPrimary = 'h-10 rounded-xl bg-primary px-4 text-xs font-semibold text-primary-foreground shadow-[0_10px_20px_-12px_rgba(40,122,82,0.8)] transition-all hover:-translate-y-px hover:bg-primary/90 hover:shadow-lg focus-visible:ring-ring';
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-7 pb-12">
 
       <Dialog open={Boolean(billingReview)} onOpenChange={open=>{if(!open&&!reviewBusy){setBillingReview(null);setReviewError(null);setReviewAcknowledged(false);}}}>
         <DialogContent className="max-h-[92dvh] w-[calc(100vw-1rem)] max-w-[540px] gap-0 overflow-y-auto rounded-[26px] border border-border/60 bg-background p-0 shadow-[0_35px_100px_-30px_rgba(15,23,42,0.55)] sm:rounded-[30px]" hideClose>
-          <div className="relative isolate overflow-hidden bg-[#101e36] px-5 py-6 text-white sm:px-7 sm:py-7">
-            <div aria-hidden="true" className="pointer-events-none absolute -right-12 -top-24 h-56 w-56 rounded-full bg-sky-500/25 blur-[65px]" />
-            <div aria-hidden="true" className="pointer-events-none absolute bottom-0 right-24 h-24 w-32 rounded-full bg-indigo-500/15 blur-[50px]" />
+          <div className="relative isolate overflow-hidden bg-[#10251b] px-5 py-6 text-white sm:px-7 sm:py-7">
+            <div aria-hidden="true" className="pointer-events-none absolute -right-12 -top-24 h-56 w-56 rounded-full bg-[#C8FF93]/25 blur-[65px]" />
+            <div aria-hidden="true" className="pointer-events-none absolute bottom-0 right-24 h-24 w-32 rounded-full bg-[#88C69A]/15 blur-[50px]" />
             <button type="button" aria-label="Close billing review" disabled={reviewBusy}
               onClick={()=>{setBillingReview(null);setReviewError(null);setReviewAcknowledged(false);}}
               className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-white/10 text-slate-200 transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 disabled:opacity-40">
@@ -226,10 +226,10 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
             </button>
             <div className="relative flex items-start gap-3 pr-9">
               <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/15 bg-white/10">
-                <ShieldCheck className="h-5 w-5 text-sky-200" aria-hidden />
+                <ShieldCheck className="h-5 w-5 text-[#D5F1D1]" aria-hidden />
               </span>
               <DialogHeader className="space-y-1.5 text-left">
-                <div className="text-[10px] font-semibold uppercase tracking-[0.19em] text-sky-300">Secure billing confirmation</div>
+                <div className="text-[10px] font-semibold uppercase tracking-[0.19em] text-[#C8FF93]">Secure billing confirmation</div>
                 <DialogTitle className="text-xl font-semibold tracking-tight text-white sm:text-2xl">Review billing change</DialogTitle>
                 <DialogDescription className="text-xs leading-relaxed text-slate-300">
                   Nothing is charged or changed until you authorize this request.
@@ -311,7 +311,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
               </div>
             )}
             <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-border/80 bg-card p-4 text-xs leading-relaxed transition-colors hover:border-primary/35">
-              <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-blue-600 focus-visible:ring-2 focus-visible:ring-primary"
+              <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-[#287A52] focus-visible:ring-2 focus-visible:ring-primary"
                 checked={reviewAcknowledged} disabled={reviewBusy||Boolean(reviewError)} onChange={e=>setReviewAcknowledged(e.target.checked)} />
               <span className="text-foreground/90">{billingReview.kind==='seats'&&billingReview.direction==='decrease'
                 ? 'I approve reducing my seats, understand the effective date may vary, and do not expect an automatic refund.'
@@ -323,7 +323,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                 className="h-11 rounded-xl px-5 transition-all hover:bg-muted"
                 onClick={()=>{setBillingReview(null);setReviewAcknowledged(false);setReviewError(null);}}>Cancel</Button>
               <Button type="button" disabled={!reviewAcknowledged||reviewBusy||Boolean(reviewError)||busy}
-                className="h-11 rounded-xl bg-blue-600 px-5 font-semibold text-white shadow-[0_10px_24px_-12px_rgba(37,99,235,0.8)] transition-all hover:bg-blue-700 focus-visible:ring-blue-500"
+                className="h-11 rounded-xl bg-primary px-5 font-semibold text-primary-foreground shadow-[0_10px_24px_-12px_rgba(40,122,82,0.8)] transition-all hover:bg-primary/90 focus-visible:ring-ring"
                 onClick={()=>void applyReviewedChange()}>
                 {reviewBusy ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />Confirming with Creem…</> :
                   billingReview.kind==='seats'&&billingReview.direction==='decrease' ? <><Check className="mr-2 h-4 w-4" aria-hidden />Confirm reduction</> :
@@ -337,9 +337,9 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
         </DialogContent>
       </Dialog>
 
-      <header className="relative isolate overflow-hidden rounded-[28px] border border-[#263c5c] bg-[#101c30] px-5 py-6 text-white shadow-[0_24px_70px_-43px_rgba(15,23,42,0.7)] sm:px-8 sm:py-8">
-        <div aria-hidden="true" className="pointer-events-none absolute -right-20 -top-32 h-80 w-80 rounded-full bg-sky-500/20 blur-[90px]" />
-        <div aria-hidden="true" className="pointer-events-none absolute -bottom-36 left-20 h-72 w-72 rounded-full bg-indigo-500/15 blur-[70px]" />
+      <header className="relative isolate overflow-hidden rounded-[28px] border border-[#365a42] bg-[#10241a] px-5 py-6 text-white shadow-[0_24px_70px_-43px_rgba(15,23,42,0.7)] sm:px-8 sm:py-8">
+        <div aria-hidden="true" className="pointer-events-none absolute -right-20 -top-32 h-80 w-80 rounded-full bg-[#C8FF93]/20 blur-[90px]" />
+        <div aria-hidden="true" className="pointer-events-none absolute -bottom-36 left-20 h-72 w-72 rounded-full bg-[#88C69A]/15 blur-[70px]" />
         <div className="relative">
           {showBackLink ? (
             <Link href="/settings" className="mb-6 inline-flex items-center gap-1.5 rounded-lg text-xs text-slate-300 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60">
@@ -348,8 +348,8 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
           ) : null}
           <div className="flex flex-wrap items-start justify-between gap-5">
             <div className="min-w-0">
-              <div className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-sky-300">
-                <span className="h-1.5 w-1.5 rounded-full bg-sky-400" aria-hidden /> Workspace subscription
+              <div className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#C8FF93]">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#C8FF93]" aria-hidden /> Workspace subscription
               </div>
               <h1 className="mt-2.5 text-[26px] font-semibold tracking-tight sm:text-[32px]">Billing &amp; plans</h1>
               <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-300">One clear view of your subscription, seats, and upcoming billing dates.</p>
@@ -366,19 +366,19 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
           </div>
           <div className="mt-7 grid grid-cols-2 gap-2.5 border-t border-white/10 pt-5 lg:grid-cols-4">
             <div className="min-w-0 rounded-[18px] border border-white/10 bg-white/[0.055] p-4 backdrop-blur-sm">
-              <div className="flex items-center gap-2 text-[11px] font-medium text-slate-300"><CreditCard className="h-3.5 w-3.5 text-sky-300" aria-hidden /> Current plan</div>
+              <div className="flex items-center gap-2 text-[11px] font-medium text-slate-300"><CreditCard className="h-3.5 w-3.5 text-[#C8FF93]" aria-hidden /> Current plan</div>
               <p className="mt-2 truncate text-xl font-semibold tracking-tight">{planTitle}</p>
             </div>
             <div className="min-w-0 rounded-[18px] border border-white/10 bg-white/[0.055] p-4 backdrop-blur-sm">
-              <div className="flex items-center gap-2 text-[11px] font-medium text-slate-300"><Users className="h-3.5 w-3.5 text-sky-300" aria-hidden /> Seat capacity</div>
+              <div className="flex items-center gap-2 text-[11px] font-medium text-slate-300"><Users className="h-3.5 w-3.5 text-[#C8FF93]" aria-hidden /> Seat capacity</div>
               <p className="mt-2 truncate text-xl font-semibold tracking-tight tabular-nums">{seatsUsed}<span className="px-1 text-slate-500">/</span>{Number.isFinite(seatLimit)?seatLimit:'∞'}</p>
             </div>
             <div className="min-w-0 rounded-[18px] border border-white/10 bg-white/[0.055] p-4 backdrop-blur-sm">
-              <div className="flex items-center gap-2 text-[11px] font-medium text-slate-300"><Receipt className="h-3.5 w-3.5 text-sky-300" aria-hidden /> Verified list price</div>
+              <div className="flex items-center gap-2 text-[11px] font-medium text-slate-300"><Receipt className="h-3.5 w-3.5 text-[#C8FF93]" aria-hidden /> Verified list price</div>
               <p className="mt-2 truncate text-lg font-semibold tracking-tight tabular-nums" title={verifiedPlanRate}>{verifiedPlanRate}</p>
             </div>
             <div className="min-w-0 rounded-[18px] border border-white/10 bg-white/[0.055] p-4 backdrop-blur-sm">
-              <div className="flex items-center gap-2 text-[11px] font-medium text-slate-300"><CalendarDays className="h-3.5 w-3.5 text-sky-300" aria-hidden /> Next scheduled charge</div>
+              <div className="flex items-center gap-2 text-[11px] font-medium text-slate-300"><CalendarDays className="h-3.5 w-3.5 text-[#C8FF93]" aria-hidden /> Next scheduled charge</div>
               <p className="mt-2 line-clamp-2 text-[13px] font-semibold leading-snug" title={verifiedNextCharge}>{verifiedNextCharge}</p>
             </div>
           </div>
@@ -413,11 +413,11 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
       ) : null}
 
       {isNativeApp ? (
-        <div className="flex items-start gap-3 rounded-lg border border-sky-500/30 bg-sky-500/10 px-4 py-3 text-sm text-sky-200">
-          <Shield className="h-4 w-4 shrink-0 mt-0.5 text-sky-400" aria-hidden />
+        <div className="flex items-start gap-3 rounded-lg border border-[#78B495]/30 bg-[#1C3C2B] px-4 py-3 text-sm text-[#D5F1D1]">
+          <Shield className="h-4 w-4 shrink-0 mt-0.5 text-[#C8FF93]" aria-hidden />
           <div className="space-y-1">
             <p className="font-semibold text-white">Google Play Policy Notice</p>
-            <p className="text-xs text-sky-200/90 leading-relaxed">
+            <p className="text-xs text-[#D5F1D1]/90 leading-relaxed">
               This Capacitor app displays your existing subscription. Purchasing, upgrading and changing paid seats are unavailable in the native application.
               Your account's existing paid entitlements are synchronized across devices.
             </p>
@@ -446,7 +446,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
             is <strong>not automatically credited or refunded</strong>.
           </p>
           <label className="flex cursor-pointer items-start gap-3 font-medium">
-            <input type="checkbox" className="mt-1 h-4 w-4 accent-blue-600"
+            <input type="checkbox" className="mt-1 h-4 w-4 accent-[#287A52]"
               checked={acceptNewCharge} onChange={(event) => setAcceptNewCharge(event.target.checked)} />
             <span>I understand that a new charge will be made now, even if I have paid access remaining.</span>
           </label>
@@ -494,7 +494,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-3">
-                <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-[0_8px_22px_-11px_rgba(37,99,235,0.8)]">
+                <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-[0_8px_22px_-11px_rgba(40,122,82,0.8)]">
                   <CreditCard className="h-5 w-5" aria-hidden />
                 </span>
                 <div>
@@ -765,7 +765,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                 <Button
                   type="button"
                   size="sm"
-                  className="h-11 w-full rounded-xl bg-blue-600 font-semibold text-white shadow-[0_12px_26px_-16px_rgba(37,99,235,0.85)] transition-all hover:bg-blue-700"
+                  className="h-11 w-full rounded-xl bg-primary font-semibold text-primary-foreground shadow-[0_12px_26px_-16px_rgba(40,122,82,0.85)] transition-all hover:bg-primary/90"
                    disabled={busy || Boolean(seatChange) || Boolean(planChange) || !isValid}
                   onClick={async () => {
                     setAddSeatsError(null);
@@ -893,7 +893,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                         {key === 'individual' ? '/year' : key === 'team' || key === 'pro' ? '/user/month' : '/month'}
                       </p>
                       <Button type="button" size="sm" variant={current ? 'secondary' : 'default'}
-                         className={cn('h-11 w-full rounded-xl font-semibold transition-all', !current && 'bg-blue-600 text-white shadow-[0_12px_24px_-14px_rgba(37,99,235,0.8)] hover:bg-blue-700')}
+                         className={cn('h-11 w-full rounded-xl font-semibold transition-all', !current && 'bg-primary text-primary-foreground shadow-[0_12px_24px_-14px_rgba(40,122,82,0.8)] hover:bg-primary/90')}
                         disabled={busy || !canUpgrade || (canResubscribe && !acceptNewCharge) ||
                           (!canResubscribe && (current || (billingPlan !== 'free' && ['individual','pro','team'].indexOf(key) <= ['individual','pro','team'].indexOf(billingPlan))))}
                         onClick={() => canResubscribe

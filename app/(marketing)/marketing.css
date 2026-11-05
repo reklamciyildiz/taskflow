@@ -409,3 +409,12 @@
   .ap-flow-card:hover, .ap-feature-card:hover { transform: none; }
   .ap-faq-toggle { transition: none; }
 }
+
+
+/* The public product demonstration shares the signed-in forest surface family. */
+.ap-preview-window { border-color: #36513e; background: #101f18; }
+.ap-preview-task {
+  border-color: #36513e;
+  background: linear-gradient(153deg, #264034, #1b3328);
+}
+.ap-preview-task:hover { border-color: rgba(200, 255, 147, .35); }

@@ -210,7 +210,7 @@ export function AxiomAIChatView({
               {history}
             </SheetContent>
           </Sheet>
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[13px] border border-primary/20 bg-gradient-to-br from-primary/[0.17] to-sky-500/[0.07] text-primary">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[13px] border border-primary/20 bg-gradient-to-br from-primary/[0.17] to-emerald-500/[0.045] text-primary">
             <Sparkles className="h-5 w-5" strokeWidth={1.75} aria-hidden="true"/>
           </div>
           <div className="min-w-0 flex-1">

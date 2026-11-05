@@ -211,7 +211,7 @@ export function Sidebar({ mobileOpen, onCloseMobile, desktopCollapsed }: Sidebar
     cn(
       'w-full gap-3 h-11 relative',
       narrow ? 'lg:justify-center lg:gap-0 lg:px-0 lg:h-11' : 'justify-start px-3',
-      isActive && 'bg-secondary text-secondary-foreground font-medium ring-1 ring-primary/25',
+      isActive && 'actiproc-sidebar-active bg-secondary text-secondary-foreground font-semibold ring-1 ring-primary/20',
       (itemId === 'dashboard' || itemId === 'planner' || itemId === 'board') &&
         isActive &&
         'before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-1 before:rounded-r before:bg-primary lg:before:hidden'
@@ -230,7 +230,7 @@ export function Sidebar({ mobileOpen, onCloseMobile, desktopCollapsed }: Sidebar
 
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex flex-col border-r bg-card shadow-xl transition-[transform,width] duration-200 ease-out lg:relative lg:z-0 lg:translate-x-0 lg:shadow-none',
+          'actiproc-sidebar fixed inset-y-0 left-0 z-50 flex flex-col border-r bg-card shadow-xl transition-[transform,width] duration-200 ease-out lg:relative lg:z-0 lg:translate-x-0 lg:shadow-none',
           'w-64 max-lg:w-64',
           desktopCollapsed ? 'lg:w-[4.5rem]' : 'lg:w-64',
           mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
@@ -339,6 +339,7 @@ export function Sidebar({ mobileOpen, onCloseMobile, desktopCollapsed }: Sidebar
                     className={navBtnClass(isActive, item.id)}
                   >
                     <Link
+                      aria-current={isActive ? 'page' : undefined}
                       href={href ?? '/'}
                       prefetch
                       scroll={false}

@@ -21,7 +21,7 @@ export function AppShellLayout({ children, mainClassName }: AppShellLayoutProps)
   const showNativeTabs = useCapacitorMobileNavigation();
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
+    <div className="actiproc-shell flex h-screen overflow-hidden bg-background">
       <Sidebar mobileOpen={mobileOpen} onCloseMobile={closeMobile} desktopCollapsed={desktopCollapsed} />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <Header onSidebarToggle={toggleSidebar} desktopSidebarExpanded={!desktopCollapsed} />
