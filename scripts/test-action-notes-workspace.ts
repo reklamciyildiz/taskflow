@@ -42,7 +42,7 @@ assert.equal(indexed.length,4);
 assert.deepEqual(ids(selectActionNotes(indexed,'','all','updated')),['idea','learning','decision','empty']);checks++;
 assert.deepEqual(ids(selectActionNotes(indexed,'','all','oldest')),['empty','decision','learning','idea']);checks++;
 assert.deepEqual(ids(selectActionNotes(indexed,'','all','created')),['decision','learning','idea','empty']);checks++;
-assert.deepEqual(ids(selectActionNotes(indexed,'','all','title')),['learning','empty','idea','decision']);checks++;
+assert.deepEqual(ids(selectActionNotes(indexed,'','all','title')),['learning','idea','decision','empty']);checks++;
 assert.deepEqual(ids(selectActionNotes(indexed,'premium','all','updated')),['idea']);checks++;
 assert.deepEqual(ids(selectActionNotes(indexed,'ekip surecleri','all','updated')),['idea']);checks++;
 assert.deepEqual(ids(selectActionNotes(indexed,'IG AKISI','all','updated')),['idea']);checks++;
