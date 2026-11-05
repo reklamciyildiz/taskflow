@@ -170,8 +170,8 @@ export function KnowledgeHubWorkspace({
   }
 
   return (
-    <div className="mx-auto w-full max-w-[1500px] space-y-6 px-3 pb-14 pt-2 text-foreground sm:px-5 lg:px-8">
-      <header className="relative isolate overflow-hidden rounded-[26px] border border-[#365A42] bg-[#10251B] p-6 text-white shadow-[0_24px_70px_-42px_rgba(6,15,32,0.6)] sm:p-8">
+    <div className="actiproc-knowledge mx-auto w-full max-w-[1500px] space-y-6 px-3 pb-14 pt-2 text-foreground sm:px-5 lg:px-8">
+      <header className="actiproc-knowledge-hero relative isolate overflow-hidden rounded-[26px] border border-[#365A42] bg-[#10251B] p-6 text-white shadow-[0_24px_70px_-42px_rgba(6,15,32,0.6)] sm:p-8">
         <div aria-hidden="true" className="pointer-events-none absolute -right-16 -top-32 h-80 w-80 rounded-full bg-[#C8FF93]/15 blur-[90px]" />
         <div aria-hidden="true" className="pointer-events-none absolute -bottom-36 right-1/3 h-60 w-72 rounded-full bg-[#78B78C]/15 blur-[70px]" />
         <div className="relative flex flex-col justify-between gap-6 md:flex-row md:items-center">
@@ -193,12 +193,12 @@ export function KnowledgeHubWorkspace({
             </div>
           </div>
           <div className="grid grid-cols-2 gap-2.5 sm:min-w-[265px]">
-            <div className="rounded-2xl border border-white/10 bg-white/[0.065] p-4 backdrop-blur-sm">
+            <div className="actiproc-knowledge-hero-stat rounded-2xl border border-white/10 bg-white/[0.065] p-4 backdrop-blur-sm">
               <BookOpen className="h-4 w-4 text-[#C8FF93]" aria-hidden />
               <p className="mt-3 text-2xl font-semibold tabular-nums">{notesCount}</p>
               <p className="mt-0.5 text-[11px] text-slate-300">Saved notes</p>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/[0.065] p-4 backdrop-blur-sm">
+            <div className="actiproc-knowledge-hero-stat rounded-2xl border border-white/10 bg-white/[0.065] p-4 backdrop-blur-sm">
               <CheckSquare2 className="h-4 w-4 text-emerald-300" aria-hidden />
               <p className="mt-3 text-2xl font-semibold tabular-nums">{openItems}</p>
               <p className="mt-0.5 text-[11px] text-slate-300">Open checklist items</p>
@@ -214,7 +214,7 @@ export function KnowledgeHubWorkspace({
           { label: 'Checklist items', value: checklistCount, icon: CheckCircle2, tone: 'text-emerald-500 bg-emerald-500/10' },
           { label: 'Pinned', value: pinnedCount, icon: Star, tone: 'text-amber-500 bg-amber-500/10' },
         ].map((stat) => (
-          <div key={stat.label} className="flex items-center gap-3 rounded-[19px] border border-border/70 bg-card p-4 shadow-[0_9px_28px_-24px_rgba(15,23,42,0.4)]">
+          <div key={stat.label} className="actiproc-knowledge-stat flex items-center gap-3 rounded-[19px] border border-border/70 bg-card p-4 shadow-[0_9px_28px_-24px_rgba(15,23,42,0.4)]">
             <span className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl', stat.tone)}>
               <stat.icon className="h-4 w-4" aria-hidden />
             </span>
@@ -226,7 +226,7 @@ export function KnowledgeHubWorkspace({
         ))}
       </section>
 
-      <section className="space-y-4 rounded-[24px] border border-border/70 bg-card p-4 shadow-[0_14px_42px_-34px_rgba(15,23,42,0.4)] sm:p-5" aria-label="Find knowledge">
+      <section className="actiproc-knowledge-toolbar space-y-4 rounded-[24px] border border-border/70 bg-card p-4 shadow-[0_14px_42px_-34px_rgba(15,23,42,0.4)] sm:p-5" aria-label="Find knowledge">
         <div className="flex flex-col gap-3 lg:flex-row">
           <div className="relative min-w-0 flex-1">
             <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
@@ -368,7 +368,7 @@ export function KnowledgeHubWorkspace({
               return (
                 <article key={card.id}
                   className={cn(
-                    'group relative flex min-w-0 flex-col overflow-hidden rounded-[21px] border border-border/70 bg-card shadow-[0_10px_35px_-30px_rgba(15,23,42,0.5)] transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-[0_18px_42px_-27px_rgba(15,23,42,0.35)]',
+                    'actiproc-knowledge-card group relative flex min-w-0 flex-col overflow-hidden rounded-[21px] border border-border/70 bg-card shadow-[0_10px_35px_-30px_rgba(15,23,42,0.5)] transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-[0_18px_42px_-27px_rgba(15,23,42,0.35)]',
                     layout === 'list' ? 'sm:flex-row sm:items-center' : 'min-h-[240px]',
                   )}>
                   <button type="button"

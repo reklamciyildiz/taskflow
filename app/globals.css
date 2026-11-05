@@ -49,31 +49,31 @@
     --radius: 0.75rem;
   }
   .dark {
-    /* Actiproc forest design system. Semantic state colors remain independent of brand. */
-    --background: 165 40% 6%; /* #091512 */
-    --foreground: 105 40% 94%; /* #EDF6EA */
-    --card: 150 32% 12%; /* #15291F */
-    --card-foreground: 105 40% 94%; /* #EDF6EA */
-    --popover: 151 31% 13%; /* #172C22 */
-    --popover-foreground: 105 40% 94%; /* #EDF6EA */
+    /* Actiproc Graphite v2 — neutral surfaces, lime used only as an accent. */
+    --background: 204 29% 7%; /* #0C1216 */
+    --foreground: 192 19% 95%; /* #EFF3F4 */
+    --card: 206 21% 13%; /* #1B2329 */
+    --card-foreground: 192 19% 95%; /* #EFF3F4 */
+    --popover: 204 20% 15%; /* #1E272D */
+    --popover-foreground: 192 19% 95%; /* #EFF3F4 */
     --primary: 91 100% 79%; /* #C8FF93 */
-    --primary-foreground: 143 40% 10%; /* #102518 */
-    --secondary: 141 26% 23%; /* #2C4B37 */
-    --secondary-foreground: 98 63% 92%; /* #E6F7DC */
-    --muted: 149 23% 18%; /* #23382D */
-    --muted-foreground: 133 15% 71%; /* #A9C0AE */
-    --accent: 148 29% 20%; /* #254333 */
-    --accent-foreground: 96 75% 92%; /* #E8FADC */
+    --primary-foreground: 130 23% 10%; /* #142016 */
+    --secondary: 154 15% 18%; /* #283630 */
+    --secondary-foreground: 115 33% 94%; /* #EAF4E9 */
+    --muted: 200 17% 17%; /* #242E33 */
+    --muted-foreground: 199 14% 73%; /* #B1BEC4 */
+    --accent: 184 15% 20%; /* #2B393A */
+    --accent-foreground: 146 24% 94%; /* #EDF4F0 */
     --destructive: 0 91% 71%; /* #F87171 */
-    --destructive-foreground: 143 40% 10%; /* #102518 */
-    --border: 138 20% 26%; /* #36513E */
-    --input: 138 20% 26%; /* #36513E */
+    --destructive-foreground: 196 23% 9%; /* #121A1D */
+    --border: 201 15% 26%; /* #39464D */
+    --input: 201 15% 26%; /* #39464D */
     --ring: 91 100% 79%; /* #C8FF93 */
     --chart-1: 91 100% 79%; /* #C8FF93 */
-    --chart-2: 158 64% 52%; /* #34D399 */
-    --chart-3: 43 96% 56%; /* #FBBF24 */
-    --chart-4: 254 90% 81%; /* #B6A1FA */
-    --chart-5: 213 100% 74%; /* #7CB7FF */
+    --chart-2: 166 51% 58%; /* #5DCAB0 */
+    --chart-3: 39 88% 65%; /* #F4BC57 */
+    --chart-4: 261 80% 78%; /* #BA9AF4 */
+    --chart-5: 214 100% 75%; /* #81B7FF */
     --radius: 0.75rem;
   }
 }
@@ -1189,4 +1189,218 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .actiproc-app-header .actiproc-header-search { transition: none; }
+}
+
+
+/* ------------------------------------------------------------------------
+ * Actiproc Graphite v2 / authenticated UI.
+ *
+ * Neutral graphite is the main dark surface. Lime is reserved for CTA/focus,
+ * emerald for progress, and individual board stage colors stay semantic.
+ * All selectors are dark-only so the approved light theme is unchanged.
+ * ------------------------------------------------------------------------ */
+.dark .actiproc-shell {
+  background:
+    radial-gradient(ellipse 55rem 26rem at 86% -15%, rgba(36, 83, 70, .085), transparent 68%),
+    linear-gradient(158deg, #0e1519, #0b1014 65%, #0d1317);
+}
+.dark .actiproc-sidebar {
+  background: linear-gradient(178deg, #141b20 0%, #11181c 59%, #11191d 100%);
+  border-right-color: #303d43;
+  box-shadow: inset -1px 0 rgba(255,255,255,.018);
+}
+.dark .actiproc-sidebar .actiproc-sidebar-active {
+  background: linear-gradient(100deg, rgba(120, 180, 115, .18), rgba(97, 142, 110, .085));
+  box-shadow: inset 0 0 0 1px rgba(179, 231, 156, .14), 0 8px 26px -22px rgba(0,0,0,.6);
+  color: #f1f6ee;
+}
+.dark .actiproc-sidebar .actiproc-sidebar-active:hover {
+  background: linear-gradient(100deg, rgba(136, 192, 120, .23), rgba(97,142,110,.13));
+  color: #fff;
+}
+.dark .actiproc-sidebar .actiproc-sidebar-active svg { color: #c8ff93; }
+.dark .actiproc-sidebar nav a:not(.actiproc-sidebar-active):hover {
+  background: rgba(220, 235, 230, .065);
+}
+.dark .actiproc-app-header {
+  border-bottom-color: #334047;
+  background: rgba(17, 24, 28, .95);
+  box-shadow: 0 8px 35px -30px rgba(0,0,0,.94);
+}
+.dark .actiproc-app-header .actiproc-header-search {
+  background: #1b2429;
+  border-color: #3b484e;
+}
+.dark .actiproc-app-header .actiproc-header-search:focus-within {
+  background: #202a30;
+  border-color: rgba(200,255,147,.55);
+}
+.dark .actiproc-shell button:focus-visible,
+.dark .actiproc-shell a:focus-visible {
+  outline-offset: 2px;
+}
+
+/* Board: graphite satin chrome, quiet green aurora, stage-owned hues. */
+.dark .actiproc-board-hero {
+  background:
+    radial-gradient(ellipse 37% 90% at 79% 0%, rgba(47,100,75,.20), transparent 77%),
+    linear-gradient(118deg, #20292d 0%, #1a2427 58%, #172420 100%);
+  border-color: #40504d;
+  box-shadow: 0 28px 75px -50px rgba(0,0,0,.86), inset 0 1px rgba(240,255,241,.035);
+}
+.dark .actiproc-board-hero::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  right: -11%;
+  top: -78%;
+  width: 62%;
+  height: 140%;
+  pointer-events: none;
+  border-bottom: 1px solid rgba(171, 245, 141, .52);
+  border-radius: 0 0 53% 50%;
+  transform: rotate(-17deg);
+  background: radial-gradient(ellipse at 63% 105%, rgba(67,139,78,.28), transparent 67%);
+  box-shadow: 0 17px 42px -34px rgba(167,246,132,.5);
+}
+.dark .actiproc-board-hero > .relative { z-index: 1; }
+.dark .actiproc-board-metric {
+  background: linear-gradient(145deg, rgba(44,54,57,.91), rgba(27,36,39,.92));
+  border-color: #414c4f;
+  box-shadow: inset 0 1px rgba(255,255,255,.045), 0 12px 27px -22px rgba(0,0,0,.75);
+}
+.dark .actiproc-board-metric--complete {
+  border-color: rgba(40,183,142,.36);
+  background: linear-gradient(145deg, rgba(38,68,60,.77), rgba(23,44,41,.72));
+}
+.dark .actiproc-board-controls {
+  border-color: #354349;
+  background: linear-gradient(160deg, #1c2529, #192125);
+  box-shadow: inset 0 1px rgba(255,255,255,.028), 0 12px 32px -29px #000;
+}
+.dark .actiproc-board-lane {
+  --lane-rgb: 131 152 164;
+  border-color: rgb(var(--lane-rgb) / .25);
+  background:
+    linear-gradient(180deg, rgb(var(--lane-rgb) / .07), rgba(26,32,37,.90) 38%, #161c21 100%);
+  box-shadow: inset 0 1px rgb(var(--lane-rgb) / .09), 0 20px 44px -33px rgba(0,0,0,.94);
+}
+.dark .actiproc-board-lane[data-tone="blue"] { --lane-rgb: 69 157 238; }
+.dark .actiproc-board-lane[data-tone="violet"] { --lane-rgb: 151 116 239; }
+.dark .actiproc-board-lane[data-tone="amber"] { --lane-rgb: 241 176 59; }
+.dark .actiproc-board-lane[data-tone="teal"] { --lane-rgb: 45 195 177; }
+.dark .actiproc-board-lane[data-tone="rose"] { --lane-rgb: 237 103 140; }
+.dark .actiproc-board-lane[data-tone="emerald"] { --lane-rgb: 52 204 151; }
+.dark .actiproc-board-lane-header {
+  background: linear-gradient(115deg, rgb(var(--lane-rgb) / .16), rgb(var(--lane-rgb) / .035) 73%, transparent);
+  border-bottom-color: rgb(var(--lane-rgb) / .21);
+  box-shadow: inset 0 1px rgb(var(--lane-rgb) / .05);
+}
+.dark .actiproc-board-lane-footer {
+  background: rgba(24,31,36,.78);
+  border-top-color: #354148;
+}
+.dark .actiproc-board-empty {
+  background: rgba(10,16,19,.26);
+  border-color: rgb(var(--lane-rgb) / .25);
+}
+.dark .actiproc-board .actiproc-task-card {
+  border-color: #39464c;
+  background: linear-gradient(148deg, #222c32 0%, #1b2329 100%);
+  box-shadow: inset 0 1px rgba(248,255,255,.032), 0 10px 24px -17px rgba(0,0,0,.94);
+}
+.dark .actiproc-board .actiproc-task-card:hover {
+  border-color: rgba(189,236,173,.45);
+  background: linear-gradient(148deg, #263239, #202a2f);
+  box-shadow: 0 18px 35px -23px rgba(0,0,0,.98), inset 0 1px rgba(248,255,255,.04);
+}
+.dark .actiproc-board .actiproc-task-card:focus-within {
+  border-color: rgba(200,255,147,.59);
+  box-shadow: 0 0 0 2px rgba(200,255,147,.11);
+}
+
+/* Knowledge Hub: premium graphite content and a single curved hero highlight. */
+.dark .actiproc-knowledge-hero {
+  background:
+    radial-gradient(ellipse 56% 135% at 94% 120%, rgba(34,79,65,.28), transparent 74%),
+    linear-gradient(111deg, #1d282a 0%, #1b2427 60%, #151f20 100%);
+  border-color: #41544a;
+  box-shadow: 0 30px 78px -52px rgba(0,0,0,.93), inset 0 1px rgba(255,255,255,.035);
+}
+.dark .actiproc-knowledge-hero::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  right: -11%;
+  top: -62%;
+  width: 58%;
+  height: 150%;
+  pointer-events: none;
+  border-bottom: 1px solid rgba(190, 255, 148, .60);
+  border-radius: 0 0 52% 50%;
+  transform: rotate(-29deg);
+  background: radial-gradient(ellipse at 78% 105%, rgba(100,172,97,.20), transparent 72%);
+  box-shadow: 0 16px 36px -34px rgba(190,255,148,.65);
+}
+.dark .actiproc-knowledge-hero > .relative { z-index: 1; }
+.dark .actiproc-knowledge-hero .actiproc-knowledge-hero-stat {
+  border-color: rgba(231,247,241,.15);
+  background: linear-gradient(145deg, rgba(51,62,64,.70), rgba(24,32,36,.82));
+  box-shadow: inset 0 1px rgba(255,255,255,.05);
+}
+.dark .actiproc-knowledge-stat {
+  border-color: #3b474d;
+  background: linear-gradient(146deg, #212a2f, #1b2328);
+  box-shadow: inset 0 1px rgba(255,255,255,.033), 0 14px 35px -26px #000;
+}
+.dark .actiproc-knowledge-toolbar {
+  border-color: #38454b;
+  background: linear-gradient(158deg, #1d262b, #1a2227);
+  box-shadow: inset 0 1px rgba(255,255,255,.026), 0 14px 42px -36px #000;
+}
+.dark .actiproc-knowledge-card {
+  border-color: #3a454a;
+  background:
+    radial-gradient(ellipse 67% 37% at 100% 115%, rgba(89,130,80,.085), transparent 90%),
+    linear-gradient(149deg, #222a2e, #1a2226);
+  box-shadow: inset 0 1px rgba(255,255,255,.029), 0 18px 36px -28px #000;
+}
+.dark .actiproc-knowledge-card:hover {
+  border-color: rgba(174,226,139,.48);
+  background: linear-gradient(150deg, #263036, #1d262b);
+  box-shadow: 0 23px 44px -27px rgba(0,0,0,.98);
+}
+
+/* Consistent neutral subscription surfaces, no expansive emerald panels. */
+.dark .actiproc-billing-hero,
+.dark .actiproc-billing-review-banner {
+  background: linear-gradient(116deg, #1e292c, #192124 70%, #193027);
+  border-color: #405047;
+}
+.dark .actiproc-billing-hero::after {
+  content: "";
+  position: absolute;
+  top: -45%;
+  right: -12%;
+  width: 45%;
+  height: 130%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(125,196,101,.12), transparent 70%);
+  pointer-events: none;
+}
+.dark .actiproc-billing-hero > .relative { z-index: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .dark .actiproc-knowledge-card,
+  .dark .actiproc-board .actiproc-task-card {
+    transition: none;
+  }
+}
+@media (max-width: 639px) {
+  .dark .actiproc-board-hero::after,
+  .dark .actiproc-knowledge-hero::after {
+    opacity: .50;
+    right: -35%;
+    width: 85%;
+  }
 }
