@@ -27,6 +27,7 @@
     "test:planner:staging": "node scripts/test-planner-v2-staging.mjs",
     "test:planner:visual": "node scripts/test-planner-v2-visual.cjs",
     "test:editor": "tsx scripts/test-editor-slash-commands.ts && tsx scripts/test-note-rich-editor.ts && tsx scripts/test-note-drawing.ts",
+    "test:action-notes": "tsx scripts/test-action-notes-workspace.ts",
     "test:knowledge-hub": "tsx scripts/test-knowledge-hub.ts",
     "test:ai:public": "tsx scripts/test-ai-public-access.ts",
     "test:ai:reliability": "tsx scripts/test-ai-reliability.ts",
