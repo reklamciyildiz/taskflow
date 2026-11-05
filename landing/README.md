@@ -1,20 +1,63 @@
-# Landing (plan & pointers)
+# Actiproc marketing — editorial landing
 
-The public marketing site lives in the Next.js app, not in this folder.
+The public landing is implemented in the Next.js app at `/marketing`.
+Unauthenticated visitors at `/` are redirected there. The actual app is
+unchanged; marketing is not a separate generated design or hard-coded HTML export.
 
-| Location | Purpose |
-|----------|---------|
-| [`/marketing`](https://localhost:3000/marketing) | Public landing route (after `npm run dev`) |
-| `app/(marketing)/layout.tsx` | Marketing layout (dark shell, metadata) |
-| `app/(marketing)/marketing/page.tsx` | Page entry |
-| `components/marketing/` | Landing-only UI (hero, demo capture, bento, footer) |
+## Product narrative
 
-`middleware.ts` includes `/marketing` as a public path so unauthenticated visitors can view it.
+A compact path from **Capture → Process → Action → Planner → Knowledge Hub → AI**
+with individual/team use cases, integrations and catalog-driven pricing.
 
-For i18n later: add locale routing or messages and a language switcher without moving these paths.
+- `app/(marketing)/marketing/page.tsx`: section order (server-rendered)
+- `components/marketing/MarketingExperience.tsx`: hero, connected-workflow
+  storytelling, product capabilities, teams, integrations, final CTA
+- `components/marketing/MarketingWorkspacePreview.tsx`: small **illustrative**
+  interactive tab demo (boards, planner, notes and AI); never reads real
+  user data or claims to be the actual signed-in app
+- `components/marketing/MarketingHeader.tsx` and `MarketingMobileMenu.tsx`:
+  sticky desktop navigation and accessible collapsing mobile menu
+- `components/marketing/sections/MarketingPricing.tsx`: four tiers from
+  `ACTIPROC_PLANS` and AI allowances from `AI_PLAN_LIMITS`
+- `components/marketing/MarketingFooter.tsx`: navigation, privacy, terms, refunds
+- `app/(marketing)/marketing.css`: scoped Midnight/Porcelain tokens,
+  responsive preview and reduced-motion implementation
+- `app/(marketing)/layout.tsx`: metadata, canonical, OG/Twitter and JSON-LD
 
-**SEO:** `app/(marketing)/layout.tsx` sets `metadataBase` (from `NEXTAUTH_URL`), Open Graph, Twitter card, canonical `/marketing`, and JSON-LD `SoftwareApplication`.
+The original marketing demos and screenshot prototypes remain in
+`components/marketing/` for potential reference, but are NOT rendered on the
+public page. Do not re-add old placeholder screenshots or unsupported social
+proof without checking live product accuracy.
 
-**Performance:** The marketing `page` is a Server Component; only `MarketingHeroInteractive` (and dynamically imported `DemoActionDeck` + Framer Motion) hydrate on the client. Demo state persists in `localStorage` under `taskflow-marketing-demo-v1`.
+## Guardrails
 
-**Visual system:** Obsidian base `#050505`, `app/(marketing)/marketing.css` (`marketing-theme` tokens, film noise, kinetic headline). Hero uses `MarketingParallaxGlow` (pointer parallax). Bento lives in `MarketingBentoClient.tsx` (interactive windows). Mobile demo deck uses a bottom `Sheet` when cards exist (`useMediaQuery` avoids double-mounting the deck).
+- Pricing: Free $0, Individual $12/year, Pro $4/seat/month,
+  Team $6/seat/month. Checkout availability and taxes are not invented.
+- AI: use real quota catalog and disclose service availability,
+  per-user daily caps and verified-seat pools; no false unlimited claims.
+- Do not fabricate customers, growth figures, testimonials or launch status.
+- Marketing imagery/demos must be marked illustrative unless truly captured
+  and verified against a specific app version.
+- Use existing sign-up, sign-in, legal and Billing routes; marketing
+  does not directly create subscriptions or invoke payment APIs.
+- `vercel.json` retains `git.deploymentEnabled=false`. No live deployment
+  takes place automatically after a GitHub push.
+
+## Local QA
+
+    git pull --ff-only origin main
+    npm ci
+    npx tsc --noEmit
+    npx tsx scripts/test-marketing-premium.ts
+    npm run test:ai:commercial-ui
+    npm run test:creem
+    npm run dev
+
+For browser QA, start the local server at port 3217 and run:
+
+    npm run dev -- -p 3217
+    node scripts/test-marketing-browser.cjs
+
+The GitHub `Premium landing page quality` workflow runs a real Chromium
+test at 320, 375, 390, 768, 1024 and 1440 px. It validates page structure,
+links, mobile navigation, preview tabs and horizontal overflow.
