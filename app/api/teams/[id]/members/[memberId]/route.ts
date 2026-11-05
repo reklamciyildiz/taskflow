@@ -2,78 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { teamMemberDb, userDb } from '@/lib/db';
 import { ApiResponse } from '@/lib/types';
 import { requireAuthedUser, requireTeamAdminOrOrgAdmin } from '@/lib/server-authz';
+import { updateTeamMemberRole } from '@/lib/team-role-mutations';
 
-// PATCH /api/teams/[id]/members/[memberId] - Update a team member
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { id: string; memberId: string } }
-) {
+export async function PATCH(request: NextRequest, { params }: { params: { id: string; memberId: string } }) {
   try {
-    const authed = await requireAuthedUser();
-    if (authed instanceof NextResponse) return authed;
-    const access = await requireTeamAdminOrOrgAdmin(params.id, authed);
-    if (access instanceof NextResponse) return access;
-
-    const body = await request.json();
-
-    if (!body.role) {
-      return NextResponse.json<ApiResponse<null>>(
-        { success: false, error: 'Role is required' },
-        { status: 400 }
-      );
-    }
-    if (!['admin', 'member', 'viewer'].includes(body.role)) {
-      return NextResponse.json<ApiResponse<null>>(
-        { success: false, error: 'Invalid role. Must be admin, member, or viewer' },
-        { status: 400 }
-      );
-    }
-
-    // Load target user for guard check and org-level sync
-    const targetUser: any = await userDb.getById(params.memberId);
-    if (!targetUser) {
-      return NextResponse.json<ApiResponse<null>>(
-        { success: false, error: 'Member not found' },
-        { status: 404 }
-      );
-    }
-
-    // Guard: cannot downgrade the last org admin
-    const isAdminDowngrade =
-      body.role !== 'admin' && (targetUser.role === 'admin' || targetUser.role === 'owner');
-    if (isAdminDowngrade && targetUser.organization_id) {
-      const orgUsers: any[] = (await userDb.getByOrganization(targetUser.organization_id)) ?? [];
-      const adminCount = orgUsers.filter(
-        (u: any) => u.role === 'admin' || u.role === 'owner'
-      ).length;
-      if (adminCount <= 1) {
-        return NextResponse.json<ApiResponse<null>>(
-          {
-            success: false,
-            error: 'Cannot downgrade the last organization admin. Promote another member first.',
-          },
-          { status: 400 }
-        );
-      }
-    }
-
-    // Update team-level role and sync org-level role
-    const member = await teamMemberDb.updateRole(params.id, params.memberId, body.role);
-    if (targetUser.role !== 'owner') {
-      await userDb.update(params.memberId, { role: body.role });
-    }
-
-    return NextResponse.json<ApiResponse<any>>({
-      success: true,
-      data: member,
-      message: 'Member updated successfully',
-    });
+    return await updateTeamMemberRole(request, params.id, params.memberId);
   } catch (error) {
-    console.error('Error updating member:', error);
+    console.error('Error updating team member:', error);
     return NextResponse.json<ApiResponse<null>>(
-      { success: false, error: 'Internal server error' },
-      { status: 500 }
-    );
+      { success: false, error: 'Internal server error' }, { status: 500 });
   }
 }
 
@@ -97,7 +34,17 @@ export async function DELETE(
       );
     }
 
-    const organizationIdLeft = user.organization_id ? String(user.organization_id) : '';
+    if (!user.organization_id || user.organization_id !== access.team.organization_id) {
+      return NextResponse.json<ApiResponse<null>>(
+        { success: false, error: 'Forbidden' }, { status: 403 });
+    }
+    // Team admins cannot evict org admins, and the org owner cannot be evicted at all.
+    if (user.role === 'owner' || (user.role === 'admin' && authed.user.role !== 'owner')) {
+      return NextResponse.json<ApiResponse<null>>(
+        { success: false, error: 'Organization administrators must be managed by the owner' },
+        { status: 403 });
+    }
+    const organizationIdLeft = String(user.organization_id);
 
     // Remove from team
     // Guard: do not allow removing the last team admin.
