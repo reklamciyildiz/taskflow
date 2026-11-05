@@ -1,34 +1,15 @@
-import { parseDueDateFromApi } from '@/lib/due-date';
 import { notificationDb } from '@/lib/db';
-import { canUseAdvancedReminders, getOrganizationEntitlements, type Entitlements } from '@/lib/entitlements';
-import { computeReminderInstantsUtcIso } from '@/lib/reminder-presets';
+import { getOrganizationEntitlements, type Entitlements } from '@/lib/entitlements';
 import { sendPushToUser } from '@/lib/push';
 import { listActiveScheduledWorkForDates } from '@/lib/scheduling-runtime-server';
-import { isWhenDueReminderRule, reminderInstantsForOccurrence, scheduleToLegacyDueValue } from '@/lib/scheduling-runtime';
+import { reminderInstantsForOccurrence } from '@/lib/scheduling-runtime';
+import { mayDeliverScheduledReminder } from '@/lib/reminder-delivery-policy';
 import { addCalendarDays } from '@/lib/scheduling-domain';
-import type { ReminderPresetId } from '@/lib/reminder-presets';
 
 function boardLink(params: Record<string, string>) {
   const query = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) if (value) query.set(key, value);
   return `/board?${query.toString()}`;
-}
-
-function scheduledIsoAllowedForOrg(
-  entitlements: Entitlements,
-  dueRaw: string,
-  iso: string,
-  reminderRules: Parameters<typeof isWhenDueReminderRule>[0],
-  preset: ReminderPresetId | null,
-): boolean {
-  if (canUseAdvancedReminders(entitlements)) return true;
-  if (preset === 'when_due') return true;
-  if (isWhenDueReminderRule(reminderRules, iso)) return true;
-  const dueAt = parseDueDateFromApi(dueRaw);
-  const allowed = dueAt
-    ? computeReminderInstantsUtcIso({ dueAt, preset: 'when_due' })[0]
-    : null;
-  return Boolean(allowed && allowed === iso);
 }
 
 const FALLBACK_FREE_ENT: Entitlements = {
@@ -87,7 +68,6 @@ export async function processScheduledReminders(input?: {
   for (const work of scheduledWork) {
     if (!work.recipientId) continue;
     const entitlements = await entitlementsForOrg(work.organizationId, entitlementsCache);
-    const dueValue = scheduleToLegacyDueValue(work.schedule);
     const isChecklist = work.sourceType === 'checklist_item';
     const baseParams: Record<string, string> = {
       task: work.taskId,
@@ -104,13 +84,7 @@ export async function processScheduledReminders(input?: {
       const iso = candidate.at;
       const instant = Date.parse(iso);
       if (!Number.isFinite(instant) || instant > now || instant < minimum) continue;
-      if (!scheduledIsoAllowedForOrg(
-        entitlements,
-        dueValue,
-        iso,
-        work.schedule.reminderRules,
-        candidate.preset,
-      )) continue;
+      if (!mayDeliverScheduledReminder(entitlements, work.schedule, work.dueDate, iso)) continue;
 
       const dedupeLink = boardLink({
         ...baseParams,
