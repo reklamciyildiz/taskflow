@@ -45,7 +45,7 @@ assert.deepEqual(ids(selectActionNotes(indexed,'','all','created')),['decision',
 assert.deepEqual(ids(selectActionNotes(indexed,'','all','title')),['learning','idea','decision','empty']);checks++;
 assert.deepEqual(ids(selectActionNotes(indexed,'premium','all','updated')),['idea']);checks++;
 assert.deepEqual(ids(selectActionNotes(indexed,'ekip surecleri','all','updated')),['idea']);checks++;
-assert.deepEqual(ids(selectActionNotes(indexed,'IG AKISI','all','updated')),['idea']);checks++;
+assert.deepEqual(ids(selectActionNotes(indexed,'IS AKISI','all','updated')),['idea']);checks++;
 assert.deepEqual(ids(selectActionNotes(indexed,'server 42','learning','updated')),['learning']);checks++;
 assert.deepEqual(ids(selectActionNotes(indexed,'server 42','idea','updated')),[]);checks++;
 assert.deepEqual(ids(selectActionNotes(indexed,'yigit','all','updated')),['idea']);checks++;
