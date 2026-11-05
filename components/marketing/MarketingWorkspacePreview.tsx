@@ -63,13 +63,13 @@ function BoardPanel() {
         </div>
         <span className="text-[10px] text-[#8d9ab4]">6 Actions · sample workflow</span>
       </div>
-      <div className="grid min-w-0 grid-cols-1 gap-3 p-3 sm:grid-cols-3 sm:p-4">
+      <div className="flex min-w-0 gap-3 overflow-x-auto p-3 overscroll-x-contain sm:grid sm:grid-cols-3 sm:overflow-visible sm:p-4">
         {([
           { name: 'To do', key: 'todo', color: 'bg-[#8d9fd1]', count: 2 },
           { name: 'In progress', key: 'doing', color: 'bg-[#87b7ff]', count: 2 },
           { name: 'Done', key: 'done', color: 'bg-[#96e9bd]', count: 1 },
         ] as const).map(column => (
-          <div key={column.key} className="min-w-0 rounded-[13px] border border-[#2a354c] bg-[#141f34]/85 p-2.5 sm:min-h-[315px]">
+          <div key={column.key} className="min-w-[195px] shrink-0 rounded-[13px] border border-[#2a354c] bg-[#141f34]/85 p-2.5 sm:min-h-[315px] sm:min-w-0 sm:shrink">
             <div className="mb-3 flex items-center justify-between px-1 py-0.5">
               <div className="flex items-center gap-2">
                 <span className={'h-2 w-2 rounded-full ' + column.color} />
