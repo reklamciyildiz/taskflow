@@ -1,6 +1,7 @@
 // Webhook trigger utility for sending webhook events
 
 import { webhookDb } from './db';
+import { getOrganizationEntitlements, getPlanLimits } from '@/lib/entitlements';
 import { 
   WebhookEvent, 
   WebhookPayload, 
@@ -14,6 +15,8 @@ export async function triggerWebhook<T = any>(
   data: T
 ): Promise<void> {
   try {
+    const ent = await getOrganizationEntitlements(organizationId);
+    if (!getPlanLimits(ent).canUseWebhooks) return;
     // Get all active webhooks for this organization that subscribe to this event
     const webhooks = await webhookDb.getActiveByOrganization(organizationId);
     const relevantWebhooks = webhooks.filter(webhook => 
@@ -143,7 +146,12 @@ export async function retryFailedWebhooks(): Promise<void> {
         continue;
       }
 
-      // Retry the webhook
+      // Previously queued retries must not bypass a later downgrade or payment hold.
+      const ent = await getOrganizationEntitlements(webhook.organization_id);
+      if (!getPlanLimits(ent).canUseWebhooks) {
+        await webhookDb.updateLog(log.id, { next_retry_at: null });
+        continue;
+      }
       const payloadString = JSON.stringify(log.payload);
       const signature = generateWebhookSignature(payloadString, webhook.secret);
 

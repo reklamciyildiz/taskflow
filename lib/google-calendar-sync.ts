@@ -1,4 +1,7 @@
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { userDb } from '@/lib/db';
+import { getOrganizationEntitlements } from '@/lib/entitlements';
+import { canUsePaidFeature } from '@/lib/paid-feature-policy';
 import { decryptString } from '@/lib/crypto-app';
 import { deleteEvent, isGoogleInvalidGrantError, upsertAllDayTaskEvent, upsertTimedTaskEvent } from '@/lib/google-calendar';
 import { getPublicAppUrl } from '@/lib/app-url';
@@ -50,6 +53,11 @@ function formatRfc3339InTimeZone(date: Date, timeZone: string): string {
 }
 
 async function getGoogleConnection(userId: string) {
+  // A stored refresh token is not an ongoing right to create new calendar events.
+  const user = await userDb.getById(userId);
+  if (!user?.organization_id) return null;
+  const ent = await getOrganizationEntitlements(user.organization_id);
+  if (!canUsePaidFeature(ent, 'google_calendar')) return null;
   const { data, error } = await supabaseAdmin
     .from('google_calendar_connections')
     .select('refresh_token_enc, selected_calendar_id, sync_enabled, revoked_at')

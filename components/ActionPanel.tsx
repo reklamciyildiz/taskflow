@@ -516,17 +516,9 @@ function ActionPanelContent({
       if (!organizationId) return;
       try {
         // Single source of truth: billing summary is backed by getOrganizationEntitlements() on the server.
-        const res = await fetch(`/api/billing/summary`);
+        const res = await fetch('/api/entitlements/capabilities', { cache: 'no-store' });
         const json = await res.json();
-        const plan = String(json?.data?.plan ?? "free").toLowerCase();
-        const status = String(
-          json?.data?.subscriptionStatus ?? "active",
-        ).toLowerCase();
-        const paid =
-          plan !== "free" &&
-          (status === "active" ||
-            status === "trialing" ||
-            status === "past_due");
+        const paid = res.ok && json?.success === true && json?.data?.advancedReminders === true;
         if (!cancelled) setCanUseAdvancedReminderPresets(paid);
       } catch {
         // Fail closed: server-side routes also gate paid features.

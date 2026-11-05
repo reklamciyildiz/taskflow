@@ -1,6 +1,7 @@
 import { organizationDb, teamMemberDb } from '@/lib/db';
 import { isPaidActive, type SubscriptionStatus } from '@/lib/subscription-access';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { canUsePaidFeature } from '@/lib/paid-feature-policy';
 
 export { isPaidActive } from '@/lib/subscription-access';
 export type { SubscriptionStatus } from '@/lib/subscription-access';
@@ -62,8 +63,7 @@ export function getSeatLimitFromPlan(plan: PlanName): number {
 }
 
 export function canUseAdvancedReminders(ent: Pick<Entitlements, 'plan' | 'subscriptionStatus' | 'endsAt'>): boolean {
-  if (ent.plan === 'free' || ent.plan === 'individual') return false;
-  return isPaidActive(ent.subscriptionStatus, ent.endsAt);
+  return canUsePaidFeature(ent, 'advanced_reminders');
 }
 
 export function canInviteMembers(ent: Pick<Entitlements, 'plan' | 'subscriptionStatus'>): boolean {
@@ -77,7 +77,7 @@ export function getPlanLimits(ent: Pick<Entitlements, 'plan' | 'subscriptionStat
   // Free can always use free limits.
   const paid = isPaidActive(ent.subscriptionStatus, ent.endsAt);
   if (ent.plan === 'team' && paid) {
-    return { maxTeams: Number.POSITIVE_INFINITY, maxProcesses: Number.POSITIVE_INFINITY, canUseWebhooks: true };
+    return { maxTeams: Number.POSITIVE_INFINITY, maxProcesses: Number.POSITIVE_INFINITY, canUseWebhooks: canUsePaidFeature(ent, 'webhooks') };
   }
   if (ent.plan === 'pro' && paid) {
     return { maxTeams: 3, maxProcesses: 10, canUseWebhooks: false };

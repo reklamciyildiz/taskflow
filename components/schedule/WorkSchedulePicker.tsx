@@ -30,7 +30,7 @@ export function WorkSchedulePicker({
   source,
   initialSchedule,
   disabled = false,
-  canUseAdvancedReminderPresets = true,
+  canUseAdvancedReminderPresets,
   onScheduleChange,
   onOptimisticScheduleChange,
   onRequestClose,
@@ -49,6 +49,20 @@ export function WorkSchedulePicker({
   const [schedule, setSchedule] = useState<WorkSchedule | null>(initialSchedule);
   const [view, setView] = useState<View>('main');
   const [saving, setSaving] = useState(false);
+  const [verifiedAdvancedReminders, setVerifiedAdvancedReminders] = useState(false);
+  useEffect(() => {
+    if (canUseAdvancedReminderPresets !== undefined) return;
+    let alive = true;
+    void fetch('/api/entitlements/capabilities', { cache: 'no-store' })
+      .then((response) => response.ok ? response.json() : null)
+      .then((value) => {
+        if (alive) setVerifiedAdvancedReminders(
+          value?.success === true && value?.data?.advancedReminders === true);
+      })
+      .catch(() => { if (alive) setVerifiedAdvancedReminders(false); });
+    return () => { alive = false; };
+  }, [canUseAdvancedReminderPresets]);
+  const advancedRemindersAllowed = canUseAdvancedReminderPresets ?? verifiedAdvancedReminders;
   const savingRef = useRef(false);
   const [repeatKind, setRepeatKind] = useState<'daily' | 'weekdays' | 'weekly' | 'custom'>(() => {
     if (!initialSchedule || initialSchedule.scheduleType !== 'recurring') return 'daily';
@@ -375,7 +389,7 @@ export function WorkSchedulePicker({
         {view === 'reminder' ? (
           <div className="space-y-1">
             {REMINDER_PRESETS.map((preset) => {
-              const locked = preset.id !== 'when_due' && !canUseAdvancedReminderPresets;
+              const locked = preset.id !== 'when_due' && !advancedRemindersAllowed;
               return (
                 <button
                   key={preset.id}

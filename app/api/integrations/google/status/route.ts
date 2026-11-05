@@ -3,6 +3,8 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { userDb } from '@/lib/db';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { getOrganizationEntitlements } from '@/lib/entitlements';
+import { canUsePaidFeature } from '@/lib/paid-feature-policy';
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -15,6 +17,8 @@ export async function GET() {
     return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 });
   }
 
+  const ent = user.organization_id ? await getOrganizationEntitlements(user.organization_id) : null;
+  const eligible = !!ent && canUsePaidFeature(ent, 'google_calendar');
   const { data } = await supabaseAdmin
     .from('google_calendar_connections')
     .select('email, selected_calendar_id, sync_enabled, revoked_at')
@@ -22,16 +26,17 @@ export async function GET() {
     .maybeSingle();
 
   if (!data || (data as any).revoked_at) {
-    return NextResponse.json({ success: true, data: { connected: false } });
+    return NextResponse.json({ success: true, data: { connected: false, eligible } });
   }
 
   return NextResponse.json({
     success: true,
     data: {
       connected: true,
+      eligible,
       email: (data as any).email,
       selectedCalendarId: (data as any).selected_calendar_id,
-      syncEnabled: (data as any).sync_enabled !== false,
+      syncEnabled: eligible && (data as any).sync_enabled !== false,
     },
   });
 }

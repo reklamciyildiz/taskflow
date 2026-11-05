@@ -7,6 +7,7 @@ import { encryptString } from '@/lib/crypto-app';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { google } from 'googleapis';
 import { GCAL_OAUTH_STATE_COOKIE } from '@/lib/gcal-oauth-cookie';
+import { requireGoogleCalendarAccess } from '@/lib/google-calendar-access-server';
 
 function redirectWithClearedState(request: NextRequest, query: string) {
   const res = NextResponse.redirect(new URL(`/settings?${query}`, request.url));
@@ -41,6 +42,9 @@ export async function GET(request: NextRequest) {
   if (!user?.id) {
     return redirectWithClearedState(request, 'google=no_user');
   }
+  // The subscription may change while the user is at Google OAuth.
+  const access = await requireGoogleCalendarAccess(request);
+  if (access instanceof NextResponse) return redirectWithClearedState(request, 'google=plan_required');
 
   try {
     const oauth2 = getGoogleOAuthClient();

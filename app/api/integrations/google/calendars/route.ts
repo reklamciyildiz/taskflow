@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { userDb } from '@/lib/db';
+import { getOrganizationEntitlements } from '@/lib/entitlements';
+import { canUsePaidFeature } from '@/lib/paid-feature-policy';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { decryptString } from '@/lib/crypto-app';
 import { isGoogleInvalidGrantError, listCalendars } from '@/lib/google-calendar';
@@ -44,6 +46,13 @@ export async function GET() {
   const user: any = await userDb.getByEmail(session.user.email);
   if (!user?.id) {
     return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 });
+  }
+  const ent = user.organization_id ? await getOrganizationEntitlements(user.organization_id) : null;
+  if (!ent || !canUsePaidFeature(ent, 'google_calendar')) {
+    return NextResponse.json({
+      success: false, code: 'PAYWALL_GOOGLE_CALENDAR',
+      error: 'Google Calendar requires an active Pro or Team subscription.',
+    }, { status: 402 });
   }
 
   const { data, error } = await supabaseAdmin

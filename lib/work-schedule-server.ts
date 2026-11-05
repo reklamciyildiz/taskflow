@@ -1,6 +1,9 @@
 import 'server-only';
 
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { getOrganizationEntitlements } from '@/lib/entitlements';
+import { canUsePaidFeature, hasOnlyBasicReminderRules } from '@/lib/paid-feature-policy';
+import { scheduleDueInstantIso } from '@/lib/scheduling-runtime';
 import { canMutateTeamTasks, isOrgAdmin } from '@/lib/server-authz';
 import { extractChecklistItemsFromTipTap } from '@/lib/tiptap-parser';
 import {
@@ -179,6 +182,25 @@ function scheduleInsert(input: WorkScheduleInput, task: any) {
   };
 }
 
+
+async function assertReminderPlanAccess(
+  actor: SchedulingActor,
+  input: WorkScheduleInput,
+): Promise<void> {
+  if (!input.reminderRules?.length) return;
+  const due = scheduleDueInstantIso({
+    scheduleDate: input.scheduleDate,
+    scheduleTime: input.scheduleTime ?? null,
+    timeZone: input.timeZone ?? null,
+  }, input.timeZone ?? 'UTC');
+  if (hasOnlyBasicReminderRules(input.reminderRules, due)) return;
+  const ent = await getOrganizationEntitlements(actor.organizationId);
+  if (!canUsePaidFeature(ent, 'advanced_reminders')) {
+    throw new SchedulingValidationError(
+      'Advanced reminders require an active Pro or Team subscription. Choose "when due" or upgrade.');
+  }
+}
+
 function isUniqueViolation(error: unknown): boolean {
   return (error as { code?: string } | null)?.code === '23505';
 }
@@ -208,6 +230,7 @@ export async function saveWorkScheduleForSource(
   timings?: ScheduleMutationTimings,
 ): Promise<WorkSchedule> {
   const normalized = normalizeWorkScheduleInput(input);
+  await assertReminderPlanAccess(actor, normalized);
   const sourceStartedAt = performance.now();
   const access = await requireSourceAccess(actor, normalized.source, true);
   if (timings) timings.sourceAccessMs = performance.now() - sourceStartedAt;
@@ -264,6 +287,7 @@ export async function createWorkSchedule(
   input: WorkScheduleInput,
 ): Promise<WorkSchedule> {
   const normalized = normalizeWorkScheduleInput(input);
+  await assertReminderPlanAccess(actor, normalized);
   const access = await requireSourceAccess(actor, normalized.source, true);
   const { data, error } = await supabaseAdmin
     .from('work_schedules')
@@ -313,6 +337,7 @@ export async function updateWorkSchedule(
       : patch.endsOn !== undefined ? patch.endsOn : schedule.endsOn,
     reminderRules: patch.reminderRules ?? schedule.reminderRules,
   });
+  if (patch.reminderRules !== undefined) await assertReminderPlanAccess(actor, normalized);
 
   const { data, error } = await supabaseAdmin
     .from('work_schedules')
