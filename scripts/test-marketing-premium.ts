@@ -32,11 +32,11 @@ for (const name of ['id="workflow"','id="product"','id="features"',
   assert.ok((experience+pricing).includes(name),'Missing section anchor '+name);
   checks++;
 }
-assert.ok(experience.includes('Process') && experience.includes('Action') &&
-  experience.includes('Knowledge') && experience.includes('Planner') && experience.includes('Actiproc AI') &&
-  experience.includes('Analytics') && experience.includes('Customers') &&
-  experience.includes('Webhooks') && experience.includes('Google Calendar') &&
-  experience.includes('Notifications'));
+const publishedFeatures = experience.toLowerCase();
+for(const feature of ['process','action','knowledge','planner','actiproc ai',
+  'analytics','customer','webhook','google calendar','notification','inbox','achievement']) {
+  assert.ok(publishedFeatures.includes(feature),'Missing product surface: '+feature);
+}
 checks++;
 
 for (const name of ['board','planner','notes','ai']) {
