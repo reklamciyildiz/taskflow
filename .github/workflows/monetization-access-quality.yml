@@ -1,0 +1,40 @@
+name: Monetization tenant and RBAC safety
+on:
+  pull_request:
+    paths:
+      - 'app/api/teams/**'
+      - 'app/api/invitations/**'
+      - 'app/api/onboarding/join-organization/**'
+      - 'lib/team-role-mutations.ts'
+      - 'scripts/test-monetization-access.ts'
+      - '.github/workflows/monetization-access-quality.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'app/api/teams/**'
+      - 'app/api/invitations/**'
+      - 'app/api/onboarding/join-organization/**'
+      - 'lib/team-role-mutations.ts'
+      - 'scripts/test-monetization-access.ts'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  access-quality:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Tenant isolation and role elevation contracts
+        run: npx tsx scripts/test-monetization-access.ts
+      - name: TypeScript
+        run: npx tsc --noEmit
+      - name: Creem contracts
+        run: npm run test:creem
+      - name: Board regressions
+        run: npm run test:board:premium
