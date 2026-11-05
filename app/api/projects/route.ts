@@ -1,6 +1,6 @@
 import { stageErrorMessage } from '@/lib/stage-server';
 import { NextRequest, NextResponse } from 'next/server';
-import { projectDb, teamMemberDb } from '@/lib/db';
+import { projectDb, teamMemberDb, teamDb } from '@/lib/db';
 import { ApiResponse } from '@/lib/types';
 import { getOrganizationEntitlements, getPlanLimits } from '@/lib/entitlements';
 import { requireAuthedUser } from '@/lib/server-authz';
@@ -15,7 +15,6 @@ export async function GET(request: NextRequest) {
     const organizationIdParam = searchParams.get('organizationId');
     const teamIdParam = searchParams.get('teamId');
 
-    let organizationId = organizationIdParam;
     if (!user?.id) {
       return NextResponse.json<ApiResponse<null>>(
         { success: false, error: 'User not found' },
@@ -24,26 +23,26 @@ export async function GET(request: NextRequest) {
     }
 
     const userId: string = user.id;
-    const isOrgAdmin = user.role === 'admin' || user.role === 'owner';
-
-    if (!organizationId) organizationId = user.organization_id;
+    const organizationId: string | null = user.organization_id ?? null;
     if (!organizationId) {
       return NextResponse.json<ApiResponse<null>>(
-        { success: false, error: 'organizationId or authenticated session required' },
-        { status: 400 }
-      );
+        { success: false, error: 'Organization required' }, { status: 403 });
     }
-
-    // Prevent callers from listing projects across orgs.
-    if (user.organization_id && organizationId !== user.organization_id) {
+    if (organizationIdParam && organizationIdParam !== organizationId) {
       return NextResponse.json<ApiResponse<null>>(
-        { success: false, error: 'Forbidden' },
-        { status: 403 }
-      );
+        { success: false, error: 'Forbidden' }, { status: 403 });
     }
+    const isOrgAdmin = user.role === 'admin' || user.role === 'owner';
 
     // Visibility-filtered listing for the current user.
     const teamId = typeof teamIdParam === 'string' && teamIdParam ? teamIdParam : null;
+    if (teamId) {
+      const scopedTeam = await teamDb.getById(teamId);
+      if (!scopedTeam || scopedTeam.organization_id !== organizationId) {
+        return NextResponse.json<ApiResponse<null>>(
+          { success: false, error: 'Forbidden' }, { status: 403 });
+      }
+    }
     if (teamId && !isOrgAdmin) {
       const mem = await teamMemberDb.getMembership(teamId, userId);
       if (!mem) {
@@ -98,27 +97,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    let organizationId = organizationIdParam;
-    let createdBy: string | null = null;
-    if (!user?.id) {
+    if (!user?.id || !user.organization_id) {
       return NextResponse.json<ApiResponse<null>>(
-        { success: false, error: 'User not found' },
-        { status: 404 }
-      );
+        { success: false, error: 'Authenticated organization required' }, { status: 403 });
     }
-    createdBy = user.id;
-    if (!organizationId) organizationId = user.organization_id;
-    if (!organizationId) {
+    const organizationId: string = user.organization_id;
+    const createdBy: string = user.id;
+    if (organizationIdParam && organizationIdParam !== organizationId) {
       return NextResponse.json<ApiResponse<null>>(
-        { success: false, error: 'organizationId or authenticated session required' },
-        { status: 400 }
-      );
+        { success: false, error: 'Forbidden' }, { status: 403 });
     }
-    if (user.organization_id && organizationId !== user.organization_id) {
-      return NextResponse.json<ApiResponse<null>>(
-        { success: false, error: 'Forbidden' },
-        { status: 403 }
-      );
+    if (teamId) {
+      const scopedTeam = await teamDb.getById(teamId);
+      if (!scopedTeam || scopedTeam.organization_id !== organizationId) {
+        return NextResponse.json<ApiResponse<null>>(
+          { success: false, error: 'Team is outside this organization' }, { status: 403 });
+      }
     }
 
     // Entitlement gate: max processes per plan (Free/Pro limited; Team unlimited).
