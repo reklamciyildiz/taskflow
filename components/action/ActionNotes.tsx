@@ -160,6 +160,7 @@ export function ActionNotes({
   const [sort, setSort] = useState<ActionNoteSort>("updated");
   const [view, setView] = useState<"compact" | "cards">("compact");
   const [visibleCount, setVisibleCount] = useState(20);
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -178,6 +179,12 @@ export function ActionNotes({
   const shownNotes = matchingNotes.slice(0, Math.max(visibleCount, selectedPosition + 1));
   const hasActiveFilters = Boolean(query.trim()) || typeFilter !== "all";
   useEffect(() => { setVisibleCount(20); }, [query, typeFilter, sort]);
+  useEffect(() => {
+    // On a narrow screen, opening a note replaces the list. Ensure a list
+    // scrolled deep down does not strand the user halfway through the editor.
+    if (typeof window === "undefined" || window.matchMedia("(min-width: 1024px)").matches) return;
+    rootRef.current?.closest<HTMLElement>("[data-action-work-scroll]")?.scrollTo({ top: 0, behavior: "auto" });
+  }, [selectedId, draft?.clientId]);
 
   useEffect(() => {
     if (!focusedNoteId || loading || loadError) return;
@@ -694,7 +701,7 @@ export function ActionNotes({
   })() : null;
 
   return (
-    <div className={cn(
+    <div ref={rootRef} className={cn(
       "w-full min-w-0 overflow-hidden",
       editorPanel && "lg:grid lg:grid-cols-[minmax(245px,290px)_minmax(0,1fr)] lg:divide-x lg:divide-border/50",
     )}>
@@ -712,7 +719,7 @@ export function ActionNotes({
                   : notes.length + (notes.length === 1 ? " note" : " notes") + " in this Action"}
               </p>
             </div>
-            <Button type="button" size="sm" onClick={beginDraft} disabled={!canEdit}
+            <Button type="button" size="sm" onClick={beginDraft} disabled={!canEdit || Boolean(draft?.creating)}
               aria-label="Create note"
               className="h-9 shrink-0 gap-1.5 rounded-xl px-3 text-[12px] font-semibold shadow-sm">
               <Plus className="h-4 w-4" aria-hidden /> New note
