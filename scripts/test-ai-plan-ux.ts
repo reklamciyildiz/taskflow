@@ -53,11 +53,13 @@ for(const [name,src] of [['MarketingPricing',pricing],['UpgradePlanModal',upgrad
  assert.ok(src.includes('ai-plan-catalog') || src.includes('aiPlanMonthlyDescription'),
   name+' must share the verified single-source AI catalog');
 }
-assert.ok(pricing.includes('AI access: staged beta rollout') &&
+assert.ok(!pricing.includes('AI access: staged beta rollout') &&
  pricing.includes('Per paid seat · shared organization pool') &&
- pricing.includes('no automatic overage')===false &&
- pricing.includes('No automatic overage charges'),
- 'Marketing pricing must accurately describe beta, fair use and no overages');
+ pricing.includes('AI_PLAN_LIMITS[p.id].monthlyBase') &&
+ pricing.includes('AI_MAX_FUNDED_SEATS') &&
+ pricing.includes('No automatic overage charges') &&
+ pricing.includes('service availability'),
+ 'Marketing pricing must derive live catalog limits without stale beta-only claims or surprise overages');
 assert.ok(upgrade.includes('AI_PLAN_LIMITS[plan].monthlyBase') &&
  !upgrade.includes('AI may remain beta-only') &&
  upgrade.includes('isNativeApp') && upgrade.includes("Purchases and plan upgrades are unavailable") &&
