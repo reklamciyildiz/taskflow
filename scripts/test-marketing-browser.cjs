@@ -33,8 +33,19 @@ async function main() {
           viewport:window.innerWidth,
           body:document.body.scrollWidth,
         }));
+        const overflowNodes=await page.evaluate(()=>{
+          const vw=window.innerWidth;
+          return Array.from(document.querySelectorAll('body *'))
+            .map(el=>({tag:el.tagName.toLowerCase(),cls:String(el.className).slice(0,130),
+              text:(el.textContent||'').trim().slice(0,75),
+              right:Math.round(el.getBoundingClientRect().right),
+              left:Math.round(el.getBoundingClientRect().left),
+              width:Math.round(el.getBoundingClientRect().width)}))
+            .filter(el=>el.right>vw+2 || el.left<-2)
+            .sort((a,b)=>b.right-a.right).slice(0,14);
+        });
         assert.ok(scrollSize.document<=scrollSize.viewport+1,
-          'Document horizontally overflows at '+width+': '+JSON.stringify(scrollSize));
+          'Document horizontally overflows at '+width+': '+JSON.stringify({scrollSize,overflowNodes}));
         assertions++;
 
         for(const text of ['From scattered thoughts','Not another task list','Personal enough for one','Start small']) {
