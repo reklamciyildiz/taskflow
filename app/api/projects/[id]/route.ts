@@ -1,6 +1,6 @@
 import { stageErrorMessage } from '@/lib/stage-server';
 import { NextRequest, NextResponse } from 'next/server';
-import { projectDb, teamMemberDb } from '@/lib/db';
+import { projectDb, teamMemberDb, teamDb } from '@/lib/db';
 import { ApiResponse } from '@/lib/types';
 import { requireAuthedUser } from '@/lib/server-authz';
 
@@ -37,7 +37,7 @@ export async function PATCH(
         : undefined;
 
     // Optional: shallow authorization by organization
-    if (user?.organization_id && existing.organization_id !== user.organization_id) {
+    if (!user?.organization_id || existing.organization_id !== user.organization_id) {
       return NextResponse.json<ApiResponse<null>>(
         { success: false, error: 'Forbidden' },
         { status: 403 }
@@ -60,6 +60,29 @@ export async function PATCH(
           { success: false, error: 'Forbidden' },
           { status: 403 }
         );
+      }
+    }
+
+    if (rawTeamId !== undefined && rawTeamId !== existing.team_id) {
+      // Changing the owning team cannot be used to move a Process outside the
+      // organization or escape the original team-admin permission boundary.
+      if (!rawTeamId && !isOrgAdmin) {
+        return NextResponse.json<ApiResponse<null>>(
+          { success: false, error: 'Only organization admins can make a Process general' }, { status: 403 });
+      }
+      if (rawTeamId) {
+        const targetTeam = await teamDb.getById(rawTeamId);
+        if (!targetTeam || targetTeam.organization_id !== user.organization_id) {
+          return NextResponse.json<ApiResponse<null>>(
+            { success: false, error: 'Target team is outside your organization' }, { status: 403 });
+        }
+        if (!isOrgAdmin) {
+          const targetMembership = await teamMemberDb.getMembership(rawTeamId, user.id);
+          if (targetMembership?.role !== 'admin') {
+            return NextResponse.json<ApiResponse<null>>(
+              { success: false, error: 'Administrator access to target team required' }, { status: 403 });
+          }
+        }
       }
     }
 
@@ -103,7 +126,7 @@ export async function DELETE(
       );
     }
 
-    if (user?.organization_id && existing.organization_id !== user.organization_id) {
+    if (!user?.organization_id || existing.organization_id !== user.organization_id) {
       return NextResponse.json<ApiResponse<null>>(
         { success: false, error: 'Forbidden' },
         { status: 403 }

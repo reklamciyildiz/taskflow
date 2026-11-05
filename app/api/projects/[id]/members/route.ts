@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { projectDb, projectMemberDb, teamMemberDb } from '@/lib/db';
+import { projectDb, projectMemberDb, teamMemberDb, userDb } from '@/lib/db';
 import { ApiResponse } from '@/lib/types';
 import { requireAuthedUser } from '@/lib/server-authz';
 
@@ -78,7 +78,19 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     }
 
     const body = await request.json().catch(() => null);
-    const userIds = Array.isArray(body?.userIds) ? body.userIds.filter((x: any) => typeof x === 'string') : [];
+    if (!Array.isArray(body?.userIds) || body.userIds.length > 200 ||
+        body.userIds.some((id: unknown) => typeof id !== 'string' || !id.trim())) {
+      return NextResponse.json<ApiResponse<null>>(
+        { success: false, error: 'Invalid project member list' }, { status: 400 });
+    }
+    const userIds: string[] = [...new Set(body.userIds as string[])];
+    const orgUsers = await userDb.getByOrganization(project.organization_id);
+    const allowedIds = new Set((orgUsers ?? []).map((entry: any) => entry.id));
+    if (userIds.some((id) => !allowedIds.has(id))) {
+      return NextResponse.json<ApiResponse<null>>(
+        { success: false, error: 'Project members must belong to the organization' },
+        { status: 403 });
+    }
     await projectMemberDb.replaceMembers(project.id, userIds);
     const rows = await projectMemberDb.list(project.id);
     return NextResponse.json<ApiResponse<any>>({ success: true, data: rows });
