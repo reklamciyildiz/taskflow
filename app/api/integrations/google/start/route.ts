@@ -1,15 +1,12 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
 import crypto from 'crypto';
-import { authOptions } from '@/lib/auth';
 import { getGoogleOAuthClient, GOOGLE_CALENDAR_SCOPES } from '@/lib/google-calendar';
 import { GCAL_OAUTH_STATE_COOKIE } from '@/lib/gcal-oauth-cookie';
+import { requireGoogleCalendarAccess } from '@/lib/google-calendar-access-server';
 
 export async function GET() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.email) {
-    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-  }
+  const access = await requireGoogleCalendarAccess();
+  if (access instanceof NextResponse) return access;
 
   const state = crypto.randomBytes(24).toString('hex');
 
