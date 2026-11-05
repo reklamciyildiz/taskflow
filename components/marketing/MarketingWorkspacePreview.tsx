@@ -4,14 +4,17 @@ import { useState } from 'react';
 import {
   ArrowUpRight, CalendarDays, Circle, Clock3, Columns3,
   FileText, GripVertical, LayoutGrid, ListChecks, Search, Sparkles,
+  BarChart3, Users, CheckCircle2,
 } from 'lucide-react';
 
-type PreviewTab = 'board' | 'planner' | 'notes' | 'ai';
+type PreviewTab = 'board' | 'planner' | 'notes' | 'ai' | 'insights' | 'team';
 const tabs: { key: PreviewTab; label: string; Icon: typeof LayoutGrid }[] = [
   { key: 'board', label: 'Boards', Icon: Columns3 },
   { key: 'planner', label: 'Planner', Icon: CalendarDays },
   { key: 'notes', label: 'Knowledge', Icon: FileText },
   { key: 'ai', label: 'Actiproc AI', Icon: Sparkles },
+  { key: 'insights', label: 'Insights', Icon: BarChart3 },
+  { key: 'team', label: 'Team & customers', Icon: Users },
 ];
 
 const actions = {
@@ -47,6 +50,7 @@ function BoardCard({ name, type, progress, tone }: {
 }
 
 function BoardPanel() {
+  const [moved, setMoved] = useState(false);
   return (
     <div className="min-w-0">
       <div className="ap-preview-toolbar">
@@ -57,7 +61,7 @@ function BoardPanel() {
           <span className="truncate text-xs font-semibold text-[#f2f5ff]">Product launch</span>
           <span className="hidden rounded-md border border-[#33405a] px-1.5 py-0.5 text-[9px] font-medium text-[#8e9dba] sm:inline">Process</span>
         </div>
-        <span className="text-[10px] text-[#8d9ab4]">5 Actions</span>
+        <span className="text-[10px] text-[#8d9ab4]">6 Actions · sample workflow</span>
       </div>
       <div className="grid min-w-0 grid-cols-1 gap-3 p-3 sm:grid-cols-3 sm:p-4">
         {([
@@ -71,10 +75,30 @@ function BoardPanel() {
                 <span className={'h-2 w-2 rounded-full ' + column.color} />
                 <span className="text-[11px] font-semibold text-[#d4def4]">{column.name}</span>
               </div>
-              <span className="rounded-md border border-[#35425c] px-1.5 text-[10px] text-[#92a0bb]">{column.count}</span>
+              <span className="rounded-md border border-[#35425c] px-1.5 text-[10px] text-[#92a0bb]">{column.count + (column.key === 'doing' && !moved ? 1 : column.key === 'done' && moved ? 1 : 0)}</span>
             </div>
             <div className="space-y-2">
               {actions[column.key].map(action => <BoardCard key={action.name} {...action} />)}
+              {column.key === 'doing' && !moved && (
+                <div className="rounded-xl border border-[#688c5d] bg-[#294535] p-3">
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-[#c8ff93]">Interactive demo</span>
+                  <p className="mt-2 text-[11px] font-semibold text-white">Prepare launch checklist</p>
+                  <button type="button" onClick={() => setMoved(true)}
+                    className="mt-3 inline-flex min-h-8 w-full items-center justify-center gap-1 rounded-lg bg-[#c8ff93] px-2 text-[10px] font-bold text-[#122916] transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white">
+                    Mark done <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
+                  </button>
+                </div>
+              )}
+              {column.key === 'done' && moved && (
+                <div className="rounded-xl border border-[#688c5d] bg-[#294535] p-3" aria-live="polite">
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-[#c8ff93]">Demo completed</span>
+                  <p className="mt-2 text-[11px] font-semibold text-white">Prepare launch checklist</p>
+                  <button type="button" onClick={() => setMoved(false)}
+                    className="mt-3 min-h-8 w-full rounded-lg border border-[#6b9372] px-2 text-[10px] font-semibold text-[#e2ffcc] hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8ff93]">
+                    Reset demo
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         ))}
@@ -188,6 +212,65 @@ function AIPanel() {
   );
 }
 
+
+function InsightsPanel() {
+  return (
+    <div className="min-w-0">
+      <div className="ap-preview-toolbar">
+        <span className="inline-flex items-center gap-2 text-xs font-semibold text-white"><BarChart3 className="h-4 w-4 text-[#b8ccff]" aria-hidden /> Workspace insights</span>
+        <span className="text-[10px] text-[#95a5bc]">Illustrative metrics</span>
+      </div>
+      <div className="grid gap-3 p-4 sm:grid-cols-2 sm:p-5">
+        {[{ label: 'Actions completed', value: '24', note: 'Sample week' }, { label: 'Open processes', value: '03', note: 'Illustrative workspace' }].map(item => (
+          <div key={item.label} className="rounded-xl border border-[#3d4a60] bg-[#192a40] p-4">
+            <p className="text-[10px] text-[#9fb1ce]">{item.label}</p>
+            <p className="mt-4 text-[32px] font-semibold tracking-[-.055em] text-white">{item.value}</p>
+            <p className="mt-2 text-[10px] text-[#8ea5c4]">{item.note}</p>
+          </div>
+        ))}
+        <div className="rounded-xl border border-[#3d4a60] bg-[#192a40] p-4 sm:col-span-2">
+          <p className="text-[11px] font-semibold text-[#ecf4ff]">Progress in focus</p>
+          <div className="mt-5 flex h-24 items-end gap-2" aria-hidden>
+            {[45, 60, 53, 80, 67, 86, 72, 95, 78].map((height, index) => (
+              <span key={index} className="flex-1 rounded-t-md bg-gradient-to-t from-[#476eb1] to-[#b8ff91]" style={{ height: height + '%' }} />
+            ))}
+          </div>
+          <p className="mt-3 text-[10px] text-[#91a6c0]">Sample visualization, not real user activity.</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TeamPanel() {
+  return (
+    <div className="min-w-0">
+      <div className="ap-preview-toolbar">
+        <span className="inline-flex items-center gap-2 text-xs font-semibold text-white"><Users className="h-4 w-4 text-[#b8ccff]" aria-hidden /> Team workspace</span>
+        <span className="text-[10px] text-[#95a5bc]">Example team</span>
+      </div>
+      <div className="space-y-3 p-4 sm:p-5">
+        <div className="rounded-xl border border-[#3a4b60] bg-[#1b2c43] p-4">
+          <p className="text-xs font-semibold text-white">Shared product launch</p>
+          <p className="mt-2 text-[11px] leading-relaxed text-[#9eafc9]">Ownership, customer context and progress stay close to the work.</p>
+        </div>
+        {[
+          { name: 'Product rollout', team: 'Product', tag: 'In progress' },
+          { name: 'Customer handoff', team: 'Customer success', tag: 'To do' },
+          { name: 'Release retrospective', team: 'Operations', tag: 'Completed' },
+        ].map(item => (
+          <div key={item.name} className="flex items-center gap-3 rounded-xl border border-[#34435e] bg-[#18273d] p-3.5">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#30476a] text-[11px] font-semibold text-[#cde0ff]">{item.team[0]}</span>
+            <div className="min-w-0 flex-1"><p className="truncate text-[11px] font-semibold text-white">{item.name}</p><p className="mt-1 text-[10px] text-[#94a9c6]">{item.team}</p></div>
+            <span className="text-[9px] font-medium text-[#b8e2b5]">{item.tag}</span>
+          </div>
+        ))}
+        <p className="text-[10px] text-[#899dbb]">Illustrative team and customer workflow, not real customer information.</p>
+      </div>
+    </div>
+  );
+}
+
 export function MarketingWorkspacePreview() {
   const [selected, setSelected] = useState<PreviewTab>('board');
   return (
@@ -224,6 +307,8 @@ export function MarketingWorkspacePreview() {
             {selected === 'planner' && <PlannerPanel />}
             {selected === 'notes' && <KnowledgePanel />}
             {selected === 'ai' && <AIPanel />}
+            {selected === 'insights' && <InsightsPanel />}
+            {selected === 'team' && <TeamPanel />}
           </div>
         </div>
       </div>
