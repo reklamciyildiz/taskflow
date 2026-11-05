@@ -13,14 +13,14 @@ import { MarketingFooter } from '@/components/marketing/MarketingFooter';
 
 /**
  * Product-led editorial storytelling with interactive illustrative experiences.
- * The page remains a Server Component; only the preview tabs hydrate.
+ * The page remains a Server Component; only the interactive client showcases hydrate.
  */
 export default function MarketingPage() {
   return (
     <>
       <a href="#main-content" className="ap-skip-link">Skip to main content</a>
       <MarketingHeader />
-      <main id="main-content" className="min-w-0 overflow-x-clip bg-[#0b1326]">
+      <main id="main-content" className="min-w-0 overflow-x-clip bg-[#091512]">
         <MarketingHero />
         <MarketingWorkflow />
         <MarketingProductSystem />
