@@ -1,10 +1,8 @@
 import Link from 'next/link';
 import {
-  ArrowDownRight, ArrowRight, ArrowUpRight, BarChart3, BellRing,
-  BookOpenText, CalendarDays, Check, CheckCircle2, ChevronRight,
-  CircleDot, Cloud, Command, FileText, Fingerprint, Layers3,
-  ListChecks, MessageSquareText, MousePointer2, Network,
-  NotebookPen, PanelLeft, ShieldCheck, Sparkles, Users, Webhook, Workflow,
+  ArrowRight, ArrowUpRight, BarChart3, BellRing, BookOpenText,
+  CalendarDays, CheckCircle2, Cloud, Fingerprint, Layers3,
+  ListChecks, Network, NotebookPen, PanelLeft, Sparkles, Users, Webhook,
 } from 'lucide-react';
 import { MarketingWorkspacePreview } from './MarketingWorkspacePreview';
 
