@@ -64,6 +64,14 @@ export async function PATCH(
       );
     }
 
+    if (movingMembership.role === 'admin') {
+      const sourceMembers = await teamMemberDb.getByTeam(params.id);
+      if ((sourceMembers ?? []).filter((member: any) => member.role === 'admin').length <= 1) {
+        return NextResponse.json<ApiResponse<null>>(
+          { success: false, error: 'Cannot move the last team admin' }, { status: 409 });
+      }
+    }
+
     // Check if member is already in target team
     const existingMembership = await teamMemberDb.getMembership(targetTeamId, params.memberId);
     if (existingMembership) {
@@ -85,8 +93,13 @@ export async function PATCH(
       );
     }
 
-    // Add member to target team
-    await teamMemberDb.add(targetTeamId, params.memberId, 'member');
+    // Moving is not an implicit demotion or promotion.
+    if ((targetUser.role === 'owner' || targetUser.role === 'admin') && !isOrgAdmin(user)) {
+      return NextResponse.json<ApiResponse<null>>(
+        { success: false, error: 'Organization admins cannot be moved by team admins' },
+        { status: 403 });
+    }
+    await teamMemberDb.add(targetTeamId, params.memberId, movingMembership.role);
 
     // Remove from source team
     await teamMemberDb.remove(params.id, params.memberId);

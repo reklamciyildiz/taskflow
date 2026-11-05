@@ -1,151 +1,87 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { teamDb, teamMemberDb, userDb } from '@/lib/db';
 import { ApiResponse } from '@/lib/types';
-import { getOrganizationEntitlements, getPlanLimits, isPaidActive } from '@/lib/entitlements';
-import { isOrgAdmin } from '@/lib/server-authz';
+import { getOrganizationEntitlements, getPlanLimits } from '@/lib/entitlements';
+import { isOrgAdmin, requireAuthedUser } from '@/lib/server-authz';
 
-// GET /api/teams - Get all teams (optionally filtered by userId or organizationId)
+// Resolve both reads and writes from the authenticated user, never request-body identities.
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
-    const organizationId = searchParams.get('organizationId');
+    const authed = await requireAuthedUser(request);
+    if (authed instanceof NextResponse) return authed;
+    const actor = authed.user;
+    if (!actor.organization_id) return NextResponse.json<ApiResponse<null>>(
+      { success: false, error: 'Organization required' }, { status: 403 });
 
-    let teams;
-    if (userId) {
-      teams = await teamDb.getByUser(userId);
-    } else if (organizationId) {
-      // Only org admins can list all teams in an org.
-      if (!session?.user?.email) {
+    const { searchParams } = new URL(request.url);
+    const targetUserId = searchParams.get('userId');
+    const requestedOrgId = searchParams.get('organizationId');
+    const admin = isOrgAdmin(actor);
+    if (requestedOrgId && (requestedOrgId !== actor.organization_id || !admin)) {
+      return NextResponse.json<ApiResponse<null>>(
+        { success: false, error: 'Forbidden' }, { status: 403 });
+    }
+    if (targetUserId && targetUserId !== actor.id) {
+      if (!admin) return NextResponse.json<ApiResponse<null>>(
+        { success: false, error: 'Forbidden' }, { status: 403 });
+      const target = await userDb.getById(targetUserId);
+      if (!target || target.organization_id !== actor.organization_id) {
         return NextResponse.json<ApiResponse<null>>(
-          { success: false, error: 'Authentication required' },
-          { status: 401 }
-        );
-      }
-      const user: any = await userDb.getByEmail(session.user.email);
-      if (!user?.organization_id || user.organization_id !== organizationId) {
-        return NextResponse.json<ApiResponse<null>>(
-          { success: false, error: 'Forbidden' },
-          { status: 403 }
-        );
-      }
-      if (user.role !== 'admin' && user.role !== 'owner') {
-        return NextResponse.json<ApiResponse<null>>(
-          { success: false, error: 'Forbidden' },
-          { status: 403 }
-        );
-      }
-      teams = await teamDb.getByOrganization(organizationId);
-    } else if (session?.user?.email) {
-      const user: any = await userDb.getByEmail(session.user.email);
-      if (user) {
-        // Default: only list teams this user is actually a member of.
-        // Org admins can still see all via ?organizationId=.
-        teams = await teamDb.getByUser(user.id);
+          { success: false, error: 'Forbidden' }, { status: 403 });
       }
     }
-
-    return NextResponse.json<ApiResponse<any>>({
-      success: true,
-      data: teams || [],
-    });
+    const teams = requestedOrgId
+      ? await teamDb.getByOrganization(actor.organization_id)
+      : await teamDb.getByUser(targetUserId || actor.id);
+    // Historical memberships must not leak a different organization.
+    const safe = (teams ?? []).filter((team: any) =>
+      String(team?.organization_id ?? '') === actor.organization_id);
+    return NextResponse.json<ApiResponse<any>>({ success: true, data: safe });
   } catch (error) {
     console.error('Error fetching teams:', error);
     return NextResponse.json<ApiResponse<null>>(
-      { success: false, error: 'Internal server error' },
-      { status: 500 }
-    );
+      { success: false, error: 'Internal server error' }, { status: 500 });
   }
 }
 
-// POST /api/teams - Create a new team
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    const body = await request.json();
-
-    if (!body.name) {
+    const authed = await requireAuthedUser(request);
+    if (authed instanceof NextResponse) return authed;
+    const actor = authed.user;
+    if (!actor.organization_id || !isOrgAdmin(actor)) {
       return NextResponse.json<ApiResponse<null>>(
-        { success: false, error: 'Team name is required' },
-        { status: 400 }
-      );
+        { success: false, error: 'Only organization admins can create teams' }, { status: 403 });
     }
+    const body = await request.json().catch(() => null);
+    const name = typeof body?.name === 'string' ? body.name.trim() : '';
+    if (!name || name.length > 120) return NextResponse.json<ApiResponse<null>>(
+      { success: false, error: 'Team name must be 1–120 characters' }, { status: 400 });
 
-    // Get user from session
-    let userId = body.createdBy;
-    let organizationId = body.organizationId;
-
-    if (session?.user?.email) {
-      const user: any = await userDb.getByEmail(session.user.email);
-      if (user) {
-        userId = user.id;
-        organizationId = user.organization_id;
-
-        if (!isOrgAdmin(user)) {
-          return NextResponse.json<ApiResponse<null>>(
-            { success: false, error: 'Forbidden: only admins can create teams' },
-            { status: 403 }
-          );
-        }
-      }
-    }
-
-    if (!userId || !organizationId) {
-      return NextResponse.json<ApiResponse<null>>(
-        { success: false, error: 'User authentication required' },
-        { status: 401 }
-      );
-    }
-
-    // Entitlement gate: max teams per plan (Free/Pro limited; Team unlimited).
-    const ent = await getOrganizationEntitlements(organizationId);
+    const ent = await getOrganizationEntitlements(actor.organization_id);
     const limits = getPlanLimits(ent);
-    if (!isPaidActive(ent.subscriptionStatus) && ent.plan !== 'free') {
-      // Defensive: if plan_name says paid but subscription isn't active, treat as Free limits.
-      // getPlanLimits already does this, but keep message clear for edge cases.
-    }
-    if (Number.isFinite(limits.maxTeams) && limits.maxTeams !== Number.POSITIVE_INFINITY) {
-      const existingCount = await teamDb.countByOrganization(organizationId);
-      if (existingCount >= limits.maxTeams) {
-        return NextResponse.json<ApiResponse<null>>(
-          {
-            success: false,
-            error: `Team limit reached (${limits.maxTeams}). Upgrade to create more workspaces.`,
-            code: 'PAYWALL_TEAMS',
-            recommendedPlan: ent.plan === 'free' ? 'pro' : 'team',
-          },
-          { status: 402 }
-        );
-      }
+    if (Number.isFinite(limits.maxTeams)) {
+      const existing = await teamDb.countByOrganization(actor.organization_id);
+      if (existing >= limits.maxTeams) return NextResponse.json<ApiResponse<null>>(
+        { success: false, error: 'Team limit reached (' + limits.maxTeams + '). Upgrade to create more workspaces.',
+          code: 'PAYWALL_TEAMS', recommendedPlan: ent.plan === 'free' ? 'pro' : 'team' },
+        { status: 402 });
     }
 
-    // Create team
-    const team: any = await teamDb.create({
-      name: body.name,
-      description: body.description || null,
-      organization_id: organizationId,
-      created_by: userId,
+    const team = await teamDb.create({
+      name,
+      description: typeof body?.description === 'string' ? body.description.slice(0, 1000) : null,
+      organization_id: actor.organization_id,
+      created_by: actor.id,
     });
-
-    // Add creator as admin member
-    await teamMemberDb.add(team.id, userId, 'admin');
-
-    // Get updated team with members
-    const updatedTeam: any = await teamDb.getById(team.id);
-
-    return NextResponse.json<ApiResponse<any>>({
-      success: true,
-      data: updatedTeam,
-      message: 'Team created successfully',
-    }, { status: 201 });
+    await teamMemberDb.add(team.id, actor.id, 'admin');
+    const updated = await teamDb.getById(team.id);
+    return NextResponse.json<ApiResponse<any>>(
+      { success: true, data: updated, message: 'Team created successfully' },
+      { status: 201 });
   } catch (error) {
     console.error('Error creating team:', error);
     return NextResponse.json<ApiResponse<null>>(
-      { success: false, error: 'Internal server error' },
-      { status: 500 }
-    );
+      { success: false, error: 'Internal server error' }, { status: 500 });
   }
 }

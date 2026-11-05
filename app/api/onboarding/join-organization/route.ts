@@ -107,7 +107,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if user already exists
+    // A forwarded code is not an authorization for a different mailbox.
+    if (String(invitation.email ?? '').trim().toLowerCase() !== session.user.email.trim().toLowerCase()) {
+      return NextResponse.json(
+        { success: false, error: 'Invitation is for a different email', code: 'INVITE_EMAIL_MISMATCH' },
+        { status: 403 });
+    }
+    if (invitation.team_id) {
+      const invitedTeam = await teamDb.getById(invitation.team_id);
+      if (!invitedTeam || invitedTeam.organization_id !== invitation.organization_id) {
+        return NextResponse.json(
+          { success: false, error: 'Invitation team is no longer available', code: 'INVITE_TEAM_INVALID' },
+          { status: 409 });
+      }
+    }
     const existingUser = await userDb.getByEmail(session.user.email);
     
     if (existingUser) {
@@ -168,7 +181,7 @@ export async function POST(request: NextRequest) {
       name: session.user.name || session.user.email.split('@')[0],
       avatar_url: (session.user as any).image || null,
       organization_id: invitation.organization_id,
-      role: invitation.role || 'member',
+      role: normalizeInviteOrgRole(invitation.role ?? undefined),
     });
 
     await ensureUserInInviteTeams(newUser.id, invitation);

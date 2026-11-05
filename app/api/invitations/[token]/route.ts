@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { invitationDb, organizationDb } from '@/lib/db';
+import { requireOrgAdmin } from '@/lib/server-authz';
 
 // GET - Get invitation details by token
 export async function GET(
@@ -90,6 +91,11 @@ export async function DELETE(
   { params }: { params: { token: string } }
 ) {
   try {
+    const authed = await requireOrgAdmin(request);
+    if (authed instanceof NextResponse) return authed;
+    if (!authed.user.organization_id) {
+      return NextResponse.json({ success: false, error: 'Organization required' }, { status: 403 });
+    }
     const raw = params.token;
     if (!raw || typeof raw !== 'string') {
       return NextResponse.json(
@@ -107,6 +113,9 @@ export async function DELETE(
       );
     }
 
+    if (invitation.organization_id !== authed.user.organization_id) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+    }
     await invitationDb.delete(invitation.id);
 
     return NextResponse.json({
