@@ -25,6 +25,10 @@ async function main() {
         const response=await page.goto(baseUrl+'/marketing',{waitUntil:'domcontentloaded',timeout:90_000});
         assert.equal(response.status(),200,'Expected public marketing 200');
         await page.getByRole('heading',{level:1,name:/Less noise.*More momentum/s}).waitFor({timeout:90_000});
+        // SSR markup is visible before React attaches client events. Verify
+        // the hydrated experience, not a pre-hydration click that gets lost.
+        await page.waitForLoadState('load');
+        await page.waitForLoadState('networkidle',{timeout:15_000}).catch(()=>undefined);
         assert.equal(await page.getByRole('heading',{level:1}).count(),1);
         assertions+=2;
 
