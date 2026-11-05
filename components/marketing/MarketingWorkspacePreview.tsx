@@ -2,9 +2,8 @@
 
 import { useState } from 'react';
 import {
-  ArrowUpRight, CalendarDays, Check, CheckCircle2, Circle, Clock3,
-  Columns3, FileText, GripVertical, LayoutGrid, ListChecks,
-  MessageSquareText, Search, Sparkles, UserRound,
+  ArrowUpRight, CalendarDays, Circle, Clock3, Columns3,
+  FileText, GripVertical, LayoutGrid, ListChecks, Search, Sparkles,
 } from 'lucide-react';
 
 type PreviewTab = 'board' | 'planner' | 'notes' | 'ai';
