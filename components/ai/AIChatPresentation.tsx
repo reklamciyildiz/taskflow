@@ -252,7 +252,7 @@ export function AIWelcome({ onPrompt, loading }: { onPrompt: (prompt: string) =>
   return (
     <div className="mx-auto flex min-h-full w-full max-w-[810px] flex-col justify-center px-1 py-9 text-center sm:px-4 sm:py-12">
       <div className="relative mx-auto mb-6 grid h-[72px] w-[72px] place-items-center sm:mb-7 sm:h-20 sm:w-20">
-        <div className="absolute inset-0 rounded-[26px] border border-primary/20 bg-gradient-to-br from-primary/15 via-sky-500/10 to-violet-500/10 shadow-[0_20px_55px_-30px_hsl(var(--primary)/0.7)]"/>
+        <div className="absolute inset-0 rounded-[26px] border border-primary/20 bg-gradient-to-br from-primary/15 via-emerald-500/[0.07] to-lime-500/[0.045] shadow-[0_20px_55px_-30px_hsl(var(--primary)/0.7)]"/>
         <div className="absolute inset-[10px] rounded-2xl border border-primary/20 bg-background/70"/>
         <Sparkles className="relative h-7 w-7 text-primary sm:h-8 sm:w-8" strokeWidth={1.6} aria-hidden="true"/>
         <span className="absolute -right-2 -top-2 h-3 w-3 rounded-full border-[3px] border-card bg-emerald-500"/>

@@ -21,59 +21,60 @@
 
 @layer base {
   :root {
-    /* Adaptive Productivity - Light Mode */
-    --background: 0 0% 100%; /* Pure White #FFFFFF */
-    --foreground: 222 47% 11%; /* Slate 900 #0F172A */
-    --card: 210 40% 98%; /* Slate 50 #F8FAFC */
-    --card-foreground: 222 47% 11%; /* Slate 900 #0F172A */
-    --popover: 0 0% 100%; /* Pure White */
-    --popover-foreground: 222 47% 11%; /* Slate 900 #0F172A */
-    --primary: 217 91% 60%; /* Blue 500 #3B82F6 */
-    --primary-foreground: 0 0% 100%; /* White */
-    --secondary: 160 84% 39%; /* Emerald 500 #10B981 */
-    --secondary-foreground: 0 0% 100%; /* White */
-    --muted: 210 40% 96%; /* Slate 100 */
-    --muted-foreground: 215 16% 47%; /* Slate 500 #64748B */
-    --accent: 38 92% 50%; /* Amber 500 #F59E0B */
-    --accent-foreground: 0 0% 100%; /* White */
-    --destructive: 0 84% 60%; /* Red 500 #EF4444 */
-    --destructive-foreground: 0 0% 100%; /* White */
-    --border: 214 32% 91%; /* Slate 200 */
-    --input: 214 32% 91%; /* Slate 200 */
-    --ring: 217 91% 60%; /* Blue 500 */
-    --chart-1: 217 91% 60%; /* Blue 500 */
-    --chart-2: 160 84% 39%; /* Emerald 500 */
-    --chart-3: 38 92% 50%; /* Amber 500 */
-    --chart-4: 0 84% 60%; /* Red 500 */
-    --chart-5: 271 91% 65%; /* Purple 500 */
-    --radius: 0.5rem;
+    /* Actiproc forest design system. Semantic state colors remain independent of brand. */
+    --background: 80 25% 95%; /* #F4F6F0 */
+    --foreground: 141 26% 13%; /* #18291E */
+    --card: 0 0% 100%; /* #FFFFFF */
+    --card-foreground: 141 26% 13%; /* #18291E */
+    --popover: 0 0% 100%; /* #FFFFFF */
+    --popover-foreground: 141 26% 13%; /* #18291E */
+    --primary: 151 51% 32%; /* #287A52 */
+    --primary-foreground: 0 0% 100%; /* #FFFFFF */
+    --secondary: 120 26% 89%; /* #DDEBDD */
+    --secondary-foreground: 144 40% 21%; /* #204A31 */
+    --muted: 105 20% 92%; /* #E9EFE7 */
+    --muted-foreground: 139 12% 37%; /* #53695A */
+    --accent: 99 32% 91%; /* #E7F0E2 */
+    --accent-foreground: 139 31% 20%; /* #23432D */
+    --destructive: 0 84% 60%; /* #EF4444 */
+    --destructive-foreground: 0 0% 100%; /* #FFFFFF */
+    --border: 107 19% 85%; /* #D6E1D3 */
+    --input: 107 19% 85%; /* #D6E1D3 */
+    --ring: 151 51% 32%; /* #287A52 */
+    --chart-1: 151 51% 32%; /* #287A52 */
+    --chart-2: 163 84% 34%; /* #0E9F76 */
+    --chart-3: 38 76% 56%; /* #E4A538 */
+    --chart-4: 252 57% 66%; /* #8B77DA */
+    --chart-5: 214 48% 51%; /* #477CBF */
+    --radius: 0.75rem;
   }
   .dark {
-    /* Adaptive Productivity - Dark Mode */
-    --background: 222 47% 11%; /* Slate 900 #0F172A */
-    --foreground: 210 40% 98%; /* Slate 50 #F8FAFC */
-    --card: 215 25% 17%; /* Slate 800 #1E293B */
-    --card-foreground: 210 40% 98%; /* Slate 50 #F8FAFC */
-    --popover: 215 25% 17%; /* Slate 800 */
-    --popover-foreground: 210 40% 98%; /* Slate 50 */
-    --primary: 213 94% 68%; /* Blue 400 #60A5FA */
-    --primary-foreground: 222 47% 11%; /* Slate 900 */
-    --secondary: 158 64% 52%; /* Emerald 400 #34D399 */
-    --secondary-foreground: 222 47% 11%; /* Slate 900 */
-    --muted: 217 33% 17%; /* Slate 700 */
-    --muted-foreground: 215 20% 65%; /* Slate 400 #94A3B8 */
-    --accent: 43 96% 56%; /* Amber 400 #FBBF24 */
-    --accent-foreground: 222 47% 11%; /* Slate 900 */
-    --destructive: 0 91% 71%; /* Red 400 #F87171 */
-    --destructive-foreground: 222 47% 11%; /* Slate 900 */
-    --border: 215 28% 25%; /* Slate 700 */
-    --input: 215 28% 25%; /* Slate 700 */
-    --ring: 213 94% 68%; /* Blue 400 */
-    --chart-1: 213 94% 68%; /* Blue 400 */
-    --chart-2: 158 64% 52%; /* Emerald 400 */
-    --chart-3: 43 96% 56%; /* Amber 400 */
-    --chart-4: 0 91% 71%; /* Red 400 */
-    --chart-5: 271 81% 71%; /* Purple 400 */
+    /* Actiproc forest design system. Semantic state colors remain independent of brand. */
+    --background: 165 40% 6%; /* #091512 */
+    --foreground: 105 40% 94%; /* #EDF6EA */
+    --card: 150 32% 12%; /* #15291F */
+    --card-foreground: 105 40% 94%; /* #EDF6EA */
+    --popover: 151 31% 13%; /* #172C22 */
+    --popover-foreground: 105 40% 94%; /* #EDF6EA */
+    --primary: 91 100% 79%; /* #C8FF93 */
+    --primary-foreground: 143 40% 10%; /* #102518 */
+    --secondary: 141 26% 23%; /* #2C4B37 */
+    --secondary-foreground: 98 63% 92%; /* #E6F7DC */
+    --muted: 149 23% 18%; /* #23382D */
+    --muted-foreground: 133 15% 71%; /* #A9C0AE */
+    --accent: 148 29% 20%; /* #254333 */
+    --accent-foreground: 96 75% 92%; /* #E8FADC */
+    --destructive: 0 91% 71%; /* #F87171 */
+    --destructive-foreground: 143 40% 10%; /* #102518 */
+    --border: 138 20% 26%; /* #36513E */
+    --input: 138 20% 26%; /* #36513E */
+    --ring: 91 100% 79%; /* #C8FF93 */
+    --chart-1: 91 100% 79%; /* #C8FF93 */
+    --chart-2: 158 64% 52%; /* #34D399 */
+    --chart-3: 43 96% 56%; /* #FBBF24 */
+    --chart-4: 254 90% 81%; /* #B6A1FA */
+    --chart-5: 213 100% 74%; /* #7CB7FF */
+    --radius: 0.75rem;
   }
 }
 
@@ -1149,3 +1150,43 @@
 .actiproc-ai-shell { isolation: isolate; }
 @media (max-width: 640px) { .actiproc-ai-shell { min-height: 0; } }
 @media (prefers-reduced-motion: reduce) { .actiproc-ai-shell *, .actiproc-ai-shell *::before, .actiproc-ai-shell *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; } }
+
+
+/* Actiproc forest brand — subtle elevation, no layout or interaction overrides. */
+.actiproc-shell {
+  background:
+    radial-gradient(ellipse 42rem 27rem at 87% -8%, hsl(var(--primary) / 0.055), transparent 72%),
+    hsl(var(--background));
+}
+.actiproc-sidebar {
+  background: linear-gradient(170deg, hsl(var(--card)), hsl(var(--card) / 0.96) 75%, hsl(var(--background)));
+  border-color: hsl(var(--border) / .8);
+}
+.dark .actiproc-sidebar {
+  background: linear-gradient(172deg, #15291f 0%, #12241b 58%, #0c1b14 100%);
+}
+.actiproc-sidebar .actiproc-sidebar-active {
+  background: linear-gradient(115deg, hsl(var(--primary) / .16), hsl(var(--secondary) / .85));
+  box-shadow: inset 0 0 0 1px hsl(var(--primary) / .11);
+  color: hsl(var(--secondary-foreground));
+}
+.actiproc-sidebar .actiproc-sidebar-active:hover {
+  background: linear-gradient(115deg, hsl(var(--primary) / .22), hsl(var(--secondary) / .95));
+  color: hsl(var(--secondary-foreground));
+}
+.actiproc-app-header {
+  border-color: hsl(var(--border) / .74);
+  box-shadow: 0 4px 28px -23px hsl(var(--foreground) / .19);
+}
+.actiproc-app-header .actiproc-header-search {
+  border: 1px solid hsl(var(--border) / .65);
+  background: hsl(var(--card) / .72);
+  transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+}
+.actiproc-app-header .actiproc-header-search:focus-within {
+  border-color: hsl(var(--ring) / .65);
+  box-shadow: 0 0 0 3px hsl(var(--ring) / .08);
+}
+@media (prefers-reduced-motion: reduce) {
+  .actiproc-app-header .actiproc-header-search { transition: none; }
+}

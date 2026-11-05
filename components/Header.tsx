@@ -106,7 +106,7 @@ export function Header({ onSidebarToggle, desktopSidebarExpanded = true }: Heade
   }, []);
 
   return (
-    <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-40">
+    <header className="actiproc-app-header sticky top-0 z-40 border-b bg-card/95 backdrop-blur-xl supports-[backdrop-filter]:bg-card/80">
       <div className="flex h-16 items-center px-4 sm:px-6 gap-3 sm:gap-4">
         <Button
           type="button"
@@ -140,7 +140,7 @@ export function Header({ onSidebarToggle, desktopSidebarExpanded = true }: Heade
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search actions, teams..."
-              className="pl-10 pr-10 h-10 bg-muted/50 border-0 focus-visible:ring-1"
+              className="actiproc-header-search h-10 rounded-xl pl-10 pr-10 focus-visible:ring-1 focus-visible:ring-ring/35"
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value);
@@ -160,7 +160,7 @@ export function Header({ onSidebarToggle, desktopSidebarExpanded = true }: Heade
 
           {/* Search Results Dropdown */}
           {showResults && searchQuery.length >= 2 && (
-            <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden z-50">
+            <div className="absolute top-full left-0 right-0 mt-1 rounded-xl border border-border bg-popover text-popover-foreground shadow-xl overflow-hidden z-50">
               {!hasResults ? (
                 <div className="p-4 text-center text-sm text-muted-foreground">
                   No results found for "{searchQuery}"
@@ -169,7 +169,7 @@ export function Header({ onSidebarToggle, desktopSidebarExpanded = true }: Heade
                 <div className="max-h-80 overflow-y-auto">
                   {searchResults.tasks.length > 0 && (
                     <div>
-                      <div className="px-3 py-2 text-xs font-medium text-muted-foreground bg-gray-50 dark:bg-gray-750">
+                      <div className="px-3 py-2 text-xs font-medium text-muted-foreground bg-muted/55">
                         Actions
                       </div>
                       {searchResults.tasks.map((task) => (
@@ -177,7 +177,7 @@ export function Header({ onSidebarToggle, desktopSidebarExpanded = true }: Heade
                           key={task.id}
                           type="button"
                           onClick={() => onSelectTask(task)}
-                          className="w-full px-3 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                          className="w-full px-3 py-2 text-left hover:bg-accent/70 flex items-center gap-2"
                         >
                           <span className={`w-2 h-2 rounded-full ${
                             resolveActionLifecycle(task, projects, generalBoardColumns).isTerminal ? 'bg-green-500' :
@@ -191,7 +191,7 @@ export function Header({ onSidebarToggle, desktopSidebarExpanded = true }: Heade
                   )}
                   {searchResults.teams.length > 0 && (
                     <div>
-                      <div className="px-3 py-2 text-xs font-medium text-muted-foreground bg-gray-50 dark:bg-gray-750">
+                      <div className="px-3 py-2 text-xs font-medium text-muted-foreground bg-muted/55">
                         Teams
                       </div>
                       {searchResults.teams.map((team) => (
@@ -199,7 +199,7 @@ export function Header({ onSidebarToggle, desktopSidebarExpanded = true }: Heade
                           key={team.id}
                           type="button"
                           onClick={() => onSelectTeam(team.id)}
-                          className="w-full px-3 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 text-sm"
+                          className="w-full px-3 py-2 text-left hover:bg-accent/70 text-sm"
                         >
                           {team.name}
                         </button>
@@ -217,7 +217,7 @@ export function Header({ onSidebarToggle, desktopSidebarExpanded = true }: Heade
           <Button 
             size="sm" 
             onClick={() => setShowCreateTask(true)}
-            className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium hidden sm:flex"
+            className="hidden rounded-xl bg-primary font-semibold text-primary-foreground shadow-[0_8px_20px_-14px_hsl(var(--primary)/0.65)] hover:bg-primary/90 sm:flex"
           >
             <Plus className="h-4 w-4 mr-2" />
             Add Action
@@ -227,7 +227,7 @@ export function Header({ onSidebarToggle, desktopSidebarExpanded = true }: Heade
           <Button 
             size="sm" 
             onClick={() => setShowCreateTask(true)}
-            className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium sm:hidden p-2"
+            className="rounded-xl bg-primary p-2 font-semibold text-primary-foreground hover:bg-primary/90 sm:hidden"
           >
             <Plus className="h-4 w-4" />
           </Button>
