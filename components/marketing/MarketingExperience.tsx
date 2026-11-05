@@ -52,10 +52,10 @@ function Columns3Icon({className}: {className?: string}) {
 
 const ecosystem = [
   { icon: Users, title: 'Teams & roles', copy: 'Shared workspaces, assignments and ownership with role-based access.' },
-  { icon: BarChart3, title: 'Analytics', copy: 'See progress, activity and patterns across your work.' },
-  { icon: BellRing, title: 'Notifications', copy: 'Keep timely work in view with reminders and related-item navigation.' },
+  { icon: BarChart3, title: 'Analytics & achievements', copy: 'Understand progress and celebrate meaningful milestones across your work.' },
+  { icon: BellRing, title: 'Inbox & notifications', copy: 'Capture incoming work, revisit reminders and jump back to the Action that needs attention.' },
   { icon: Fingerprint, title: 'Workspace boundaries', copy: 'Organization-scoped access and permission checks across the product.' },
-  { icon: Network, title: 'Customers', copy: 'Keep customer-related work within the same operating space.' },
+  { icon: Network, title: 'Customer workflows', copy: 'Keep customer context next to the work, decisions and people responsible for it.' },
   { icon: Cloud, title: 'Web & mobile', copy: 'Use the web app on smaller screens and install the supported PWA experience.' },
 ] as const;
 
