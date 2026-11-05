@@ -1,42 +1,34 @@
 import { MarketingHeader } from '@/components/marketing/MarketingHeader';
-import { MarketingHeroSection } from '@/components/marketing/MarketingHeroSection';
-import { MarketingHeroInteractive } from '@/components/marketing/MarketingHeroInteractive';
-import { MarketingProductShots } from '@/components/marketing/sections/MarketingProductShots';
-import { MarketingBento } from '@/components/marketing/MarketingBento';
-import { MarketingCoreLoop } from '@/components/marketing/sections/MarketingCoreLoop';
-import { MarketingTeamOS } from '@/components/marketing/sections/MarketingTeamOS';
-import { MarketingUseCases } from '@/components/marketing/sections/MarketingUseCases';
-import { MarketingEnterprise } from '@/components/marketing/sections/MarketingEnterprise';
-import { MarketingIntegrationsStrip } from '@/components/marketing/sections/MarketingIntegrationsStrip';
-import { MarketingInsights } from '@/components/marketing/sections/MarketingInsights';
-import { MarketingEverythingYouGet } from '@/components/marketing/sections/MarketingEverythingYouGet';
+import {
+  MarketingHero,
+  MarketingWorkflow,
+  MarketingProductSystem,
+  MarketingConnectedWorkspace,
+  MarketingIntegrations,
+  MarketingFinalCta,
+} from '@/components/marketing/MarketingExperience';
 import { MarketingPricing } from '@/components/marketing/sections/MarketingPricing';
-import { MarketingSocialProof } from '@/components/marketing/sections/MarketingSocialProof';
-import { MarketingPwaNote } from '@/components/marketing/sections/MarketingPwaNote';
 import { MarketingFooter } from '@/components/marketing/MarketingFooter';
 
+/**
+ * One cohesive marketing story, not a stack of competing demo experiments.
+ * The page remains a Server Component; only the preview tabs hydrate.
+ */
 export default function MarketingPage() {
   return (
     <>
+      <a href="#main-content" className="ap-skip-link">Skip to main content</a>
       <MarketingHeader />
-      <main className="bg-[#050505]">
-        <MarketingHeroSection>
-          <MarketingHeroInteractive />
-        </MarketingHeroSection>
-        <MarketingProductShots />
-        <MarketingBento />
-        <MarketingCoreLoop />
-        <MarketingTeamOS />
-        <MarketingUseCases />
-        <MarketingEnterprise />
-        <MarketingIntegrationsStrip />
-        <MarketingInsights />
-        <MarketingEverythingYouGet />
+      <main id="main-content" className="min-w-0 overflow-x-clip bg-[#0b1326]">
+        <MarketingHero />
+        <MarketingWorkflow />
+        <MarketingProductSystem />
+        <MarketingConnectedWorkspace />
+        <MarketingIntegrations />
         <MarketingPricing />
-        {/* Genuine customer references will be added after verified customer consent. */}
-        <MarketingPwaNote />
-        <MarketingFooter />
+        <MarketingFinalCta />
       </main>
+      <MarketingFooter />
     </>
   );
 }
