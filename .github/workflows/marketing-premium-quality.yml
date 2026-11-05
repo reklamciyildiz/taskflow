@@ -41,3 +41,25 @@ jobs:
         run: npm run test:creem
       - name: Web TypeScript
         run: npx tsc --noEmit
+      - name: Install isolated Chromium for responsive QA
+        run: |
+          npm install --no-save --package-lock=false playwright@1.56.1
+          npx playwright install chromium --with-deps
+      - name: Run Next marketing route locally and exercise it in Chromium
+        run: |
+          (npm run dev -- -p 3217 > /tmp/actiproc-marketing-next.log 2>&1 & echo $! > /tmp/actiproc-marketing-next.pid)
+          for i in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:3217/marketing -o /dev/null; then break; fi
+            if [ "$i" = 90 ]; then cat /tmp/actiproc-marketing-next.log; exit 1; fi
+            sleep 2
+          done
+          node scripts/test-marketing-browser.cjs
+      - name: Upload failure screenshots and Next diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: marketing-responsive-diagnostics
+          path: |
+            marketing-browser-artifacts/
+            /tmp/actiproc-marketing-next.log
+          if-no-files-found: ignore
