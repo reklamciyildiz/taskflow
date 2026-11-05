@@ -152,6 +152,9 @@
   from { opacity: 0; transform: translateY(14px); }
   to { opacity: 1; transform: translateY(0); }
 }
+@media (max-width: 360px) {
+  .ap-brand-wordmark { display: none; }
+}
 @media (max-width: 639px) {
   .ap-hero-grid { background-size: 47px 47px; opacity: .22; }
   .ap-section-title { letter-spacing: -.049em; }
