@@ -1,0 +1,38 @@
+name: External cron-job.org compatibility
+on:
+  pull_request:
+    paths:
+      - 'app/api/cron/**'
+      - 'lib/cron-reminders-guard.ts'
+      - 'middleware.ts'
+      - 'docs/REMINDERS_CRON.md'
+      - 'docs/ai-indexing-rollout.md'
+      - 'scripts/test-cron-job-org-compatibility.ts'
+      - '.github/workflows/cron-job-org-compatibility.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'app/api/cron/**'
+      - 'lib/cron-reminders-guard.ts'
+      - 'middleware.ts'
+      - 'scripts/test-cron-job-org-compatibility.ts'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  cron-compatibility:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npx tsx scripts/test-cron-job-org-compatibility.ts
+      - run: npx tsx scripts/test-m6-reminder-readiness.ts
+      - run: npx tsx scripts/test-ai-indexing.ts
+      - run: npm run test:scheduling
+      - run: npm run test:notification:links
+      - run: npx tsc --noEmit

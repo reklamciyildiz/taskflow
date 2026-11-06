@@ -30,3 +30,21 @@ observed function duration. The route is fail-disabled unless
 `AI_INDEXING_ENABLED=true`. The worker claims one job at a time inside a
 50-second execution budget; `AI_INDEX_BATCH_SIZE` is a per-invocation maximum,
 not a pre-claimed batch.
+
+
+### Existing cron-job.org indexing job
+
+Keep the existing `GET /api/cron/ai-index` job if it points to the
+current Production deployment. Set the custom `Authorization` header to
+`Bearer <CRON_SECRET>` (the same secret as Vercel Production); external
+cron-job.org requests never inherit Vercel secrets automatically.
+The worker is designed for cron-job.org's normal 30-second timeout:
+`maxDuration = 30`, two jobs per tick and a 20-second internal budget.
+
+The indexing endpoint now returns HTTP 503 and `ok:false` when one or
+more items failed in the batch, rather than always reporting HTTP 200.
+When indexing is deliberately disabled, HTTP 200 with `enabled:false`
+means the timer worked but indexing did **not** run. Do not interpret
+a green scheduler history as evidence of successfully indexed content.
+For unexpected 503, inspect Vercel logs and queue health before enabling
+retries, increasing the batch or turning on public indexing.

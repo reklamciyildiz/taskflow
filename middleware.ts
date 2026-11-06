@@ -81,7 +81,7 @@ export async function middleware(request: NextRequest) {
     // Keeping them out of NextAuth cookie middleware does not make them anonymous:
     // every data route calls authenticateMobileRequest server-side.
     '/api/mobile',
-    // Cron route handlers enforce CRON_SECRET (or Vercel Cron UA) themselves.
+    // Cron route handlers verify CRON_SECRET; Vercel User-Agent is not authentication.
     '/api/cron',
     // Webhook routes authenticate via HMAC signature — not session tokens.
     '/api/webhooks',
