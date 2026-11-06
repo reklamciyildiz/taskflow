@@ -14,6 +14,9 @@ import { processTaskDueReminders } from '@/lib/process-task-reminders';
  * - Vercel Hobby: at most twice/day → use two crons in `vercel.json` (e.g. 08:00 & 20:00 UTC) + GitHub Actions for ~10m.
  * - Vercel Pro: prefer one high-frequency cron (e.g. every 5 or 10 minutes; see docs/REMINDERS_CRON.md for the exact expression).
  */
+// cron-job.org normally disconnects after 30 seconds; execution duration
+// must also be monitored at the scheduler, independently of Vercel's limit.
+export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 export async function GET(request: NextRequest) {

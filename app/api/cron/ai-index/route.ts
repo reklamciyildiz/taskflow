@@ -16,9 +16,29 @@ export async function GET(request: NextRequest) {
   }
   // cron-job.org closes requests after 30 seconds. Keep enough headroom for
   // queue-health bookkeeping and the response to travel back to the scheduler.
-  const result = await processAIIndexJobs({
-    batchSize: CRON_BATCH_SIZE,
-    timeBudgetMs: CRON_TIME_BUDGET_MS,
-  });
-  return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } });
+  try {
+    const result = await processAIIndexJobs({
+      batchSize: CRON_BATCH_SIZE,
+      timeBudgetMs: CRON_TIME_BUDGET_MS,
+    });
+    // cron-job.org considers a 200 response successful even if individual
+    // indexing jobs failed. Surface actual batch failures to alerting while
+    // retaining the existing result fields for operational inspection.
+    const failed = result.failed > 0;
+    return NextResponse.json(
+      { ...result, ok: !failed },
+      {
+        status: failed ? 503 : 200,
+        headers: { 'Cache-Control': 'no-store' },
+      },
+    );
+  } catch {
+    // Never leak provider/DB errors, queue contents or job metadata to
+    // cron-job.org's stored response history.
+    console.error('AI indexing cron execution failed');
+    return NextResponse.json(
+      { ok: false, error: 'AI indexing cron failed' },
+      { status: 503, headers: { 'Cache-Control': 'no-store' } },
+    );
+  }
 }

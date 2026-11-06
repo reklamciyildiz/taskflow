@@ -80,3 +80,51 @@ Prefer **`reminders-tick`** so operators only maintain **one** URL.
 - Completed Checklist items and Actions in terminal Process stages are excluded. Recipient order is Checklist assignee → Action assignee → creator.
 - In-app notification rows are created even when browser push is disabled. Web push additionally requires VAPID configuration, the user's Push setting, browser permission, and an active subscription.
 - **DB**: `notifications` has a **partial unique index** on `(user_id, type, link)` where `link` is set (`20260504120000_notifications_unique_user_type_link.sql`) so concurrent cron ticks cannot insert duplicates. In-app rows use the **dedupe** URL as `link` (still opens the board); push payloads use the clean board URL.
+
+
+## Existing cron-job.org jobs — migration checklist
+
+For existing installations (including a legacy getaxiomm.vercel.app host),
+**keep the two jobs** if the host still points to the current Production
+deployment. Do not create replacement jobs until the old ones are disabled,
+or the same work could run concurrently.
+
+| Job | HTTP endpoint | Schedule | Authentication |
+| --- | --- | --- | --- |
+| TaskFlow Reminders Tick | `GET /api/cron/reminders-tick` | every 5 minutes | `Authorization: Bearer <CRON_SECRET>` |
+| Axiom AI Indexing | `GET /api/cron/ai-index` | every 5 minutes | same header; returns `enabled:false` when indexing is intentionally off |
+
+In cron-job.org Console, open **Details → Edit** for each existing job.
+Check its current full URL, HTTPS, GET method, five-minute interval and
+**Advanced / Request headers**: the exact `Authorization` header must be
+present. A successful pre-deployment execution does not verify that M6's
+strict authentication is deployed or configured. Do not put secrets in
+the URL/query string or share screenshots containing their values.
+
+The Vercel Production environment must have the same `CRON_SECRET`;
+after changing an environment variable, redeploy to apply it. Cron-job.org
+is an *external* scheduler: it does **not** automatically obtain the Vercel
+secret. Vercel's native Cron adds it automatically only for its own calls.
+If you move from getaxiomm.vercel.app to actiproc.com, first verify the
+new hostname serves the **same production deployment and JSON route**
+without a 301/302/307/308 redirect. Change only the cron URL
+when this has been proven; 200 from an old host alone is not proof.
+
+After deploying M6 and setting the header, use a controlled **Test now**
+(or inspect one naturally scheduled execution) and open its response body:
+- HTTP 200 with `ok:true` and both `stats.scheduled`/`stats.due`: the reminder workers completed a tick. Zero new notifications is normal when nothing is due.
+- HTTP 401: Bearer header missing or incorrect. Verify the **same** secret in Vercel and cron-job.org.
+- HTTP 503: Production CRON_SECRET missing, a processor failed or the indexing batch reported a failure. Inspect Vercel function logs before retrying.
+- HTTP 404 / redirect / HTML instead of JSON: hostname or deployment routing is wrong.
+- Request timeout: cron-job.org's normal limit is 30 seconds. Review actual work duration, queue depth and Vercel function logs; the reminder route advertises maxDuration=60, which is **not** a promise that cron-job.org will wait 60 seconds. Do not raise the retry frequency blindly.
+
+A green HTTP 200 confirms an HTTP tick, **not** delivery to each user's
+device. The scheduler cannot attest to browser push permission, inactive
+subscriptions, DB deduplication, Google Calendar synchronization or an
+actual AI embedding being written. Inspect response stats and provider/DB
+logs when diagnosing a reported missing notification or AI answer.
+
+Enable email alerts for failures and automatic disabling in cron-job.org.
+Use the Vercel twice-daily cron as fallback; do not assume the optional
+GitHub 10-minute schedule is timely. Keep CRON_SECRET server-only and
+rotate it in Vercel and cron-job.org together.
