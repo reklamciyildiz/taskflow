@@ -4,7 +4,7 @@ import { ACTIPROC_PLANS } from '@/lib/billing-plans';
 import { AI_PLAN_LIMITS } from '@/lib/ai/ai-plan-catalog';
 import { ACTIPROC_FEATURE_TIERS, PLAN_MARKETING_FEATURES,
   planIncludesFeature, publishedPlanSnapshot } from '@/lib/plan-entitlement-matrix';
-import { getPlanLimits } from '@/lib/entitlements';
+import { computePlanLimits } from '@/lib/plan-limits';
 import { isCreemSubscriptionEligibleForEnvironment } from '@/lib/subscription-access';
 import { canUsePaidFeature } from '@/lib/paid-feature-policy';
 import type { Entitlements } from '@/lib/entitlements';
@@ -19,7 +19,7 @@ for(const plan of plans){
   assert.equal(snapshot.aiDailyPerUser,AI_PLAN_LIMITS[plan].dailyPerUser);
   assert.equal(snapshot.aiMonthlyBase,AI_PLAN_LIMITS[plan].monthlyBase);
   assert.ok(PLAN_MARKETING_FEATURES[plan].length>=4);
-  const effective=getPlanLimits(ent(plan));
+  const effective=computePlanLimits(ent(plan));
   assert.equal(effective.maxProcesses,ACTIPROC_PLANS[plan].maxProcesses);
   assert.equal(effective.maxTeams,ACTIPROC_PLANS[plan].maxTeams);
 }
@@ -34,15 +34,15 @@ for(const plan of plans){
     assert.equal(planIncludesFeature(plan,feature),canUsePaidFeature(ent(plan),feature));
 }
 for(const status of ['expired','past_due','paused'] as const){
-  const limits=getPlanLimits(ent('team',status));
+  const limits=computePlanLimits(ent('team',status));
   assert.equal(limits.maxProcesses,1);
   assert.equal(limits.maxTeams,1);
   assert.equal(limits.canUseWebhooks,false);
 }
 const future=new Date(Date.now()+86400000).toISOString();
 const past=new Date(Date.now()-86400000).toISOString();
-assert.equal(getPlanLimits(ent('team','cancelled',future)).maxProcesses,Infinity);
-assert.equal(getPlanLimits(ent('team','cancelled',past)).maxProcesses,1);
+assert.equal(computePlanLimits(ent('team','cancelled',future)).maxProcesses,Infinity);
+assert.equal(computePlanLimits(ent('team','cancelled',past)).maxProcesses,1);
 const creemTest={billing_provider:'creem',creem_subscription_id:'sub_test',creem_test_mode:true};
 assert.equal(isCreemSubscriptionEligibleForEnvironment(creemTest,{VERCEL_ENV:'production'}),false);
 assert.equal(isCreemSubscriptionEligibleForEnvironment(creemTest,{VERCEL_ENV:'preview'}),true);
@@ -59,6 +59,7 @@ const read=(path:string)=>readFileSync(path,'utf8');
 const checks: Record<string,boolean>={
  'marketing catalog':read('components/marketing/sections/MarketingPricing.tsx').includes('PLAN_MARKETING_FEATURES.team'),
  'effective API limits':read('app/api/entitlements/capabilities/route.ts').includes('getPlanLimits(ent)'),
+ 'pure effective limit policy':read('lib/entitlements.ts').includes('return computePlanLimits(ent)'),
  'paid test isolation':read('lib/entitlements.ts').includes('liveProviderMismatch ?'),
  'process API':read('app/api/projects/route.ts').includes('getPlanLimits(ent)'),
  'workspace API':read('app/api/teams/route.ts').includes('getPlanLimits(ent)'),

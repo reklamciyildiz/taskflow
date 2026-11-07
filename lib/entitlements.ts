@@ -2,7 +2,7 @@ import { organizationDb, teamMemberDb } from '@/lib/db';
 import { isPaidActive, isCreemSubscriptionEligibleForEnvironment, type SubscriptionStatus } from '@/lib/subscription-access';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { canUsePaidFeature } from '@/lib/paid-feature-policy';
-import { ACTIPROC_PLANS } from '@/lib/billing-plans';
+import { computePlanLimits } from '@/lib/plan-limits';
 
 export { isPaidActive } from '@/lib/subscription-access';
 export type { SubscriptionStatus } from '@/lib/subscription-access';
@@ -74,20 +74,7 @@ export function canInviteMembers(ent: Pick<Entitlements, 'plan' | 'subscriptionS
 }
 
 export function getPlanLimits(ent: Pick<Entitlements, 'plan' | 'subscriptionStatus' | 'endsAt'>): PlanLimits {
-  // Note: we treat Pro/Team access as active only when paid is active.
-  // Free can always use free limits.
-  const paid = isPaidActive(ent.subscriptionStatus, ent.endsAt);
-  if (ent.plan === 'team' && paid) {
-    return { maxTeams: Number.POSITIVE_INFINITY, maxProcesses: Number.POSITIVE_INFINITY, canUseWebhooks: canUsePaidFeature(ent, 'webhooks') };
-  }
-  if (ent.plan === 'pro' && paid) {
-    return { maxTeams: ACTIPROC_PLANS.pro.maxTeams, maxProcesses: ACTIPROC_PLANS.pro.maxProcesses, canUseWebhooks: false };
-  }
-  if (ent.plan === 'individual' && paid) {
-    return { maxTeams: ACTIPROC_PLANS.individual.maxTeams, maxProcesses: ACTIPROC_PLANS.individual.maxProcesses, canUseWebhooks: false };
-  }
-  // Default: Free
-  return { maxTeams: ACTIPROC_PLANS.free.maxTeams, maxProcesses: ACTIPROC_PLANS.free.maxProcesses, canUseWebhooks: false };
+  return computePlanLimits(ent);
 }
 
 export async function getOrganizationEntitlements(organizationId: string): Promise<Entitlements> {
@@ -109,6 +96,8 @@ export async function getOrganizationEntitlements(organizationId: string): Promi
     }
   }
   // Creem payment holds and failed/paused subscriptions never unlock paid access.
+  // A pending provider plan change must not override Production Test Mode isolation.
+  if (liveProviderMismatch) plan = 'free';
   const subscriptionStatus = liveProviderMismatch ||
     (org?.billing_provider === 'creem' &&
       (org?.creem_payment_hold || ['past_due', 'paused'].includes(String(org?.subscription_status))))

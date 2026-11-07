@@ -23,7 +23,7 @@ export function isPaidActive(status: SubscriptionStatus, endsAt?: string | null)
  */
 export function isCreemSubscriptionEligibleForEnvironment(
   org: { billing_provider?: string | null; creem_subscription_id?: string | null; creem_test_mode?: boolean | null },
-  env: Pick<NodeJS.ProcessEnv, 'VERCEL_ENV'> = process.env,
+  env: { VERCEL_ENV?: string } = process.env,
 ): boolean {
   if (env.VERCEL_ENV !== 'production') return true;
   if (org.billing_provider !== 'creem' || !org.creem_subscription_id) return true;
