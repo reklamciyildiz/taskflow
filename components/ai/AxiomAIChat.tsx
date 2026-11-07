@@ -9,6 +9,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTr
 import type { AIChatContext,AIChatMessage,AIConversationSummary } from '@/lib/ai/chat/types';
 import { parseChatSSEBuffer } from '@/lib/ai/chat/sse';
 import { safeAIErrorMessage } from '@/lib/ai/chat/reliability-policy';
+import { aiAvailabilityMessage } from '@/lib/ai/chat/availability-message';
 import { AIComposer, AIHistoryPanel, AIMessageRow, AIWelcome } from './AIChatPresentation';
 import { AIAllowanceIndicator } from './AIAllowanceIndicator';
 import { useTaskContext } from '@/components/TaskContext';
@@ -36,6 +37,8 @@ export function AxiomAIChatView({
   refreshData,
 }: AxiomAIChatViewProps) {
   const [conversations,setConversations]=useState<AIConversationSummary[]>([]);
+  const [historyLoading,setHistoryLoading]=useState(true);
+  const [historyError,setHistoryError]=useState<string|null>(null);
   const [conversationId,setConversationId]=useState<string|null>(null);
   const [messages,setMessages]=useState<AIChatMessage[]>([]);
   const [input,setInput]=useState('');const [loading,setLoading]=useState(false);const [historyOpen,setHistoryOpen]=useState(false);
@@ -45,17 +48,35 @@ export function AxiomAIChatView({
 
   const refreshConversations=useCallback(async()=>{
     if (!enabled) return;
-    const response=await request('/api/ai/conversations',{ cache:'no-store' });
-    if (response.ok) setConversations((await response.json()).conversations ?? []);
+    setHistoryLoading(true);
+    try {
+      const response=await request('/api/ai/conversations',{ cache:'no-store' });
+      const payload=await response.json().catch(()=>null);
+      if(!response.ok) {
+        const code=typeof payload?.error?.code==='string'?payload.error.code:'';
+        throw new Error(aiAvailabilityMessage(code,response.status));
+      }
+      if(!Array.isArray(payload?.conversations)) throw new Error('Conversation history could not be loaded. Please retry.');
+      setConversations(payload.conversations);
+      setHistoryError(null);
+    } catch(error) {
+      // Retain last successfully loaded history. A 503 is never an empty list.
+      setHistoryError(error instanceof Error?error.message:'Conversation history could not be loaded. Please retry.');
+    } finally {
+      setHistoryLoading(false);
+    }
   },[enabled,request]);
   useEffect(()=>{ void refreshConversations(); },[refreshConversations]);
   useEffect(()=>{ const container=scrollRef.current; if(container) container.scrollTo({ top:container.scrollHeight, behavior:loading?'auto':'smooth' }); },[messages,loading]);
 
   const selectConversation=async(id:string)=>{
-    if (loading) return; setConversationId(id);setHistoryOpen(false);
-    const response=await request(`/api/ai/conversations/${id}`,{ cache:'no-store' });
-    if (!response.ok) { toast.error('Conversation could not be loaded');return; }
-    setMessages((await response.json()).messages ?? []);
+    if (loading) return;
+    try {
+      const response=await request(`/api/ai/conversations/${id}`,{ cache:'no-store' });
+      if (!response.ok) { toast.error('Conversation could not be loaded');return; }
+      const payload=await response.json();
+      setConversationId(id);setMessages(payload.messages ?? []);setHistoryOpen(false);
+    } catch { toast.error('Conversation could not be loaded'); }
   };
   const newConversation=()=>{ if (!loading){ setConversationId(null);setMessages([]);setHistoryOpen(false); } };
   const renameConversation=async(item:AIConversationSummary,title:string):Promise<boolean>=>{
@@ -104,7 +125,11 @@ export function AxiomAIChatView({
     try {
       if (!activeConversation) {
         const created=await request('/api/ai/conversations',{ method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ context }) });
-        if (!created.ok) throw new Error((await created.json()).error?.message ?? 'Conversation could not be created');
+        if (!created.ok) {
+          const errorPayload=await created.json().catch(()=>null);
+          const code=String(errorPayload?.error?.code??'');
+          throw Object.assign(new Error(aiAvailabilityMessage(code,created.status)),{aiAccessCode:code});
+        }
         const createdPayload=await created.json();
         activeConversation=createdPayload.conversation.id;setConversationId(activeConversation);
       }
@@ -126,7 +151,9 @@ export function AxiomAIChatView({
         body:JSON.stringify({ conversationId:activeConversation,clientRequestId:requestId,message,context,
           ...(retryAssistantMessageId?{retryAssistantMessageId}:{}) }) });
       if (!response.ok||!response.body) {
-        const payload=await response.json().catch(()=>null);throw new Error(payload?.error?.message ?? 'Actiproc AI is unavailable');
+        const payload=await response.json().catch(()=>null);
+        const code=String(payload?.error?.code??'');
+        throw Object.assign(new Error(aiAvailabilityMessage(code,response.status)),{aiAccessCode:code});
       }
       const reader=response.body.getReader(),decoder=new TextDecoder();let buffer='',realAssistantId=optimisticAssistant;
       while(true) {
@@ -153,7 +180,10 @@ export function AxiomAIChatView({
       await refreshConversations();
     } catch(error) {
       const cancelled=(error as Error)?.name==='AbortError'||controller.signal.aborted;
-      const publicMessage=safeAIErrorMessage('AI_UNAVAILABLE',error instanceof Error?error.message:undefined);
+      const accessCode=(error as {aiAccessCode?:string}|null)?.aiAccessCode;
+      const publicMessage=accessCode
+        ? aiAvailabilityMessage(accessCode)
+        :safeAIErrorMessage('AI_UNAVAILABLE',error instanceof Error?error.message:undefined);
       if (!cancelled) toast.error(publicMessage);
       setMessages((current)=>current.map((item)=>optimisticAssistant && item.id===optimisticAssistant && item.status==='streaming'
         ? {...item,status:cancelled?'cancelled':'failed',content:item.content||(cancelled?'Generation stopped':publicMessage),
@@ -170,6 +200,8 @@ export function AxiomAIChatView({
   const contextLabel=context.processId?'Process context':context.teamId?'Team workspace':'Workspace context';
   const history=(
     <AIHistoryPanel conversations={conversations} activeId={conversationId} disabled={loading}
+      historyLoading={historyLoading} historyError={historyError}
+      onRetryHistory={()=>void refreshConversations()}
       onSelect={(id)=>void selectConversation(id)} onNew={newConversation}
       onRename={renameConversation} onDelete={removeConversation}/>
   );
@@ -229,6 +261,13 @@ export function AxiomAIChatView({
             <MessageSquarePlus className="h-4.5 w-4.5" aria-hidden="true"/>
           </Button>
         </header>
+        {historyError && (
+          <div role="status" className="flex shrink-0 items-center justify-between gap-3 border-b border-amber-500/25 bg-amber-500/[0.075] px-4 py-2.5 text-xs text-foreground">
+            <span>{historyError}</span>
+            <Button type="button" variant="outline" size="sm" onClick={()=>void refreshConversations()}
+              disabled={historyLoading} className="shrink-0">Retry</Button>
+          </div>
+        )}
         <div ref={scrollRef} className="actiproc-ai-scrollbar relative min-h-0 flex-1 overflow-y-auto overscroll-contain bg-gradient-to-b from-primary/[0.018] via-transparent to-transparent px-3 py-2 sm:px-6 sm:py-5">
           {messages.length===0 ? (
             <AIWelcome onPrompt={(prompt)=>void send(prompt)} loading={loading}/>

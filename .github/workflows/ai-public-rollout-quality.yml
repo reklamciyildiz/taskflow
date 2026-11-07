@@ -7,6 +7,7 @@ on:
       - 'components/ai/**'
       - 'components/billing/**'
       - 'components/marketing/sections/MarketingPricing.tsx'
+      - 'scripts/test-ai-history-availability.ts'
       - 'scripts/test-ai-plan-ux.ts'
       - 'scripts/test-ai-public-access.ts'
       - 'scripts/test-ai-entity-matching.ts'
@@ -57,6 +58,7 @@ jobs:
       - run: npm run test:ai:typo
       - run: npx tsx scripts/test-ai-write-tools.ts
       - run: npx tsx scripts/test-ai-read-tools.ts
+      - run: npx tsx scripts/test-ai-history-availability.ts
       - run: npm run test:ai:commercial-ui
       - name: Test SQL minute admission and parallel safety
         env:

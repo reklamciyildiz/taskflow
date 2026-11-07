@@ -28,6 +28,9 @@ type HistoryProps = {
   conversations: AIConversationSummary[];
   activeId: string | null;
   disabled: boolean;
+  historyLoading?: boolean;
+  historyError?: string | null;
+  onRetryHistory?: () => void;
   onSelect: (id: string) => void;
   onNew: () => void;
   onRename: (item: AIConversationSummary, title: string) => Promise<boolean>;
@@ -45,7 +48,8 @@ function historyPeriod(value: string): 'Today' | 'Yesterday' | 'Earlier' {
 }
 
 export function AIHistoryPanel({
-  conversations, activeId, disabled, onSelect, onNew, onRename, onDelete,
+  conversations, activeId, disabled, historyLoading=false, historyError=null, onRetryHistory,
+  onSelect, onNew, onRename, onDelete,
 }: HistoryProps) {
   const [query, setQuery] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -113,7 +117,19 @@ export function AIHistoryPanel({
         </div>
       </div>
       <nav aria-label="Conversation history" className="actiproc-ai-scrollbar min-h-0 flex-1 space-y-5 overflow-y-auto px-2.5 py-4 sm:px-3">
-        {grouped.length ? grouped.map(({ period, items }) => (
+        {historyError && (
+          <div role="alert" className="mx-1 rounded-xl border border-amber-500/25 bg-amber-500/[0.07] p-3">
+            <p className="text-xs font-semibold text-foreground">Conversation history unavailable</p>
+            <p className="mt-1 text-[11px] leading-5 text-muted-foreground">{historyError}</p>
+            {onRetryHistory && <Button type="button" variant="outline" size="sm" disabled={historyLoading}
+              className="mt-2 h-8 text-xs" onClick={onRetryHistory}>Retry loading</Button>}
+          </div>
+        )}
+        {historyLoading && conversations.length===0 ? (
+          <div role="status" className="flex items-center justify-center gap-2 px-4 py-10 text-xs text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true"/> Loading conversations…
+          </div>
+        ) : grouped.length ? grouped.map(({ period, items }) => (
           <section key={period} aria-label={period + ' conversations'}>
             <h3 className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/75">{period}</h3>
             <div className="space-y-1">
@@ -184,7 +200,7 @@ export function AIHistoryPanel({
               })}
             </div>
           </section>
-        )) : (
+        )) : !historyError ? (
           <div className="flex flex-col items-center px-5 py-12 text-center">
             <Search className="mb-3 h-6 w-6 text-muted-foreground/50" aria-hidden="true"/>
             <p className="text-sm font-medium text-foreground">{query ? 'No matching conversations' : 'No conversations yet'}</p>
@@ -192,7 +208,7 @@ export function AIHistoryPanel({
               {query ? 'Try a different search term.' : 'Start a conversation to build your history.'}
             </p>
           </div>
-        )}
+        ) : null}
       </nav>
       <div className="shrink-0 border-t border-border/50 px-4 py-3">
         <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
