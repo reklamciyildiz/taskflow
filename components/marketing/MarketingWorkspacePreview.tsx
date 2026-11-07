@@ -72,7 +72,6 @@ function BoardPanel({ moved, setMoved, created, query }: {
   moved: boolean; setMoved: (next: boolean)=>void; created: boolean; query: string;
 }) {
   const [stage, setStage]=useState<'All'|Stage>('All');
-  const [demoSelected,setDemoSelected]=useState<string|null>(null);
   const cards=useMemo(()=>{
     const list:Work[]=[...work];
     if(created)list.unshift({id:'created',name:'Plan the next product sprint',stage:'Ideas',priority:'MEDIUM'});
@@ -100,7 +99,7 @@ function BoardPanel({ moved, setMoved, created, query }: {
             (stage===name?'border-[#c8ff93] bg-[#c8ff93] text-[#112016]':'border-[#31444a] text-[#e2eeea] hover:border-[#b9ff92]')}>{name}</button>)}
     </div>
     <div className="ap-real-board-scroll flex gap-2.5 overflow-x-auto p-3 sm:gap-3 sm:p-4" aria-label="Product launch sample Kanban board">
-      {stages.filter(s=>stage==='All'||s.name===stage).map((column,index)=>{
+      {stages.filter(s=>stage==='All'||s.name===stage).map((column)=>{
         const items=cards.filter(card=>(moved&&card.id==='w6'?'Done':card.stage)===column.name);
         return <section key={column.name} className={'ap-real-column ap-real-column-'+column.tone+' min-w-[190px] flex-1 shrink-0 overflow-hidden rounded-[15px] border border-[#354550] sm:min-w-[208px]'} aria-label={column.name+' stage'}>
           <div className="flex items-center justify-between gap-2 border-b border-white/10 px-3 py-3">
@@ -128,7 +127,6 @@ function BoardPanel({ moved, setMoved, created, query }: {
               <CheckCircle2 className="mb-2 h-5 w-5 text-[#4c9182]" aria-hidden/><p className="text-[10px] font-semibold text-[#b9c8ce]">No Actions in this stage</p>
               <p className="mt-2 text-[9px] leading-4 text-[#859ba2]">Move an Action here as work progresses.</p>
             </div>}
-            {index===0 && demoSelected==='no-op'&&<span/>}
           </div>
         </section>;
       })}
