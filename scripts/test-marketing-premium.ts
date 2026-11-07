@@ -44,10 +44,20 @@ for (const name of ['board','planner','notes','ai']) {
   assert.match(preview, new RegExp("key: '"+name+"'"));
   checks++;
 }
-assert.match(preview,/aria-pressed=\{selected === key\}/);
+assert.match(preview,/aria-pressed=\{selected\s*===\s*key\}/);
 assert.match(preview,/useState<PreviewTab>/);
 assert.match(preview,/Illustrative workspace · not live user data/);
 assert.doesNotMatch(preview,/window\.localStorage|dangerouslySetInnerHTML/);
+for(const text of ['Northstar Studio','Product launch','Knowledge Hub','QUICK CAPTURE',
+  'Research interview synthesis','Review campaign creative','Sample workspace']){
+  assert.ok(preview.includes(text),'Missing realistic demo detail: '+text);
+}
+assert.doesNotMatch(preview,/Yiğit|Tilaver|Delta Marine|İş Arama|SmartSafe AI|Swing Trade|hook\.eu1\.make\.com|integration\.mihu\.ai/i);
+assert.match(preview,/aria-label="Search the sample workspace"/);
+assert.match(preview,/onClick=\{\(\)=>setPinned/);
+assert.match(preview,/onClick=\{\(\)=>setView/);
+assert.match(preview,/setMoved\(true\)/);
+assert.match(preview,/setCreated\(!created\)/);
 checks+=4;
 
 assert.match(header,/MarketingMobileMenu/);
