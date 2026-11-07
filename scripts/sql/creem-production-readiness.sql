@@ -27,6 +27,14 @@ WHERE routine_schema='public'
   )
 GROUP BY routine_name ORDER BY routine_name;
 
+-- 1b. Annual purchase intent migration must exist BEFORE any new live checkout.
+SELECT column_name, data_type
+FROM information_schema.columns
+WHERE table_schema='public'
+  AND table_name='creem_checkout_intents'
+  AND column_name IN ('product_id','billing_interval')
+ORDER BY column_name;
+
 -- 2. Count historical subscriptions BEFORE switching to live.
 -- A nonzero active TEST-mode subscription in the Production DB is NOT a
 -- live paid subscription. Never convert it by editing these columns.

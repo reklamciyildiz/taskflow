@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { ACTIPROC_PLANS, CREEM_EXPECTED_TAX_MODE } from '../lib/billing-plans';
-import { assertCreemLiveReturnOrigin, getCreemConfig, creemPlanForProduct, creemResponseMode, creemCheckoutEnvironmentSafe } from '../lib/creem-config';
+import { ACTIPROC_PLANS, CREEM_EXPECTED_TAX_MODE, actiprocPriceUsd } from '../lib/billing-plans';
+import { assertCreemLiveReturnOrigin, getCreemConfig, creemPlanForProduct, creemProductForPlan, creemIntervalForProduct, creemResponseMode, creemCheckoutEnvironmentSafe } from '../lib/creem-config';
 import { normalizeCreemSubscription } from '../lib/creem-subscription-contract';
 import { validCreemEventId, verifyCreemSignature, paidCreemCheckoutMatches } from '../lib/creem-webhook-contract';
 import crypto from 'node:crypto';
@@ -15,10 +15,16 @@ import { readCreemBillingCycle, creemUtcDate, CREEM_IMMEDIATE_CYCLE_POLICY } fro
 assert.deepEqual([ACTIPROC_PLANS.free.maxProcesses,ACTIPROC_PLANS.individual.maxProcesses,ACTIPROC_PLANS.pro.maxProcesses],[1,3,10]);
 assert.deepEqual([ACTIPROC_PLANS.individual.priceUsd,ACTIPROC_PLANS.pro.priceUsd,ACTIPROC_PLANS.team.priceUsd],[12,4,6]);
 assert.equal(CREEM_EXPECTED_TAX_MODE, 'inclusive');
+assert.deepEqual([
+  actiprocPriceUsd('individual','yearly'),actiprocPriceUsd('pro','monthly'),
+  actiprocPriceUsd('pro','yearly'),actiprocPriceUsd('team','monthly'),
+  actiprocPriceUsd('team','yearly')
+],[12,4,40,6,60]);
 const env = {
  NODE_ENV: 'development', VERCEL_ENV: 'preview', CREEM_MODE:'test',
  CREEM_API_KEY:'test-only-not-real', CREEM_WEBHOOK_SECRET:'webhook-test-only',
  CREEM_PRODUCT_INDIVIDUAL:'prod_individual123',CREEM_PRODUCT_PRO:'prod_pro123',CREEM_PRODUCT_TEAM:'prod_team123',
+ CREEM_PRODUCT_PRO_YEARLY:'prod_proyear123',CREEM_PRODUCT_TEAM_YEARLY:'prod_teamyear123',
 } as NodeJS.ProcessEnv;
 const config=getCreemConfig(env);
 assert.equal(config.baseUrl,'https://test-api.creem.io');
@@ -50,6 +56,15 @@ assert.doesNotMatch(liveProducts,/'POST'/);
 assert.match(launchSql,/BEGIN READ ONLY/);
 assert.match(launchSql,/creem_test_mode/);
 assert.equal(creemPlanForProduct('prod_team123',config),'team');
+assert.equal(creemPlanForProduct('prod_proyear123',config),'pro');
+assert.equal(creemPlanForProduct('prod_teamyear123',config),'team');
+assert.equal(creemIntervalForProduct('prod_proyear123',config),'yearly');
+assert.equal(creemIntervalForProduct('prod_team123',config),'monthly');
+assert.equal(creemProductForPlan('pro',config,'yearly'),'prod_proyear123');
+assert.equal(creemProductForPlan('team',config,'yearly'),'prod_teamyear123');
+assert.equal(creemProductForPlan('individual',config,'yearly'),'prod_individual123');
+assert.throws(()=>getCreemConfig({...env,CREEM_PRODUCT_TEAM_YEARLY:'prod_pro123'}));
+assert.throws(()=>creemProductForPlan('team',getCreemConfig({...env,CREEM_PRODUCT_TEAM_YEARLY:''}),'yearly'));
 assert.equal(creemPlanForProduct('prod_wrong',config),null);
 assert.throws(()=>getCreemConfig({...env,VERCEL_ENV:'production'}));
 assert.throws(()=>getCreemConfig({...env,CREEM_MODE:'live'}));
@@ -128,6 +143,8 @@ for(const bad of [
 ]) assert.equal(paidCreemCheckoutMatches(bad,expectedCheckout),false);
 const operationSource=fs.readFileSync('lib/creem-billing-operations.ts','utf8');
 assert.ok(operationSource.includes('org?.creem_payment_hold'),'A payment hold must block new checkout');
+assert.ok(operationSource.includes('.update({product_id:productId,billing_interval:interval})'),
+  'Checkout must persist exact authorized product and cadence before external payment');
 assert.ok(operationSource.includes('org?.creem_subscription_id'),'An expired linked subscription must block duplicate checkout');
 assert.ok(webhook.includes('if(intent.fulfilled_at)') && webhook.includes('creem_subscription_id!==sid'),
  'A previously fulfilled checkout must be safely acknowledged after verifying the same subscription');
@@ -163,7 +180,8 @@ assert.equal(creemCheckoutEnvironmentSafe({...primary,CREEM_CHECKOUT_ENABLED:'fa
 const billingUi=fs.readFileSync('components/billing/BillingClient.tsx','utf8');
 assert.ok(billingUi.includes('canUpgrade') && billingUi.includes('hasPaidSubscription'),'Cancelled plans must block unsupported plan upgrades');
 assert.ok(!billingUi.includes('Checkout returned — verifying subscription payment'),'Stale checkout banner must be removed');
-assert.ok(!billingUi.includes('setBillingInterval('),'Unsupported billing interval toggle must not appear');
+assert.ok(billingUi.includes('setSelectedBillingInterval('),'Billing UI must offer annual/monthly selection');
+assert.ok(billingUi.includes('billingReview.billingInterval'),'Review must respect verified cadence');
 assert.ok(billingUi.includes('Secured by Creem') && billingUi.includes('Choose how your team grows'),'Billing dashboard design missing');
 
 const cases = {
@@ -471,3 +489,16 @@ assert.ok(scheduleUI.includes('Next scheduled charge') &&
  scheduleUI.includes('billingCycle?.nextChargeVerified'),
  'Billing must display the Creem-verified next charge, not imply a fixed anchor or payable amount');
 console.log('Creem billing-cycle regression tests passed');
+
+
+const annualMigration=fs.readFileSync('supabase/migrations/20261107173000_creem_annual_product_intents.sql','utf8');
+for(const field of ['product_id TEXT','billing_interval TEXT','creem_checkout_product_interval_check'])
+ assert.ok(annualMigration.includes(field),'Missing annual checkout safety migration: '+field);
+const annualHook=fs.readFileSync('app/api/webhooks/creem/route.ts','utf8');
+assert.ok(annualHook.includes('checkoutProductId===selectedProductId'),
+ 'Webhook must check exact checkout product, not just plan');
+assert.ok(annualHook.includes('creemIntervalForProduct(selectedProductId,config)===selectedInterval'),
+ 'Webhook must check authorized cadence');
+const annualUi=fs.readFileSync('components/marketing/sections/MarketingPricing.tsx','utf8');
+assert.ok(annualUi.includes('Yearly · save 16.7%') && annualUi.includes('billingInterval'),
+ 'Landing must expose annual pricing honestly');

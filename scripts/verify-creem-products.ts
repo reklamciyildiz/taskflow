@@ -1,5 +1,5 @@
 import { loadEnvConfig } from '@next/env';
-import { ACTIPROC_PLANS, CREEM_EXPECTED_TAX_MODE } from '../lib/billing-plans';
+import { ACTIPROC_PLANS, CREEM_EXPECTED_TAX_MODE, actiprocPriceUsd } from '../lib/billing-plans';
 
 // Read the developer's existing .env.local; never print API/webhook secrets.
 loadEnvConfig(process.cwd(), true);
@@ -25,13 +25,23 @@ async function main(): Promise<void> {
     { name:'Individual', displayName:'Actiproc Individual', id:process.env.CREEM_PRODUCT_INDIVIDUAL, cents:ACTIPROC_PLANS.individual.priceUsd*100, cadence:'every-year' },
     { name:'Pro', displayName:'Actiproc Pro', id:process.env.CREEM_PRODUCT_PRO, cents:ACTIPROC_PLANS.pro.priceUsd*100, cadence:'every-month' },
     { name:'Team', displayName:'Actiproc Team', id:process.env.CREEM_PRODUCT_TEAM, cents:ACTIPROC_PLANS.team.priceUsd*100, cadence:'every-month' },
-  ] as const;
+    // Backward-compatible Test Mode: annual products are optional until
+    // created in the merchant TEST store. Live verification requires all five.
+    ...(process.env.CREEM_PRODUCT_PRO_YEARLY ? [{
+      name:'Pro Yearly',variable:'CREEM_PRODUCT_PRO_YEARLY',displayName:'Actiproc Pro Yearly',
+      id:process.env.CREEM_PRODUCT_PRO_YEARLY,cents:actiprocPriceUsd('pro','yearly')*100,cadence:'every-year',
+    }] : []),
+    ...(process.env.CREEM_PRODUCT_TEAM_YEARLY ? [{
+      name:'Team Yearly',variable:'CREEM_PRODUCT_TEAM_YEARLY',displayName:'Actiproc Team Yearly',
+      id:process.env.CREEM_PRODUCT_TEAM_YEARLY,cents:actiprocPriceUsd('team','yearly')*100,cadence:'every-year',
+    }] : []),
+  ];
   // Diagnose local configuration without printing credentials or product IDs.
   const ids = settings.map(p => p.id?.trim());
   let invalid = false;
   for (const [index, plan] of settings.entries()) {
     const value = ids[index];
-    const variable = 'CREEM_PRODUCT_' + plan.name.toUpperCase();
+    const variable = 'variable' in plan ? plan.variable : 'CREEM_PRODUCT_' + plan.name.toUpperCase();
     if (!value) {
       console.error(variable + ': missing or empty');
       invalid = true;
@@ -70,7 +80,7 @@ async function main(): Promise<void> {
       const matches = available.filter(p => p.name === plan.displayName && p.mode === 'test');
       if (matches.length === 1 && matches[0].id) {
         console.error('  Official Creem catalog ID: ' + matches[0].id);
-        console.error('  Update CREEM_PRODUCT_' + plan.name.toUpperCase() + ' in .env.local using the Creem Copy ID button.');
+        console.error('  Update ' + ('variable' in plan ? plan.variable : 'CREEM_PRODUCT_' + plan.name.toUpperCase()) + ' in .env.local using the Creem Copy ID button.');
       } else {
         console.error('  Could not identify a unique matching test product. Check the selected Creem store and key.');
       }
@@ -104,7 +114,7 @@ async function main(): Promise<void> {
     console.error('Creem products are not ready for checkout. Do not enable CREEM_CHECKOUT_ENABLED=true.');
     process.exitCode = 1;
   } else {
-    console.log('All three Creem TEST products match Actiproc billing configuration.');
+    console.log('All '+settings.length+' configured Creem TEST products match Actiproc billing configuration.');
   }
 }
 

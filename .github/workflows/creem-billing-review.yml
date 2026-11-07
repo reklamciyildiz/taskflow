@@ -12,7 +12,10 @@ on:
       - 'components/billing/**'
       - 'components/marketing/**'
       - 'supabase/migrations/20261101110000_creem_parallel_billing.sql'
+      - 'supabase/migrations/20261107173000_creem_annual_product_intents.sql'
       - 'scripts/test-creem-billing-contract.ts'
+      - 'scripts/verify-creem-live-products.ts'
+      - 'scripts/test-creem-annual-catalog.ts'
       - 'scripts/audit-retired-billing-provider.mjs'
       - 'app/(shell)/integrations/**'
       - 'package.json'
@@ -30,6 +33,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run test:creem
+      - run: npx tsx scripts/test-creem-annual-catalog.ts
       - name: Scan all project source for retired payment provider dependencies
         run: node scripts/audit-retired-billing-provider.mjs
       - run: npm run test:mobile-web
