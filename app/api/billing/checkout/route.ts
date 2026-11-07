@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireOrgAdmin } from '@/lib/server-authz';
 import { createCreemCheckout } from '@/lib/creem-billing-operations';
-import { creemCheckoutEnvironmentSafe } from '@/lib/creem-config';
+import { creemCheckoutEnvironmentSafe, creemLiveCheckoutAudienceAllowed } from '@/lib/creem-config';
 
 export async function POST(request: NextRequest) {
   if (request.cookies.get('actiproc_platform')?.value === 'capacitor-native')
@@ -12,5 +12,7 @@ export async function POST(request: NextRequest) {
   if (authed instanceof NextResponse) return authed;
   const orgId=authed.user.organization_id;
   if (!orgId) return NextResponse.json({success:false,error:'No organization found'},{status:400});
+  if (!creemLiveCheckoutAudienceAllowed(orgId))
+    return NextResponse.json({success:false,error:'Checkout is not available for this organization yet.'},{status:503});
   return createCreemCheckout(request,orgId,authed.user.email);
 }

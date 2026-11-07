@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { ACTIPROC_PLANS, CREEM_EXPECTED_TAX_MODE, actiprocPriceUsd } from '../lib/billing-plans';
-import { assertCreemLiveReturnOrigin, getCreemConfig, creemPlanForProduct, creemProductForPlan, creemIntervalForProduct, creemResponseMode, creemCheckoutEnvironmentSafe } from '../lib/creem-config';
+import { assertCreemLiveReturnOrigin, getCreemConfig, creemPlanForProduct, creemProductForPlan, creemIntervalForProduct, creemResponseMode, creemCheckoutEnvironmentSafe, creemLiveCheckoutAudienceAllowed } from '../lib/creem-config';
 import { normalizeCreemSubscription } from '../lib/creem-subscription-contract';
 import { validCreemEventId, verifyCreemSignature, paidCreemCheckoutMatches } from '../lib/creem-webhook-contract';
 import crypto from 'node:crypto';
@@ -97,6 +97,18 @@ assert.equal(creemCheckoutEnvironmentSafe({...env,CREEM_CHECKOUT_ENABLED:'true',
 assert.equal(creemCheckoutEnvironmentSafe({...env,CREEM_CHECKOUT_ENABLED:'true'}),false);
 assert.equal(creemCheckoutEnvironmentSafe({...env,VERCEL_ENV:'production',CREEM_MODE:'test',CREEM_CHECKOUT_ENABLED:'true'}),false);
 assert.equal(creemCheckoutEnvironmentSafe({...env,VERCEL_ENV:'production',CREEM_MODE:'live',CREEM_CHECKOUT_ENABLED:'true'}),true);
+const pilotOrg='c574f5ec-8bb5-4d4b-abcc-121212121212';
+const otherOrg='d574f5ec-8bb5-4d4b-abcc-121212121212';
+const productionCheckout={...env,VERCEL_ENV:'production',CREEM_MODE:'live',CREEM_CHECKOUT_ENABLED:'true'};
+assert.equal(creemLiveCheckoutAudienceAllowed(pilotOrg,productionCheckout),false,'Never open live checkout globally by default');
+assert.equal(creemLiveCheckoutAudienceAllowed(pilotOrg,{...productionCheckout,CREEM_LIVE_CANARY_ORG_ID:pilotOrg}),true);
+assert.equal(creemLiveCheckoutAudienceAllowed(otherOrg,{...productionCheckout,CREEM_LIVE_CANARY_ORG_ID:pilotOrg}),false);
+assert.equal(creemLiveCheckoutAudienceAllowed(pilotOrg,{...productionCheckout,CREEM_LIVE_CANARY_ORG_ID:'invalid'}),false);
+assert.equal(creemLiveCheckoutAudienceAllowed(pilotOrg,{...productionCheckout,CREEM_LIVE_PUBLIC_CHECKOUT_ENABLED:'true'}),true);
+assert.equal(creemLiveCheckoutAudienceAllowed(pilotOrg,{...productionCheckout,CREEM_LIVE_CANARY_ORG_ID:pilotOrg,CREEM_LIVE_PUBLIC_CHECKOUT_ENABLED:'true'}),false);
+assert.equal(creemLiveCheckoutAudienceAllowed(pilotOrg,{...env,VERCEL_ENV:'preview'}),true);
+assert.equal(creemLiveCheckoutAudienceAllowed(pilotOrg,{...env,VERCEL_ENV:undefined}),true);
+assert.match(fs.readFileSync('app/api/billing/checkout/route.ts','utf8'),/creemLiveCheckoutAudienceAllowed\(orgId\)/);
 assert.equal(creemCheckoutEnvironmentSafe({...env,VERCEL_ENV:'production',CREEM_MODE:'live'}),false);
 const checkoutOperation=fs.readFileSync('lib/creem-billing-operations.ts','utf8');
 assert.ok(checkoutOperation.includes('product.tax_mode!==CREEM_EXPECTED_TAX_MODE'),'Checkout must match configured Creem tax mode');
