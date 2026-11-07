@@ -40,7 +40,14 @@ function isExistingSubscription(org:any) {
 export async function createCreemCheckout(request:NextRequest, orgId:string, email:string|null|undefined) {
  try{
   const config=getCreemConfig();
-  if (config.mode==='live') assertCreemLiveReturnOrigin(APP_URL);
+  if (config.mode==='live') {
+    assertCreemLiveReturnOrigin(APP_URL);
+    // Do not partially launch a five-product price catalog. This gate is
+    // checkout-only so existing webhook processing continues even if an
+    // operator accidentally removes an annual Product ID later.
+    if (!config.yearlyProducts.pro || !config.yearlyProducts.team)
+      return NextResponse.json({success:false,error:'Creem annual products are not fully configured. No payment started.'},{status:503});
+  }
   const org:any=await organizationDb.getById(orgId);
   const payload=await request.json().catch(()=>null);
   const replacing=payload?.resubscribe===true;
