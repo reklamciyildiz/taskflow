@@ -44,7 +44,8 @@ const modernSettings=fs.readFileSync('components/Settings.tsx','utf8');
 const modernTerms=fs.readFileSync('app/(marketing)/terms/page.tsx','utf8');
 const modernUpgrade=fs.readFileSync('components/billing/UpgradePlanModal.tsx','utf8');
 assert.doesNotMatch(modernInvite,/LemonSqueezy|lemonsqueezy.com|lemon\.js/);
-assert.match(modernInvite,/\/settings\/billing\?plan=team/);
+assert.match(modernInvite,/\/settings\/billing/);
+assert.doesNotMatch(modernInvite,/\/settings\/billing\?plan=team/); // Seat paywall must offer Pro and Team options.
 assert.doesNotMatch(modernSettings,/Lemon Squeezy/);
 assert.doesNotMatch(modernTerms,/Lemon Squeezy/);
 assert.match(modernUpgrade,/plans.length === 1/);
