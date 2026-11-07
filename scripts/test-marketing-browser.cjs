@@ -61,13 +61,25 @@ async function main() {
           assertions++;
         }
         await page.getByRole('button',{name:'Preview Planner'}).click();
+        await page.getByText('QUICK CAPTURE').waitFor();
+        await page.getByRole('tab',{name:'Calendar'}).click();
         await page.getByText('Your week, in focus').waitFor();
+        await page.getByRole('tab',{name:'Today'}).click();
+        await page.getByRole('button',{name:'Add sample checklist item'}).isDisabled().then(value=>assert.equal(value,true));
+        await page.getByRole('textbox',{name:'Sample quick capture'}).fill('Review demo sprint goals');
+        await page.getByRole('button',{name:'Add sample checklist item'}).click();
+        await page.getByText('Review demo sprint goals').waitFor();
         await page.getByRole('button',{name:'Preview Knowledge'}).click();
         await page.getByText('Launch retrospective').first().waitFor();
+        await page.getByRole('button',{name:'Pin Launch retrospective'}).click();
+        await page.getByRole('tab',{name:'Pinned'}).click();
+        await page.getByText('Launch retrospective').first().waitFor();
         await page.getByRole('button',{name:'Preview Actiproc AI'}).click();
-        await page.getByText('Workspace-aware assistant').waitFor();
+        await page.getByText('Actiproc AI · Workspace assistant').waitFor();
         await page.getByRole('button',{name:'Preview Boards'}).click();
         await page.getByText('Product launch').first().waitFor();
+        await page.getByRole('button',{name:'Add sample Action'}).click();
+        await page.getByText('Plan the next product sprint').waitFor();
         await page.getByRole('button',{name:'Mark done'}).click();
         await page.getByText('Demo completed').waitFor();
         await page.getByRole('button',{name:'Reset demo'}).click();

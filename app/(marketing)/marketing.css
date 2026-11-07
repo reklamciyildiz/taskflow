@@ -418,3 +418,57 @@
   background: linear-gradient(153deg, #264034, #1b3328);
 }
 .ap-preview-task:hover { border-color: rgba(200, 255, 147, .35); }
+
+
+/* Realistic, privacy-safe Actiproc product showcase (sample organization).
+   Graphite panels mirror the signed-in UI; brand accent stays lime. */
+.ap-preview-window.ap-real-window {
+  border: 1px solid #425b51;
+  background: #10191f;
+  box-shadow: 0 28px 70px -38px rgba(0,0,0,.9), inset 0 1px rgba(255,255,255,.055);
+}
+.ap-real-app {
+  display: grid;
+  grid-template-columns: 47px minmax(0,1fr);
+  height: 520px;
+  min-width: 0;
+}
+.ap-real-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.ap-real-content { flex: 1; min-height: 0; scrollbar-width: thin; scrollbar-color: #445c63 transparent; }
+.ap-real-board-scroll { scrollbar-width: thin; scrollbar-color: #5a7479 #132229; }
+.ap-real-pills { scrollbar-width: thin; scrollbar-color: #465a5b #152329; }
+.ap-real-column { background: #141f25; }
+.ap-real-column-blue { border-color: #2e5471; }
+.ap-real-column-purple { border-color: #4d416e; }
+.ap-real-column-amber { border-color: #66502b; }
+.ap-real-column-cyan { border-color: #245b57; }
+.ap-real-column-rose { border-color: #613d4a; }
+.ap-real-column-green { border-color: #275945; }
+.ap-real-column-blue > div:first-child { background: linear-gradient(145deg,#172d3e,#16232b); }
+.ap-real-column-purple > div:first-child { background: linear-gradient(145deg,#29243d,#1c222c); }
+.ap-real-column-amber > div:first-child { background: linear-gradient(145deg,#362d20,#232528); }
+.ap-real-column-cyan > div:first-child { background: linear-gradient(145deg,#123432,#16262c); }
+.ap-real-column-rose > div:first-child { background: linear-gradient(145deg,#36232e,#22232a); }
+.ap-real-column-green > div:first-child { background: linear-gradient(145deg,#17372c,#17282b); }
+.ap-real-column-blue .ap-real-stage-dot { background:#42a9ff;box-shadow:0 0 0 4px #274c65; }
+.ap-real-column-purple .ap-real-stage-dot { background:#a16efa;box-shadow:0 0 0 4px #48376b; }
+.ap-real-column-amber .ap-real-stage-dot { background:#f0b92b;box-shadow:0 0 0 4px #665027; }
+.ap-real-column-cyan .ap-real-stage-dot { background:#30c5be;box-shadow:0 0 0 4px #255a53; }
+.ap-real-column-rose .ap-real-stage-dot { background:#fa6574;box-shadow:0 0 0 4px #663a4b; }
+.ap-real-column-green .ap-real-stage-dot { background:#45dfa5;box-shadow:0 0 0 4px #29614b; }
+.ap-real-action-card {
+  box-shadow:0 8px 18px -13px rgba(0,0,0,.8);
+  transition:border-color .2s ease, transform .2s ease;
+}
+.ap-real-action-card:hover {border-color:#6f9a85;transform:translateY(-1px)}
+@media (min-width:640px) {
+  .ap-real-app { grid-template-columns:156px minmax(0,1fr);height:555px; }
+}
+@media (max-width:639px) {
+  .ap-real-app { height:510px; }
+  .ap-real-column {min-width:190px;}
+}
+@media (prefers-reduced-motion:reduce) {
+  .ap-real-action-card {transition:none}
+  .ap-real-action-card:hover {transform:none}
+}
