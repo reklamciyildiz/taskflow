@@ -29,6 +29,25 @@ export function creemCheckoutEnvironmentSafe(env: NodeJS.ProcessEnv = process.en
   const ref = env.AXIOM_STAGING_SUPABASE_PROJECT_REF?.trim();
   return !!ref && env.NEXT_PUBLIC_SUPABASE_URL === 'https://' + ref + '.supabase.co';
 }
+/** Explicit production audience gate: a pilot OR deliberate public launch.
+ * Missing or contradictory launch scope fails closed even if checkout enabled.
+ * Must be checked after org-admin authorization and before provider calls.
+ */
+export function creemLiveCheckoutAudienceAllowed(
+  organizationId: string,
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  if (env.VERCEL_ENV !== 'production' || env.CREEM_MODE !== 'live') return true;
+  if (!organizationId) return false;
+  const canaryId = env.CREEM_LIVE_CANARY_ORG_ID?.trim() ?? '';
+  const publicEnabled = env.CREEM_LIVE_PUBLIC_CHECKOUT_ENABLED === 'true';
+  if (canaryId && publicEnabled) return false;
+  if (canaryId) {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(canaryId)
+      && canaryId === organizationId;
+  }
+  return publicEnabled;
+}
 export function getCreemConfig(env: NodeJS.ProcessEnv = process.env): CreemConfig {
   const mode = env.CREEM_MODE;
   if (mode !== 'test' && mode !== 'live') throw new Error('CREEM_MODE must be test or live');

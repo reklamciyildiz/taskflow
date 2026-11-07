@@ -60,7 +60,9 @@ Historical tables and migration files must NOT be deleted.
 | `CREEM_PRODUCT_TEAM_YEARLY` | Live Team Yearly Product ID |
 | `NEXT_PUBLIC_APP_URL` | `https://www.actiproc.com` |
 | `NEXTAUTH_URL` | `https://www.actiproc.com` |
-| `CREEM_CHECKOUT_ENABLED` | **false until formal go-live** |
+| `CREEM_CHECKOUT_ENABLED` | **false until approved pilot** |
+| `CREEM_LIVE_CANARY_ORG_ID` | Disposable free pilot organization UUID; configure BEFORE enabling checkout |
+| `CREEM_LIVE_PUBLIC_CHECKOUT_ENABLED` | **false until paid pilot and explicit public launch** |
 | `CREEM_RESUBSCRIPTION_ENABLED` | **false until replacement E2E** |
 | `CREEM_SEAT_MUTATIONS_ENABLED` | **false until seat E2E** |
 | `CREEM_PLAN_MUTATIONS_ENABLED` | **false until plan E2E** |
@@ -109,9 +111,12 @@ authorized subscription reconciliation.
    Supabase production preflight and Vercel secret scope.
 3. Verify the **Live webhook URL and secret**, including signed test
    delivery. Do not conflate Test Mode and Live Mode.
-4. Only after authorization, set `CREEM_CHECKOUT_ENABLED=true` in
-   Vercel Production and redeploy. This allows new paid checkout
-   requests; by itself it does not charge existing customers.
+4. After merchant approval and authorization, set `CREEM_LIVE_CANARY_ORG_ID`
+   to a new disposable free pilot organization UUID, and
+   `CREEM_LIVE_PUBLIC_CHECKOUT_ENABLED=false`. Then set
+   `CREEM_CHECKOUT_ENABLED=true` and redeploy. Only the pilot organization
+   may initiate checkout. Missing or contradictory audience settings block
+   all new checkout. Public rollout requires a separate decision.
 5. Use a **new disposable free organization** for one explicitly
    authorized real-money Pro checkout. Confirm hosted checkout
    total, seats, live payment, signed webhook, exactly one linked
@@ -157,3 +162,27 @@ real webhook verification or production deployment were completed.
   CREEM_RESUBSCRIPTION_ENABLED false until separate provider acceptance.
 - No existing customer is migrated from monthly to annual automatically;
   no subscription, payment or database record is mutated by deploying code.
+
+
+## Pilot-only production rollout
+
+For a first real checkout, use a disposable free organization and configure:
+
+- CREEM_CHECKOUT_ENABLED=true
+- CREEM_LIVE_CANARY_ORG_ID=<pilot organization UUID>
+- CREEM_LIVE_PUBLIC_CHECKOUT_ENABLED=false
+
+Find the UUID in your own authenticated dashboard or Production Supabase.
+The audience guard runs after admin authorization, before any checkout intent
+or Creem charge. It does NOT suppress signed webhooks for existing customers.
+
+If any payment/webhook/entitlement validation fails, disable NEW checkout by
+setting CREEM_CHECKOUT_ENABLED=false and redeploy; leave live webhooks active.
+For intentional public rollout, remove the canary ID and set
+CREEM_LIVE_PUBLIC_CHECKOUT_ENABLED=true; never set both at the same time.
+
+Creem Dashboard Send test event may generate a synthetic checkout.completed
+without any authorized purchase intent. Actiproc intentionally rejects an
+unrecognized checkout instead of granting paid access. A genuine pilot
+checkout, signed webhook, entitlement sync and billing portal are required
+before a real paid-flow acceptance decision.
