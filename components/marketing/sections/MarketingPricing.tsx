@@ -1,6 +1,9 @@
+'use client';
+
+import { useState } from 'react';
 import Link from 'next/link';
 import { ArrowUpRight, Check, Info, Sparkles } from 'lucide-react';
-import { ACTIPROC_PLANS } from '@/lib/billing-plans';
+import { ACTIPROC_PLANS, actiprocPriceUsd, type BillingInterval } from '@/lib/billing-plans';
 import { AI_MAX_FUNDED_SEATS, AI_PLAN_LIMITS, aiPlanDailyDescription, type AIPlanKey } from '@/lib/ai/ai-plan-catalog';
 
 const plans: {id:AIPlanKey;title:string;subtitle:string;features:readonly string[]}[] = [
@@ -15,6 +18,7 @@ const plans: {id:AIPlanKey;title:string;subtitle:string;features:readonly string
 ];
 
 export function MarketingPricing() {
+  const [billingInterval,setBillingInterval] = useState<BillingInterval>('monthly');
   return (
     <section id="pricing" className="ap-pricing-section scroll-mt-24 py-24 sm:py-28 lg:py-32" aria-labelledby="pricing-title">
       <div className="mx-auto max-w-[1320px] px-5 sm:px-8 lg:px-10">
@@ -25,11 +29,20 @@ export function MarketingPricing() {
           </div>
           <p className="max-w-[435px] text-[14px] leading-[1.85] text-[#657a6a]">Choose the capacity you need today. Move to another plan as your processes and team grow.</p>
         </div>
-        <div className="mt-12 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <div role="group" aria-label="Compare billing periods" className="mt-9 inline-flex gap-1.5 rounded-xl border border-[#d1e2ce] bg-white p-1.5 shadow-sm">
+          {(['monthly','yearly'] as const).map(period=><button type="button" key={period}
+            aria-pressed={billingInterval===period} onClick={()=>setBillingInterval(period)}
+            className={'rounded-lg px-4 py-2.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#387a53] '+
+              (billingInterval===period?'bg-[#193b29] text-white':'text-[#42634d] hover:bg-[#eef6e9]')}>
+            {period==='yearly'?'Yearly · save 16.7%':'Monthly'}
+          </button>)}
+        </div>
+        <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           {plans.map(p=>{
             const featured=p.id==='pro';
             const paidSeat=p.id==='pro'||p.id==='team';
-            const price=ACTIPROC_PLANS[p.id].priceUsd;
+            const price=p.id==='free'?ACTIPROC_PLANS.free.priceUsd:
+              actiprocPriceUsd(p.id,billingInterval);
             return (
               <article key={p.id} className={'relative flex min-w-0 flex-col rounded-[25px] border p-6 shadow-[0_15px_48px_-42px_rgba(31,88,48,.23)] transition-transform duration-300 hover:-translate-y-1 ' +
                 (featured?'border-[#39704b] bg-[#193b29] text-white shadow-[0_21px_56px_-35px_rgba(17,66,36,.4)]':'border-[#dce5db] bg-white text-[#192c20]')}>
@@ -42,7 +55,7 @@ export function MarketingPricing() {
                 <div className="mt-6 flex flex-wrap items-baseline gap-1">
                   <strong className="text-[43px] leading-none tracking-[-.06em]">{'$'}{price}</strong>
                   <span className={'text-[11px] '+(featured?'text-[#b4ccbd]':'text-[#6f8973]')}>
-                    {p.id==='free'?'/forever':p.id==='individual'?'/year':'/seat/month'}
+                    {p.id==='free'?'/forever':p.id==='individual'?'/year':billingInterval==='yearly'?'/seat/year':'/seat/month'}
                   </span>
                 </div>
                 <div className={'mt-6 rounded-[16px] border px-3.5 py-3.5 '+(featured?'border-[#4b7958] bg-[#245038]':'border-[#d3e4d0] bg-[#f0f7eb]')}>
@@ -63,7 +76,7 @@ export function MarketingPricing() {
                     <Check className={'mt-0.5 h-4 w-4 shrink-0 '+(featured?'text-[#d4ffb3]':'text-[#62876b]')} aria-hidden />{feature}
                   </li>)}
                 </ul>
-                <Link href={p.id==='free'?'/auth/signup':'/auth/signup?callbackUrl='+encodeURIComponent('/settings/billing?plan='+p.id)}
+                <Link href={p.id==='free'?'/auth/signup':'/auth/signup?callbackUrl='+encodeURIComponent('/settings/billing?plan='+p.id+'&interval='+(p.id==='individual'?'yearly':billingInterval))}
                   className={'mt-8 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 text-[12px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 '+
                     (featured?'bg-[#c8ff93] text-[#102518] hover:bg-white focus-visible:ring-[#c8ff93] focus-visible:ring-offset-[#193b29]':'border border-[#d6e5d2] bg-[#eef7ea] text-[#2c6140] hover:border-[#88b891] hover:bg-[#e7f1e3] focus-visible:ring-[#668e6d]')}>
                   {p.id==='free'?'Create account':'Explore '+p.title}<ArrowUpRight className="h-4 w-4" aria-hidden/>
@@ -79,7 +92,7 @@ export function MarketingPricing() {
           </p>
         </div>
         <p className="mx-auto mt-4 max-w-4xl text-center text-[11px] leading-[1.8] text-[#7c8b7b]">
-          USD list prices; any applicable taxes and final totals are confirmed during secure checkout. Individual renews yearly, Pro/Team monthly. Paid checkout availability is subject to billing readiness.
+          USD list prices; any applicable taxes and final totals are confirmed during secure checkout. Individual renews yearly; Pro/Team offer monthly ($4/$6 per seat) and yearly ($40/$60 per seat) billing. Paid checkout availability is subject to billing readiness.
         </p>
       </div>
     </section>

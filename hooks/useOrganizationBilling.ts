@@ -9,6 +9,7 @@ export type BillingStatus = 'active' | 'past_due' | 'cancelled' | 'trialing' | '
 export function useOrganizationBilling(organizationId: string | null) {
   const [billingPlan, setBillingPlan] = useState<BillingPlan>('free');
   const [billingStatus, setBillingStatus] = useState<BillingStatus>('active');
+  const [billingInterval, setBillingInterval] = useState<'monthly'|'yearly'|null>(null);
   const [billingLoading, setBillingLoading] = useState(false);
   const [checkoutBusy, setCheckoutBusy] = useState<'individual' | 'pro' | 'team' | 'resume' | 'seats' | null>(null);
   const billingProvider = 'creem' as const;
@@ -41,6 +42,8 @@ export function useOrganizationBilling(organizationId: string | null) {
         const plan = String(json.data.plan ?? 'free').toLowerCase();
         const status = String(json.data.subscriptionStatus ?? 'active').toLowerCase();
         setBillingPlan(plan === 'team' ? 'team' : plan === 'pro' ? 'pro' : plan === 'individual' ? 'individual' : 'free');
+        setBillingInterval(json.data.billingInterval === 'monthly' || json.data.billingInterval === 'yearly'
+          ? json.data.billingInterval : null);
         setBillingStatus(
           status === 'past_due'
             ? 'past_due'
@@ -156,7 +159,8 @@ export function useOrganizationBilling(organizationId: string | null) {
 
   const previewSeatChange = useCallback(async (seats: number): Promise<{
     consentToken: string; previousSeats: number; desiredSeats: number;
-    direction: 'increase' | 'decrease'; currentMonthlyUsd: number; nextMonthlyUsd: number;
+    direction: 'increase' | 'decrease'; billingInterval:'monthly'|'yearly';
+    currentPriceUsd:number; nextPriceUsd:number; currentMonthlyUsd:number|null; nextMonthlyUsd:number|null;
     exactChargeAvailable: false;
     currentNextChargeAt: string|null; currentPeriodEndAt: string|null;
     billingCyclePolicy: 'new-cycle-on-immediate-charge'|'no-immediate-proration';
@@ -174,7 +178,8 @@ export function useOrganizationBilling(organizationId: string | null) {
 
   const previewPlanUpgrade = useCallback(async (plan: 'pro' | 'team'): Promise<{
     consentToken: string; fromPlan: string; toPlan: string; seats: number;
-    nextMonthlyUsd: number; exactChargeAvailable: false;
+    billingInterval:'monthly'|'yearly'; nextPriceUsd:number;
+    nextMonthlyUsd:number|null; exactChargeAvailable: false;
     currentNextChargeAt: string|null; currentPeriodEndAt:string|null;
     billingCyclePolicy: 'new-cycle-on-immediate-charge'; nextChargeAfterChangeAt:null;
   }> => {
@@ -289,6 +294,7 @@ export function useOrganizationBilling(organizationId: string | null) {
     billingPlan,
     billingProvider,
     billingStatus,
+    billingInterval,
     billingLoading,
     billingCycle,
     checkoutBusy,
