@@ -61,6 +61,8 @@ const read=(path:string)=>readFileSync(path,'utf8');
 const checks: Record<string,boolean>={
  'marketing catalog':read('components/marketing/sections/MarketingPricing.tsx').includes('PLAN_MARKETING_FEATURES.team'),
  'billing uses same catalog':read('components/billing/BillingClient.tsx').includes('PLAN_MARKETING_FEATURES.team'),
+ 'upgrade uses same catalog':read('components/billing/UpgradePlanModal.tsx').includes('PLAN_MARKETING_FEATURES.team'),
+ 'workspace paywall includes Pro':read('components/billing/UpgradePlanModal.tsx').includes("if (reason === 'teams') return ['pro', 'team'];"),
  'effective API limits':read('app/api/entitlements/capabilities/route.ts').includes('getPlanLimits(ent)'),
  'pure effective limit policy':read('lib/entitlements.ts').includes('return computePlanLimits(ent)'),
  'paid test isolation':read('lib/entitlements.ts').includes('liveProviderMismatch ?'),

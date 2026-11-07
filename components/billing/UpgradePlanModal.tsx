@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { ArrowRight, Check, CircleAlert, CreditCard, Info, ShieldCheck, Sparkles, X } from 'lucide-react';
 import { AI_PLAN_LIMITS, aiPlanDailyDescription } from '@/lib/ai/ai-plan-catalog';
 import { actiprocPriceUsd, type BillingInterval } from '@/lib/billing-plans';
+import { PLAN_MARKETING_FEATURES } from '@/lib/plan-entitlement-matrix';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -13,9 +14,9 @@ type UpgradePlan = 'individual' | 'pro' | 'team';
 type UpgradeReason = 'teams' | 'processes' | 'webhooks' | 'seats';
 
 const FEATURES: Record<UpgradePlan, readonly string[]> = {
-  individual: ['1 verified seat', '1 workspace', 'Up to 3 processes', 'Annual billing'],
-  pro: ['Up to 3 workspaces', 'Up to 10 processes', 'Advanced reminders', 'Google Calendar'],
-  team: ['Unlimited workspaces', 'Unlimited processes', 'Webhooks', 'Per-seat subscription'],
+  individual: PLAN_MARKETING_FEATURES.individual,
+  pro: PLAN_MARKETING_FEATURES.pro,
+  team: PLAN_MARKETING_FEATURES.team,
 };
 
 const DESCRIPTIONS: Record<UpgradePlan, string> = {
@@ -26,7 +27,7 @@ const DESCRIPTIONS: Record<UpgradePlan, string> = {
 
 const reasonCopy: Record<UpgradeReason, { title: string; description: string }> = {
   teams: { title: 'More room for your team',
-    description: 'Your current plan has reached its workspace limit. Move to Team to scale without a fixed workspace cap.' },
+    description: 'Pro supports up to 3 workspaces; Team removes the workspace cap. Choose the capacity you need.' },
   processes: { title: 'Keep work moving',
     description: 'Your current plan has reached its Process limit. Choose more capacity without changing your existing work.' },
   webhooks: { title: 'Connect your workflows',
@@ -84,7 +85,8 @@ export function UpgradePlanModal(props: {
   const [billingInterval,setBillingInterval] = useState<BillingInterval>('monthly');
   const isNativeApp = typeof window !== 'undefined' && isCapacitorNative();
   const plans = useMemo<UpgradePlan[]>(() => {
-    if (recommendedPlan === 'team' || reason === 'webhooks' || reason === 'teams') return ['team'];
+    if (recommendedPlan === 'team' || reason === 'webhooks') return ['team'];
+    if (reason === 'teams') return ['pro', 'team'];
     if (reason === 'seats' || recommendedPlan === 'pro') return ['pro', 'team'];
     return ['individual', 'pro', 'team'];
   }, [recommendedPlan, reason]);
