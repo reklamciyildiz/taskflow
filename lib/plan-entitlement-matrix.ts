@@ -8,6 +8,17 @@ export type ActiprocFeature =
   | 'team_membership' | 'role_assignment' | 'google_calendar'
   | 'advanced_reminders' | 'webhooks';
 
+/** Default distinct member capacity is legacy behavior, not new commercial policy.
+ * Paid Team subscriptions instead use verified purchased seats; manually
+ * granted developer Team organizations may keep their legacy unlimited seats.
+ */
+export const ACTIPROC_DEFAULT_SEAT_LIMITS = {
+  free: 2,
+  individual: 1,
+  pro: 1,
+  team: Number.POSITIVE_INFINITY,
+} as const;
+
 /** Public capability catalog: never use client-side values as permission tokens. */
 export const ACTIPROC_FEATURE_TIERS: Readonly<Record<ActiprocFeature, readonly ActiprocPlan[]>> = {
   actions: ['free', 'individual', 'pro', 'team'],

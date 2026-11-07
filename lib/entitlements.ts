@@ -3,6 +3,7 @@ import { isPaidActive, isCreemSubscriptionEligibleForEnvironment, type Subscript
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { canUsePaidFeature } from '@/lib/paid-feature-policy';
 import { computePlanLimits } from '@/lib/plan-limits';
+import { ACTIPROC_DEFAULT_SEAT_LIMITS } from '@/lib/plan-entitlement-matrix';
 
 export { isPaidActive } from '@/lib/subscription-access';
 export type { SubscriptionStatus } from '@/lib/subscription-access';
@@ -56,11 +57,8 @@ function normalizeStatus(status: unknown): SubscriptionStatus {
 
 /** Default seat caps when org row has no stored `seat_limit` (e.g. legacy rows). Paid caps normally come from payment webhooks. */
 export function getSeatLimitFromPlan(plan: PlanName): number {
-  if (plan === 'free') return 2;
-  if (plan === 'individual') return 1;
-  if (plan === 'pro') return 1;
-  if (plan === 'team') return Number.POSITIVE_INFINITY;
-  return 2;
+  return ACTIPROC_DEFAULT_SEAT_LIMITS[plan];
+
 }
 
 export function canUseAdvancedReminders(ent: Pick<Entitlements, 'plan' | 'subscriptionStatus' | 'endsAt'>): boolean {

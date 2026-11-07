@@ -34,6 +34,7 @@ import { cn } from '@/lib/utils';
 import { useOrganizationBilling } from '@/hooks/useOrganizationBilling';
 import { isCapacitorNative } from '@/lib/client/is-capacitor-native';
 import { ACTIPROC_PLANS, actiprocPriceUsd, type BillingInterval } from '@/lib/billing-plans';
+import { ACTIPROC_DEFAULT_SEAT_LIMITS, PLAN_MARKETING_FEATURES } from '@/lib/plan-entitlement-matrix';
 import { aiPlanMonthlyDescription, aiPlanDailyDescription } from '@/lib/ai/ai-plan-catalog';
 import { AIUsageBillingCard } from '@/components/billing/AIUsageBillingCard';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -69,11 +70,13 @@ function statusBadgeVariant(status: string): 'default' | 'secondary' | 'destruct
   return 'secondary';
 }
 
+// Billing and marketing use the same plan feature source. Seat notices are
+// additional billing details, NOT separate or exclusive feature promises.
 const PLAN_FEATURES = {
-  free: ['2 seats included', '1 team / workspace', '1 process', 'Knowledge Hub (second brain)'],
-  individual: ['1 seat', '1 workspace', '3 processes', 'Personal notes and Knowledge Hub'],
-  pro: ['Everything in Free', 'Up to 3 teams / workspaces', 'Up to 10 processes', 'Advanced reminders + Google Calendar'],
-  team: ['Everything in Pro', 'Unlimited teams / workspaces', 'Unlimited processes', 'Webhooks'],
+  free: [ACTIPROC_DEFAULT_SEAT_LIMITS.free + ' seats included', ...PLAN_MARKETING_FEATURES.free],
+  individual: [ACTIPROC_DEFAULT_SEAT_LIMITS.individual + ' seat', ...PLAN_MARKETING_FEATURES.individual],
+  pro: ['Purchased seats determine team capacity', ...PLAN_MARKETING_FEATURES.pro],
+  team: ['Purchased seats determine team capacity', ...PLAN_MARKETING_FEATURES.team],
 } as const;
 
 export function BillingClient({ organizationId, showBackLink = true }: Props) {

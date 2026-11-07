@@ -2,13 +2,15 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { ACTIPROC_PLANS } from '@/lib/billing-plans';
 import { AI_PLAN_LIMITS } from '@/lib/ai/ai-plan-catalog';
-import { ACTIPROC_FEATURE_TIERS, PLAN_MARKETING_FEATURES,
+import { ACTIPROC_FEATURE_TIERS, ACTIPROC_DEFAULT_SEAT_LIMITS, PLAN_MARKETING_FEATURES,
   planIncludesFeature, publishedPlanSnapshot } from '@/lib/plan-entitlement-matrix';
 import { computePlanLimits } from '@/lib/plan-limits';
 import { isCreemSubscriptionEligibleForEnvironment } from '@/lib/subscription-access';
 import { canUsePaidFeature } from '@/lib/paid-feature-policy';
 import type { Entitlements } from '@/lib/entitlements';
 const plans=['free','individual','pro','team'] as const;
+assert.equal(ACTIPROC_DEFAULT_SEAT_LIMITS.free,2);
+assert.equal(ACTIPROC_DEFAULT_SEAT_LIMITS.individual,1);
 const ent=(plan:typeof plans[number],status:Entitlements['subscriptionStatus']='active',
   endsAt:string|null=null):Pick<Entitlements,'plan'|'subscriptionStatus'|'endsAt'> =>
  ({plan,subscriptionStatus:status,endsAt});
@@ -58,6 +60,7 @@ assert.equal(isCreemSubscriptionEligibleForEnvironment(
 const read=(path:string)=>readFileSync(path,'utf8');
 const checks: Record<string,boolean>={
  'marketing catalog':read('components/marketing/sections/MarketingPricing.tsx').includes('PLAN_MARKETING_FEATURES.team'),
+ 'billing uses same catalog':read('components/billing/BillingClient.tsx').includes('PLAN_MARKETING_FEATURES.team'),
  'effective API limits':read('app/api/entitlements/capabilities/route.ts').includes('getPlanLimits(ent)'),
  'pure effective limit policy':read('lib/entitlements.ts').includes('return computePlanLimits(ent)'),
  'paid test isolation':read('lib/entitlements.ts').includes('liveProviderMismatch ?'),
