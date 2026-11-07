@@ -1,7 +1,8 @@
 import { organizationDb, teamMemberDb } from '@/lib/db';
-import { isPaidActive, type SubscriptionStatus } from '@/lib/subscription-access';
+import { isPaidActive, isCreemSubscriptionEligibleForEnvironment, type SubscriptionStatus } from '@/lib/subscription-access';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { canUsePaidFeature } from '@/lib/paid-feature-policy';
+import { ACTIPROC_PLANS } from '@/lib/billing-plans';
 
 export { isPaidActive } from '@/lib/subscription-access';
 export type { SubscriptionStatus } from '@/lib/subscription-access';
@@ -50,7 +51,7 @@ function normalizeStatus(status: unknown): SubscriptionStatus {
   if (s === 'expired') return 'expired';
   if (s === 'past_due') return 'past_due';
   if (s === 'trialing') return 'trialing';
-  return 'active';
+  return s === 'active' ? 'active' : 'expired'; // Unknown billing states fail closed.
 }
 
 /** Default seat caps when org row has no stored `seat_limit` (e.g. legacy rows). Paid caps normally come from payment webhooks. */
@@ -80,18 +81,19 @@ export function getPlanLimits(ent: Pick<Entitlements, 'plan' | 'subscriptionStat
     return { maxTeams: Number.POSITIVE_INFINITY, maxProcesses: Number.POSITIVE_INFINITY, canUseWebhooks: canUsePaidFeature(ent, 'webhooks') };
   }
   if (ent.plan === 'pro' && paid) {
-    return { maxTeams: 3, maxProcesses: 10, canUseWebhooks: false };
+    return { maxTeams: ACTIPROC_PLANS.pro.maxTeams, maxProcesses: ACTIPROC_PLANS.pro.maxProcesses, canUseWebhooks: false };
   }
   if (ent.plan === 'individual' && paid) {
-    return { maxTeams: 1, maxProcesses: 3, canUseWebhooks: false };
+    return { maxTeams: ACTIPROC_PLANS.individual.maxTeams, maxProcesses: ACTIPROC_PLANS.individual.maxProcesses, canUseWebhooks: false };
   }
   // Default: Free
-  return { maxTeams: 1, maxProcesses: 1, canUseWebhooks: false };
+  return { maxTeams: ACTIPROC_PLANS.free.maxTeams, maxProcesses: ACTIPROC_PLANS.free.maxProcesses, canUseWebhooks: false };
 }
 
 export async function getOrganizationEntitlements(organizationId: string): Promise<Entitlements> {
   const org: any = await organizationDb.getById(organizationId);
-  let plan = normalizePlan(org?.plan_name);
+  const liveProviderMismatch = !isCreemSubscriptionEligibleForEnvironment(org ?? {});
+  let plan = liveProviderMismatch ? 'free' : normalizePlan(org?.plan_name);
   // Provider may switch plan before completing an immediate charge. Keep the
   // previously paid plan until the new invoice is VERIFIED and lease settled.
   if(process.env.CREEM_PLAN_MUTATIONS_ENABLED==='true' &&
@@ -107,8 +109,9 @@ export async function getOrganizationEntitlements(organizationId: string): Promi
     }
   }
   // Creem payment holds and failed/paused subscriptions never unlock paid access.
-  const subscriptionStatus = org?.billing_provider === 'creem' &&
-    (org?.creem_payment_hold || ['past_due', 'paused'].includes(String(org?.subscription_status)))
+  const subscriptionStatus = liveProviderMismatch ||
+    (org?.billing_provider === 'creem' &&
+      (org?.creem_payment_hold || ['past_due', 'paused'].includes(String(org?.subscription_status))))
       ? 'expired' : normalizeStatus(org?.subscription_status);
   const endsAt = org?.subscription_ends_at ? String(org.subscription_ends_at) : null;
   const paid = isPaidActive(subscriptionStatus, endsAt);

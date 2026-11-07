@@ -4,17 +4,18 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { ArrowUpRight, Check, Info, Sparkles } from 'lucide-react';
 import { ACTIPROC_PLANS, actiprocPriceUsd, type BillingInterval } from '@/lib/billing-plans';
+import { PLAN_MARKETING_FEATURES } from '@/lib/plan-entitlement-matrix';
 import { AI_MAX_FUNDED_SEATS, AI_PLAN_LIMITS, aiPlanDailyDescription, type AIPlanKey } from '@/lib/ai/ai-plan-catalog';
 
 const plans: {id:AIPlanKey;title:string;subtitle:string;features:readonly string[]}[] = [
   {id:'free',title:'Free',subtitle:'Find clarity in your first workflow.',
-    features:['1 process','1 workspace','Actions and checklists','Notes & Knowledge Hub']},
+    features:PLAN_MARKETING_FEATURES.free},
   {id:'individual',title:'Individual',subtitle:'Personal structure with room to grow.',
-    features:['3 processes','1 workspace','Notes & Knowledge Hub','Yearly billing']},
+    features:PLAN_MARKETING_FEATURES.individual},
   {id:'pro',title:'Pro',subtitle:'More space for growing work.',
-    features:['10 processes','Up to 3 workspaces','Advanced reminders','Google Calendar']},
+    features:PLAN_MARKETING_FEATURES.pro},
   {id:'team',title:'Team',subtitle:'For shared execution and scale.',
-    features:['Unlimited processes','Unlimited workspaces','Roles and assignments','Webhooks']},
+    features:PLAN_MARKETING_FEATURES.team},
 ];
 
 export function MarketingPricing() {

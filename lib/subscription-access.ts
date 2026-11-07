@@ -16,3 +16,16 @@ export function isPaidActive(status: SubscriptionStatus, endsAt?: string | null)
   // Paused, past-due and expired subscriptions must not grant premium access.
   return false;
 }
+
+
+/** Sandbox Creem subscriptions and unknown modes never unlock paid Production features.
+ * Manually granted developer plans without provider subscriptions remain unchanged.
+ */
+export function isCreemSubscriptionEligibleForEnvironment(
+  org: { billing_provider?: string | null; creem_subscription_id?: string | null; creem_test_mode?: boolean | null },
+  env: Pick<NodeJS.ProcessEnv, 'VERCEL_ENV'> = process.env,
+): boolean {
+  if (env.VERCEL_ENV !== 'production') return true;
+  if (org.billing_provider !== 'creem' || !org.creem_subscription_id) return true;
+  return org.creem_test_mode === false;
+}
