@@ -197,6 +197,29 @@ export async function POST(request:NextRequest) {
           };
           if(directReadToolCalls.length) {
             readToolExecutions=await runReadToolCalls(directReadToolCalls);
+            // A missing/inaccessible Process is NOT the same as a Process with
+            // zero Actions. Do not ask the model to infer "0 records" from an
+            // error-shaped tool result, and do not bill a model generation.
+            const failedRead=readToolExecutions.find((execution)=>{
+              const data=execution.data as { error?:string }|null;
+              return data&&typeof data.error==='string';
+            });
+            if(failedRead) {
+              const failure=failedRead.data as { error:string;message?:string };
+              answer=failure.error==='not_found'
+                ? 'Belirttiğiniz Process bulunamadı veya bu Process için erişim izniniz yok. Lütfen Process adını kontrol edin ya da Board üzerinden ilgili Process’i seçerek tekrar deneyin.'
+                :failure.error==='forbidden'
+                  ? 'Bu Process veya ekibin verilerine erişim izniniz yok.'
+                  : 'Actiproc iş verileri şu anda doğrulanamadı. Kayıt sayısını tahmin etmek yerine lütfen biraz sonra tekrar deneyin.';
+              if(quotaReserved) {
+                await releaseAIQuotaReservation(input.clientRequestId,scope.userId,scope.organizationId);
+                quotaReserved=false;
+              }
+              send({type:'delta',text:answer});assistantStatus='completed';
+              await finalizeAssistantMessage({messageId:turn.assistantMessageId,scope,content:answer,
+                status:'completed',model:'actiproc-read-scope-guard'});
+              send({type:'done',finishReason:'completed'});return;
+            }
             citations=readToolExecutions.flatMap((execution)=>execution.citations);
             readToolReferences=readToolExecutions.flatMap((execution)=>execution.references)
               .filter((reference,index,all)=>all.findIndex((candidate)=>candidate.type===reference.type&&candidate.id===reference.id)===index).slice(0,20);
