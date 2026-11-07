@@ -43,6 +43,15 @@ GitHub CI tests and in-memory Creem GET simulations are **not** equivalent to pa
 | A21 | Resubscribe after final cancellation | Only a new verified paid checkout activates; no duplicate subscription linkage |
 | A22 | Test Mode / Live Mode and native Android | Cannot initiate test charge on live store or native Play-distributed app |
 | A23 | Concurrent first checkout from two tabs | Review and document provider behavior; **current legacy flow needs explicit E2E validation** |
+| A24 | Pro Yearly checkout at $40 × seats | Creem returns `every-year`; exact yearly Product ID and seat quantity are stored and verified |
+| A25 | Team Yearly checkout at $60 × seats | Team features activate only after signed paid webhook and matching yearly checkout intent |
+| A26 | Individual Yearly → Pro Yearly | Only annual target product allowed; signed review, invoice validation and current seats preserved |
+| A27 | Pro Yearly → Team Yearly | Current yearly period stays yearly; plan-specific entitlements only after verified payment |
+| A28 | Attempt Pro/Team monthly↔yearly conversion during active subscription | Rejected without initiating any charge or provider mutation; requires separate provider-tested workflow |
+| A29 | Spoof checkout.completed with correct plan but wrong billing-period Product ID | Webhook refuses the mismatched product; no entitlement granted |
+| A30 | Missing annual checkout intent migration | Checkout fails BEFORE hosted payment creation; no plan activation |
+| A31 | Annual subscriber requests seat mutation preview | Annual list price is shown, unknown prorated amount disclosed; actual provider result validated separately |
+| A32 | Missing annual Creem Live Product ID, wrong tax mode, wrong price or Test Product ID | Checkout fails closed and does not create a payment session |
 
 ## What the automated suite actually covers
 - Signed approval expiration/tamper/mutation binding.

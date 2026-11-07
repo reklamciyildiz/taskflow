@@ -73,7 +73,7 @@ for(const [plan,price] of Object.entries(ACTIPROC_PLANS)) {
   assert.ok(AI_PLAN_LIMITS[plan as keyof typeof AI_PLAN_LIMITS].monthlyBase>0);
   checks+=3;
 }
-assert.match(pricing,/ACTIPROC_PLANS\[p.id\].priceUsd/);
+assert.match(pricing,/actiprocPriceUsd\(p.id,billingInterval\)/);
 assert.match(pricing,/AI_PLAN_LIMITS\[p.id\].monthlyBase/);
 assert.match(pricing,/No automatic overage charges/);
 assert.match(pricing,/service availability/);

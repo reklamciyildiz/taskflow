@@ -12,6 +12,7 @@ export type BillingConsentPayload = {
   fromSeats: number;
   toSeats: number;
   mode: 'test' | 'prod';
+  billingInterval?: 'monthly' | 'yearly';
   lastTransactionId: string | null;
   updatedAt: string | null;
   periodEndAt: string | null;
@@ -53,7 +54,7 @@ export function verifyBillingConsent(
   const keys: (keyof BillingConsentState)[] = [
     'operation', 'organizationId', 'subscriptionId', 'fromPlan', 'toPlan',
     'fromSeats', 'toSeats', 'mode', 'lastTransactionId', 'updatedAt',
-    'periodEndAt', 'nextChargeAt',
+    'periodEndAt', 'nextChargeAt', 'billingInterval',
   ];
   return keys.every(key => payload[key] === expected[key]);
 }

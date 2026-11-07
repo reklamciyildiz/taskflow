@@ -1,8 +1,8 @@
-import type { PaidActiprocPlan } from '@/lib/billing-plans';
+import type { BillingInterval, PaidActiprocPlan } from '@/lib/billing-plans';
 export type CreemMode = 'test' | 'live';
 /** Creem API responses use prod, not live, for production mode. */
 export function creemResponseMode(config: Pick<CreemConfig, 'mode'>): 'test' | 'prod' { return config.mode === 'live' ? 'prod' : 'test'; }
-export type CreemConfig = { apiKey: string; secret: string; mode: CreemMode; products: Record<PaidActiprocPlan,string>; baseUrl: string };
+export type CreemConfig = { apiKey: string; secret: string; mode: CreemMode; products: Record<PaidActiprocPlan,string>; yearlyProducts: Partial<Record<'pro'|'team',string>>; baseUrl: string };
 /** Checkout always starts closed; test checkout on primary DB requires explicit local opt-in. */
 export function creemCheckoutEnvironmentSafe(env: NodeJS.ProcessEnv = process.env): boolean {
   if (env.CREEM_CHECKOUT_ENABLED !== 'true') return false;
@@ -46,8 +46,12 @@ export function getCreemConfig(env: NodeJS.ProcessEnv = process.env): CreemConfi
     pro: required('CREEM_PRODUCT_PRO'),
     team: required('CREEM_PRODUCT_TEAM'),
   };
-  if (Object.values(products).some(p => !/^prod_[A-Za-z0-9]+$/.test(p)) || new Set(Object.values(products)).size !== 3)
-    throw new Error('Creem product IDs must be three distinct prod_* identifiers');
+  const yearlyProducts: CreemConfig['yearlyProducts'] = {};
+  if (env.CREEM_PRODUCT_PRO_YEARLY?.trim()) yearlyProducts.pro = env.CREEM_PRODUCT_PRO_YEARLY.trim();
+  if (env.CREEM_PRODUCT_TEAM_YEARLY?.trim()) yearlyProducts.team = env.CREEM_PRODUCT_TEAM_YEARLY.trim();
+  const ids = [...Object.values(products), ...Object.values(yearlyProducts)];
+  if (ids.some(p => !/^prod_[A-Za-z0-9]+$/.test(p)) || new Set(ids).size !== ids.length)
+    throw new Error('Creem product IDs must be distinct prod_* identifiers');
   const apiKey=required('CREEM_API_KEY');
   const secret=required('CREEM_WEBHOOK_SECRET');
   // Creem test API keys are not authorized to operate in the production
@@ -58,7 +62,7 @@ export function getCreemConfig(env: NodeJS.ProcessEnv = process.env): CreemConfi
     throw new Error('Creem live API key cannot be used in test mode');
   return {
     apiKey, secret,
-    mode, products, baseUrl: mode === 'live' ? 'https://api.creem.io' : 'https://test-api.creem.io',
+    mode, products, yearlyProducts, baseUrl: mode === 'live' ? 'https://api.creem.io' : 'https://test-api.creem.io',
   };
 }
 /** Prevent a real checkout from sending customers back to localhost, an
@@ -74,9 +78,24 @@ export function assertCreemLiveReturnOrigin(appUrl: string): void {
     throw new Error('Live checkout requires an approved Actiproc HTTPS return origin');
 }
 
-export function creemProductForPlan(plan: PaidActiprocPlan, config: CreemConfig): string { return config.products[plan]; }
+export function creemProductForPlan(
+  plan: PaidActiprocPlan, config: CreemConfig, interval: BillingInterval = 'monthly'
+): string {
+  if (plan === 'individual' || interval === 'monthly') return config.products[plan];
+  const annual = config.yearlyProducts[plan];
+  if (!annual) throw new Error('Creem annual product is not configured for ' + plan);
+  return annual;
+}
 export function creemPlanForProduct(productId: string, config: CreemConfig): PaidActiprocPlan | null {
-  return (Object.entries(config.products).find(([, id]) => id === productId)?.[0] ?? null) as PaidActiprocPlan | null;
+  const match = Object.entries(config.products).find(([, id]) => id === productId)?.[0]
+    ?? Object.entries(config.yearlyProducts).find(([, id]) => id === productId)?.[0];
+  return (match ?? null) as PaidActiprocPlan | null;
+}
+export function creemIntervalForProduct(productId: string, config: CreemConfig): BillingInterval | null {
+  if (Object.values(config.yearlyProducts).includes(productId) ||
+      config.products.individual === productId) return 'yearly';
+  if (config.products.pro === productId || config.products.team === productId) return 'monthly';
+  return null;
 }
 export class CreemApiError extends Error {
   constructor(public readonly status:number, public readonly operation:string,

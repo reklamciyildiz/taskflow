@@ -4,9 +4,9 @@
  * webhooks. Run only in a trusted server environment with LIVE credentials.
  * This command never prints credentials or customer information.
  */
-import { ACTIPROC_PLANS, CREEM_EXPECTED_TAX_MODE } from '../lib/billing-plans';
+import { CREEM_EXPECTED_TAX_MODE, actiprocPriceUsd, creemPeriodForInterval } from '../lib/billing-plans';
 import {
-  assertCreemLiveReturnOrigin, creemApi, getCreemConfig, creemResponseMode,
+  assertCreemLiveReturnOrigin, creemApi, creemProductForPlan, getCreemConfig, creemResponseMode,
 } from '../lib/creem-config';
 
 async function main() {
@@ -21,28 +21,33 @@ async function main() {
     throw new Error('A test API key cannot validate live products');
 
   let failed = false;
-  for (const plan of ['individual','pro','team'] as const) {
-    const productId = config.products[plan];
-    const expected = ACTIPROC_PLANS[plan];
+  for (const {plan,interval} of [
+    {plan:'individual',interval:'yearly'},
+    {plan:'pro',interval:'monthly'},
+    {plan:'pro',interval:'yearly'},
+    {plan:'team',interval:'monthly'},
+    {plan:'team',interval:'yearly'},
+  ] as const) {
+    const productId = creemProductForPlan(plan,config,interval);
     const product = await creemApi<any>(config,'GET',
       'products?product_id=' + encodeURIComponent(productId));
     const actualPrice = product?.price;
-    const interval = plan === 'individual' ? 'every-year' : 'every-month';
+    const expectedPeriod = creemPeriodForInterval(interval);
     const checks: Record<string,boolean> = {
       id:product?.id === productId,
       environment:product?.mode === 'prod',
       active:product?.status === 'active',
       currency:product?.currency === 'USD',
-      price:actualPrice === expected.priceUsd * 100,
-      billing:product?.billing_type === 'recurring' && product?.billing_period === interval,
+      price:actualPrice === actiprocPriceUsd(plan,interval) * 100,
+      billing:product?.billing_type === 'recurring' && product?.billing_period === expectedPeriod,
       tax:product?.tax_mode === CREEM_EXPECTED_TAX_MODE && product?.tax_category === 'saas',
     };
-    const safeReport = {plan,checks,passed:Object.values(checks).every(Boolean)};
+    const safeReport = {plan,interval,checks,passed:Object.values(checks).every(Boolean)};
     console.log(JSON.stringify(safeReport));
     if (!safeReport.passed) failed = true;
   }
   if (failed) throw new Error('Live product verification failed. Keep checkout disabled.');
-  console.log('PASS: three live products match approved Actiproc pricing. No payments initiated.');
+  console.log('PASS: five live products match approved Actiproc pricing. No payments initiated.');
   console.log('Webhook delivery, live KYC and Production database validation must still be verified separately.');
 }
 

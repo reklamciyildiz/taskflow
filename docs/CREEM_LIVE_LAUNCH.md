@@ -13,9 +13,11 @@ Before launch, confirm in the **Creem Live dashboard**:
 
 - Merchant KYC, payouts, bank/tax setup and live payment acceptance are
   approved. Published legal, privacy and refund pages are accurate.
-- Three separate ACTIVE **live** recurring USD SaaS products:
-  Individual **$12/year (one seat)**, Pro **$4/month/seat** and
-  Team **$6/month/seat**. Their tax_mode is `inclusive`.
+- Five separate ACTIVE **live** recurring USD SaaS products:
+  Individual **$12/year (one seat)**, Pro Monthly **$4/month/seat**,
+  Pro Yearly **$40/year/seat**, Team Monthly **$6/month/seat**
+  and Team Yearly **$60/year/seat**. All must use tax_mode `inclusive`
+  and tax_category `saas`. The annual products are recurring, not one-time.
 - Live IDs and API credentials are independent of Test Mode.
 - The merchant of record shown at checkout is correct.
 - Renewals, cancellation, refunds and the exact amount for prorated
@@ -32,6 +34,13 @@ SQL Editor**. It checks the presence of tables and privileged functions,
 counts legacy subscriptions, test-mode Creem subscriptions, payment holds,
 unfulfilled checkouts, pending paid changes and failed webhook events.
 
+Apply the reviewed additive migration
+`supabase/migrations/20261107173000_creem_annual_product_intents.sql`
+to the intended target database BEFORE opening checkout. It adds
+`product_id` and `billing_interval` to `creem_checkout_intents`,
+preserving existing rows and denying mismatched annual/monthly webhook
+settlement. Run the read-only production SQL check again afterwards.
+
 Never flip `creem_test_mode` by hand. Local Test Mode experiments may
 have written to the primary database. A test subscription does NOT prove
 real payment. Use a fresh organization for real checkout testing.
@@ -45,8 +54,10 @@ Historical tables and migration files must NOT be deleted.
 | `CREEM_API_KEY` | Actual Live secret |
 | `CREEM_WEBHOOK_SECRET` | Matching **Live** webhook signing secret |
 | `CREEM_PRODUCT_INDIVIDUAL` | Live Individual Product ID |
-| `CREEM_PRODUCT_PRO` | Live Pro Product ID |
-| `CREEM_PRODUCT_TEAM` | Live Team Product ID |
+| `CREEM_PRODUCT_PRO` | Live Pro Monthly Product ID |
+| `CREEM_PRODUCT_PRO_YEARLY` | Live Pro Yearly Product ID |
+| `CREEM_PRODUCT_TEAM` | Live Team Monthly Product ID |
+| `CREEM_PRODUCT_TEAM_YEARLY` | Live Team Yearly Product ID |
 | `NEXT_PUBLIC_APP_URL` | `https://www.actiproc.com` |
 | `NEXTAUTH_URL` | `https://www.actiproc.com` |
 | `CREEM_CHECKOUT_ENABLED` | **false until formal go-live** |
@@ -94,7 +105,7 @@ authorized subscription reconciliation.
 ## 5. Go/no-go sequence
 
 1. Confirm CI passes for the exact Git commit being deployed.
-2. Verify merchant activation, three Live products, price/tax settings,
+2. Verify merchant activation, five Live products, price/tax settings,
    Supabase production preflight and Vercel secret scope.
 3. Verify the **Live webhook URL and secret**, including signed test
    delivery. Do not conflate Test Mode and Live Mode.
@@ -120,3 +131,29 @@ pending paid operations are unexplained.
 
 This checklist does NOT claim KYC approval, live charges, Vercel setup,
 real webhook verification or production deployment were completed.
+
+
+## Annual plan release safeguards
+
+- Code offers monthly/yearly Pro and Team; purchases use distinct product IDs
+  with Creem recurrence and tax validation immediately before any checkout.
+- Checkout first records the exact product ID and billing interval in the
+  restricted Supabase intent ledger. If the new migration is absent, checkout
+  returns 503 BEFORE opening a hosted Creem payment page.
+- A successful webhook must match the exact authorized checkout intent's
+  product, not merely its plan ("pro"/"team"). Older test intents are scoped
+  only to their original legacy monthly product (Individual yearly).
+- Existing subscriptions keep their provider-verified cadence. A plan upgrade
+  from Individual yearly must select Pro yearly, and from Pro yearly to
+  Team yearly. Monthly-to-yearly cadence switches are NOT performed by this
+  integration; use merchant support/portal until separately tested.
+- Seat mutation reviews show annual totals for annual subscribers, never
+  falsely identify their future rate as monthly. Final same-card proration
+  is still calculated by Creem and unknown ahead of confirmation.
+- **DO NOT** enable CREEM_CHECKOUT_ENABLED until Production has the schema,
+  all five Product IDs, a read-only five-product verification pass, merchant
+  approval and an authenticated signed webhook delivery. Keep
+  CREEM_SEAT_MUTATIONS_ENABLED, CREEM_PLAN_MUTATIONS_ENABLED and
+  CREEM_RESUBSCRIPTION_ENABLED false until separate provider acceptance.
+- No existing customer is migrated from monthly to annual automatically;
+  no subscription, payment or database record is mutated by deploying code.

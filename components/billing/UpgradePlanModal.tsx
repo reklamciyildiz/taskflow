@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { ArrowRight, Check, CircleAlert, CreditCard, Info, ShieldCheck, Sparkles, X } from 'lucide-react';
 import { AI_PLAN_LIMITS, aiPlanDailyDescription } from '@/lib/ai/ai-plan-catalog';
-import { ACTIPROC_PLANS } from '@/lib/billing-plans';
+import { actiprocPriceUsd, type BillingInterval } from '@/lib/billing-plans';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -35,7 +35,7 @@ const reasonCopy: Record<UpgradeReason, { title: string; description: string }> 
     description: 'Your organization has reached its seat allowance. Review the available plans or manage seats in Billing.' },
 };
 
-async function startUpgrade(plan: UpgradePlan): Promise<void> {
+async function startUpgrade(plan: UpgradePlan, interval: BillingInterval): Promise<void> {
   const response = await fetch('/api/billing/summary', { cache: 'no-store' });
   const summary = await response.json().catch(() => null);
   if (!response.ok || !summary?.success)
@@ -49,14 +49,14 @@ async function startUpgrade(plan: UpgradePlan): Promise<void> {
   if (existingSubscription || current !== 'free') {
     // An existing subscription MUST pass the dedicated preview + signed
     // confirmation flow. Never POST to switch-plan from an upgrade popover.
-    window.location.assign('/settings/billing?plan=' + encodeURIComponent(plan));
+    window.location.assign('/settings/billing?plan=' + encodeURIComponent(plan)+'&interval='+encodeURIComponent(interval));
     return;
   }
 
   const checkout = await fetch('/api/billing/checkout', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ plan, billingInterval: plan === 'individual' ? 'yearly' : 'monthly' }),
+    body: JSON.stringify({ plan, billingInterval: plan === 'individual' ? 'yearly' : interval }),
   });
   const result = await checkout.json().catch(() => null);
   if (!checkout.ok || !result?.success) {
@@ -81,6 +81,7 @@ export function UpgradePlanModal(props: {
   const { open, onClose, title, description, recommendedPlan, reason } = props;
   const [busy, setBusy] = useState<UpgradePlan | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [billingInterval,setBillingInterval] = useState<BillingInterval>('monthly');
   const isNativeApp = typeof window !== 'undefined' && isCapacitorNative();
   const plans = useMemo<UpgradePlan[]>(() => {
     if (recommendedPlan === 'team' || reason === 'webhooks' || reason === 'teams') return ['team'];
@@ -95,7 +96,7 @@ export function UpgradePlanModal(props: {
     if (busy) return;
     setError(null);
     setBusy(plan);
-    try { await startUpgrade(plan); }
+    try { await startUpgrade(plan,billingInterval); }
     catch (cause) { setError(cause instanceof Error ? cause.message : 'Unable to start billing.'); }
     finally { setBusy(null); }
   };
@@ -139,11 +140,19 @@ export function UpgradePlanModal(props: {
                 Not now
               </Button>}
             </div>
+            <div role="group" aria-label="Choose a billing period" className="mb-4 inline-flex gap-1 rounded-xl border border-white/15 bg-white/5 p-1">
+              {(['monthly','yearly'] as const).map(period=>
+                <button key={period} type="button" aria-pressed={billingInterval===period}
+                  disabled={busy!==null} onClick={()=>setBillingInterval(period)}
+                  className={cn('rounded-lg px-3.5 py-2 text-[11px] font-semibold transition',
+                    billingInterval===period?'bg-[#c8ff93] text-[#122519]':'text-slate-300 hover:bg-white/10')}
+                >{period==='yearly'?'Yearly · save 16.7%':'Monthly'}</button>)}
+            </div>
             <div className={cn('grid min-w-0 gap-3.5', onePlan ? 'grid-cols-1' : plans.length === 2 ? 'sm:grid-cols-2' : 'sm:grid-cols-2 lg:grid-cols-3')}>
               {plans.map((plan) => {
                 const featured = recommendedPlan === plan || (onePlan && plan === 'team');
-                const annual = plan === 'individual';
-                const price = ACTIPROC_PLANS[plan].priceUsd;
+                const annual = plan === 'individual' || billingInterval==='yearly';
+                const price = actiprocPriceUsd(plan,annual?'yearly':'monthly');
                 return (
                   <section key={plan} aria-label={plan + ' plan'} className={cn(
                     'relative flex min-w-0 flex-col rounded-[20px] border bg-white/[0.045] p-[19px] shadow-[0_20px_46px_-33px_rgba(0,0,0,0.7)]',
@@ -156,7 +165,7 @@ export function UpgradePlanModal(props: {
                     <p className="mt-1 text-[11px] text-slate-400">{DESCRIPTIONS[plan]}</p>
                     <div className="mt-5 flex flex-wrap items-baseline gap-1">
                       <strong className="text-[38px] font-semibold leading-none tracking-[-0.055em] text-white">${price}</strong>
-                      <span className="text-[11px] text-slate-400">{annual ? '/year' : '/seat/month'}</span>
+                      <span className="text-[11px] text-slate-400">{plan==='individual'?'/year':annual?'/seat/year':'/seat/month'}</span>
                     </div>
                     <div className="mt-4 rounded-[13px] border border-emerald-400/15 bg-emerald-400/[0.07] px-3.5 py-3">
                       <div className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-emerald-300">

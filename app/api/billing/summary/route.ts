@@ -3,7 +3,7 @@ import { requireOrgAdmin } from '@/lib/server-authz';
 import { getOrganizationEntitlements, getOrganizationSeatUsage } from '@/lib/entitlements';
 import { organizationDb } from '@/lib/db';
 import { supabaseAdmin } from '@/lib/supabase-admin';
-import { creemApi, getCreemConfig, creemResponseMode } from '@/lib/creem-config';
+import { creemApi, creemIntervalForProduct, getCreemConfig, creemResponseMode } from '@/lib/creem-config';
 import { readCreemBillingCycle, type CreemBillingCycle } from '@/lib/creem-billing-cycle';
 
 export async function GET(request: NextRequest) {
@@ -25,6 +25,7 @@ export async function GET(request: NextRequest) {
     // Live read: billing dates never come from an assumed 30-day interval or
     // cached organization period_end. Do not present dates if verification fails.
     let billingCycle: CreemBillingCycle | null=null;
+    let billingInterval: 'monthly'|'yearly'|null=null;
     if (org?.billing_provider==='creem' && org?.creem_subscription_id && org?.creem_customer_id) {
       try {
         const config=getCreemConfig();
@@ -36,8 +37,10 @@ export async function GET(request: NextRequest) {
           const customerId=typeof sub?.customer==='string'?sub.customer:sub?.customer?.id;
           const productId=typeof sub?.product==='string'?sub.product:sub?.product?.id;
           if (id===org.creem_subscription_id && customerId===org.creem_customer_id &&
-              productId===org.creem_product_id && sub?.mode===creemResponseMode(config))
+              productId===org.creem_product_id && sub?.mode===creemResponseMode(config)) {
             billingCycle=readCreemBillingCycle(remote);
+            billingInterval=creemIntervalForProduct(productId,config);
+          }
         }
       } catch(e) {
         console.warn('[creem] renewal calendar unavailable', e instanceof Error ? e.name : 'unknown');
@@ -76,6 +79,7 @@ export async function GET(request: NextRequest) {
         seatChange,
         planChange,
         billingCycle,
+        billingInterval,
       },
     });
   } catch (e: any) {

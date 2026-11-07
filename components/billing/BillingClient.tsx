@@ -33,7 +33,7 @@ import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { useOrganizationBilling } from '@/hooks/useOrganizationBilling';
 import { isCapacitorNative } from '@/lib/client/is-capacitor-native';
-import { ACTIPROC_PLANS } from '@/lib/billing-plans';
+import { ACTIPROC_PLANS, actiprocPriceUsd, type BillingInterval } from '@/lib/billing-plans';
 import { aiPlanMonthlyDescription, aiPlanDailyDescription } from '@/lib/ai/ai-plan-catalog';
 import { AIUsageBillingCard } from '@/components/billing/AIUsageBillingCard';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -49,8 +49,8 @@ function utcBillingDate(input:string|null):string {
   }).format(new Date(input))+' UTC';
 }
 type BillingReview =
- | (CyclePreview & {kind:'seats';token:string;previousSeats:number;desiredSeats:number;direction:'increase'|'decrease';nextMonthlyUsd:number})
- | (CyclePreview & {kind:'plan';token:string;fromPlan:string;toPlan:'pro'|'team';seats:number;nextMonthlyUsd:number});
+ | (CyclePreview & {kind:'seats';token:string;previousSeats:number;desiredSeats:number;direction:'increase'|'decrease';billingInterval:BillingInterval;nextPriceUsd:number})
+ | (CyclePreview & {kind:'plan';token:string;fromPlan:string;toPlan:'pro'|'team';seats:number;billingInterval:BillingInterval;nextPriceUsd:number});
 
 
 type Props = {
@@ -81,6 +81,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
   const {
     billingPlan,
     billingStatus,
+    billingInterval,
     billingLoading,
     billingCycle,
     checkoutBusy,
@@ -110,6 +111,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
   const checkoutSuccess = searchParams.get('checkout') === 'success';
 
   const [selectedPlan, setSelectedPlan] = useState<'individual' | 'pro' | 'team' | null>(null);
+  const [selectedBillingInterval,setSelectedBillingInterval] = useState<BillingInterval>('monthly');
   const [acceptNewCharge, setAcceptNewCharge] = useState(false);
   const [addSeatsOpen, setAddSeatsOpen] = useState(false);
   const [seatReductionAcknowledged, setSeatReductionAcknowledged] = useState(false);
@@ -126,9 +128,15 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
   useEffect(() => {
     if (!requestedPlan) return;
     setSelectedPlan(requestedPlan);
+    if(searchParams.get('interval')==='yearly')setSelectedBillingInterval('yearly');
     const el = requestedPlan === 'pro' ? proRef.current : teamRef.current;
     el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, [requestedPlan]);
+
+  useEffect(() => {
+    // Existing subscriptions are locked to their verified payment period.
+    if(subscriptionId && billingInterval) setSelectedBillingInterval(billingInterval);
+  },[subscriptionId,billingInterval]);
 
   // After checkout return, reconcile after verified Creem webhook delivery.
   useEffect(() => {
@@ -154,7 +162,8 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
     try {
       const p=await previewSeatChange(target);
       setBillingReview({kind:'seats',token:p.consentToken,previousSeats:p.previousSeats,
-        desiredSeats:p.desiredSeats,direction:p.direction,nextMonthlyUsd:p.nextMonthlyUsd,
+        desiredSeats:p.desiredSeats,direction:p.direction,
+        billingInterval:p.billingInterval,nextPriceUsd:p.nextPriceUsd,
         currentNextChargeAt:p.currentNextChargeAt,currentPeriodEndAt:p.currentPeriodEndAt,
         billingCyclePolicy:p.billingCyclePolicy});
       setReviewAcknowledged(false);setReviewError(null);
@@ -168,7 +177,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
     try {
       const p=await previewPlanUpgrade(plan);
       setBillingReview({kind:'plan',token:p.consentToken,fromPlan:p.fromPlan,
-        toPlan:plan,seats:p.seats,nextMonthlyUsd:p.nextMonthlyUsd,
+        toPlan:plan,seats:p.seats,billingInterval:p.billingInterval,nextPriceUsd:p.nextPriceUsd,
         currentNextChargeAt:p.currentNextChargeAt,currentPeriodEndAt:p.currentPeriodEndAt,
         billingCyclePolicy:p.billingCyclePolicy});
       setReviewAcknowledged(false);setReviewError(null);
@@ -184,7 +193,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
         await updateSeats(billingReview.desiredSeats,billingReview.token);
         setAddSeatsOpen(false);
       } else {
-        await switchPlan(billingReview.toPlan,{billingInterval:'monthly',consentToken:billingReview.token});
+        await switchPlan(billingReview.toPlan,{billingInterval:billingReview.billingInterval,consentToken:billingReview.token});
       }
       setBillingReview(null);setReviewAcknowledged(false);
     } catch(e) {
@@ -198,10 +207,11 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
     (billingPlan === 'team' || billingPlan === 'pro') && Boolean(subscriptionId);
   const seatPct =
     showSeatMeter && seatLimit > 0 ? Math.min(100, Math.round((seatsUsed / seatLimit) * 100)) : 0;
+  const effectiveInterval=hasPaidSubscription ? billingInterval : selectedBillingInterval;
   const verifiedPlanRate = seatChange || planChange ? 'Change pending'
-    : billingPlan === 'individual' && hasPaidSubscription ? '$12 / year'
-    : (billingPlan === 'pro' || billingPlan === 'team') && hasPaidSubscription && Number.isFinite(seatLimit)
-      ? '$' + (seatLimit * (billingPlan === 'pro' ? 4 : 6)).toFixed(2) + ' / mo'
+    : hasPaidSubscription && billingInterval && Number.isFinite(seatLimit)
+      ? '$' + (seatLimit * actiprocPriceUsd(billingPlan as 'individual'|'pro'|'team',billingInterval)).toFixed(2)
+        + (billingInterval==='yearly'?' / year':' / month')
       : billingPlan === 'free' ? '$0 / mo' : 'See Creem portal';
   const verifiedNextCharge = billingStatus === 'cancelled'
     ? 'Renewal off'
@@ -270,11 +280,11 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
               <div className="border-t border-border/70 bg-muted/25 px-4 py-4 sm:px-5">
                 <div className="flex flex-wrap items-end justify-between gap-x-3 gap-y-2">
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground">New monthly list price</p>
-                    <p className="mt-1 text-[11px] text-muted-foreground">Future monthly rate · not today&apos;s charge</p>
+                    <p className="text-xs font-medium text-muted-foreground">New {billingReview.billingInterval==='yearly'?'annual':'monthly'} list price</p>
+                    <p className="mt-1 text-[11px] text-muted-foreground">Future {billingReview.billingInterval==='yearly'?'annual':'monthly'} rate · not today&apos;s charge</p>
                   </div>
                   <div className="text-right text-2xl font-semibold tracking-tight tabular-nums">
-                    ${billingReview.nextMonthlyUsd.toFixed(2)}<span className="ml-1 text-xs font-medium text-muted-foreground">/ month</span>
+                    ${billingReview.nextPriceUsd.toFixed(2)}<span className="ml-1 text-xs font-medium text-muted-foreground">/ {billingReview.billingInterval==='yearly'?'year':'month'}</span>
                   </div>
                 </div>
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border/70 pt-3 text-xs">
@@ -297,7 +307,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                   <CreditCard className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
                   <div className="space-y-1.5 text-xs leading-relaxed">
                     <p className="font-semibold text-foreground">Today&apos;s charge is prorated</p>
-                    <p className="text-muted-foreground">Creem calculates the immediate charge using your subscription&apos;s remaining prepaid time and the new price. It may be lower than the full monthly difference, but the amount is not guaranteed.</p>
+                    <p className="text-muted-foreground">Creem calculates the immediate charge using your subscription&apos;s remaining prepaid time and the new price. It may differ from the full billing-period price difference, and the amount is not guaranteed.</p>
                     <p className="font-medium text-foreground">The exact charge is set by Creem and is not available before confirmation in this integration.</p>
                   </div>
                 </div>
@@ -315,7 +325,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                 checked={reviewAcknowledged} disabled={reviewBusy||Boolean(reviewError)} onChange={e=>setReviewAcknowledged(e.target.checked)} />
               <span className="text-foreground/90">{billingReview.kind==='seats'&&billingReview.direction==='decrease'
                 ? 'I approve reducing my seats, understand the effective date may vary, and do not expect an automatic refund.'
-                : 'I authorize the Creem-calculated immediate charge to my saved card, understand it may be prorated, and accept the new monthly rate and billing-cycle reset.'}</span>
+                : 'I authorize the Creem-calculated immediate charge to my saved card, understand it may be prorated, and accept the new recurring rate and billing-cycle reset.'}</span>
             </label>
             {reviewError?<div role="alert" className="flex gap-2.5 rounded-xl border border-destructive/25 bg-destructive/10 p-3 text-xs text-destructive"><AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />{reviewError}</div>:null}
             <div className="flex flex-col-reverse gap-2 border-t border-border/70 pt-4 sm:flex-row sm:justify-end">
@@ -473,9 +483,9 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                 disabled={busy || !canUpgrade || (canResubscribe && !acceptNewCharge) ||
                   (!canResubscribe && (selectedPlan === billingPlan || (billingPlan !== 'free' && ['individual','pro','team'].indexOf(selectedPlan) <= ['individual','pro','team'].indexOf(billingPlan))))}
                 onClick={() => canResubscribe
-                  ? void openCheckout(selectedPlan, { billingInterval: selectedPlan === 'individual' ? 'yearly' : 'monthly', resubscribe: true, acceptNewCharge })
+                  ? void openCheckout(selectedPlan, { billingInterval: selectedPlan === 'individual' ? 'yearly' : selectedBillingInterval, resubscribe: true, acceptNewCharge })
                   : billingPlan === 'free'
-                    ? void openCheckout(selectedPlan, { billingInterval: selectedPlan === 'individual' ? 'yearly' : 'monthly' })
+                    ? void openCheckout(selectedPlan, { billingInterval: selectedPlan === 'individual' ? 'yearly' : selectedBillingInterval })
                     : void requestPlanReview(selectedPlan)}
               >
                 Continue to checkout
@@ -673,8 +683,9 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
           ) : null}
 
           {addSeatsOpen && Number.isFinite(seatLimit) ? (() => {
-            const pricePerSeat = (billingPlan === 'team' ? 6 : 4);
-            const monthlyTotal = desiredSeats * pricePerSeat;
+            const period=effectiveInterval??'monthly';
+            const pricePerSeat=actiprocPriceUsd(billingPlan as 'pro'|'team',period);
+            const periodTotal=desiredSeats*pricePerSeat;
             const isIncrease = desiredSeats > seatLimit;
             const isDecrease = desiredSeats < seatLimit;
             const isValid = Number.isSafeInteger(desiredSeats) && desiredSeats !== seatLimit && desiredSeats >= seatsUsed && desiredSeats >= 1 && desiredSeats <= 500 && (!isDecrease || seatReductionAcknowledged);
@@ -718,7 +729,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                 </div>
                 <div className="space-y-2 rounded-xl border border-border/70 bg-background/75 px-4 py-3 text-xs text-muted-foreground">
                   <p>
-                    New monthly list price: <span className="font-semibold text-foreground">{desiredSeats} seats × ${pricePerSeat} = ${monthlyTotal}/mo</span>
+                    New {period==='yearly'?'annual':'monthly'} list price: <span className="font-semibold text-foreground">{desiredSeats} seats × ${pricePerSeat} = ${periodTotal}/{period==='yearly'?'year':'month'}</span>
                   </p>
                   {isIncrease ? (
                     <p>Creem calculates today&apos;s prorated payment using remaining prepaid time and the new price. The exact charge is not available before confirmation, and the immediate charge resets the billing cycle.</p>
@@ -818,8 +829,19 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
       {/* Plan matrix */}
       <div id="billing-plans" className="scroll-mt-20">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div><p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">Flexible plans</p><h2 className="mt-1 text-xl font-semibold tracking-tight sm:text-2xl">Choose how your team grows</h2><p className="mt-1 text-sm text-muted-foreground">Individual is annual; Pro and Team are monthly per seat.</p></div>
+          <div><p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">Flexible plans</p><h2 className="mt-1 text-xl font-semibold tracking-tight sm:text-2xl">Choose how your team grows</h2><p className="mt-1 text-sm text-muted-foreground">Individual renews annually; choose monthly or annual per-seat billing for Pro and Team.</p></div>
 
+        </div>
+        <div role="group" aria-label="Billing period" className="mb-4 flex flex-wrap items-center justify-center gap-1.5 rounded-xl border border-border/70 bg-card p-1.5 sm:justify-start">
+          {(['monthly','yearly'] as const).map(period=>
+            <button key={period} type="button" aria-pressed={selectedBillingInterval===period}
+              disabled={hasPaidSubscription}
+              onClick={()=>setSelectedBillingInterval(period)}
+              className={cn('rounded-lg px-4 py-2.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
+                selectedBillingInterval===period?'bg-primary text-primary-foreground':'text-muted-foreground hover:bg-primary/[0.06]')}
+            >{period==='yearly'?'Yearly · save 16.7%':'Monthly'}</button>
+          )}
+          {hasPaidSubscription && <span className="px-2 text-[11px] text-muted-foreground">Existing subscription cadence is fixed for upgrades. Change it through Creem support.</span>}
         </div>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {(['free', 'individual', 'pro', 'team'] as const).map((key) => {
@@ -889,15 +911,15 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                   ) : (
                     <>
                       <p className="border-t border-border/70 pt-4 text-xs text-muted-foreground">
-                         <strong className="text-3xl font-semibold tracking-tight tabular-nums text-foreground">${ACTIPROC_PLANS[key].priceUsd}</strong>
-                        {key === 'individual' ? '/year' : key === 'team' || key === 'pro' ? '/user/month' : '/month'}
+                         <strong className="text-3xl font-semibold tracking-tight tabular-nums text-foreground">${actiprocPriceUsd(key, key==='individual'?'yearly':selectedBillingInterval)}</strong>
+                        {key === 'individual' ? '/year' : '/seat/'+(selectedBillingInterval==='yearly'?'year':'month')}
                       </p>
                       <Button type="button" size="sm" variant={current ? 'secondary' : 'default'}
                          className={cn('h-11 w-full rounded-xl font-semibold transition-all', !current && 'bg-primary text-primary-foreground shadow-[0_12px_24px_-14px_rgba(40,122,82,0.8)] hover:bg-primary/90')}
                         disabled={busy || !canUpgrade || (canResubscribe && !acceptNewCharge) ||
                           (!canResubscribe && (current || (billingPlan !== 'free' && ['individual','pro','team'].indexOf(key) <= ['individual','pro','team'].indexOf(billingPlan))))}
                         onClick={() => canResubscribe
-                          ? void openCheckout(key, {billingInterval:key === 'individual' ? 'yearly' : 'monthly', resubscribe:true, acceptNewCharge})
+                          ? void openCheckout(key, {billingInterval:key === 'individual' ? 'yearly' : selectedBillingInterval, resubscribe:true, acceptNewCharge})
                           : billingPlan === 'free'
                             ? void openCheckout(key, {billingInterval:key === 'individual' ? 'yearly' : 'monthly'})
                             : void requestPlanReview(key)}>
@@ -911,7 +933,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
           })}
         </div>
         <p className="mt-3 text-center text-[11px] text-muted-foreground">
-          Individual $12/year, Pro $4/seat/month, Team $6/seat/month. AI allowances apply when AI access is available, with no automatic overage billing. Pro/Team capacity is based on verified paid seats (up to 20 for AI). Applicable taxes are included; upgrades may incur an immediate prorated charge.
+          Individual $12/year. Pro $4/month or $40/year per seat. Team $6/month or $60/year per seat. AI allowances apply when AI access is available, with no automatic overage billing. Pro/Team capacity is based on verified paid seats (up to 20 for AI). Applicable taxes are included; upgrades may incur an immediate prorated charge.
           {billingStatus === 'cancelled' && !canResubscribe ? ' New purchases for this organization will become available only after billing eligibility and database migration are verified.' : ''}
         </p>
       </div>

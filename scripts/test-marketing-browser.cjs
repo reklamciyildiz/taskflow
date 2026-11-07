@@ -115,6 +115,17 @@ async function main() {
         }
 
         assert.ok(await page.getByRole('link',{name:'Create account'}).count()>=1);
+        // These amounts are public list prices, not estimates. A click must
+        // update both paid plans without changing the fixed Individual annual plan.
+        await page.getByRole('button',{name:'Yearly · save 16.7%'}).click();
+        const proCard=page.getByRole('article').filter({has:page.getByRole('heading',{name:'Pro',exact:true})});
+        const teamCard=page.getByRole('article').filter({has:page.getByRole('heading',{name:'Team',exact:true})});
+        await proCard.getByText('$40',{exact:true}).waitFor();
+        await teamCard.getByText('$60',{exact:true}).waitFor();
+        await page.getByRole('button',{name:'Monthly',exact:true}).click();
+        await proCard.getByText('$4',{exact:true}).waitFor();
+        await teamCard.getByText('$6',{exact:true}).waitFor();
+        assertions+=4;
         for (const plan of ['Free','Individual','Pro','Team']) {
           assert.equal(await page.getByRole('heading',{name:plan,exact:true}).count(),1);
           assertions++;
