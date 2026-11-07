@@ -29,7 +29,7 @@ export function InviteMemberModal({ isOpen, onClose, teamId }: InviteMemberModal
     // Billing is the single canonical Creem checkout and confirmation surface.
     setError(null);
     setUpgradeBusy(true);
-    window.location.assign('/settings/billing?plan=team');
+    window.location.assign('/settings/billing');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -212,7 +212,7 @@ export function InviteMemberModal({ isOpen, onClose, teamId }: InviteMemberModal
                   ) : (
                     <>
                       <UserPlus className="w-5 h-5" />
-                      Upgrade to Team
+                      Review seat options
                     </>
                   )}
                 </button>

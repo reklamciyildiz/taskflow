@@ -42,6 +42,7 @@
     "test:ios-device-ci": "node scripts/test-ios-device-ipa-workflow.mjs",
     "test:mobile-connectivity": "node scripts/test-mobile-connectivity.mjs",
     "test:mobile-release": "node scripts/test-mobile-release-contract.mjs",
+    "test:entitlements": "tsx scripts/test-paid-feature-gates.ts && tsx scripts/test-plan-entitlement-matrix.ts",
     "test:creem": "tsx scripts/test-creem-billing-contract.ts && tsx scripts/test-creem-billing-scenarios.ts",
     "creem:verify-products": "tsx scripts/verify-creem-products.ts",
     "creem:verify-live": "tsx scripts/verify-creem-live-products.ts",
