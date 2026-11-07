@@ -4,25 +4,26 @@ import { organizationDb } from '@/lib/db';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { getOrganizationSeatUsage } from '@/lib/entitlements';
 import { APP_URL } from '@/lib/site-config';
-import { assertCreemLiveReturnOrigin, creemApi, CreemApiError, creemProductForPlan, getCreemConfig, creemResponseMode } from '@/lib/creem-config';
+import { assertCreemLiveReturnOrigin, creemApi, CreemApiError, creemProductForPlan, creemIntervalForProduct, getCreemConfig, creemResponseMode } from '@/lib/creem-config';
 import { parseCreemSeatState, seatUpdatePayload, SeatValidationError } from '@/lib/creem-seats';
 import { verifyCreemSeatIncreasePayment, type PendingSeatIncrease } from '@/lib/creem-seat-payment';
 import { issueBillingConsent, verifyBillingConsent, type BillingConsentState } from '@/lib/creem-billing-consent';
 import { readCreemBillingCycle, CREEM_IMMEDIATE_CYCLE_POLICY } from '@/lib/creem-billing-cycle';
 import { reconcilePendingCreemPlanChange } from '@/lib/creem-plan-settlement';
 import { fetchCreemSubscription, reconcileCreemSubscription } from '@/lib/creem-subscription';
-import { CREEM_EXPECTED_TAX_MODE, isPaidPlan, type PaidActiprocPlan } from '@/lib/billing-plans';
+import { ACTIPROC_BILLING_PRICES, CREEM_EXPECTED_TAX_MODE, actiprocPriceUsd, billingIntervalForPlan, creemPeriodForInterval, isPaidPlan, type BillingInterval, type PaidActiprocPlan } from '@/lib/billing-plans';
 import { creemResumeEligibility } from '@/lib/creem-lifecycle';
 
 function errorResponse(e: unknown, operation: string) {
  console.error('[creem] ' + operation, e instanceof Error ? e.message : 'unexpected');
  return NextResponse.json({success:false,error:'Unable to complete billing operation. Please try again.'},{status:502});
 }
-async function assertCreemProductMatchesPublicPrice(config:ReturnType<typeof getCreemConfig>,plan:PaidActiprocPlan) {
- const productId=creemProductForPlan(plan,config);
+async function assertCreemProductMatchesPublicPrice(config:ReturnType<typeof getCreemConfig>,plan:PaidActiprocPlan,interval:BillingInterval='monthly') {
+ const selected=billingIntervalForPlan(plan,interval);
+ const productId=creemProductForPlan(plan,config,selected);
  const product=await creemApi<any>(config,'GET','products?product_id='+encodeURIComponent(productId));
- const cents=plan==='individual'?1200:plan==='pro'?400:600;
- const period=plan==='individual'?'every-year':'every-month';
+ const cents=actiprocPriceUsd(plan,selected)*100;
+ const period=creemPeriodForInterval(selected);
  if(product?.id!==productId || product?.mode!==creemResponseMode(config) ||
     product?.price!==cents || product?.currency!=='USD' ||
     product?.billing_type!=='recurring' || product?.billing_period!==period ||
@@ -65,9 +66,12 @@ export async function createCreemCheckout(request:NextRequest, orgId:string, ema
   }
   const plan=payload?.plan;
   if(!isPaidPlan(plan))return NextResponse.json({success:false,error:'Invalid paid plan'},{status:400});
-  const interval=payload?.billingInterval;
-  if(interval && interval!==(plan==='individual'?'yearly':'monthly'))
-   return NextResponse.json({success:false,error:'The selected plan does not have that billing interval.'},{status:400});
+  const intervalInput=payload?.billingInterval;
+  if(intervalInput !== undefined && intervalInput!=='monthly' && intervalInput!=='yearly')
+   return NextResponse.json({success:false,error:'Invalid billing interval'},{status:400});
+  if(plan==='individual' && intervalInput==='monthly')
+   return NextResponse.json({success:false,error:'Individual is billed yearly.'},{status:400});
+  const interval=billingIntervalForPlan(plan,intervalInput);
   const headcount=Math.max(1,await getOrganizationSeatUsage(orgId));
   const requested=payload?.seats===undefined?headcount:Number(payload.seats);
   if(!Number.isInteger(requested)||requested<1||requested>500)
@@ -76,10 +80,10 @@ export async function createCreemCheckout(request:NextRequest, orgId:string, ema
   if(plan==='individual' && seats!==1)
    return NextResponse.json({success:false,error:'Individual supports one person. Choose Pro or Team for multiple members.'},{status:409});
   // Validate merchant dashboard products before generating any paid checkout.
-  const productId=creemProductForPlan(plan,config);
+  const productId=creemProductForPlan(plan,config,interval);
   const product=await creemApi<any>(config,'GET','products?product_id='+encodeURIComponent(productId));
-  const expectedCents=plan==='individual'?1200:plan==='pro'?400:600;
-  const expectedPeriod=plan==='individual'?'every-year':'every-month';
+  const expectedCents=actiprocPriceUsd(plan,interval)*100;
+  const expectedPeriod=creemPeriodForInterval(interval);
   if(product.id!==productId || product.mode!==creemResponseMode(config) ||
      product.price!==expectedCents || product.currency!=='USD' || product.billing_type!=='recurring' ||
      product.billing_period!==expectedPeriod || product.tax_mode!==CREEM_EXPECTED_TAX_MODE ||
@@ -100,11 +104,20 @@ export async function createCreemCheckout(request:NextRequest, orgId:string, ema
     });
     if(intentError)throw intentError;
   }
+  // Reserve the exact product + billing interval before sending a customer to
+  // Creem. Webhook settlement must match this signed-in purchase intent.
+  const {data:recorded,error:recordError}=await (supabaseAdmin as any)
+    .from('creem_checkout_intents')
+    .update({product_id:productId,billing_interval:interval})
+    .eq('request_id',requestId).eq('organization_id',orgId)
+    .select('request_id').single();
+  if(recordError || recorded?.request_id!==requestId)
+    return NextResponse.json({success:false,error:'Billing database is missing annual checkout safety metadata. No payment started.'},{status:503});
   const created=await creemApi<any>(config,'POST','checkouts',{
    product_id:productId,units:seats,request_id:requestId,
    ...(replacing?{customer:{id:org.creem_customer_id}}:email?{customer:{email}}:{}),
    success_url:APP_URL+'/settings/billing?checkout=success',
-   metadata:{organization_id:orgId,checkout_request_id:requestId,...(replacing?{resubscription:'true'}:{})},
+   metadata:{organization_id:orgId,checkout_request_id:requestId,billing_interval:interval,...(replacing?{resubscription:'true'}:{})},
   });
   if(created.mode!==creemResponseMode(config)||!/^https:\/\//.test(created.checkout_url??''))
    throw new Error('Invalid Creem checkout response or environment');
@@ -201,7 +214,9 @@ export async function changeCreemSeats(request:NextRequest, orgId:string) {
   if(current.status!=='active')throw new SeatValidationError('NOT_ACTIVE');
   // Fail closed if our current quota diverged. Never charge against stale UI state.
   if(Number(org.seat_limit)!==current.units)throw new SeatValidationError('STALE_SEAT_STATE');
-  await assertCreemProductMatchesPublicPrice(config,org.plan_name as PaidActiprocPlan);
+  const activeInterval=creemIntervalForProduct(String(org.creem_product_id),config);
+  if(!activeInterval) return NextResponse.json({success:false,code:'UNKNOWN_BILLING_PRODUCT',error:'Unable to verify the current subscription product.'},{status:409});
+  await assertCreemProductMatchesPublicPrice(config,org.plan_name as PaidActiprocPlan,activeInterval);
   if(desired===current.units)return NextResponse.json({success:true,data:{changed:false,seats:desired}});
 
   const increased=desired>current.units;
@@ -216,7 +231,7 @@ export async function changeCreemSeats(request:NextRequest, orgId:string) {
     operation:'seats',organizationId:orgId,subscriptionId:current.id,
     fromPlan:org.plan_name,toPlan:org.plan_name,
     fromSeats:current.units,toSeats:desired,
-    mode:creemResponseMode(config),lastTransactionId:beforeTransaction,
+    mode:creemResponseMode(config),billingInterval:activeInterval,lastTransactionId:beforeTransaction,
     updatedAt:current.updatedAt,
     periodEndAt:cycleBefore.currentPeriodEndAt,
     nextChargeAt:cycleBefore.nextChargeAt
@@ -240,8 +255,11 @@ export async function changeCreemSeats(request:NextRequest, orgId:string) {
       consentToken:issueBillingConsent(consentState,config.secret),
       previousSeats:current.units,desiredSeats:desired,
       direction:increased?'increase':'decrease',
-      currentMonthlyUsd:current.units*(org.plan_name==='team'?6:4),
-      nextMonthlyUsd:desired*(org.plan_name==='team'?6:4),
+      billingInterval:activeInterval,
+      currentPriceUsd:current.units*actiprocPriceUsd(org.plan_name as PaidActiprocPlan,activeInterval),
+      nextPriceUsd:desired*actiprocPriceUsd(org.plan_name as PaidActiprocPlan,activeInterval),
+      currentMonthlyUsd:activeInterval==='monthly'?current.units*actiprocPriceUsd(org.plan_name as PaidActiprocPlan,activeInterval):null,
+      nextMonthlyUsd:activeInterval==='monthly'?desired*actiprocPriceUsd(org.plan_name as PaidActiprocPlan,activeInterval):null,
       exactChargeAvailable:false,
       chargeBehavior:increased?'proration-charge-immediately':'proration-none',
       currentNextChargeAt:cycleBefore.nextChargeAt,
@@ -403,7 +421,13 @@ export async function changeCreemPlan(request:NextRequest,orgId:string) {
       error:'Finish or reconcile the pending seat change before upgrading your plan.'},{status:409});
   }
   const snapshot=await fetchCreemSubscription(org.creem_subscription_id,config);
-  await assertCreemProductMatchesPublicPrice(config,plan);
+  const requestedInterval=body?.billingInterval;
+  if(requestedInterval!==undefined && requestedInterval!=='monthly' && requestedInterval!=='yearly')
+    return NextResponse.json({success:false,error:'Invalid billing interval'},{status:400});
+  if(requestedInterval && requestedInterval!==snapshot.billingInterval)
+    return NextResponse.json({success:false,error:'Changing billing period during an upgrade is not supported. Keep the current period or contact support.'},{status:409});
+  const activeInterval=snapshot.billingInterval;
+  await assertCreemProductMatchesPublicPrice(config,plan,activeInterval);
   if(snapshot.status!=='active' || snapshot.customerId!==org.creem_customer_id ||
      snapshot.productId!==org.creem_product_id || snapshot.plan!==previous ||
      snapshot.testMode!==Boolean(org.creem_test_mode))
@@ -424,7 +448,7 @@ export async function changeCreemPlan(request:NextRequest,orgId:string) {
   const consentState:BillingConsentState={
     operation:'upgrade',organizationId:orgId,subscriptionId:snapshot.subscriptionId,
     fromPlan:previous,toPlan:plan,fromSeats:seatState.units,toSeats:seatState.units,
-    mode:creemResponseMode(config),lastTransactionId:beforeTransaction,
+    mode:creemResponseMode(config),billingInterval:activeInterval,lastTransactionId:beforeTransaction,
     updatedAt:seatState.updatedAt,
     periodEndAt:cycleBefore.currentPeriodEndAt,
     nextChargeAt:cycleBefore.nextChargeAt
@@ -433,7 +457,9 @@ export async function changeCreemPlan(request:NextRequest,orgId:string) {
     return NextResponse.json({success:true,data:{
       consentToken:issueBillingConsent(consentState,config.secret),
       fromPlan:previous,toPlan:plan,seats:seatState.units,
-      nextMonthlyUsd:seatState.units*(plan==='team'?6:plan==='pro'?4:0),
+      billingInterval:activeInterval,
+      nextPriceUsd:seatState.units*actiprocPriceUsd(plan,activeInterval),
+      nextMonthlyUsd:activeInterval==='monthly'?seatState.units*actiprocPriceUsd(plan,activeInterval):null,
       exactChargeAvailable:false,
       currentNextChargeAt:cycleBefore.nextChargeAt,
       currentPeriodEndAt:cycleBefore.currentPeriodEndAt,
@@ -444,7 +470,7 @@ export async function changeCreemPlan(request:NextRequest,orgId:string) {
   if(body?.action!=='confirm' || !verifyBillingConsent(body?.consentToken,consentState,config.secret))
     return NextResponse.json({success:false,code:'CONSENT_REQUIRED',
       error:'Payment approval expired or subscription details changed. Review the upgrade again.'},{status:409});
-  const targetProduct=creemProductForPlan(plan,config);
+  const targetProduct=creemProductForPlan(plan,config,activeInterval);
   const {data:reservation,error:reserveError}=await (supabaseAdmin as any).rpc('reserve_creem_plan_change',{
     p_org:orgId,p_subscription:snapshot.subscriptionId,p_previous:previous,p_desired:plan,
     p_previous_product:snapshot.productId,p_desired_product:targetProduct,

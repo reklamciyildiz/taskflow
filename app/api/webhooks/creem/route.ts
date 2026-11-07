@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
-import { creemApi, getCreemConfig, creemPlanForProduct, creemResponseMode } from '@/lib/creem-config';
+import { creemApi, getCreemConfig, creemPlanForProduct, creemProductForPlan, creemIntervalForProduct, creemResponseMode } from '@/lib/creem-config';
 import { reconcileCreemSubscription, fetchCreemSubscription } from '@/lib/creem-subscription';
 import { verifyCreemSeatIncreasePayment, type PendingSeatIncrease } from '@/lib/creem-seat-payment';
 import { reconcilePendingCreemPlanChange } from '@/lib/creem-plan-settlement';
@@ -47,9 +47,18 @@ export async function POST(request:NextRequest) {
      throw new Error('Checkout state/mode is not verified as paid');
    // Always verify the authoritative checkout: webhook event examples may omit units.
    const checkout=await creemApi<any>(config,'GET','checkouts?checkout_id='+encodeURIComponent(checkoutId));
-   const expectedProductId=creemPlanForProduct(String(checkout.product?.id ?? checkout.product ?? ''),config) === intent.plan_name
-     ? String(checkout.product?.id ?? checkout.product)
-     : null;
+   // The provider product must be the exact product that was selected and
+   // written to the checkout intent BEFORE checkout creation. Matching only
+   // "pro" or "team" would allow a monthly checkout to settle as yearly.
+   const selectedProductId=typeof intent.product_id==='string' && intent.product_id
+     ? intent.product_id
+     : creemProductForPlan(intent.plan_name,config);
+   const selectedInterval=intent.billing_interval ??
+     (intent.plan_name==='individual'?'yearly':'monthly');
+   const checkoutProductId=String(checkout.product?.id ?? checkout.product ?? '');
+   const expectedProductId=creemPlanForProduct(selectedProductId,config)===intent.plan_name &&
+     creemIntervalForProduct(selectedProductId,config)===selectedInterval &&
+     checkoutProductId===selectedProductId ? selectedProductId : null;
    if(!expectedProductId || !paidCreemCheckoutMatches(checkout,{
      checkoutId,requestId,mode:creemResponseMode(config),productId:expectedProductId,seats:Number(intent.units),
    })) throw new Error('Authoritative checkout differs from authorized paid intent');

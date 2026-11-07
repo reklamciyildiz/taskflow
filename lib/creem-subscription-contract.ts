@@ -1,9 +1,9 @@
-import { creemPlanForProduct, creemResponseMode, type CreemConfig } from '@/lib/creem-config';
-import type { PaidActiprocPlan } from '@/lib/billing-plans';
+import { creemIntervalForProduct, creemPlanForProduct, creemResponseMode, type CreemConfig } from '@/lib/creem-config';
+import type { BillingInterval, PaidActiprocPlan } from '@/lib/billing-plans';
 
 export type CreemSnapshot = {
  subscriptionId: string; customerId: string; productId: string; plan: PaidActiprocPlan;
- status: 'active'|'trialing'|'past_due'|'cancelled'|'paused'|'expired';
+ billingInterval: BillingInterval; status: 'active'|'trialing'|'past_due'|'cancelled'|'paused'|'expired';
  seats: number; periodEnd: string|null; updatedAt: string; testMode: boolean;
 };
 function idOf(v: unknown): string | null {
@@ -20,7 +20,8 @@ export function normalizeCreemSubscription(source: any, config: CreemConfig): Cr
  const subscriptionId=idOf(input?.id), customerId=idOf(input?.customer);
  const productId=idOf(input?.product) ?? idOf(input?.items?.[0]?.product_id);
  const plan = productId ? creemPlanForProduct(productId,config):null;
- if (!subscriptionId?.startsWith('sub_') || !customerId?.startsWith('cust_') || !productId || !plan)
+ const billingInterval = productId ? creemIntervalForProduct(productId,config):null;
+ if (!subscriptionId?.startsWith('sub_') || !customerId?.startsWith('cust_') || !productId || !plan || !billingInterval)
    throw new Error('Creem subscription references an unexpected product or identifier');
  if (input.mode !== creemResponseMode(config)) throw new Error('Creem subscription test/live mode mismatch');
  const seats = Number(input.items?.[0]?.units ?? input.units ?? 1);
@@ -43,5 +44,5 @@ export function normalizeCreemSubscription(source: any, config: CreemConfig): Cr
   default: throw new Error('Unexpected Creem subscription status: '+statusRaw);
  }
  if (status==='cancelled' && !periodEnd) throw new Error('Cancelled Creem subscription missing period end');
- return {subscriptionId,customerId,productId,plan,status,seats,periodEnd,updatedAt,testMode:config.mode==='test'};
+ return {subscriptionId,customerId,productId,plan,billingInterval,status,seats,periodEnd,updatedAt,testMode:config.mode==='test'};
 }
