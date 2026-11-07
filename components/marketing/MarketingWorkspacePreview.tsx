@@ -1,321 +1,342 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
-  ArrowUpRight, CalendarDays, Circle, Clock3, Columns3,
-  FileText, GripVertical, LayoutGrid, ListChecks, Search, Sparkles,
-  BarChart3, Users, CheckCircle2,
+  ArrowRight, ArrowUpRight, BarChart3, Bell, BookOpen, CalendarDays,
+  Check, CheckCircle2, ChevronDown, Clock3, Columns3, FileText, FolderOpen,
+  GripVertical, LayoutGrid, ListChecks, ListFilter, Plus, Search, ShieldCheck,
+  Sparkles, Star, Users, Workflow,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 type PreviewTab = 'board' | 'planner' | 'notes' | 'ai' | 'insights' | 'team';
-const tabs: { key: PreviewTab; label: string; Icon: typeof LayoutGrid }[] = [
+type Stage = 'Ideas' | 'In progress' | 'Review' | 'Waiting' | 'Done' | 'Approved';
+type Work = { id: string; name: string; stage: Stage; priority: 'MEDIUM'|'HIGH'|'LOW'; checklist?: string; owner?: string };
+
+const tabs: { key: PreviewTab; label: string; Icon: LucideIcon }[] = [
   { key: 'board', label: 'Boards', Icon: Columns3 },
   { key: 'planner', label: 'Planner', Icon: CalendarDays },
-  { key: 'notes', label: 'Knowledge', Icon: FileText },
+  { key: 'notes', label: 'Knowledge', Icon: BookOpen },
   { key: 'ai', label: 'Actiproc AI', Icon: Sparkles },
   { key: 'insights', label: 'Insights', Icon: BarChart3 },
   { key: 'team', label: 'Team & customers', Icon: Users },
 ];
+const stages: { name: Stage; tone: string }[] = [
+  { name: 'Ideas', tone: 'blue' },
+  { name: 'In progress', tone: 'purple' },
+  { name: 'Review', tone: 'amber' },
+  { name: 'Waiting', tone: 'cyan' },
+  { name: 'Done', tone: 'rose' },
+  { name: 'Approved', tone: 'green' },
+];
+const work: Work[] = [
+  { id:'w1', name:'Refresh the onboarding checklist', stage:'Ideas', priority:'MEDIUM', checklist:'2/6' },
+  { id:'w2', name:'Research customer discovery themes', stage:'Ideas', priority:'HIGH', owner:'AM' },
+  { id:'w3', name:'Draft next quarter roadmap', stage:'Ideas', priority:'MEDIUM' },
+  { id:'w4', name:'Improve trial activation flow', stage:'In progress', priority:'HIGH', checklist:'4/6', owner:'JD' },
+  { id:'w5', name:'Publish customer help center', stage:'In progress', priority:'MEDIUM', checklist:'3/5' },
+  { id:'w6', name:'Prepare product launch checklist', stage:'In progress', priority:'MEDIUM', checklist:'3/4' },
+  { id:'w7', name:'Review partner proposal', stage:'Review', priority:'HIGH', owner:'SK' },
+  { id:'w8', name:'Finalize new dashboard copy', stage:'Review', priority:'LOW' },
+  { id:'w9', name:'Await design sign-off', stage:'Waiting', priority:'MEDIUM' },
+  { id:'w10', name:'Complete user interviews', stage:'Done', priority:'MEDIUM', checklist:'5/5' },
+];
+const notes = [
+  { id:'n1', title:'Launch retrospective', type:'Notes', detail:'What worked, what changed, and decisions for the next release.', context:'Product launch', count:'2/4 done' },
+  { id:'n2', title:'Research interview synthesis', type:'Notes', detail:'Recurring themes from discovery calls and ideas worth exploring.', context:'Customer research', count:'3/6 done' },
+  { id:'n3', title:'Customer onboarding playbook', type:'Checklists', detail:'A repeatable handoff from first conversation to first value.', context:'Customer success', count:'8/12 done' },
+  { id:'n4', title:'Product principles & decisions', type:'Notes', detail:'Our agreed design principles, constraints, and trade-offs.', context:'Operations', count:'1/3 done' },
+  { id:'n5', title:'Weekly launch readiness', type:'Checklists', detail:'QA, documentation, announcements, and the release owner.', context:'Product launch', count:'7/9 done' },
+  { id:'n6', title:'Team working agreements', type:'Notes', detail:'How decisions are shared, projects are reviewed, and focus is protected.', context:'Northstar Studio', count:'2/2 done' },
+] as const;
 
-const actions = {
-  todo: [
-    { name: 'Outline launch milestones', type: 'Planning', progress: '2/5', tone: 'blue' },
-    { name: 'Review customer feedback', type: 'Research', progress: '1/4', tone: 'slate' },
-  ],
-  doing: [
-    { name: 'Refine onboarding flow', type: 'Product', progress: '4/6', tone: 'violet' },
-    { name: 'Prepare release notes', type: 'Content', progress: '3/4', tone: 'blue' },
-  ],
-  done: [{ name: 'Align launch priorities', type: 'Decision', progress: '5/5', tone: 'green' }],
-} as const;
+const surface='rounded-xl border border-[#33434b] bg-[#1b262d]';
+const smallLabel='text-[9px] font-semibold uppercase tracking-[.16em] text-[#a4bdc2]';
 
-function BoardCard({ name, type, progress, tone }: {
-  name: string; type: string; progress: string; tone: string;
+function MiniHeader({ title, subtitle, Icon }: { title: string; subtitle: string; Icon: LucideIcon }) {
+  return <div className="flex min-w-0 items-start justify-between gap-3 border-b border-[#32404a] px-3 py-3 sm:px-5 sm:py-4">
+    <div className="min-w-0">
+      <p className="flex items-center gap-1.5 text-[9px] font-bold tracking-[.18em] text-[#bfff92]">
+        <Icon className="h-3 w-3" aria-hidden /> WORKSPACE / NORTHSTAR STUDIO
+      </p>
+      <h3 className="mt-1.5 truncate text-[19px] font-bold tracking-[-.045em] text-white sm:text-[24px]">{title}</h3>
+      <p className="mt-0.5 text-[10px] text-[#9aadb7] sm:text-[11px]">{subtitle}</p>
+    </div>
+    <span className="hidden shrink-0 items-center gap-1.5 rounded-xl border border-[#334a47] bg-[#1e3430] px-2.5 py-2 text-[10px] text-[#bceac0] md:inline-flex">
+      <ShieldCheck className="h-3.5 w-3.5" aria-hidden/> Sample workspace
+    </span>
+  </div>;
+}
+
+function BoardPanel({ moved, setMoved, created, query }: {
+  moved: boolean; setMoved: (next: boolean)=>void; created: boolean; query: string;
 }) {
-  return (
-    <div className="ap-preview-task">
-      <div className="flex items-start justify-between gap-2">
-        <span className="text-[11px] font-semibold leading-[1.5] text-[#ebfdf3] sm:text-xs">{name}</span>
-        <GripVertical aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#5a7b69]" />
-      </div>
-      <div className="mt-4 flex flex-wrap items-center gap-1.5">
-        <span className={'ap-task-tag ap-task-tag-' + tone}>{type}</span>
-        <span className="inline-flex items-center gap-1 text-[10px] text-[#86a996]">
-          <ListChecks className="h-3 w-3" aria-hidden /> {progress}
+  const [stage, setStage]=useState<'All'|Stage>('All');
+  const [demoSelected,setDemoSelected]=useState<string|null>(null);
+  const cards=useMemo(()=>{
+    const list:Work[]=[...work];
+    if(created)list.unshift({id:'created',name:'Plan the next product sprint',stage:'Ideas',priority:'MEDIUM'});
+    return list.filter(item=>{
+      const realStage=moved && item.id==='w6'?'Done':item.stage;
+      return (!query || item.name.toLowerCase().includes(query.toLowerCase())) && (stage==='All'||realStage===stage);
+    });
+  },[moved,created,query,stage]);
+  return <div className="min-w-0">
+    <MiniHeader title="Product launch" subtitle="Organize work, track progress, and move Actions through your workflow." Icon={LayoutGrid}/>
+    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#293942] bg-[#162128] px-3 py-2.5 sm:px-5">
+      <div className="flex items-center gap-2">
+        <span className={smallLabel}>ACTIVE PROCESS</span>
+        <span className="rounded-lg border border-[#344b47] bg-[#102225] px-2.5 py-1.5 text-[10px] font-semibold text-[#f2faf7]">
+          <LayersIcon/> Product launch <ChevronDown className="ml-1 inline h-3 w-3" aria-hidden/>
         </span>
-        <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-[#345d46] text-[9px] font-semibold text-[#d3f3e2]" aria-label="Assigned member">A</span>
       </div>
+      <div className="flex items-center gap-1.5 text-[10px] text-[#b4c5c6]"><ListChecks className="h-3.5 w-3.5" aria-hidden/>{cards.length} visible Actions</div>
     </div>
-  );
-}
-
-function BoardPanel() {
-  const [moved, setMoved] = useState(false);
-  return (
-    <div className="min-w-0">
-      <div className="ap-preview-toolbar">
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#254f38] text-[#aff7d0]">
-            <LayoutGrid className="h-3.5 w-3.5" aria-hidden />
-          </span>
-          <span className="truncate text-xs font-semibold text-[#f3fef8]">Product launch</span>
-          <span className="hidden rounded-md border border-[#375645] px-1.5 py-0.5 text-[9px] font-medium text-[#92b6a2] sm:inline">Process</span>
-        </div>
-        <span className="text-[10px] text-[#91b09f]">6 Actions · sample workflow</span>
-      </div>
-      <div className="flex min-w-0 gap-3 overflow-x-auto p-3 overscroll-x-contain sm:grid sm:grid-cols-3 sm:overflow-visible sm:p-4">
-        {([
-          { name: 'To do', key: 'todo', color: 'bg-[#93cbad]', count: 2 },
-          { name: 'In progress', key: 'doing', color: 'bg-[#92f4be]', count: 2 },
-          { name: 'Done', key: 'done', color: 'bg-[#96e9bd]', count: 1 },
-        ] as const).map(column => (
-          <div key={column.key} className="min-w-[195px] shrink-0 rounded-[13px] border border-[#2d493a] bg-[#173123]/85 p-2.5 sm:min-h-[315px] sm:min-w-0 sm:shrink">
-            <div className="mb-3 flex items-center justify-between px-1 py-0.5">
-              <div className="flex items-center gap-2">
-                <span className={'h-2 w-2 rounded-full ' + column.color} />
-                <span className="text-[11px] font-semibold text-[#d7f1e3]">{column.name}</span>
+    <div className="ap-real-pills flex items-center gap-1.5 overflow-x-auto border-b border-[#2b3a42] bg-[#111c22] px-3 py-2.5 sm:px-5" aria-label="Filter demo board by stage">
+      <span className={'mr-1 shrink-0 '+smallLabel}>STAGES</span>
+      {(['All',...stages.map(s=>s.name)] as ('All'|Stage)[]).map(name=>
+        <button type="button" key={name} onClick={()=>setStage(name)} aria-pressed={stage===name}
+          className={'shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8ff93] '+
+            (stage===name?'border-[#c8ff93] bg-[#c8ff93] text-[#112016]':'border-[#31444a] text-[#e2eeea] hover:border-[#b9ff92]')}>{name}</button>)}
+    </div>
+    <div className="ap-real-board-scroll flex gap-2.5 overflow-x-auto p-3 sm:gap-3 sm:p-4" aria-label="Product launch sample Kanban board">
+      {stages.filter(s=>stage==='All'||s.name===stage).map((column,index)=>{
+        const items=cards.filter(card=>(moved&&card.id==='w6'?'Done':card.stage)===column.name);
+        return <section key={column.name} className={'ap-real-column ap-real-column-'+column.tone+' min-w-[190px] flex-1 shrink-0 overflow-hidden rounded-[15px] border border-[#354550] sm:min-w-[208px]'} aria-label={column.name+' stage'}>
+          <div className="flex items-center justify-between gap-2 border-b border-white/10 px-3 py-3">
+            <div className="flex items-center gap-2"><span className="ap-real-stage-dot h-3 w-3 rounded-full" aria-hidden/>
+              <span className="text-[11px] font-semibold text-[#eff9fa]">{column.name}</span></div>
+            <span className="rounded-full border border-white/15 bg-black/20 px-1.5 py-0.5 text-[10px] text-[#c1d4da]">{items.length}</span>
+          </div>
+          <div className="space-y-2 p-2.5">
+            {items.map(item=><div key={item.id} className="ap-real-action-card rounded-[13px] border border-[#394a55] bg-[#202c34] p-3">
+              <div className="flex items-center justify-between gap-2 text-[8px] font-bold uppercase tracking-[.14em] text-[#a9c1bb]">
+                <span className="inline-flex items-center gap-1"><ListChecks className="h-3 w-3" aria-hidden/>Action</span>
+                <GripVertical className="h-3.5 w-3.5 text-[#678088]" aria-hidden/>
               </div>
-              <span className="rounded-md border border-[#395847] px-1.5 text-[10px] text-[#96b7a5]">{column.count + (column.key === 'doing' && !moved ? 1 : column.key === 'done' && moved ? 1 : 0)}</span>
-            </div>
-            <div className="space-y-2">
-              {actions[column.key].map(action => <BoardCard key={action.name} {...action} />)}
-              {column.key === 'doing' && !moved && (
-                <div className="rounded-xl border border-[#688c5d] bg-[#294535] p-3">
-                  <span className="text-[9px] font-bold uppercase tracking-wider text-[#c8ff93]">Interactive demo</span>
-                  <p className="mt-2 text-[11px] font-semibold text-white">Prepare launch checklist</p>
-                  <button type="button" onClick={() => setMoved(true)}
-                    className="mt-3 inline-flex min-h-8 w-full items-center justify-center gap-1 rounded-lg bg-[#c8ff93] px-2 text-[10px] font-bold text-[#122916] transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white">
-                    Mark done <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
-                  </button>
-                </div>
-              )}
-              {column.key === 'done' && moved && (
-                <div className="rounded-xl border border-[#688c5d] bg-[#294535] p-3" aria-live="polite">
-                  <span className="text-[9px] font-bold uppercase tracking-wider text-[#c8ff93]">Demo completed</span>
-                  <p className="mt-2 text-[11px] font-semibold text-white">Prepare launch checklist</p>
-                  <button type="button" onClick={() => setMoved(false)}
-                    className="mt-3 min-h-8 w-full rounded-lg border border-[#6b9372] px-2 text-[10px] font-semibold text-[#e2ffcc] hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8ff93]">
-                    Reset demo
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function PlannerPanel() {
-  const days = [
-    { day: 'Mon', num: '12' }, { day: 'Tue', num: '13' }, { day: 'Wed', num: '14' },
-    { day: 'Thu', num: '15' }, { day: 'Fri', num: '16' },
-  ];
-  const slots = [
-    { at: '09:00', title: 'Plan the week', detail: 'Personal · 30 min', selected: false },
-    { at: '11:30', title: 'Review onboarding', detail: 'Product team · 45 min', selected: true },
-    { at: '15:00', title: 'Ship release notes', detail: 'Content · 30 min', selected: false },
-  ];
-  return (
-    <div className="min-w-0">
-      <div className="ap-preview-toolbar">
-        <div className="flex items-center gap-2"><CalendarDays className="h-4 w-4 text-[#aff7d0]" />
-          <span className="text-xs font-semibold text-[#f2fef8]">Your week, in focus</span>
-        </div>
-        <span className="text-[10px] text-[#98b7a6]">Illustrative week</span>
-      </div>
-      <div className="p-4 sm:p-5">
-        <div className="grid grid-cols-5 gap-2">
-          {days.map((d, i) => <div key={d.day} className={'rounded-xl border px-2 py-3 text-center ' + (i === 3 ? 'border-[#86f3b8]/50 bg-[#316147] text-white' : 'border-[#345643] bg-[#1b3a29] text-[#adcdbb]')}>
-            <p className="text-[10px]">{d.day}</p><p className="mt-1 text-base font-semibold">{d.num}</p>
-          </div>)}
-        </div>
-        <div className="mt-4 space-y-2.5">
-          {slots.map((slot) => <div key={slot.at} className="grid grid-cols-[48px_1fr] items-start gap-2">
-            <span className="pt-3 text-[10px] text-[#85aa96]">{slot.at}</span>
-            <div className={'rounded-xl border px-3.5 py-3 ' + (slot.selected ? 'border-[#78edae]/50 bg-[#2d6044]' : 'border-[#335442] bg-[#1a3727]')}>
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[12px] font-semibold text-[#f0fdf6]">{slot.title}</span>
-                <Clock3 className="h-3.5 w-3.5 text-[#99c9af]" aria-hidden />
+              <p className="mt-2 min-h-[36px] text-[11px] font-semibold leading-[1.45] text-[#f7fafb]">{item.name}</p>
+              <div className="mt-3 flex items-center gap-1.5 border-t border-[#3d5057] pt-2.5">
+                <span className="rounded-full border border-[#315173] bg-[#1d3749] px-2 py-0.5 text-[9px] font-bold text-[#8ac5ff]">{item.priority}</span>
+                {item.checklist&&<span className="ml-auto inline-flex items-center gap-1 text-[9px] text-[#9fb1bb]"><ListChecks className="h-3 w-3" aria-hidden/>{item.checklist}</span>}
+                {item.owner&&<span className="ml-auto rounded-full bg-[#2d5348] px-1.5 py-1 text-[8px] font-bold text-[#d5ffdd]">{item.owner}</span>}
               </div>
-              <span className="mt-1 block text-[10px] text-[#a9ccb9]">{slot.detail}</span>
+              {item.id==='w6'&&!moved&&<button type="button" onClick={()=>setMoved(true)} className="mt-2.5 inline-flex min-h-8 w-full items-center justify-center gap-1 rounded-lg bg-[#c8ff93] px-2 text-[10px] font-bold text-[#122616] hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8ff93]">Mark done <CheckCircle2 className="h-3.5 w-3.5" aria-hidden/></button>}
+              {item.id==='w6'&&moved&&<><p className="mt-2 text-[9px] font-bold text-[#baff95]" role="status">Demo completed</p>
+                <button type="button" onClick={()=>setMoved(false)} className="mt-2 min-h-8 w-full rounded-lg border border-[#6f9c80] text-[10px] font-semibold text-[#d1ffcf] hover:bg-[#2c4737]">Reset demo</button></>}
+            </div>)}
+            {items.length===0&&<div className="flex min-h-[190px] flex-col items-center justify-center rounded-xl border border-dashed border-[#3b5057] px-3 text-center">
+              <CheckCircle2 className="mb-2 h-5 w-5 text-[#4c9182]" aria-hidden/><p className="text-[10px] font-semibold text-[#b9c8ce]">No Actions in this stage</p>
+              <p className="mt-2 text-[9px] leading-4 text-[#859ba2]">Move an Action here as work progresses.</p>
+            </div>}
+            {index===0 && demoSelected==='no-op'&&<span/>}
+          </div>
+        </section>;
+      })}
+    </div>
+  </div>;
+}
+function LayersIcon(){return <LayoutGrid className="mr-1 inline h-3 w-3 text-[#bdff9f]" aria-hidden/>;}
+
+function PlannerPanel(){
+  const [view,setView]=useState<'Today'|'Calendar'|'Routines'>('Today');
+  const [done,setDone]=useState<string[]>([]);
+  const [draft,setDraft]=useState('');
+  const [added,setAdded]=useState<string[]>([]);
+  const items=[
+    {id:'p1',name:'Review campaign creative',time:'09:30',type:'Checklist',detail:'Launch campaign'},
+    {id:'p2',name:'Prepare product demo',time:'11:15',type:'Action',detail:'Product launch'},
+    {id:'p3',name:'Follow up with pilot customers',time:'14:00',type:'Checklist',detail:'Customer success'},
+    ...added.map((title,i)=>({id:'added'+i,name:title,time:'Today',type:'Checklist',detail:'Quick capture'})),
+  ];
+  return <div className="min-w-0">
+    <MiniHeader title="Planner" subtitle="Shape the day, protect your time, and keep recurring work moving." Icon={CalendarDays}/>
+    <div className="m-3 rounded-[15px] border border-[#31444e] bg-[#19252d] p-3 sm:m-4">
+      <div className="flex items-center justify-between gap-2">
+        <div><p className="text-[9px] font-bold uppercase tracking-[.14em] text-[#c8ff93]">QUICK CAPTURE</p><p className="mt-1 text-[10px] text-[#a2b5bc]">Add a small step to today’s plan.</p></div>
+        <span className="rounded-lg border border-[#3c504b] px-2 py-1 text-[9px] font-semibold text-[#c8ff93]">Checklist item</span>
+      </div>
+      <form onSubmit={event=>{event.preventDefault();if(draft.trim()){setAdded(items=>[...items,draft.trim().slice(0,65)]);setDraft('');setView('Today');}}} className="mt-3 flex gap-2">
+        <input aria-label="Sample quick capture" value={draft} maxLength={65} onChange={event=>setDraft(event.target.value)}
+          placeholder="e.g. Review the new campaign brief..." className="min-w-0 flex-1 rounded-lg border border-[#344650] bg-[#111b22] px-3 py-2.5 text-[11px] text-white placeholder:text-[#8298a1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8ff93]"/>
+        <button type="submit" disabled={!draft.trim()} aria-label="Add sample checklist item" className="rounded-lg bg-[#c8ff93] px-3 text-[#122519] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"><Plus className="h-4 w-4" aria-hidden/></button>
+      </form>
+    </div>
+    <div className="mx-3 mb-3 inline-flex flex-wrap gap-1 rounded-xl border border-[#33444a] bg-[#121d22] p-1 sm:mx-4" role="tablist" aria-label="Planner demo views">
+      {(['Today','Calendar','Routines'] as const).map(item=><button role="tab" aria-selected={item===view} key={item} type="button" onClick={()=>setView(item)}
+        className={'rounded-lg px-3 py-2 text-[11px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8ff93] '+(item===view?'bg-[#25353f] text-white':'text-[#a4b5bd] hover:text-white')}>{item}</button>)}
+    </div>
+    {view==='Today'&&<div className="mx-3 mb-4 space-y-2 sm:mx-4">
+      <p className={'mb-1 '+smallLabel}>TODAY · {items.length} PLANNED</p>
+      {items.map(item=><button key={item.id} type="button" aria-pressed={done.includes(item.id)}
+        onClick={()=>setDone(curr=>curr.includes(item.id)?curr.filter(id=>id!==item.id):[...curr,item.id])}
+        className="flex w-full items-center gap-3 rounded-xl border border-[#303f49] bg-[#19242b] px-3.5 py-3 text-left transition hover:border-[#5e8671] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8ff93]">
+        <span className={'flex h-4 w-4 shrink-0 items-center justify-center rounded border '+(done.includes(item.id)?'border-[#c8ff93] bg-[#c8ff93] text-[#102416]':'border-[#a0cba4]')} aria-hidden>{done.includes(item.id)&&<Check className="h-3 w-3"/>}</span>
+        <span className="min-w-0 flex-1"><span className={'block truncate text-[11px] font-semibold '+(done.includes(item.id)?'text-[#91aca4] line-through':'text-[#f7fcfc]')}>{item.name}</span><span className="mt-1 block truncate text-[9px] text-[#8fa6ac]">{item.type} · {item.detail}</span></span>
+        <span className="flex shrink-0 items-center gap-1 text-[10px] text-[#bbcdd1]"><Clock3 className="h-3 w-3" aria-hidden/>{item.time}</span>
+      </button>)}
+    </div>}
+    {view==='Calendar'&&<div className="mx-3 mb-4 rounded-xl border border-[#34434c] bg-[#152128] p-3 sm:mx-4">
+      <div className="flex items-center justify-between gap-2"><p className="text-[11px] font-semibold text-white">Your week, in focus</p><span className="text-[9px] text-[#a6bec4]">Sample week</span></div>
+      <div className="mt-3 grid grid-cols-5 gap-1">
+        {['Mon 09','Tue 10','Wed 11','Thu 12','Fri 13'].map((day,i)=><div key={day} className={'rounded-lg border px-1 py-3 text-center text-[9px] '+(i===2?'border-[#93ca8b] bg-[#2c5144] text-[#d3ffcf]':'border-[#34454b] bg-[#1e2d35] text-[#bfd0d6]')}>{day}</div>)}
+      </div>
+      <div className="mt-3 space-y-2">
+        {[['09:30','Campaign review','Review'],['11:15','Product demo','Work'],['14:00','Customer follow-up','Follow-up']].map(([time,title,tag])=>
+          <div key={time} className="flex gap-2 text-[10px]"><span className="w-10 pt-2 text-[#98adb5]">{time}</span><div className="flex-1 rounded-lg border border-[#426659] bg-[#27483d] px-3 py-2"><span className="font-semibold text-[#f3fbf6]">{title}</span><span className="ml-2 text-[#abcfb6]">{tag}</span></div></div>)}
+      </div>
+    </div>}
+    {view==='Routines'&&<div className="mx-3 mb-4 space-y-2 sm:mx-4">
+      <p className={'mb-1 '+smallLabel}>RECURRING WORK</p>
+      {[['Monday planning','Every Monday','09:00'],['Customer check-ins','Every Wednesday','14:30'],['Weekly wrap-up','Every Friday','16:00']].map(([name,frequency,time])=>
+        <div key={name} className="flex items-center gap-3 rounded-xl border border-[#34434c] bg-[#1a272e] p-3.5">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#253a34] text-[#c6fb97]"><Workflow className="h-4 w-4" aria-hidden/></span>
+          <div className="min-w-0 flex-1"><p className="truncate text-[11px] font-semibold text-white">{name}</p><p className="mt-1 text-[9px] text-[#a2b9c0]">{frequency}</p></div>
+          <span className="text-[10px] text-[#bdcfd2]">{time}</span>
+        </div>)}
+    </div>}
+  </div>;
+}
+
+function KnowledgePanel({query}:{query:string}){
+  const [view,setView]=useState<'Overview'|'Notes'|'Checklists'|'Pinned'>('Overview');
+  const [pinned,setPinned]=useState<string[]>(['n4']);
+  const filtered=notes.filter(n=>
+    (view==='Overview'||(view==='Pinned'?pinned.includes(n.id):n.type===view)) &&
+    (!query||[n.title,n.detail,n.context].some(s=>s.toLowerCase().includes(query.toLowerCase()))));
+  return <div className="min-w-0">
+    <MiniHeader title="Knowledge Hub" subtitle="Find important notes, decisions and checklists in one connected place." Icon={BookOpen}/>
+    <div className="grid grid-cols-2 gap-2 border-b border-[#2c3c43] px-3 py-3 sm:grid-cols-4 sm:px-4">
+      {[['36','Knowledge entries'],['18','Notes'],['68','Checklist items'],[String(pinned.length),'Pinned']].map(([value,label])=>
+        <div key={label} className="rounded-xl border border-[#32444b] bg-[#1c2a31] p-2.5 sm:p-3">
+          <p className="text-[17px] font-bold tracking-[-.045em] text-white">{value}</p><p className="mt-1 truncate text-[9px] text-[#a7bec3]">{label}</p>
+        </div>)}
+    </div>
+    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#2d3d44] px-3 py-2.5 sm:px-4">
+      <div className="flex flex-wrap gap-1" role="tablist" aria-label="Knowledge demo filters">
+        {(['Overview','Notes','Checklists','Pinned'] as const).map(label=>
+          <button type="button" role="tab" aria-selected={view===label} onClick={()=>setView(label)} key={label}
+            className={'rounded-lg px-2.5 py-2 text-[10px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8ff93] '+(view===label?'bg-[#c8ff93] text-[#13261b]':'text-[#b2c8c8] hover:bg-[#2d3d44] hover:text-white')}>{label}</button>)}
+      </div>
+      <span className="text-[9px] text-[#8fa6b1]">{filtered.length} matching entries</span>
+    </div>
+    <div className="grid gap-2.5 p-3 sm:grid-cols-2 sm:p-4 xl:grid-cols-3">
+      {filtered.map(note=><article key={note.id} className="relative min-w-0 rounded-[13px] border border-[#38474f] bg-[#202b31] p-3.5 transition hover:border-[#68836c]">
+        <div className="flex items-center justify-between gap-1">
+          <span className="inline-flex items-center gap-1 rounded-full bg-[#34354b] px-2 py-1 text-[9px] font-semibold text-[#c5bbff]"><BookOpen className="h-3 w-3" aria-hidden/>{note.type}</span>
+          <button type="button" onClick={()=>setPinned(curr=>curr.includes(note.id)?curr.filter(id=>id!==note.id):[...curr,note.id])}
+            aria-label={(pinned.includes(note.id)?'Unpin ':'Pin ')+note.title} aria-pressed={pinned.includes(note.id)}
+            className={'rounded-lg border p-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8ff93] '+(pinned.includes(note.id)?'border-[#b1b95c] bg-[#373d2e] text-[#c8ff93]':'border-[#3e5155] text-[#b3c7cb] hover:text-[#c8ff93]')}>
+            <Star className={'h-3.5 w-3.5 '+(pinned.includes(note.id)?'fill-current':'')} aria-hidden/>
+          </button>
+        </div>
+        <h4 className="mt-3 text-[11px] font-bold leading-5 text-white">{note.title}</h4>
+        <p className="mt-1.5 line-clamp-2 text-[10px] leading-[1.7] text-[#aec2c8]">{note.detail}</p>
+        <div className="mt-3 flex items-center gap-1.5 border-t border-[#3c4f54] pt-2.5 text-[9px] text-[#9bb3b5]"><FolderOpen className="h-3 w-3" aria-hidden/><span className="truncate">{note.context}</span><span className="ml-auto shrink-0">{note.count}</span></div>
+      </article>)}
+      {!filtered.length&&<div className="col-span-full rounded-xl border border-dashed border-[#43585e] p-7 text-center"><Search className="mx-auto mb-2 h-5 w-5 text-[#8caeab]" aria-hidden/><p className="text-[11px] text-[#c2d4d3]">No matching knowledge entries</p></div>}
+    </div>
+  </div>;
+}
+
+function AIPanel(){
+  const [question,setQuestion]=useState<'priorities'|'summary'>('priorities');
+  return <div className="min-w-0"><MiniHeader title="Actiproc AI" subtitle="Your workspace intelligence, connected to real context when authorized." Icon={Sparkles}/>
+    <div className="p-4 sm:p-6"><div className="mx-auto max-w-xl space-y-3">
+      <div className="ml-auto max-w-[88%] rounded-2xl border border-[#47715b] bg-[#263b35] px-4 py-3 text-[11px] text-[#f0f8f5]">{question==='priorities'?'What should our team focus on this week?':'Summarize our launch progress.'}</div>
+      <div className="rounded-2xl border border-[#3c4c54] bg-[#1d2a30] p-4">
+        <p className="inline-flex items-center gap-2 text-[11px] font-semibold text-white"><Sparkles className="h-4 w-4 text-[#c8ff93]" aria-hidden/>Actiproc AI · Workspace assistant</p>
+        <p className="mt-3 text-[11px] leading-6 text-[#c2d2d6]">{question==='priorities'?'Based on this sample workspace, review the onboarding flow first, then complete the launch checklist and move the partner proposal into review.':'This fictional workspace has 10 sample Actions across six workflow stages. The next priority is finishing in-progress launch work.'}</p>
+        <div className="mt-3 flex flex-wrap gap-1.5">{['Product launch','Sample work context'].map(tag=><span key={tag} className="rounded-full border border-[#4a665c] bg-[#243b35] px-2 py-1 text-[9px] text-[#bde6c2]">{tag}</span>)}</div>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <button type="button" onClick={()=>setQuestion('priorities')} aria-pressed={question==='priorities'} className="rounded-lg border border-[#49635b] px-3 py-2 text-[10px] text-[#d5f0da] hover:bg-[#2b4038]">Priorities</button>
+        <button type="button" onClick={()=>setQuestion('summary')} aria-pressed={question==='summary'} className="rounded-lg border border-[#49635b] px-3 py-2 text-[10px] text-[#d5f0da] hover:bg-[#2b4038]">Summary</button>
+      </div>
+      <p className="text-[10px] text-[#92aab2]">Illustrative AI response. Not a live model call. Plan limits and service availability apply.</p>
+    </div></div>
+  </div>;
+}
+function InsightsPanel(){
+  return <div className="min-w-0"><MiniHeader title="Workspace insights" subtitle="Know where progress is happening and where work is waiting." Icon={BarChart3}/>
+    <div className="grid grid-cols-2 gap-2.5 p-3 sm:grid-cols-4 sm:p-4">
+      {[['68%','Completion rate'],['12','This week'],['02','Needs review'],['05','Active projects']].map(([value,name])=><div key={name} className={surface+' p-3'}><p className="text-[20px] font-bold text-[#f7fdfd]">{value}</p><p className="mt-1 text-[9px] text-[#afc1c4]">{name}</p></div>)}
+      <div className={surface+' col-span-2 p-4 sm:col-span-3'}>
+        <p className="text-[11px] font-semibold text-white">Completion velocity · sample weeks</p>
+        <div className="mt-6 flex h-32 items-end gap-2 border-b border-[#40515a]" aria-label="Decorative simulated weekly progress chart">
+          {[24,38,35,55,47,65,53,78,69,91,74,86].map((v,i)=><span key={i} className="flex-1 rounded-t-md bg-gradient-to-t from-[#2c665f] to-[#bcff92]" style={{height:v+'%'}}/>)}
+        </div>
+      </div><div className={surface+' col-span-2 p-4 sm:col-span-1'}>
+        <p className="text-[11px] font-semibold text-white">Priority mix</p>
+        <div className="mx-auto mt-6 h-24 w-24 rounded-full border-[17px] border-[#f0b523] border-l-[#4d9c78] border-t-[#7691e4]" aria-hidden/>
+        <p className="mt-4 text-center text-[10px] text-[#acc2c4]">Illustrative metrics</p>
+      </div>
+    </div></div>;
+}
+function TeamPanel(){
+  return <div className="min-w-0"><MiniHeader title="Northstar Studio" subtitle="Your team's shared workspace, tasks and customer context." Icon={Users}/>
+    <div className="space-y-3 p-3 sm:p-5"><div className={surface+' p-4'}><p className="text-[11px] font-semibold text-white">Shared product launch</p><p className="mt-2 text-[10px] leading-5 text-[#b5c4c7]">Team ownership and customer context stay connected to each Action.</p></div>
+      {[['Customer launch readiness','Customer success','In progress'],['Website refresh','Design','Review'],['Release retrospective','Product','Completed']].map(([name,team,status])=><div key={name} className={surface+' flex items-center gap-3 p-3.5'}><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#2b4b40] text-[#c8ff93]"><Users className="h-4 w-4" aria-hidden/></span><div className="min-w-0 flex-1"><p className="truncate text-[11px] font-semibold text-white">{name}</p><p className="mt-1 text-[10px] text-[#9cb2ba]">{team}</p></div><span className="text-[9px] text-[#bde6ca]">{status}</span></div>)}
+      <p className="text-[10px] text-[#96adb5]">Fictional team and customer information.</p>
+    </div></div>;
+}
+
+export function MarketingWorkspacePreview(){
+  const [selected,setSelected]=useState<PreviewTab>('board');
+  const [moved,setMoved]=useState(false);
+  const [created,setCreated]=useState(false);
+  const [query,setQuery]=useState('');
+  return <div className="ap-preview-outer">
+    <div className="ap-preview-window ap-real-window">
+      <div className="ap-real-browser flex h-9 items-center gap-2 border-b border-[#35454e] bg-[#1e2c2f] px-3 sm:h-11 sm:px-4">
+        <span className="flex gap-1.5" aria-hidden><i className="h-2 w-2 rounded-full bg-[#e17e7e]"/><i className="h-2 w-2 rounded-full bg-[#ddbd80]"/><i className="h-2 w-2 rounded-full bg-[#6bb9a2]"/></span>
+        <span className="mx-auto truncate text-[10px] text-[#a8bcb8]">actiproc.com / northstar-studio / {selected==='notes'?'knowledge':selected}</span>
+        <ArrowUpRight className="h-3.5 w-3.5 text-[#9cafb7]" aria-hidden/>
+      </div>
+      <div className="ap-real-app">
+        <aside className="ap-real-sidebar border-r border-[#303f47] bg-[#131e23] p-2 sm:p-3">
+          <div className="mb-5 flex items-center gap-2 px-1">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#c8ff93] text-[#183124]"><LayoutGrid className="h-4 w-4" aria-hidden/></span>
+            <span className="hidden text-xs font-bold text-white sm:block">Actiproc</span>
+          </div>
+          <div className="mb-3 hidden rounded-xl border border-[#34444b] bg-[#1b2b30] p-2.5 sm:block"><p className="truncate text-[10px] font-semibold text-white">Northstar Studio</p><p className="mt-1 text-[9px] text-[#9cb6b4]">Sample team workspace</p></div>
+          <nav className="space-y-1" aria-label="Product demonstration">
+            {tabs.map(({key,label,Icon})=><button key={key} type="button" onClick={()=>{setSelected(key);setQuery('');}} title={label}
+              aria-label={'Preview '+label} aria-pressed={selected===key}
+              className={'flex min-h-9 w-full items-center gap-2 rounded-lg px-2 text-left text-[10px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8ff93] '+(selected===key?'bg-[#28443a] text-[#d7ffd0]':'text-[#a9bdc2] hover:bg-[#283a42] hover:text-white')}>
+              <Icon className="h-4 w-4 shrink-0" aria-hidden/><span className="hidden truncate sm:block">{label}</span>
+            </button>)}
+          </nav>
+          <div className="mt-5 hidden rounded-xl border border-[#354a45] bg-[#1b302c] p-2.5 sm:block"><p className="text-[9px] font-semibold text-[#c8ff93]">One connected space</p><p className="mt-1 text-[9px] leading-4 text-[#9bb8b4]">From idea to outcome.</p></div>
+        </aside>
+        <div className="ap-real-main min-w-0 bg-[#10191e]">
+          <header className="flex min-h-11 items-center gap-2 border-b border-[#303e47] bg-[#172127] px-2 sm:px-4">
+            <div className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-[#354750] bg-[#1b292f] px-2.5 py-2">
+              <Search className="h-3.5 w-3.5 shrink-0 text-[#a1b7bd]" aria-hidden/>
+              <input value={query} onChange={event=>setQuery(event.target.value)} aria-label="Search the sample workspace"
+                placeholder="Search sample work and knowledge..." className="min-w-0 flex-1 bg-transparent text-[10px] text-[#eef7f5] placeholder:text-[#96aab1] focus-visible:outline-none"/>
             </div>
-          </div>)}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function KnowledgePanel() {
-  return (
-    <div className="min-w-0">
-      <div className="ap-preview-toolbar">
-        <div className="flex items-center gap-2"><FileText className="h-4 w-4 text-[#bdf9d9]" />
-          <span className="text-xs font-semibold text-[#f2fef8]">Knowledge Hub</span>
-        </div>
-        <span className="flex items-center gap-1 rounded-lg border border-[#375946] px-2 py-1 text-[10px] text-[#9fc6b1]">
-          <Search className="h-3 w-3" aria-hidden /> Search knowledge
-        </span>
-      </div>
-      <div className="grid gap-3 p-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] sm:p-5">
-        <div className="space-y-2">
-          {[
-            { title: 'Launch retrospective', label: 'Learning', active: true },
-            { title: 'Customer interview notes', label: 'Notes', active: false },
-            { title: 'Onboarding decisions', label: 'Decision', active: false },
-          ].map(note => <div key={note.title} className={'rounded-xl border px-3 py-3 ' + (note.active ? 'border-[#7ed0a4]/50 bg-[#2f5c43]' : 'border-[#355644] bg-[#1a3727]')}>
-            <p className="truncate text-[11px] font-semibold text-[#eefdf5]">{note.title}</p>
-            <p className="mt-1.5 text-[10px] text-[#9ac4ad]">{note.label}</p>
-          </div>)}
-        </div>
-        <div className="rounded-xl border border-[#355644] bg-[#1c3929] px-4 py-4">
-          <span className="rounded-md bg-[#326147] px-2 py-1 text-[10px] font-semibold text-[#bcf8d6]">Learning</span>
-          <h4 className="mt-3 text-[14px] font-semibold text-white">Launch retrospective</h4>
-          <p className="mt-3 text-[11px] leading-[1.9] text-[#abcebb]">
-            Keep decisions close to the work that inspired them. Capture what worked, what changed, and the next useful step.
-          </p>
-          <div className="mt-4 border-t border-[#375846] pt-3 text-[10px] text-[#86af98]">Linked to · Product launch</div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function AIPanel() {
-  return (
-    <div className="min-w-0">
-      <div className="ap-preview-toolbar">
-        <span className="inline-flex items-center gap-2 text-xs font-semibold text-white">
-          <Sparkles className="h-4 w-4 text-[#bff9da]" /> Actiproc AI
-        </span>
-        <span className="rounded-full border border-[#47735b] px-2 py-1 text-[9px] text-[#b5dbc6]">Workspace-aware assistant</span>
-      </div>
-      <div className="space-y-3 p-4 sm:p-5">
-        <div className="ml-auto max-w-[82%] rounded-[16px] rounded-tr-sm border border-[#3f7155] bg-[#2c5f43] px-4 py-3 text-[11px] leading-relaxed text-[#f1fef7]">
-          What should I focus on next?
-        </div>
-        <div className="rounded-[16px] border border-[#395f4a] bg-[#1e3d2c] p-4">
-          <div className="mb-2 inline-flex items-center gap-1.5 text-[10px] font-semibold text-[#bcf8d8]">
-            <Sparkles className="h-3 w-3" aria-hidden /> Actiproc AI
-          </div>
-          <p className="text-[11px] leading-[1.8] text-[#d9f4e5]">Start with the onboarding review. It is already in progress and has two remaining checklist steps.</p>
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            <span className="rounded-lg border border-[#407357] bg-[#2b583f] px-2.5 py-1.5 text-[10px] text-[#cdfae1]">Refine onboarding flow</span>
-            <span className="rounded-lg border border-[#407357] bg-[#2b583f] px-2.5 py-1.5 text-[10px] text-[#cdfae1]">Product launch</span>
-          </div>
-        </div>
-        <p className="text-[10px] text-[#92b5a2]">Illustrative answer. AI access, capabilities and usage depend on plan and service availability.</p>
-      </div>
-    </div>
-  );
-}
-
-
-function InsightsPanel() {
-  return (
-    <div className="min-w-0">
-      <div className="ap-preview-toolbar">
-        <span className="inline-flex items-center gap-2 text-xs font-semibold text-white"><BarChart3 className="h-4 w-4 text-[#bef9d9]" aria-hidden /> Workspace insights</span>
-        <span className="text-[10px] text-[#99b8a7]">Illustrative metrics</span>
-      </div>
-      <div className="grid gap-3 p-4 sm:grid-cols-2 sm:p-5">
-        {[{ label: 'Actions completed', value: '24', note: 'Sample week' }, { label: 'Open processes', value: '03', note: 'Illustrative workspace' }].map(item => (
-          <div key={item.label} className="rounded-xl border border-[#405d4d] bg-[#1d3c2b] p-4">
-            <p className="text-[10px] text-[#a3cab4]">{item.label}</p>
-            <p className="mt-4 text-[32px] font-semibold tracking-[-.055em] text-white">{item.value}</p>
-            <p className="mt-2 text-[10px] text-[#93bfa6]">{item.note}</p>
-          </div>
-        ))}
-        <div className="rounded-xl border border-[#405d4d] bg-[#1d3c2b] p-4 sm:col-span-2">
-          <p className="text-[11px] font-semibold text-[#eefdf5]">Progress in focus</p>
-          <div className="mt-5 flex h-24 items-end gap-2" aria-hidden>
-            {[45, 60, 53, 80, 67, 86, 72, 95, 78].map((height, index) => (
-              <span key={index} className="flex-1 rounded-t-md bg-gradient-to-t from-[#51a777] to-[#b8ff91]" style={{ height: height + '%' }} />
-            ))}
-          </div>
-          <p className="mt-3 text-[10px] text-[#95bca6]">Sample visualization, not real user activity.</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function TeamPanel() {
-  return (
-    <div className="min-w-0">
-      <div className="ap-preview-toolbar">
-        <span className="inline-flex items-center gap-2 text-xs font-semibold text-white"><Users className="h-4 w-4 text-[#bef9d9]" aria-hidden /> Team workspace</span>
-        <span className="text-[10px] text-[#99b8a7]">Example team</span>
-      </div>
-      <div className="space-y-3 p-4 sm:p-5">
-        <div className="rounded-xl border border-[#3d5d4b] bg-[#1f3f2d] p-4">
-          <p className="text-xs font-semibold text-white">Shared product launch</p>
-          <p className="mt-2 text-[11px] leading-relaxed text-[#a2c5b2]">Ownership, customer context and progress stay close to the work.</p>
-        </div>
-        {[
-          { name: 'Product rollout', team: 'Product', tag: 'In progress' },
-          { name: 'Customer handoff', team: 'Customer success', tag: 'To do' },
-          { name: 'Release retrospective', team: 'Operations', tag: 'Completed' },
-        ].map(item => (
-          <div key={item.name} className="flex items-center gap-3 rounded-xl border border-[#385a47] bg-[#1b3a29] p-3.5">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#35654a] text-[11px] font-semibold text-[#d2fbe4]">{item.team[0]}</span>
-            <div className="min-w-0 flex-1"><p className="truncate text-[11px] font-semibold text-white">{item.name}</p><p className="mt-1 text-[10px] text-[#99c2ab]">{item.team}</p></div>
-            <span className="text-[9px] font-medium text-[#b8e2b5]">{item.tag}</span>
-          </div>
-        ))}
-        <p className="text-[10px] text-[#8eb7a0]">Illustrative team and customer workflow, not real customer information.</p>
-      </div>
-    </div>
-  );
-}
-
-export function MarketingWorkspacePreview() {
-  const [selected, setSelected] = useState<PreviewTab>('board');
-  return (
-    <div className="ap-preview-outer">
-      <div className="ap-preview-window">
-        <div className="flex h-12 items-center gap-3 border-b border-[#2c4b3a] bg-[#1a3526] px-3.5 sm:px-5">
-          <div className="flex gap-1.5" aria-hidden><i className="h-2.5 w-2.5 rounded-full bg-[#e37e86]/75" /><i className="h-2.5 w-2.5 rounded-full bg-[#e9c47d]/75" /><i className="h-2.5 w-2.5 rounded-full bg-[#74c8a6]/75" /></div>
-          <span className="mx-auto truncate text-[10px] font-medium tracking-wide text-[#90b4a0] sm:text-[11px]">actiproc.com / workspace</span>
-          <ArrowUpRight className="h-3.5 w-3.5 text-[#8fb5a0]" aria-hidden />
-        </div>
-        <div className="grid min-w-0 grid-cols-[47px_minmax(0,1fr)] sm:grid-cols-[130px_minmax(0,1fr)]">
-          <aside className="min-h-[375px] border-r border-[#2d4c3b] bg-[#153021] p-2.5 sm:p-3.5">
-            <div className="mb-6 flex items-center gap-2 px-1">
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[9px] bg-[#78edae] text-[#0c2b1a]"><LayoutGrid className="h-4 w-4" aria-hidden /></div>
-              <span className="hidden text-xs font-semibold text-white sm:inline">Actiproc</span>
-            </div>
-            <div className="space-y-1">
-              {tabs.map(({key,label,Icon})=>(
-                <button key={key} type="button" onClick={() => setSelected(key)} title={label}
-                  aria-label={'Preview ' + label} aria-pressed={selected === key}
-                  className={'flex h-9 w-full items-center gap-2 rounded-lg px-2.5 text-left text-[10.5px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b2f7d2] ' + (selected === key ? 'bg-[#2e5e44] text-[#e2fcee]' : 'text-[#95b8a5] hover:bg-[#20422f] hover:text-white')}>
-                  <Icon className="h-4 w-4 shrink-0" aria-hidden />
-                  <span className="hidden truncate sm:inline">{label}</span>
-                </button>
-              ))}
-            </div>
-            <div className="mt-6 hidden rounded-xl border border-[#325a44] bg-[#1f4430] p-3 sm:block">
-              <p className="text-[10px] font-semibold text-[#a9dbc0]">One connected space</p>
-              <p className="mt-1 text-[10px] leading-4 text-[#88b19a]">From idea to outcome.</p>
-            </div>
-          </aside>
-          <div className="min-w-0 bg-[#132b1e]">
-            {selected === 'board' && <BoardPanel />}
-            {selected === 'planner' && <PlannerPanel />}
-            {selected === 'notes' && <KnowledgePanel />}
-            {selected === 'ai' && <AIPanel />}
-            {selected === 'insights' && <InsightsPanel />}
-            {selected === 'team' && <TeamPanel />}
+            <button type="button" onClick={()=>{setSelected('board');setQuery('');setCreated(!created);}} aria-label={created?'Remove sample Action':'Add sample Action'}
+              className="flex h-8 shrink-0 items-center justify-center gap-1 rounded-lg bg-[#c8ff93] px-2 text-[10px] font-bold text-[#142717] hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8ff93]">
+              {created?<Check className="h-3.5 w-3.5" aria-hidden/>:<Plus className="h-3.5 w-3.5" aria-hidden/>}
+              <span className="hidden sm:inline">{created?'Added':'Add Action'}</span>
+            </button>
+            <Bell className="hidden h-4 w-4 text-[#bed0d4] md:block" aria-hidden/>
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#3f5f55] text-[9px] font-bold text-[#f3ffe6]">NS</span>
+          </header>
+          <div className="ap-real-content min-w-0 overflow-y-auto">
+            {selected==='board'&&<BoardPanel moved={moved} setMoved={setMoved} created={created} query={query}/>}
+            {selected==='planner'&&<PlannerPanel/>}
+            {selected==='notes'&&<KnowledgePanel query={query}/>}
+            {selected==='ai'&&<AIPanel/>}
+            {selected==='insights'&&<InsightsPanel/>}
+            {selected==='team'&&<TeamPanel/>}
           </div>
         </div>
       </div>
-      <div className="mt-3 flex items-center justify-between gap-3 px-1 text-[10px] text-[#8dad9c] sm:text-[11px]">
-        <span className="inline-flex items-center gap-1.5"><Circle className="h-2 w-2 fill-[#a1ddbd] text-[#a1ddbd]" aria-hidden /> Interactive product walkthrough</span>
-        <span>Illustrative workspace · not live user data</span>
-      </div>
     </div>
-  );
+    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 px-1 text-[10px] text-[#9bb0a6] sm:text-[11px]">
+      <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#c8ff93]" aria-hidden/>Interactive product walkthrough</span>
+      <span>Illustrative workspace · not live user data</span>
+    </div>
+  </div>;
 }
