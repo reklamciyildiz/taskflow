@@ -4,6 +4,14 @@ on:
     paths:
       - 'lib/paid-feature-policy.ts'
       - 'lib/entitlements.ts'
+      - 'lib/plan-entitlement-matrix.ts'
+      - 'lib/subscription-access.ts'
+      - 'lib/billing-plans.ts'
+      - 'lib/ai/ai-plan-catalog.ts'
+      - 'components/marketing/sections/MarketingPricing.tsx'
+      - 'scripts/test-plan-entitlement-matrix.ts'
+      - 'supabase/migrations/20261108120000_actiproc_atomic_plan_limits.sql'
+      - 'scripts/sql/actiproc-entitlements-production-audit.sql'
       - 'lib/google-calendar-*'
       - 'lib/google-calendar-sync.ts'
       - 'lib/webhook-trigger.ts'
@@ -20,6 +28,14 @@ on:
     paths:
       - 'lib/paid-feature-policy.ts'
       - 'lib/entitlements.ts'
+      - 'lib/plan-entitlement-matrix.ts'
+      - 'lib/subscription-access.ts'
+      - 'lib/billing-plans.ts'
+      - 'lib/ai/ai-plan-catalog.ts'
+      - 'components/marketing/sections/MarketingPricing.tsx'
+      - 'scripts/test-plan-entitlement-matrix.ts'
+      - 'supabase/migrations/20261108120000_actiproc_atomic_plan_limits.sql'
+      - 'scripts/sql/actiproc-entitlements-production-audit.sql'
       - 'lib/google-calendar-*'
       - 'lib/google-calendar-sync.ts'
       - 'lib/webhook-trigger.ts'
@@ -45,7 +61,7 @@ jobs:
           cache: npm
       - run: npm ci --no-audit --no-fund
       - name: Plan-feature policy and endpoint guards
-        run: npx tsx scripts/test-paid-feature-gates.ts
+        run: npm run test:entitlements
       - name: Static types
         run: npx tsc --noEmit
       - name: Scheduling rules
