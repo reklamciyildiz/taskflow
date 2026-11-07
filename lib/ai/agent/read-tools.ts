@@ -120,13 +120,27 @@ async function runProcessOverview(actor:AIReadToolActor,input:z.infer<typeof pro
 
 async function runListActions(actor:AIReadToolActor,input:z.infer<typeof listActionsSchema>):Promise<AIReadToolExecution> {
   if(input.scheduleDateFrom&&input.scheduleDateTo&&input.scheduleDateFrom>input.scheduleDateTo) throw new AIReadToolError('invalid_arguments','Invalid schedule date range');
-  const teams=await accessibleTeamIds(actor);if(input.teamId&&!teams.has(input.teamId)) return {name:'list_actions',statusLabel:'Action’lar kontrol ediliyor…',citations:[],references:[],data:{total:0,hasMore:false,actions:[]}};
+  const teams=await accessibleTeamIds(actor);
+  if(input.teamId&&!teams.has(input.teamId))
+    throw new AIReadToolError('forbidden','Requested team is not accessible');
   const projects=await visibleProcesses(actor,input.teamId);const projectById=new Map(projects.map((p:any)=>[String(p.id),p]));
-  let selectedProject:any=null;if(input.processId||input.processName){selectedProject=await resolveProcess(actor,input,input.teamId);if(!selectedProject)return{name:'list_actions',statusLabel:'Action’lar kontrol ediliyor…',citations:[],references:[],data:{total:0,hasMore:false,actions:[]}};}
+  let selectedProject:any=null;
+  if(input.processId||input.processName){
+    selectedProject=await resolveProcess(actor,input,input.teamId);
+    if(!selectedProject)
+      throw new AIReadToolError('not_found','Requested Process was not found or is not accessible. Check the Process name.');
+  }
   let query=supabaseAdmin.from('tasks').select('id,title,description,status,priority,assignee_id,project_id,team_id,checklist_blocks,updated_at')
     .eq('organization_id',actor.organizationId).limit(501);
-  if(input.teamId) query=query.eq('team_id',input.teamId);else if(teams.size) query=query.in('team_id',[...teams]);else return{name:'list_actions',statusLabel:'Action’lar kontrol ediliyor…',citations:[],references:[],data:{total:0,hasMore:false,actions:[]}};
-  if(selectedProject) query=query.eq('project_id',selectedProject.id);if(input.priorities?.length)query=query.in('priority',input.priorities);if(input.stageIds?.length)query=query.in('status',input.stageIds);
+  // A verified Process ID is the canonical scope. Legacy Actions may have
+  // stale/null team_id while still belonging to this authorized Process.
+  // Filtering those records by team_id as well can falsely report zero.
+  if(selectedProject) query=query.eq('project_id',selectedProject.id);
+  else if(input.teamId) query=query.eq('team_id',input.teamId);
+  else if(teams.size) query=query.in('team_id',[...teams]);
+  else return{name:'list_actions',statusLabel:'Action’lar kontrol ediliyor…',citations:[],references:[],data:{total:0,hasMore:false,actions:[]}};
+  if(input.priorities?.length)query=query.in('priority',input.priorities);
+  if(input.stageIds?.length)query=query.in('status',input.stageIds);
   if(input.assignedToMe)query=query.eq('assignee_id',actor.userId);else if(input.assigneeId===null)query=query.is('assignee_id',null);else if(input.assigneeId)query=query.eq('assignee_id',input.assigneeId);
   const {data,error}=await query.order('updated_at',{ascending:false});if(error)throw new AIReadToolError('unavailable','Actions are temporarily unavailable');
   let tasks=(data??[]).filter((task:any)=>{const pid=task.project_id?String(task.project_id):null;return pid?projectById.has(pid):teams.has(String(task.team_id));});
@@ -142,8 +156,13 @@ async function runListActions(actor:AIReadToolActor,input:z.infer<typeof listAct
 async function runActionDetails(actor:AIReadToolActor,input:z.infer<typeof actionDetailsSchema>):Promise<AIReadToolExecution>{
   const {data:task,error}=await supabaseAdmin.from('tasks').select('id,title,description,status,priority,assignee_id,project_id,team_id,organization_id,checklist_blocks,updated_at').eq('id',input.actionId).eq('organization_id',actor.organizationId).maybeSingle();
   if(error)throw new AIReadToolError('unavailable','Action details are temporarily unavailable');if(!task)throw new AIReadToolError('not_found','Action was not found or is not accessible');
-  const teams=await accessibleTeamIds(actor);if(!teams.has(String(task.team_id)))throw new AIReadToolError('not_found','Action was not found or is not accessible');
-  const projects=await visibleProcesses(actor,String(task.team_id));const project:any=task.project_id?projects.find((p:any)=>String(p.id)===String(task.project_id)):null;if(task.project_id&&!project)throw new AIReadToolError('not_found','Action was not found or is not accessible');
+  const teams=await accessibleTeamIds(actor);
+  const projects=await visibleProcesses(actor);
+  const project:any=task.project_id?projects.find((p:any)=>String(p.id)===String(task.project_id)):null;
+  // Project visibility is the ACL for Process-scoped Actions; a team
+  // membership is required for general Actions without a project.
+  if(task.project_id?!project:!teams.has(String(task.team_id)))
+    throw new AIReadToolError('not_found','Action was not found or is not accessible');
   const columns=project?parseColumnConfigFromJson(project.column_config):[];const stage=columns.find((c)=>c.id===String(task.status));const checklist=extractChecklistItemsFromTipTap(task.checklist_blocks);
   const refs:AIReadReference[]=[actionReference(task,project?String(project.id):null),...checklist.slice(0,50).map((item)=>({type:'checklist' as const,id:item.id,title:item.text,actionId:String(task.id),processId:project?String(project.id):null,checklistItemId:item.id}))];
   return{name:'get_action_details',statusLabel:'Action ayrıntıları kontrol ediliyor…',citations:[],references:refs,data:{id:String(task.id),title:String(task.title),description:compact(task.description,1_000),priority:String(task.priority),stageId:String(task.status),stageLabel:stage?.title??String(task.status),completed:isTerminalBoardColumn(String(task.status),columns),assigneeId:task.assignee_id?String(task.assignee_id):null,process:project?{id:String(project.id),name:String(project.name)}:null,checklist:checklist.map((item)=>({id:item.id,text:item.text,checked:item.checked,assigneeId:item.assigneeId,dueDate:item.dueDate,completedAt:item.completedAt})),updatedAt:String(task.updated_at)}};

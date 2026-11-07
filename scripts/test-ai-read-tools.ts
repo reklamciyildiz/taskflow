@@ -13,6 +13,24 @@ const alum=planDirectAIReadTools("Alumas Process'imde ka\u00e7 Action var?",glob
 assert.equal(alum[0].name,'list_actions');
 assert.equal((alum[0].arguments as any).processName,'Alumas');
 assert.equal((alum[0].arguments as any).completion,'all');
+// Reproduction from the live "İş Arama" board: the original router used
+// to ask the DB for "Benim İş Arama isimli" and quietly returned zero rows.
+const liveRepro=planDirectAIReadTools(
+  "Benim İş Arama isimli Process'imde bulunan tamamlanmamış Action'ları isimleriyle listele. Hangi aşamada olduklarını da belirt. Yalnızca gerçek verilerimi kullan.",
+  globalContext,
+);
+assert.equal(liveRepro[0]?.name,'list_actions');
+assert.equal((liveRepro[0].arguments as any).processName,'İş Arama');
+assert.equal((liveRepro[0].arguments as any).completion,'incomplete');
+assert.equal((liveRepro[0].arguments as any).limit,20);
+assert.equal((planDirectAIReadTools("İş Arama Process'imde kaç Action var?",globalContext)[0].arguments as any).processName,'İş Arama');
+assert.equal((planDirectAIReadTools("Benim İş Arama adlı Process'imdeki Action'ları listele.",globalContext)[0].arguments as any).processName,'İş Arama');
+const scoped=planDirectAIReadTools(
+  "Benim İş Arama isimli Process'imde bulunan tamamlanmamış Action'ları listele.",
+  {origin:'process',processId:'10000000-0000-4000-8000-000000000001'} as any,
+);
+assert.equal((scoped[0].arguments as any).processId,'10000000-0000-4000-8000-000000000001');
+
 const incomplete=planDirectAIReadTools("SmartSafe AI'da tamamlanmam\u0131\u015f Action'lar hangileri?",globalContext);
 assert.equal(incomplete[0].name,'list_actions');
 assert.equal((incomplete[0].arguments as any).completion,'incomplete');
@@ -50,10 +68,15 @@ assert.match(registry,/isTerminalBoardColumn/);
 assert.match(registry,/extractChecklistItemsFromTipTap/);
 assert.match(registry,/getPlannerUpcomingProjection/);
 assert.match(registry,/retrieveKnowledge/);
+assert.match(registry,/throw new AIReadToolError\('not_found','Requested Process was not found/);
+assert.match(registry,/query=query.eq\('project_id',selectedProject.id\)/);
+assert.match(registry,/task.project_id\?!project:!teams.has/);
 const route=readFileSync('app/api/ai/chat/route.ts','utf8');
 assert.match(route,/AXIOM_AI_READ_TOOLS_ENABLED|areAIReadToolsEnabled/);
 assert.match(route,/slice\(0,2\)/);
 assert.match(route,/modelToolSelection/);
+assert.match(route,/const failedRead=readToolExecutions.find/);
+assert.match(route,/actiproc-read-scope-guard/);
 
 console.log(JSON.stringify({readToolContractChecks:25,liveProviderCalls:false,liveDatabaseCalls:false}));
 }

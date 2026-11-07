@@ -12,7 +12,20 @@ function processNameFromQuestion(question:string):string|undefined {
     /^\s*(.+?)(?:'ta|'te|'da|'de|\u2019ta|\u2019te|\u2019da|\u2019de)\s+/i,
     /^\s*(.+?)\s+(?:projesindeki|projesinde|projectindeki|projectinde)\b/i,
   ];
-  for(const pattern of patterns){const match=question.match(pattern);const value=match?.[1]?.trim();if(value&&value.length<=120)return value;}
+  for(const pattern of patterns){
+    const match=question.match(pattern);
+    const value=match?.[1]?.trim();
+    if(!value)continue;
+    // Spoken Turkish requests commonly say "Benim İş Arama isimli
+    // Process'imde...". "Benim" and "isimli" describe the record; they
+    // are not part of its canonical database name.
+    const canonicalHint=value
+      .replace(/^(?:benim|bizim|my|our)\s+/iu,'')
+      .replace(/\s+(?:isimli|adlı|adli|adındaki|adindaki|named|called)$/iu,'')
+      .replace(/^["“”'’]+|["“”'’]+$/gu,'')
+      .trim();
+    if(canonicalHint&&canonicalHint.length<=120)return canonicalHint;
+  }
   return undefined;
 }
 
