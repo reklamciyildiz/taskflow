@@ -74,7 +74,7 @@ function statusBadgeVariant(status: string): 'default' | 'secondary' | 'destruct
 // additional billing details, NOT separate or exclusive feature promises.
 const PLAN_FEATURES = {
   free: [ACTIPROC_DEFAULT_SEAT_LIMITS.free + ' seats included', ...PLAN_MARKETING_FEATURES.free],
-  individual: [ACTIPROC_DEFAULT_SEAT_LIMITS.individual + ' seat', ...PLAN_MARKETING_FEATURES.individual],
+  individual: ['Purchased seats determine team capacity', ...PLAN_MARKETING_FEATURES.individual],
   pro: ['Purchased seats determine team capacity', ...PLAN_MARKETING_FEATURES.pro],
   team: ['Purchased seats determine team capacity', ...PLAN_MARKETING_FEATURES.team],
 } as const;
@@ -207,7 +207,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
   }
   const statusLabel = billingStatus.replace('_', ' ');
   const showSeatMeter =
-    (billingPlan === 'team' || billingPlan === 'pro') && Boolean(subscriptionId);
+    (billingPlan === 'team' || billingPlan === 'pro' || billingPlan === 'individual') && Boolean(subscriptionId);
   const seatPct =
     showSeatMeter && seatLimit > 0 ? Math.min(100, Math.round((seatsUsed / seatLimit) * 100)) : 0;
   const effectiveInterval=hasPaidSubscription ? billingInterval : selectedBillingInterval;
@@ -536,7 +536,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                 <Receipt className="mr-1.5 h-3.5 w-3.5" aria-hidden />
                 Invoices &amp; portal
               </Button>
-              {(billingPlan === 'team' || billingPlan === 'pro') && subscriptionId && Number.isFinite(seatLimit) ? (
+              {(billingPlan === 'team' || billingPlan === 'pro' || billingPlan === 'individual') && subscriptionId && Number.isFinite(seatLimit) ? (
                 <Button
                   type="button"
                   variant="outline"
@@ -687,7 +687,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
 
           {addSeatsOpen && Number.isFinite(seatLimit) ? (() => {
             const period=effectiveInterval??'monthly';
-            const pricePerSeat=actiprocPriceUsd(billingPlan as 'pro'|'team',period);
+            const pricePerSeat=actiprocPriceUsd(billingPlan as 'individual'|'pro'|'team',period);
             const periodTotal=desiredSeats*pricePerSeat;
             const isIncrease = desiredSeats > seatLimit;
             const isDecrease = desiredSeats < seatLimit;
