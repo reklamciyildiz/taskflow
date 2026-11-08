@@ -35,5 +35,11 @@ jobs:
         run: npx tsc --noEmit
       - name: ESLint
         run: npm run lint
-      - name: Build (without Production secrets)
+      - name: Build (with non-functional CI placeholders only)
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-not-a-real-key
+          SUPABASE_SERVICE_ROLE_KEY: ci-not-a-real-service-role-key
+          NEXTAUTH_SECRET: ci-non-production-build-placeholder-only
+          NEXTAUTH_URL: http://localhost:3000
         run: npm run build
