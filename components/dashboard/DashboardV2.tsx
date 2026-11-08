@@ -38,16 +38,19 @@ export function DashboardV2() {
       : projects;
     const byProjectId = new Map(scopedProjects.map(project => [project.id, project]));
     const scopedTasks = currentTeam ? tasks.filter(task => task.teamId === currentTeam.id) : tasks;
-    const completed = scopedTasks.filter(task => {
+    const lifecycle = scopedTasks.map(task => {
       const stages = task.projectId
         ? byProjectId.get(task.projectId)?.columnConfig ?? generalBoardColumns
         : generalBoardColumns;
-      return resolveStageLifecycle(task.status, stages).isTerminal;
-    }).length;
+      return resolveStageLifecycle(task.status, stages);
+    });
+    const completed = lifecycle.filter(stage => stage.isTerminal).length;
+    const active = lifecycle.filter(stage => stage.isActionable).length;
+    const total = scopedTasks.length;
     return {
-      actions: scopedTasks.length,
+      active,
       processes: scopedProjects.length,
-      complete: scopedTasks.length ? Math.round((completed / scopedTasks.length) * 100) : 0,
+      complete: total ? Math.round((completed / total) * 100) : 0,
     };
   }, [currentTeam, projects, tasks, generalBoardColumns]);
 
@@ -79,7 +82,7 @@ export function DashboardV2() {
           <div className="dashboard-v2-hero-stats" aria-label="Current workspace overview">
             <div className="dashboard-v2-hero-stat dashboard-v2-hero-stat--lime">
               <span className="dashboard-v2-hero-stat-icon"><Activity className="h-[19px] w-[19px]" aria-hidden="true" /></span>
-              <span className="dashboard-v2-hero-stat-copy"><strong>{loading ? '—' : overview.actions}</strong><span>Actions</span></span>
+              <span className="dashboard-v2-hero-stat-copy"><strong>{loading ? '—' : overview.active}</strong><span>Active Actions</span></span>
             </div>
             <div className="dashboard-v2-hero-stat dashboard-v2-hero-stat--blue">
               <span className="dashboard-v2-hero-stat-icon"><FolderKanban className="h-[19px] w-[19px]" aria-hidden="true" /></span>
