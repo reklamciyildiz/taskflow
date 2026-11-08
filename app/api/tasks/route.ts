@@ -1,6 +1,6 @@
 import { stageErrorMessage } from '@/lib/stage-server';
 import { NextRequest, NextResponse } from 'next/server';
-import { taskDb, notificationDb, userDb, teamMemberDb, projectDb, customerDb } from '@/lib/db';
+import { taskDb, notificationDb, userDb, teamMemberDb, projectDb, teamDb, customerDb } from '@/lib/db';
 import { ApiResponse } from '@/lib/types';
 import { canMutateTeamTasks, requireAuthedUser, viewerCannotMutateTasksResponse } from '@/lib/server-authz';
 import { triggerWebhook } from '@/lib/webhook-trigger';
@@ -38,6 +38,14 @@ export async function GET(request: NextRequest) {
           { status: 404 }
         );
       }
+      // The service-role query bypasses RLS. Membership alone and an org
+      // admin override do NOT prove that the requested Team belongs to us.
+      const requestedTeam = await teamDb.getById(teamId);
+      if (!user.organization_id || !requestedTeam ||
+          requestedTeam.organization_id !== user.organization_id) {
+        return NextResponse.json<ApiResponse<null>>(
+          { success: false, error: 'Team not found' }, { status: 404 });
+      }
       // Must be a team member (or org admin) to view team tasks.
       const isOrgAdmin = user.role === 'admin' || user.role === 'owner';
       const membership = await teamMemberDb.getMembership(teamId, user.id);
@@ -56,7 +64,7 @@ export async function GET(request: NextRequest) {
       });
       const visibleProjectIds = new Set<string>(visibleProjects.map((p: any) => p.id));
 
-      const raw = await taskDb.getByTeam(teamId);
+      const raw = await taskDb.getByTeamScoped(teamId, String(user.organization_id));
       tasks = (raw ?? []).filter((t: any) => {
         const pid = t.project_id ?? null;
         if (!pid) return true; // General actions remain team-wide in v1
@@ -124,6 +132,14 @@ export async function POST(request: NextRequest) {
         { success: false, error: 'User authentication required' },
         { status: 401 }
       );
+    }
+
+    // Fail closed for a foreign/nonexistent Team before any Action or schedule
+    // write, even when the actor is an organization Owner/Admin.
+    const targetTeam = await teamDb.getById(body.teamId);
+    if (!targetTeam || targetTeam.organization_id !== organizationId) {
+      return NextResponse.json<ApiResponse<null>>(
+        { success: false, error: 'Team not found' }, { status: 404 });
     }
 
     const schedulingTimeZone = await getUserSchedulingTimeZone(String(actor?.id ?? userId));

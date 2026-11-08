@@ -711,7 +711,21 @@ export const taskDb = {
       .select(TASK_SELECT)
       .eq('team_id', teamId)
       .order('created_at', { ascending: false });
-    
+
+    if (error) throw error;
+    return data;
+  },
+
+  // Authenticated Action listing queries must include organization scope:
+  // Team membership bypass for org admins is not a tenant boundary.
+  async getByTeamScoped(teamId: string, organizationId: string) {
+    const { data, error } = await db
+      .from('tasks')
+      .select(TASK_SELECT)
+      .eq('team_id', teamId)
+      .eq('organization_id', organizationId)
+      .order('created_at', { ascending: false });
+
     if (error) throw error;
     return data;
   },

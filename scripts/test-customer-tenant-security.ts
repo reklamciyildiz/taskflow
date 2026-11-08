@@ -157,6 +157,25 @@ async function main() {
     assert.match(content,/customerDb\.getById\(body\.customerId,\s*String\(/);
     assert.match(content,/isCustomerId\(body\.customerId\)/);
   }
+  // Confirm GET /api/tasks?teamId=<foreign> cannot skip tenant scope for
+  // org administrators, and POST refuses foreign Team IDs before task writes.
+  const actionRoute = readFileSync('app/api/tasks/route.ts','utf8');
+  const readBoundary = actionRoute.slice(
+    actionRoute.indexOf('export async function GET'),
+    actionRoute.indexOf('export async function POST'),
+  );
+  assert.match(readBoundary,/requestedTeam\.organization_id !== user\.organization_id/);
+  assert.match(readBoundary,/taskDb\.getByTeamScoped\(teamId, String\(user\.organization_id\)\)/);
+  assert.ok(readBoundary.indexOf('requestedTeam.organization_id') <
+    readBoundary.indexOf('taskDb.getByTeamScoped'), 'Team access must precede read');
+  const postBoundary = actionRoute.slice(actionRoute.indexOf('export async function POST'));
+  assert.match(postBoundary,/targetTeam\.organization_id !== organizationId/);
+  assert.ok(postBoundary.indexOf('targetTeam.organization_id') <
+    postBoundary.indexOf('taskDb.create'), 'Team ownership must precede create');
+  assert.match(db,/async getByTeamScoped\(teamId: string, organizationId: string\)/);
+  const scopedQuery = db.slice(db.indexOf('async getByTeamScoped('), db.indexOf('async listKnowledgeScope('));
+  assert.match(scopedQuery,/\.eq\('team_id', teamId\)\s*\.eq\('organization_id', organizationId\)/);
+
   // No mock security components remain; do not accidentally re-add a fake UI.
   assert.equal(existsSync('components/TwoFactorModal.tsx'),false);
   assert.equal(existsSync('components/ActiveSessionsModal.tsx'),false);

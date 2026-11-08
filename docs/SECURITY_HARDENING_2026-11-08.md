@@ -9,7 +9,12 @@
    Owner/Admin writes, Member/Viewer reads; both \`id\` and \`organization_id\`
    applied directly to UPDATE, DELETE and SELECT. Foreign and absent IDs yield
    the same 404 without disclosing record fields. Customer stats are org scoped.
-2. **Cross-tenant Action/customer relations:** canonical task POST and PATCH
+2. **Cross-tenant Team Action access:** \`GET /api/tasks?teamId=...\`
+   let org admins bypass team-membership checks without verifying the Team
+   belonged to their organization. Action POST also accepted arbitrary Team IDs.
+   **Mitigation:** check Team ownership before read/create, and use both
+   \`team_id\` and \`organization_id\` in the service-role Action SELECT.
+3. **Cross-tenant Action/customer relations:** canonical task POST and PATCH
    accepted \`customerId\` from callers without verifying customer ownership.
    **Mitigation:** validate typed UUID against a same-organization customer
    lookup *before* task or schedule writes. Unknown/foreign ID gets 404.
