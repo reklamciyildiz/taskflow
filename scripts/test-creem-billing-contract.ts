@@ -240,6 +240,16 @@ const nativeCheckout=fs.readFileSync('app/api/billing/checkout/route.ts','utf8')
 assert.ok(nativeCheckout.includes('capacitor-native'),'Capacitor native app must not start Creem checkout');
 
 const reSql=fs.readFileSync('supabase/migrations/20261101170000_creem_safe_resubscription.sql','utf8');
+const revisedReSql=fs.readFileSync('supabase/migrations/20261108230000_creem_individual_multiseat_resubscription.sql','utf8');
+assert.ok(revisedReSql.includes('CREATE OR REPLACE FUNCTION public.reserve_creem_resubscription') &&
+ revisedReSql.includes('CREATE OR REPLACE FUNCTION public.apply_creem_resubscription') &&
+ !revisedReSql.includes("(p_plan='individual' AND p_seats<>1)") &&
+ revisedReSql.includes("p_seats NOT BETWEEN 1 AND 500") &&
+ revisedReSql.includes('REVOKE ALL ON FUNCTION public.reserve_creem_resubscription') &&
+ revisedReSql.includes('REVOKE ALL ON FUNCTION public.apply_creem_resubscription') &&
+ revisedReSql.includes('p_test IS NULL') &&
+ revisedReSql.includes('p_seats IS DISTINCT FROM p_seats')===false,
+ 'Re-subscription must support verified multi-seat Individual purchases and preserve identity, receipt and permission guards');
 const webhookRe=fs.readFileSync('app/api/webhooks/creem/route.ts','utf8');
 const checkoutRe=fs.readFileSync('lib/creem-billing-operations.ts','utf8');
 assert.ok(reSql.includes('CREATE OR REPLACE FUNCTION public.reserve_creem_resubscription') &&
