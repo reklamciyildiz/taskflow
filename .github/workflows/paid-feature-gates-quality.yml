@@ -12,6 +12,15 @@ on:
       - 'components/marketing/sections/MarketingPricing.tsx'
       - 'scripts/test-plan-entitlement-matrix.ts'
       - 'supabase/migrations/20261108120000_actiproc_atomic_plan_limits.sql'
+      - 'supabase/migrations/20261108160000_actiproc_entitlement_invite_atomicity.sql'
+      - 'scripts/sql/actiproc-entitlements-after-atomicity-audit.sql'
+      - 'scripts/test-entitlement-atomic-invite-contract.ts'
+      - 'scripts/test-entitlement-invites-db.cjs'
+      - 'scripts/test-monetization-access.ts'
+      - 'lib/invitation-acceptance.ts'
+      - 'lib/db.ts'
+      - 'app/api/onboarding/join-organization/route.ts'
+      - 'app/api/auth/register/route.ts'
       - 'scripts/sql/actiproc-entitlements-production-audit.sql'
       - 'lib/google-calendar-*'
       - 'lib/google-calendar-sync.ts'
@@ -37,6 +46,14 @@ on:
       - 'components/marketing/sections/MarketingPricing.tsx'
       - 'scripts/test-plan-entitlement-matrix.ts'
       - 'supabase/migrations/20261108120000_actiproc_atomic_plan_limits.sql'
+      - 'supabase/migrations/20261108160000_actiproc_entitlement_invite_atomicity.sql'
+      - 'scripts/sql/actiproc-entitlements-after-atomicity-audit.sql'
+      - 'scripts/test-entitlement-atomic-invite-contract.ts'
+      - 'scripts/test-monetization-access.ts'
+      - 'lib/invitation-acceptance.ts'
+      - 'lib/db.ts'
+      - 'app/api/onboarding/join-organization/route.ts'
+      - 'app/api/auth/register/route.ts'
       - 'scripts/sql/actiproc-entitlements-production-audit.sql'
       - 'lib/google-calendar-*'
       - 'lib/google-calendar-sync.ts'
@@ -55,6 +72,20 @@ jobs:
   entitlement-quality:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: actiproc_contracts
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d actiproc_contracts"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -64,8 +95,14 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - name: Plan-feature policy and endpoint guards
         run: npm run test:entitlements
+      - name: Tenant invitation / member scope contracts
+        run: npx tsx scripts/test-monetization-access.ts
       - name: Static types
         run: npx tsc --noEmit
+      - name: PostgreSQL atomic invitation and entitlement E2E
+        env:
+          TEST_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/actiproc_contracts
+        run: node scripts/test-entitlement-invites-db.cjs
       - name: Scheduling rules
         run: npm run test:scheduling
       - name: Creem safety contracts

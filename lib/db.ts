@@ -3,6 +3,7 @@
 
 import { getSupabaseClient } from '@/lib/supabase';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { acceptInvitationAtomic } from '@/lib/invitation-acceptance';
 import type { Database } from '@/lib/database.types';
 import { canonicalNotificationLink } from '@/lib/notification-nav-link';
 import { FALLBACK_BOARD_COLUMNS, parseColumnConfigFromJson } from '@/lib/types';
@@ -1601,68 +1602,24 @@ export const webhookDb = {
 export async function joinOrganizationViaInvitation(
   email: string,
   name: string,
-  invitationToken: string
+  invitationToken: string,
+  passwordHash?: string,
 ) {
-  const invitation = await invitationDb.getByToken(invitationToken.trim().toUpperCase());
-  if (!invitation) {
-    throw new Error('Invalid or expired invitation');
-  }
-
-  const normalizedUserRole: 'admin' | 'member' =
-    invitation.role === 'admin' ? 'admin' : 'member';
-
-  // Avoid creating an orphaned invited user when the organization has
-  // already exhausted its purchased Creem seats. The database trigger makes
-  // the final check atomic in case another admin adds a member concurrently.
-  const invitedOrg:any=await organizationDb.getById(invitation.organization_id);
-  if(invitedOrg?.billing_provider==='creem' && invitedOrg?.creem_subscription_id) {
-    const rows=await teamMemberDb.listDistinctUsersForOrganization(invitation.organization_id);
-    const currentSeats=rows.length;
-    const paid=(invitedOrg.creem_payment_hold===false &&
-      (['active','trialing'].includes(invitedOrg.subscription_status) ||
-       (invitedOrg.subscription_status==='cancelled' &&
-        invitedOrg.subscription_ends_at && Date.parse(invitedOrg.subscription_ends_at)>Date.now())));
-    let allowed=2;
-    if(paid && invitedOrg.plan_name==='individual') allowed=1;
-    else if(paid && ['pro','team'].includes(invitedOrg.plan_name))
-      allowed=Math.max(1,Number(invitedOrg.seat_limit)||1);
-    if(process.env.CREEM_SEAT_MUTATIONS_ENABLED==='true') {
-      const {data:pending,error:pendingError}=await (db as any).from('creem_seat_changes')
-        .select('previous_seats,desired_seats')
-        .eq('organization_id',invitation.organization_id)
-        .in('status',['pending','awaiting_sync','review']);
-      if(pendingError)throw pendingError;
-      for(const p of pending??[])if(Number(p.desired_seats)>Number(p.previous_seats))
-        allowed=Math.min(allowed,Number(p.previous_seats));
-    }
-    if(currentSeats>=allowed)
-      throw new Error('SEAT_LIMIT_REACHED: This organization has reached its purchased seat quota. Ask the admin to add seats.');
-  }
-
-  // Create user
-  const user = await userDb.create({
+  // Credentials registration has no session yet; the invite token and matching
+  // email are verified inside the same service-role-only SQL transaction.
+  // All invitation consumers (including OAuth onboarding) share this RPC.
+  const token = invitationToken.trim().toUpperCase();
+  const result = await acceptInvitationAtomic({
+    token,
     email,
     name,
-    organization_id: invitation.organization_id,
-    // Note: `viewer` is a team-level role; org-level roles are owner/admin/member.
-    role: normalizedUserRole,
-    avatar_url: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`,
+    avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`,
+    passwordHash: passwordHash ?? null,
   });
-
-  const tr =
-    invitation.role === 'admin' || invitation.role === 'viewer'
-      ? invitation.role
-      : 'member';
-  if (invitation.team_id) {
-    await teamMemberDb.ensureMember(invitation.team_id, user.id, tr);
-  } else {
-    const teams = await teamDb.getByOrganization(invitation.organization_id);
-    if (teams && teams.length > 0) {
-      await teamMemberDb.ensureMember(teams[0].id, user.id, tr);
-    }
-  }
-
-  await invitationDb.accept(invitation.id);
-
+  const [user, invitation] = await Promise.all([
+    userDb.getById(result.userId),
+    invitationDb.getRawByToken(token),
+  ]);
+  if (!invitation) throw new Error('Invitation record unavailable after acceptance');
   return { user, invitation };
 }
