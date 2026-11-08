@@ -20,7 +20,7 @@ const FEATURES: Record<UpgradePlan, readonly string[]> = {
 };
 
 const DESCRIPTIONS: Record<UpgradePlan, string> = {
-  individual: 'Focused work for one person',
+  individual: 'Annual per-seat access for lean teams',
   pro: 'More room for growing workflows',
   team: 'Collaboration without workspace limits',
 };
@@ -167,7 +167,7 @@ export function UpgradePlanModal(props: {
                     <p className="mt-1 text-[11px] text-slate-400">{DESCRIPTIONS[plan]}</p>
                     <div className="mt-5 flex flex-wrap items-baseline gap-1">
                       <strong className="text-[38px] font-semibold leading-none tracking-[-0.055em] text-white">${price}</strong>
-                      <span className="text-[11px] text-slate-400">{plan==='individual'?'/year':annual?'/seat/year':'/seat/month'}</span>
+                      <span className="text-[11px] text-slate-400">{plan==='individual'?'/seat/year':annual?'/seat/year':'/seat/month'}</span>
                     </div>
                     <div className="mt-4 rounded-[13px] border border-emerald-400/15 bg-emerald-400/[0.07] px-3.5 py-3">
                       <div className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-emerald-300">
