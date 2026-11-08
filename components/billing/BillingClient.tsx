@@ -155,6 +155,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
 
   const isNativeApp = typeof window !== 'undefined' ? isCapacitorNative() : false;
   const hasPaidSubscription = billingPlan !== 'free' && Boolean(subscriptionId);
+  const needsPreviousSubscriptionReview = billingPlan === 'free' && Boolean(subscriptionId) && !canResubscribe;
   const canUpgrade = (billingPlan === 'free' || (billingStatus === 'active' && hasPaidSubscription) || canResubscribe) && !seatChange && !planChange;
   const planTitle = billingPlan.charAt(0).toUpperCase() + billingPlan.slice(1);
   const formattedEnd = endsAt && Number.isFinite(Date.parse(endsAt))
@@ -452,6 +453,18 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
         </div>
       ) : null}
 
+      {needsPreviousSubscriptionReview ? (
+        <div role="status" className="rounded-2xl border border-amber-400/30 bg-amber-400/[0.08] p-4 text-sm">
+          <p className="font-semibold">Previous subscription needs review</p>
+          <p className="mt-1 text-muted-foreground">
+            A prior subscription is still linked to this organization. New checkout is temporarily
+            blocked to prevent duplicate charges. If this was a Test Mode subscription,
+            an administrator must verify and safely archive that billing record before
+            starting a live subscription. Do not delete subscription identifiers manually.
+          </p>
+        </div>
+      ) : null}
+
       {canResubscribe ? (
         <div className="space-y-3 rounded-2xl border border-amber-400/30 bg-amber-400/[0.08] p-4 text-sm">
           <p className="font-semibold">Start a new subscription</p>
@@ -580,10 +593,24 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                   type="button"
                   size="sm"
                   className={actionPrimary}
-                  disabled={busy}
-                  onClick={() => void openCheckout('individual', { billingInterval: 'yearly' })}
+                  disabled={busy || needsPreviousSubscriptionReview}
+                  title={needsPreviousSubscriptionReview
+                    ? 'Review your previous Creem subscription before starting another charge.'
+                    : undefined}
+                  onClick={() => {
+                    if (canResubscribe) {
+                      // Must display explicit re-subscription charge consent first.
+                      setSelectedPlan('individual');
+                      return;
+                    }
+                    void openCheckout('individual', { billingInterval: 'yearly' });
+                  }}
                 >
-                  {busy ? 'Opening…' : 'Upgrade to Individual'}
+                  {needsPreviousSubscriptionReview
+                    ? 'Previous subscription linked'
+                    : canResubscribe
+                      ? 'Start new subscription'
+                      : busy ? 'Opening…' : 'Upgrade to Individual'}
                 </Button>
               ) : billingPlan === 'individual' && !canResubscribe ? (
                 <Button type="button" size="sm" className={actionPrimary} disabled={!canUpgrade || busy} title={!canUpgrade ? 'Plan upgrades are unavailable while the subscription is cancelled or paused' : undefined} onClick={() => void requestPlanReview('pro')}>
