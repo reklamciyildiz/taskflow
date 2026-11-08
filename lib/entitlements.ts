@@ -118,7 +118,8 @@ export async function getOrganizationEntitlements(organizationId: string): Promi
     // A missing seat quantity on a real subscription must never mean unlimited paid seats.
     seatLimit = hasRealSubscription ? (storedOk ? Math.floor(stored) : 1) : Number.POSITIVE_INFINITY;
   } else if (plan === 'individual') {
-    seatLimit = 1;
+    // Annual Individual is billed per verified seat; legacy/manual access defaults to one.
+    seatLimit = hasRealSubscription && storedOk ? Math.max(1, Math.floor(stored)) : 1;
   } else if (plan === 'pro') {
     seatLimit = storedOk ? Math.max(1, Math.floor(stored)) : getSeatLimitFromPlan('pro');
   } else {
@@ -127,7 +128,7 @@ export async function getOrganizationEntitlements(organizationId: string): Promi
 
   if (process.env.CREEM_SEAT_MUTATIONS_ENABLED==='true' &&
       org?.billing_provider==='creem' && org.creem_subscription_id &&
-      (plan==='pro'||plan==='team') && paid) {
+      (plan==='individual'||plan==='pro'||plan==='team') && paid) {
     // Provider may update units before completing the payment. Keep the
     // *previous purchased cap* until payment confirmation closes the lease.
     const {data:open,error}=await (supabaseAdmin as any).from('creem_seat_changes')
