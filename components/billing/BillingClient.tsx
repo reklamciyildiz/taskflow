@@ -73,7 +73,7 @@ function statusBadgeVariant(status: string): 'default' | 'secondary' | 'destruct
 // Billing and marketing use the same plan feature source. Seat notices are
 // additional billing details, NOT separate or exclusive feature promises.
 const PLAN_FEATURES = {
-  free: [ACTIPROC_DEFAULT_SEAT_LIMITS.free + ' seats included', ...PLAN_MARKETING_FEATURES.free],
+  free: [ACTIPROC_DEFAULT_SEAT_LIMITS.free + ' seat included', ...PLAN_MARKETING_FEATURES.free],
   individual: ['Purchased seats determine team capacity', ...PLAN_MARKETING_FEATURES.individual],
   pro: ['Purchased seats determine team capacity', ...PLAN_MARKETING_FEATURES.pro],
   team: ['Purchased seats determine team capacity', ...PLAN_MARKETING_FEATURES.team],
@@ -115,6 +115,8 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
 
   const [selectedPlan, setSelectedPlan] = useState<'individual' | 'pro' | 'team' | null>(null);
   const [selectedBillingInterval,setSelectedBillingInterval] = useState<BillingInterval>('monthly');
+  const [checkoutSeats, setCheckoutSeats] = useState(1);
+  useEffect(() => { setCheckoutSeats(Math.max(1, seatsUsed)); }, [seatsUsed]);
   const [acceptNewCharge, setAcceptNewCharge] = useState(false);
   const [addSeatsOpen, setAddSeatsOpen] = useState(false);
   const [seatReductionAcknowledged, setSeatReductionAcknowledged] = useState(false);
@@ -475,20 +477,34 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                 <span className="capitalize">{selectedPlan}</span>
               </p>
               <p className="text-xs text-muted-foreground">
-                Continue to secure checkout when you’re ready.
+                Review your paid seats and total before secure checkout.
               </p>
+              {billingPlan === 'free' && (
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  <label htmlFor="checkout-seats" className="text-xs font-medium">Seats to purchase</label>
+                  <input id="checkout-seats" type="number" inputMode="numeric"
+                    min={Math.max(1,seatsUsed)} max={500} value={checkoutSeats}
+                    onChange={event => setCheckoutSeats(Number(event.target.value))}
+                    className="h-9 w-20 rounded-lg border border-border bg-background px-2 text-sm tabular-nums" />
+                  <span className="text-xs text-muted-foreground">
+                    {Number.isSafeInteger(checkoutSeats) && checkoutSeats>=Math.max(1,seatsUsed) && checkoutSeats<=500
+                      ? `${checkoutSeats*actiprocPriceUsd(selectedPlan,selectedPlan==='individual'?'yearly':selectedBillingInterval)} / ${selectedPlan==='individual'||selectedBillingInterval==='yearly'?'year':'month'}`
+                      : 'Enter a valid seat count'}
+                  </span>
+                </div>
+              )}
 
             </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <Button
                 type="button"
                 className={actionPrimary}
-                disabled={busy || !canUpgrade || (canResubscribe && !acceptNewCharge) ||
+                disabled={busy || !canUpgrade || (billingPlan==='free' && (!Number.isSafeInteger(checkoutSeats) || checkoutSeats<Math.max(1,seatsUsed) || checkoutSeats>500)) || (canResubscribe && !acceptNewCharge) ||
                   (!canResubscribe && (selectedPlan === billingPlan || (billingPlan !== 'free' && ['individual','pro','team'].indexOf(selectedPlan) <= ['individual','pro','team'].indexOf(billingPlan))))}
                 onClick={() => canResubscribe
                   ? void openCheckout(selectedPlan, { billingInterval: selectedPlan === 'individual' ? 'yearly' : selectedBillingInterval, resubscribe: true, acceptNewCharge })
                   : billingPlan === 'free'
-                    ? void openCheckout(selectedPlan, { billingInterval: selectedPlan === 'individual' ? 'yearly' : selectedBillingInterval })
+                    ? void openCheckout(selectedPlan, { billingInterval: selectedPlan === 'individual' ? 'yearly' : selectedBillingInterval, seats: checkoutSeats })
                     : void requestPlanReview(selectedPlan)}
               >
                 Continue to checkout
