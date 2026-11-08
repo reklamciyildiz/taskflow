@@ -84,8 +84,6 @@ export async function createCreemCheckout(request:NextRequest, orgId:string, ema
   if(!Number.isInteger(requested)||requested<1||requested>500)
    return NextResponse.json({success:false,error:'Invalid seat quantity'},{status:400});
   const seats=Math.max(requested,headcount);
-  if(plan==='individual' && seats!==1)
-   return NextResponse.json({success:false,error:'Individual supports one person. Choose Pro or Team for multiple members.'},{status:409});
   // Validate merchant dashboard products before generating any paid checkout.
   const productId=creemProductForPlan(plan,config,interval);
   const product=await creemApi<any>(config,'GET','products?product_id='+encodeURIComponent(productId));
@@ -194,8 +192,8 @@ export async function changeCreemSeats(request:NextRequest, orgId:string) {
   const org:any=await organizationDb.getById(orgId);
   if(!org || org?.billing_provider!=='creem' || !org.creem_subscription_id)
    return NextResponse.json({success:false,error:'No Creem subscription found',code:'NO_SUBSCRIPTION'},{status:404});
-  if(org.plan_name!=='pro' && org.plan_name!=='team')
-   return NextResponse.json({success:false,error:'Only Pro and Team have paid seats.',code:'PLAN_NOT_SUPPORTED'},{status:409});
+  if(!isPaidPlan(org.plan_name))
+   return NextResponse.json({success:false,error:'A paid plan is required to manage seats.',code:'PLAN_NOT_SUPPORTED'},{status:409});
   if(org.creem_payment_hold || org.subscription_status!=='active')
    return NextResponse.json({success:false,error:'Subscription must be active and payment must be current.',code:'INACTIVE_SUBSCRIPTION'},{status:409});
 
@@ -408,8 +406,6 @@ export async function changeCreemPlan(request:NextRequest,orgId:string) {
   if(org.creem_payment_hold || org.subscription_status!=='active' ||
      Boolean(org.creem_test_mode)!==(config.mode==='test'))
     return NextResponse.json({success:false,error:'Subscription payment or environment is not current.'},{status:409});
-  if((await getOrganizationSeatUsage(orgId))>1 && plan==='individual')
-   return NextResponse.json({success:false,error:'Individual requires one member'},{status:409});
   if(process.env.CREEM_SEAT_MUTATIONS_ENABLED!=='true')
     return NextResponse.json({success:false,code:'SEAT_SAFETY_REQUIRED',
       error:'Plan upgrades require the atomic seat guard.'},{status:503});
