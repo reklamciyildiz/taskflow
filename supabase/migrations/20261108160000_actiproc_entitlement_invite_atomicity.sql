@@ -186,7 +186,12 @@ END;
 $$;
 REVOKE ALL ON FUNCTION public.guard_creem_team_member_seat()
   FROM PUBLIC, anon, authenticated;
--- The original trg_guard_creem_team_member_seat trigger remains attached.
+-- Reinstall the membership trigger even on databases that missed the older
+-- Creem seat-safety migration. This does not modify any existing membership.
+DROP TRIGGER IF EXISTS trg_guard_creem_team_member_seat ON public.team_members;
+CREATE TRIGGER trg_guard_creem_team_member_seat
+  BEFORE INSERT ON public.team_members FOR EACH ROW
+  EXECUTE FUNCTION public.guard_creem_team_member_seat();
 
 -- The service-role-only RPC provides a SINGLE transaction for invitation
 -- validation, seat enforcement, user assignment, team membership and acceptance.
@@ -299,7 +304,7 @@ BEGIN
       WHEN 'admin' THEN 'admin'::public.team_role
       WHEN 'viewer' THEN 'viewer'::public.team_role
       ELSE 'member'::public.team_role END)
-  ON CONFLICT (team_id, user_id) DO NOTHING;
+  ON CONFLICT DO NOTHING;
 
   UPDATE public.invitations SET accepted_at = CURRENT_TIMESTAMP
   WHERE id = v_inv.id AND accepted_at IS NULL;
