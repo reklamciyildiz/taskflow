@@ -17,7 +17,11 @@
    **Mitigation:** remove its component and entrypoints; preserve existing
    credentials/Google OAuth/NextAuth providers and change-password flow.
    Google-managed MFA is unaffected.
-4. **Fake Active Sessions:** local example device list and fake revoke actions.
+4. **Sensitive bootstrap/profile/org response projection:** Service-role DB rows
+   previously returned raw via Bootstrap, Profile GET/PATCH and Organization GET/PATCH.
+   **Mitigation:** explicit allowlisted public user/org fields; no credential hashes,
+   refresh tokens or provider billing identifiers in these responses.
+5. **Fake Active Sessions:** local example device list and fake revoke actions.
    **Mitigation:** remove from both account screens and delete simulator.
    Do not imply existing web sessions can be individually revoked.
 
@@ -99,3 +103,7 @@ never read/mutate foreign customers or attach them to an Action. Inspect
 Supabase RLS, apply a separately approved composite-FK migration after
 data preflight, and only then deploy to Production. Merge and deployment
 require separate explicit approval.
+
+## Additional residual sensitive fields
+
+The existing NextAuth `session()` callback still copies provider `accessToken` into the browser-readable session object. This change deliberately does **not** alter Google OAuth/NextAuth as requested; review whether any web consumer requires that access token and remove browser exposure in a separate, carefully tested auth change. Other legacy service-role endpoints may also return broad objects and require a focused projection audit.

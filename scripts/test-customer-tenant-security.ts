@@ -4,6 +4,7 @@ import {
   createCustomer, deleteCustomer, isCustomerId, listCustomers, readCustomer, updateCustomer,
   type CustomerActor, type CustomerRecord, type CustomerRepository,
 } from '../lib/customer-security';
+import { publicOrganizationRow, publicUserRow } from '../lib/public-identity-projection';
 
 const orgA = '11111111-1111-4111-8111-111111111111';
 const orgB = '22222222-2222-4222-8222-222222222222';
@@ -164,6 +165,34 @@ async function main() {
     assert.doesNotMatch(content,/TwoFactorModal|ActiveSessionsModal|Two-Factor Auth|Active Sessions/);
     assert.match(content,/ChangePasswordModal/);
   }
+  // Public API projections must never serialize service-role credential fields.
+  const rawUser = {
+    id:'user-a', email:'a@example.test', name:'A', organization_id:orgA,
+    role:'owner', avatar_url:null, password_hash:'HASH-DO-NOT-LEAK',
+    google_access_token:'SECRET', refresh_token:'SECRET', is_online:true,
+  };
+  const publishedUser = publicUserRow(rawUser);
+  assert.equal(publishedUser.id,'user-a');
+  for (const key of ['password_hash','google_access_token','refresh_token']) {
+    assert.equal(Object.prototype.hasOwnProperty.call(publishedUser,key),false);
+  }
+  const publishedOrg = publicOrganizationRow({
+    id:orgA, name:'Tenant A', slug:'tenant-a', creem_subscription_id:'PRIVATE-ID',
+    ls_customer_id:'PRIVATE-ID', stripe_secret:'PRIVATE',
+  });
+  assert.equal(publishedOrg.name,'Tenant A');
+  assert.equal('creem_subscription_id' in publishedOrg,false);
+  assert.equal('stripe_secret' in publishedOrg,false);
+  assert.equal('ls_customer_id' in publishedOrg,false);
+  for (const path of ['app/api/bootstrap/route.ts','app/api/users/profile/route.ts']) {
+    const content=readFileSync(path,'utf8');
+    assert.match(content,/publicUserRow/,'Public identity projection required: '+path);
+  }
+  const orgRoute=readFileSync('app/api/organizations/[id]/route.ts','utf8');
+  assert.match(orgRoute,/publicOrganizationRow/);
+  const bootstrap=readFileSync('app/api/bootstrap/route.ts','utf8');
+  assert.match(bootstrap,/getTaskStats\(c\.id, String\(organizationId\)\)/);
+
   const auth=readFileSync('lib/auth.ts','utf8');
   assert.match(auth,/strategy:\s*'jwt'/,'web JWT cannot safely enumerate/revoke individual sessions');
   console.log('Customer security: two-org multi-role CRUD + non-mutation + race + source-boundary contracts PASS');
