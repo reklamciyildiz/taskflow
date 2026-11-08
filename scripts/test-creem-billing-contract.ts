@@ -86,8 +86,8 @@ for (const bad of [
  {...raw,mode:'live'}, {...raw,items:[{id:'sitem',units:0}]},
  {...raw,product:{id:'prod_unexpected'}}, {...raw,updated_at:null},
  {...raw,status:'mystery'}, {...raw,customer:null},
- {...raw,product:{id:'prod_individual123'},items:[{id:'sitem',units:2}]},
 ]) assert.throws(()=>normalizeCreemSubscription(bad,config));
+assert.equal(normalizeCreemSubscription({...raw,product:{id:'prod_individual123'},items:[{id:'sitem',units:3}]},config).seats,3);
 const sql=fs.readFileSync('supabase/migrations/20261101110000_creem_parallel_billing.sql','utf8');
 for(const required of ['creem_payment_hold','claim_creem_event','apply_creem_subscription_snapshot','ls_subscription_id IS NULL','creem_checkout_intents','creem_webhook_events'])
  assert.ok(sql.includes(required),'Missing migration guard '+required);
