@@ -34,7 +34,7 @@ import { cn } from '@/lib/utils';
 import { useOrganizationBilling } from '@/hooks/useOrganizationBilling';
 import { isCapacitorNative } from '@/lib/client/is-capacitor-native';
 import { ACTIPROC_PLANS, actiprocPriceUsd, type BillingInterval } from '@/lib/billing-plans';
-import { ACTIPROC_DEFAULT_SEAT_LIMITS, PLAN_MARKETING_FEATURES } from '@/lib/plan-entitlement-matrix';
+import { PLAN_MARKETING_FEATURES } from '@/lib/plan-entitlement-matrix';
 import { aiPlanMonthlyDescription, aiPlanDailyDescription } from '@/lib/ai/ai-plan-catalog';
 import { AIUsageBillingCard } from '@/components/billing/AIUsageBillingCard';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -73,8 +73,8 @@ function statusBadgeVariant(status: string): 'default' | 'secondary' | 'destruct
 // Billing and marketing use the same plan feature source. Seat notices are
 // additional billing details, NOT separate or exclusive feature promises.
 const PLAN_FEATURES = {
-  free: [ACTIPROC_DEFAULT_SEAT_LIMITS.free + ' seat included', ...PLAN_MARKETING_FEATURES.free],
-  individual: ['Purchased seats determine team capacity', ...PLAN_MARKETING_FEATURES.individual],
+  free: PLAN_MARKETING_FEATURES.free,
+  individual: PLAN_MARKETING_FEATURES.individual,
   pro: ['Purchased seats determine team capacity', ...PLAN_MARKETING_FEATURES.pro],
   team: ['Purchased seats determine team capacity', ...PLAN_MARKETING_FEATURES.team],
 } as const;
