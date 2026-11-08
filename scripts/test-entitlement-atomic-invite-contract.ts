@@ -8,6 +8,7 @@ import { readFileSync } from 'node:fs';
 const read = (p: string) => readFileSync(p, 'utf8');
 const sql = read('supabase/migrations/20261108160000_actiproc_entitlement_invite_atomicity.sql');
 const oldSql = read('supabase/migrations/20261108120000_actiproc_atomic_plan_limits.sql');
+const paidSeatSql = read('supabase/migrations/20261108210000_actiproc_free_individual_paid_seats.sql');
 const rpc = read('lib/invitation-acceptance.ts');
 const join = read('app/api/onboarding/join-organization/route.ts');
 const db = read('lib/db.ts');
@@ -19,6 +20,8 @@ const checks: Record<string, boolean> = {
   'additive follow-up SQL': sql.includes('CREATE OR REPLACE FUNCTION public.actiproc_enforce_entity_plan_limit()')
     && !/\bDELETE\s+FROM\s+public\./i.test(sql)
     && !/\bTRUNCATE\b|\bDROP\s+TABLE\b/i.test(sql),
+  'new Free and paid Individual SQL policy': paidSeatSql.includes("WHEN 'free' THEN 1") && paidSeatSql.includes("WHEN 'individual' THEN") && paidSeatSql.includes('GREATEST(1, COALESCE(p_org.seat_limit, 1))'),
+  'Individual seat reservation uses purchased units': paidSeatSql.includes("current_org.plan_name NOT IN ('individual','pro','team')") && paidSeatSql.includes('FROM public.creem_plan_changes'),
   'single effective SQL policy': sql.includes('CREATE OR REPLACE FUNCTION public.actiproc_effective_plan_seats')
     && sql.includes('FROM public.actiproc_effective_plan_seats(v_org)'),
   'unverified Creem plan is not granted': sql.includes("pc.status IN ('pending', 'awaiting_sync', 'review')")
