@@ -81,7 +81,7 @@ async function run() {
   await db.query(readFileSync('supabase/migrations/20261108160000_actiproc_entitlement_invite_atomicity.sql', 'utf8'));
   // Disposable schema represents the pre-existing production reservation RPC;
   // the new migration replaces it with the actual Individual-enabled version.
-  await db.query("CREATE FUNCTION public.reserve_creem_seat_change(uuid,text,integer,integer,boolean,text) RETURNS uuid LANGUAGE sql AS $ SELECT NULL::uuid; $");
+  await db.query("CREATE FUNCTION public.reserve_creem_seat_change(uuid,text,integer,integer,boolean,text) RETURNS uuid LANGUAGE sql AS 'SELECT NULL::uuid'");
   await db.query(readFileSync('supabase/migrations/20261108210000_actiproc_free_individual_paid_seats.sql', 'utf8'));
 
   const perms = await db.query(
