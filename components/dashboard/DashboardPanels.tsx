@@ -71,6 +71,27 @@ export function DashboardFocusProcesses() {
     return ordered.slice(0, 5).map((id) => byId.get(id)!);
   }, [pinnedIds, recentIds, projectsForTeam, summaries]);
 
+  const focusStats = useMemo(() => {
+    let total = 0;
+    let active = 0;
+    let finished = 0;
+    for (const project of projectsForTeam) {
+      const summary = summaries.get(project.id);
+      total += summary?.total ?? 0;
+      active += summary?.active ?? 0;
+      finished += tasks.filter((task) =>
+        task.projectId === project.id &&
+        resolveStageLifecycle(task.status, project.columnConfig).isTerminal,
+      ).length;
+    }
+    return {
+      total,
+      active,
+      finished,
+      percent: total > 0 ? Math.round((finished / total) * 100) : 0,
+    };
+  }, [projectsForTeam, summaries, tasks]);
+
   const togglePin = (projectId: string) => {
     setPinnedIds((current) => {
       const next = current.includes(projectId)
@@ -82,10 +103,10 @@ export function DashboardFocusProcesses() {
   };
 
   return (
-    <section className="dashboard-v2-panel min-w-0" aria-labelledby="dashboard-focus-title">
+    <section className="dashboard-v2-panel dashboard-v2-panel--focus min-w-0" aria-labelledby="dashboard-focus-title">
       <header className="dashboard-v2-panel-header">
         <div className="flex min-w-0 items-start gap-2.5">
-          <span className="dashboard-v2-icon"><Star className="h-4 w-4" /></span>
+          <span className="dashboard-v2-icon dashboard-v2-icon--focus"><Star className="h-4 w-4" /></span>
           <div className="min-w-0 pt-0.5">
             <h2 id="dashboard-focus-title" className="dashboard-v2-section-title">Focus Processes</h2>
             <p className="mt-0.5 text-[0.7rem] text-muted-foreground">Pinned first, then recently active</p>
@@ -124,6 +145,21 @@ export function DashboardFocusProcesses() {
           />
         )}
       </div>
+      {!loading && projectsForTeam.length > 0 ? (
+        <div className="dashboard-v2-focus-insight" aria-label="Visible process completion">
+          <div className="dashboard-v2-donut" style={{
+            background: `conic-gradient(#a3ef75 ${focusStats.percent}%, rgba(123, 166, 190, .18) 0)`,
+          }} role="img" aria-label={`${focusStats.percent}% of process Actions completed`}>
+            <span>{focusStats.percent}%</span>
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[0.68rem] font-semibold uppercase tracking-[0.11em] text-muted-foreground">Process progress</p>
+            <p className="mt-1 text-sm font-medium">{focusStats.finished} of {focusStats.total} Actions completed</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">{focusStats.active} active Actions · {projectsForTeam.length} Processes</p>
+          </div>
+          <ArrowUpRight className="h-4 w-4 shrink-0 text-primary/70" aria-hidden="true" />
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -149,10 +185,10 @@ export function DashboardRecentKnowledge() {
   );
 
   return (
-    <section className="dashboard-v2-panel min-w-0" aria-labelledby="dashboard-knowledge-title">
+    <section className="dashboard-v2-panel dashboard-v2-panel--knowledge min-w-0" aria-labelledby="dashboard-knowledge-title">
       <header className="dashboard-v2-panel-header">
         <div className="flex min-w-0 items-start gap-2.5">
-          <span className="dashboard-v2-icon"><Library className="h-4 w-4" /></span>
+          <span className="dashboard-v2-icon dashboard-v2-icon--knowledge"><Library className="h-4 w-4" /></span>
           <div className="min-w-0 pt-0.5">
             <h2 id="dashboard-knowledge-title" className="dashboard-v2-section-title">Recent Knowledge</h2>
             <p className="mt-0.5 text-[0.7rem] text-muted-foreground">Recent Notes and Checklist context</p>
@@ -203,12 +239,14 @@ export function DashboardWorkspaceSummary() {
   const active = scopedTasks.filter((task) => lifecycleFor(task).isActionable);
   const completed = scopedTasks.filter((task) => lifecycleFor(task).isTerminal).length;
   const assigned = currentUser ? active.filter((task) => task.assigneeId === currentUser.id).length : 0;
+  const tracked = active.length + completed;
+  const completionPercent = tracked > 0 ? Math.round((completed / tracked) * 100) : 0;
 
   return (
-    <section className="dashboard-v2-panel min-w-0" aria-labelledby="dashboard-summary-title">
+    <section className="dashboard-v2-panel dashboard-v2-panel--summary min-w-0" aria-labelledby="dashboard-summary-title">
       <header className="dashboard-v2-panel-header">
         <div className="flex min-w-0 items-start gap-2.5">
-          <span className="dashboard-v2-icon"><Layers3 className="h-4 w-4" /></span>
+          <span className="dashboard-v2-icon dashboard-v2-icon--summary"><Layers3 className="h-4 w-4" /></span>
           <div className="min-w-0 pt-0.5">
             <h2 id="dashboard-summary-title" className="dashboard-v2-section-title">Workspace Summary</h2>
             <p className="mt-0.5 text-[0.7rem] text-muted-foreground">Canonical workspace totals</p>
@@ -220,17 +258,26 @@ export function DashboardWorkspaceSummary() {
           <div className="space-y-4"><Skeleton className="h-28 w-full rounded-xl" /><div className="grid grid-cols-2 gap-4"><Skeleton className="h-16 rounded-lg" /><Skeleton className="h-16 rounded-lg" /></div></div>
         ) : (
           <div>
-            <div className="rounded-xl bg-primary/[0.055] px-4 py-4 ring-1 ring-inset ring-primary/10">
+            <div className="dashboard-v2-summary-feature">
               <div className="flex items-center justify-between gap-3">
                 <span className="flex items-center gap-2 text-xs font-medium text-muted-foreground"><Activity className="h-3.5 w-3.5 text-primary" />Active work</span>
-                <span className="text-[0.65rem] font-medium uppercase tracking-[0.1em] text-muted-foreground">Live</span>
+                <span className="dashboard-v2-summary-live"><span className="h-1.5 w-1.5 rounded-full bg-current" /> Current</span>
               </div>
               <div className="mt-3 flex items-end justify-between gap-3">
                 <strong className="text-[2rem] font-semibold leading-none tabular-nums tracking-[-0.045em]">{active.length}</strong>
                 <p className="pb-0.5 text-right text-[0.7rem] leading-4 text-muted-foreground">Across {projectsForTeam.length}<br />visible Processes</p>
               </div>
+              <div className="mt-4 flex items-center justify-between gap-3 text-[0.72rem]">
+                <span className="text-muted-foreground">Completion</span>
+                <strong className="tabular-nums">{completionPercent}%</strong>
+              </div>
+              <div className="dashboard-v2-progress-track mt-2"
+                role="progressbar" aria-label="Workspace completion"
+                aria-valuemin={0} aria-valuemax={100} aria-valuenow={completionPercent}>
+                <span style={{ width: `${completionPercent}%` }} />
+              </div>
             </div>
-            <div className="mt-3 grid grid-cols-2 divide-x divide-border/40 rounded-lg bg-muted/15 py-2">
+            <div className="dashboard-v2-summary-tiles">
               <div className="px-3 py-1.5">
                 <span className="flex items-center gap-1.5 text-[0.68rem] text-muted-foreground"><UserRound className="h-3.5 w-3.5" />Assigned to you</span>
                 <strong className="mt-1 block text-lg font-semibold tabular-nums tracking-tight">{assigned}</strong>
