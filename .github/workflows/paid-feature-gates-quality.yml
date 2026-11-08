@@ -17,6 +17,7 @@ on:
       - 'scripts/sql/actiproc-entitlements-after-atomicity-audit.sql'
       - 'scripts/test-entitlement-atomic-invite-contract.ts'
       - 'scripts/test-entitlement-invites-db.cjs'
+      - 'scripts/test-entitlement-invites-db.cjs'
       - 'scripts/test-monetization-access.ts'
       - 'lib/invitation-acceptance.ts'
       - 'lib/db.ts'
@@ -51,6 +52,7 @@ on:
       - 'supabase/migrations/20261108210000_actiproc_free_individual_paid_seats.sql'
       - 'scripts/sql/actiproc-entitlements-after-atomicity-audit.sql'
       - 'scripts/test-entitlement-atomic-invite-contract.ts'
+      - 'scripts/test-entitlement-invites-db.cjs'
       - 'scripts/test-monetization-access.ts'
       - 'lib/invitation-acceptance.ts'
       - 'lib/db.ts'
@@ -67,6 +69,7 @@ on:
       - 'components/ActionPanel.tsx'
       - 'components/schedule/WorkSchedulePicker.tsx'
       - 'scripts/test-paid-feature-gates.ts'
+      - '.github/workflows/paid-feature-gates-quality.yml'
   workflow_dispatch:
 permissions:
   contents: read
