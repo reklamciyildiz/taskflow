@@ -9,7 +9,7 @@ import { isCreemSubscriptionEligibleForEnvironment } from '@/lib/subscription-ac
 import { canUsePaidFeature } from '@/lib/paid-feature-policy';
 import type { Entitlements } from '@/lib/entitlements';
 const plans=['free','individual','pro','team'] as const;
-assert.equal(ACTIPROC_DEFAULT_SEAT_LIMITS.free,2);
+assert.equal(ACTIPROC_DEFAULT_SEAT_LIMITS.free,1);
 assert.equal(ACTIPROC_DEFAULT_SEAT_LIMITS.individual,1);
 const ent=(plan:typeof plans[number],status:Entitlements['subscriptionStatus']='active',
   endsAt:string|null=null):Pick<Entitlements,'plan'|'subscriptionStatus'|'endsAt'> =>
