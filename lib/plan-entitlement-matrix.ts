@@ -13,7 +13,7 @@ export type ActiprocFeature =
  * granted developer Team organizations may keep their legacy unlimited seats.
  */
 export const ACTIPROC_DEFAULT_SEAT_LIMITS = {
-  free: 2,
+  free: 1,
   individual: 1,
   pro: 1,
   team: Number.POSITIVE_INFINITY,
@@ -53,7 +53,7 @@ export const PLAN_MARKETING_FEATURES: Readonly<Record<ActiprocPlan, readonly str
     ACTIPROC_PLANS.individual.maxProcesses + ' processes',
     ACTIPROC_PLANS.individual.maxTeams + ' workspace',
     'Actions, notes & Knowledge Hub',
-    'Individual yearly billing',
+    'Purchased seats determine team capacity',
   ],
   pro: [
     ACTIPROC_PLANS.pro.maxProcesses + ' processes',
