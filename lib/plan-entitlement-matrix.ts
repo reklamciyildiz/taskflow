@@ -44,6 +44,7 @@ export function planIncludesFeature(plan: ActiprocPlan, feature: ActiprocFeature
 /** Marketing shares the billing plan limits rather than repeating numbers. */
 export const PLAN_MARKETING_FEATURES: Readonly<Record<ActiprocPlan, readonly string[]>> = {
   free: [
+    '1 seat included',
     ACTIPROC_PLANS.free.maxProcesses + ' process',
     ACTIPROC_PLANS.free.maxTeams + ' workspace',
     'Actions, checklists & notes',
@@ -53,6 +54,7 @@ export const PLAN_MARKETING_FEATURES: Readonly<Record<ActiprocPlan, readonly str
     ACTIPROC_PLANS.individual.maxProcesses + ' processes',
     ACTIPROC_PLANS.individual.maxTeams + ' workspace',
     'Actions, notes & Knowledge Hub',
+    'Per-seat annual billing',
     'Purchased seats determine team capacity',
   ],
   pro: [
