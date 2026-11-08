@@ -1,207 +1,73 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { invitationDb, userDb, teamMemberDb, teamDb } from '@/lib/db';
-import { canInviteMembers, getOrganizationEntitlements, getOrganizationSeatUsage } from '@/lib/entitlements';
+import { userDb } from '@/lib/db';
+import { acceptInvitationAtomic, InvitationAcceptError } from '@/lib/invitation-acceptance';
 
-function normalizeInviteTeamRole(role: string | null | undefined): 'admin' | 'member' | 'viewer' {
-  if (role === 'admin' || role === 'viewer') return role;
-  return 'member';
-}
-
-function normalizeInviteOrgRole(role: string | null | undefined): 'admin' | 'member' {
-  // Org-level roles are owner/admin/member. `viewer` is team-level only.
-  if (role === 'admin') return 'admin';
-  return 'member';
-}
-
-async function ensureUserInInviteTeams(
-  userId: string,
-  invitation: { organization_id: string; team_id: string | null; role: string | null }
-) {
-  const tr = normalizeInviteTeamRole(invitation.role ?? undefined);
-  if (invitation.team_id) {
-    await teamMemberDb.ensureMember(invitation.team_id, userId, tr);
-    return;
-  }
-  const teams = await teamDb.getByOrganization(invitation.organization_id);
-  if (teams && teams.length > 0) {
-    await teamMemberDb.ensureMember(teams[0].id, userId, tr);
-  }
-}
-
-/** Re-check seats at accept time (avoids race when multiple invites were issued). */
-async function assertSeatAvailableForAccept(
-  organizationId: string,
-  joiningUserId: string | null
-): Promise<NextResponse | null> {
-  const ent = await getOrganizationEntitlements(organizationId);
-  if (!canInviteMembers(ent)) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'This organization cannot accept new members on the current plan.',
-        code: 'PAYWALL_INVITES',
-      },
-      { status: 402 }
-    );
-  }
-  if (!Number.isFinite(ent.seatLimit) || ent.seatLimit === Number.POSITIVE_INFINITY) {
-    return null;
-  }
-  const used = await getOrganizationSeatUsage(organizationId);
-  if (joiningUserId) {
-    const rows = await teamMemberDb.listDistinctUsersForOrganization(organizationId);
-    const alreadyInSeatCount = rows.some((r) => r.user_id === joiningUserId);
-    if (alreadyInSeatCount) {
-      return null;
-    }
-  }
-  if (used >= ent.seatLimit) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: `This organization has reached its seat limit (${ent.seatLimit}). Ask an admin to add seats in billing, then try again.`,
-        code: 'PAYWALL_SEATS',
-        seatLimit: ent.seatLimit,
-        seatsUsed: used,
-      },
-      { status: 402 }
-    );
-  }
-  return null;
-}
-
+/**
+ * The invitation, seat allocation, user assignment and team membership must
+ * commit together. Never restore check-then-create API writes as a fallback:
+ * the Production database RPC is the concurrency and payment boundary.
+ */
 export async function POST(request: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.email) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  }
+  let inviteCode: unknown;
   try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session?.user?.email) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    ({ inviteCode } = await request.json());
+  } catch {
+    return NextResponse.json(
+      { success: false, error: 'Invalid invitation request', code: 'BAD_REQUEST' },
+      { status: 400 },
+    );
+  }
+  if (typeof inviteCode !== 'string' || !inviteCode.trim()) {
+    return NextResponse.json(
+      { success: false, error: 'Invite code is required', code: 'BAD_REQUEST' },
+      { status: 400 },
+    );
+  }
 
-    const { inviteCode } = await request.json();
-
-    if (!inviteCode || typeof inviteCode !== 'string') {
-      return NextResponse.json(
-        { success: false, error: 'Invite code is required' },
-        { status: 400 }
-      );
-    }
-
-    // Find invitation by token (getByToken already filters expired and accepted invitations)
-    const invitation = await invitationDb.getByToken(inviteCode.trim().toUpperCase());
-
-    if (!invitation) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            'Invalid or expired invite code. Check the link or ask your admin for a new invitation.',
-          code: 'INVITE_INVALID',
-        },
-        { status: 404 }
-      );
-    }
-
-    // A forwarded code is not an authorization for a different mailbox.
-    if (String(invitation.email ?? '').trim().toLowerCase() !== session.user.email.trim().toLowerCase()) {
-      return NextResponse.json(
-        { success: false, error: 'Invitation is for a different email', code: 'INVITE_EMAIL_MISMATCH' },
-        { status: 403 });
-    }
-    if (invitation.team_id) {
-      const invitedTeam = await teamDb.getById(invitation.team_id);
-      if (!invitedTeam || invitedTeam.organization_id !== invitation.organization_id) {
-        return NextResponse.json(
-          { success: false, error: 'Invitation team is no longer available', code: 'INVITE_TEAM_INVALID' },
-          { status: 409 });
-      }
-    }
-    const existingUser = await userDb.getByEmail(session.user.email);
-    
-    if (existingUser) {
-      // User already exists - check their organization
-      if (existingUser.organization_id === invitation.organization_id) {
-        const seatBlock = await assertSeatAvailableForAccept(invitation.organization_id, existingUser.id);
-        if (seatBlock) return seatBlock;
-        await ensureUserInInviteTeams(existingUser.id, invitation);
-        await invitationDb.accept(invitation.id);
-        return NextResponse.json({
-          success: true,
-          data: {
-            user: existingUser,
-            organizationId: existingUser.organization_id,
-          },
-          message: 'You are already a member of this organization',
-        });
-      } else if (existingUser.organization_id) {
-        return NextResponse.json(
-          {
-            success: false,
-            error:
-              'You are already a member of another organization. Contact your admin or support before accepting this invite.',
-            code: 'OTHER_ORG',
-          },
-          { status: 400 }
-        );
-      } else {
-        const seatBlock = await assertSeatAvailableForAccept(invitation.organization_id, existingUser.id);
-        if (seatBlock) return seatBlock;
-        // User exists but has no organization - update their organization
-        await userDb.update(existingUser.id, {
-          organization_id: invitation.organization_id,
-          role: normalizeInviteOrgRole(invitation.role ?? undefined),
-        });
-
-        await ensureUserInInviteTeams(existingUser.id, invitation);
-
-        await invitationDb.accept(invitation.id);
-
-        return NextResponse.json({
-          success: true,
-          data: {
-            user: existingUser,
-            organizationId: invitation.organization_id,
-          },
-          message: 'Successfully joined organization',
-        });
-      }
-    }
-
-    const seatBlockNew = await assertSeatAvailableForAccept(invitation.organization_id, null);
-    if (seatBlockNew) return seatBlockNew;
-
-    // Create new user in the organization
-    const newUser = await userDb.create({
+  try {
+    const result = await acceptInvitationAtomic({
+      token: inviteCode,
+      // Never accept a submitted email or user ID as proof of invite ownership.
       email: session.user.email,
       name: session.user.name || session.user.email.split('@')[0],
-      avatar_url: (session.user as any).image || null,
-      organization_id: invitation.organization_id,
-      role: normalizeInviteOrgRole(invitation.role ?? undefined),
+      avatarUrl: (session.user as { image?: string | null }).image ?? null,
     });
-
-    await ensureUserInInviteTeams(newUser.id, invitation);
-
-    // Mark invitation as accepted
-    await invitationDb.accept(invitation.id);
-
+    const user = await userDb.getById(result.userId);
     return NextResponse.json({
       success: true,
       data: {
-        user: newUser,
-        organizationId: invitation.organization_id,
+        // Do not return password_hash or any internal billing/profile columns.
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          avatar_url: user.avatar_url,
+          role: user.role,
+          organization_id: user.organization_id,
+        },
+        organizationId: result.organizationId,
       },
-      message: 'Successfully joined organization',
+      message: result.alreadyMember
+        ? 'You are already a member of this organization'
+        : 'Successfully joined organization',
     });
-  } catch (error: any) {
-    console.error('Join organization error:', error);
+  } catch (error) {
+    if (error instanceof InvitationAcceptError) {
+      return NextResponse.json(
+        { success: false, error: error.message, code: error.code },
+        { status: error.status },
+      );
+    }
+    console.error('[invitations] unexpected join error');
     return NextResponse.json(
-      { success: false, error: error.message || 'Internal server error' },
-      { status: 500 }
+      { success: false, error: 'Unable to join organization', code: 'INVITE_UNAVAILABLE' },
+      { status: 503 },
     );
   }
 }
