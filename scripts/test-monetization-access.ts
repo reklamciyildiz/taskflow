@@ -31,9 +31,9 @@ const cases:Record<string,boolean>={
  'invite role checked':invite.includes('Invalid invitation role'),
  'invite revocation requires login':revoke.includes('requireOrgAdmin(request)'),
  'invite revocation scopes org':revoke.includes('invitation.organization_id !== authed.user.organization_id'),
- 'join email proof':join.includes('INVITE_EMAIL_MISMATCH'),
- 'join team proof':join.includes('INVITE_TEAM_INVALID'),
- 'join org role normalized':join.includes('role: normalizeInviteOrgRole(invitation.role ?? undefined)'),
+ 'join email proof':join.includes('acceptInvitationAtomic(')&&read('lib/invitation-acceptance.ts').includes('INVITE_EMAIL_MISMATCH'),
+ 'join team proof':read('supabase/migrations/20261108160000_actiproc_entitlement_invite_atomicity.sql').includes('ACTIPROC_INVITE_TEAM_INVALID'),
+ 'join org role normalized':read('supabase/migrations/20261108160000_actiproc_entitlement_invite_atomicity.sql').includes("'admin'::public.user_role"),
  'direct member role validated':add.includes('Invalid team role'),
 };
 for(const [name,ok] of Object.entries(cases))assert.ok(ok,'FAILED: '+name);
