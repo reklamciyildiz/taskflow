@@ -41,7 +41,7 @@ export function MarketingPricing() {
         <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           {plans.map(p=>{
             const featured=p.id==='pro';
-            const paidSeat=p.id==='pro'||p.id==='team';
+            const paidSeat=p.id!=='free';
             const price=p.id==='free'?ACTIPROC_PLANS.free.priceUsd:
               actiprocPriceUsd(p.id,billingInterval);
             return (
@@ -56,7 +56,7 @@ export function MarketingPricing() {
                 <div className="mt-6 flex flex-wrap items-baseline gap-1">
                   <strong className="text-[43px] leading-none tracking-[-.06em]">{'$'}{price}</strong>
                   <span className={'text-[11px] '+(featured?'text-[#b4ccbd]':'text-[#6f8973]')}>
-                    {p.id==='free'?'/forever':p.id==='individual'?'/year':billingInterval==='yearly'?'/seat/year':'/seat/month'}
+                    {p.id==='free'?'/forever':p.id==='individual'?'/seat/year':billingInterval==='yearly'?'/seat/year':'/seat/month'}
                   </span>
                 </div>
                 <div className={'mt-6 rounded-[16px] border px-3.5 py-3.5 '+(featured?'border-[#4b7958] bg-[#245038]':'border-[#d3e4d0] bg-[#f0f7eb]')}>
