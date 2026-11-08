@@ -42,4 +42,6 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ci-not-a-real-service-role-key
           NEXTAUTH_SECRET: ci-non-production-build-placeholder-only
           NEXTAUTH_URL: http://localhost:3000
+          RESEND_API_KEY: re_ci_build_placeholder_never_valid
+          RESEND_FROM_EMAIL: ci@example.invalid
         run: npm run build
