@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuthedUser } from '@/lib/server-authz';
 import { userDb } from '@/lib/db';
+import { publicUserRow } from '@/lib/public-identity-projection';
 
 // PATCH - Update user profile
 export async function PATCH(request: NextRequest) {
@@ -25,13 +26,13 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      data,
+      data: publicUserRow(data),
       message: 'Profile updated successfully',
     });
   } catch (error: any) {
-    console.error('Update profile error:', error);
+    console.error('Update profile failed');
     return NextResponse.json(
-      { success: false, error: error.message || 'Internal server error' },
+      { success: false, error: 'Internal server error' },
       { status: 500 }
     );
   }
@@ -52,12 +53,12 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      data: user,
+      data: publicUserRow(user),
     });
   } catch (error: any) {
-    console.error('Get profile error:', error);
+    console.error('Get profile failed');
     return NextResponse.json(
-      { success: false, error: error.message || 'Internal server error' },
+      { success: false, error: 'Internal server error' },
       { status: 500 }
     );
   }

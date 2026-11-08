@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuthedUser } from '@/lib/server-authz';
-import { organizationDb, userDb, teamMemberDb } from '@/lib/db';
+import { organizationDb, userDb } from '@/lib/db';
+import { publicOrganizationRow } from '@/lib/public-identity-projection';
 
 // GET - Get organization by ID
 export async function GET(
@@ -32,12 +33,12 @@ export async function GET(
 
     return NextResponse.json({
       success: true,
-      data: organization,
+      data: publicOrganizationRow(organization),
     });
   } catch (error: any) {
-    console.error('Get organization error:', error);
+    console.error('Organization lookup failed');
     return NextResponse.json(
-      { success: false, error: error.message || 'Internal server error' },
+      { success: false, error: 'Internal server error' },
       { status: 500 }
     );
   }
@@ -90,13 +91,13 @@ export async function PATCH(
 
     return NextResponse.json({
       success: true,
-      data: updatedOrganization,
+      data: publicOrganizationRow(updatedOrganization),
       message: 'Organization updated successfully',
     });
   } catch (error: any) {
-    console.error('Update organization error:', error);
+    console.error('Organization update failed');
     return NextResponse.json(
-      { success: false, error: error.message || 'Internal server error' },
+      { success: false, error: 'Internal server error' },
       { status: 500 }
     );
   }
