@@ -192,6 +192,12 @@ assert.equal(creemCheckoutEnvironmentSafe({...primary,CREEM_CHECKOUT_ENABLED:'fa
 
 const billingUi=fs.readFileSync('components/billing/BillingClient.tsx','utf8');
 assert.ok(billingUi.includes('canUpgrade') && billingUi.includes('hasPaidSubscription'),'Cancelled plans must block unsupported plan upgrades');
+assert.ok(billingUi.includes('needsPreviousSubscriptionReview') &&
+  billingUi.includes('busy || needsPreviousSubscriptionReview') &&
+  billingUi.includes('!canUpgrade || needsPreviousSubscriptionReview') &&
+  billingUi.includes("if (canResubscribe) {") &&
+  billingUi.includes("setSelectedPlan('individual');"),
+  'Expired linked subscriptions must show a recovery gate, never open ordinary checkout');
 assert.ok(!billingUi.includes('Checkout returned — verifying subscription payment'),'Stale checkout banner must be removed');
 assert.ok(billingUi.includes('setSelectedBillingInterval('),'Billing UI must offer annual/monthly selection');
 assert.ok(billingUi.includes('billingReview.billingInterval'),'Review must respect verified cadence');
