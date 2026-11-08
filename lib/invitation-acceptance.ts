@@ -38,6 +38,8 @@ function safeInviteFailure(error: { message?: string; code?: string }): Invitati
     return new InvitationAcceptError('INVITE_EMAIL_MISMATCH', 403, 'Invitation is for a different email');
   if (message.includes('ACTIPROC_INVITE_TEAM_INVALID'))
     return new InvitationAcceptError('INVITE_TEAM_INVALID', 409, 'Invitation team is no longer available');
+  if (message.includes('ACTIPROC_USER_ALREADY_EXISTS'))
+    return new InvitationAcceptError('USER_EXISTS', 409, 'An account already exists for this email');
   if (message.includes('ACTIPROC_USER_OTHER_ORG'))
     return new InvitationAcceptError('OTHER_ORG', 400, 'You already belong to another organization');
   if (message.includes('ACTIPROC_SEAT_LIMIT'))
