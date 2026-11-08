@@ -15,10 +15,10 @@ const checks: Record<string, boolean> = {
     dashboard.includes('<DashboardCapture ') && dashboard.includes('<CreateTaskModal '),
   'real team scoped KPIs': dashboard.includes('useTaskContext()') &&
     dashboard.includes('currentTeam.id') && dashboard.includes('resolveStageLifecycle(') &&
-    dashboard.includes('overview.active') && dashboard.includes('overview.processes'),
+    dashboard.includes('overview.actions') && dashboard.includes('overview.processes'),
   'no invented growth or hardcoded completion':
     !dashboard.includes('+24%') && !dashboard.includes('+33%') &&
-    dashboard.includes('completed / total'),
+    dashboard.includes('completed / scopedTasks.length'),
   'my day remains loaded from planner APIs':
     day.includes('plannerApi.getToday(') && day.includes('plannerApi.getUpcoming(') &&
     day.includes('openTaskEditor(item.taskId)'),
@@ -47,16 +47,16 @@ const checks: Record<string, boolean> = {
     panels.includes('assigneeId === currentUser.id'),
   'dark mode is scoped, not global':
     styles.includes('.dark .dashboard-v2-hero') &&
-    styles.includes('.dark .dashboard-v2 .dashboard-v2-panel--focus'),
+    styles.includes('.dark .dashboard-v2-premium .dashboard-v2-panel--focus'),
   'light theme remains supported': styles.includes('.dashboard-v2-hero {') &&
-    styles.includes('.dashboard-v2 .dashboard-v2-panel {'),
+    styles.includes('.dashboard-v2-premium .dashboard-v2-panel {'),
   'mobile layout avoids metric clipping':
     styles.includes('@media (max-width: 639px)') &&
-    styles.includes('@media (max-width: 370px)') &&
-    styles.includes('.dashboard-v2-hero-content > div:last-child > button'),
+    styles.includes('@media (max-width: 380px)') &&
+    styles.includes('.dashboard-v2-hero-actions > button'),
   'reduced motion and focus rings':
     styles.includes('@media (prefers-reduced-motion: reduce)') &&
-    styles.includes('.dashboard-v2 .dashboard-v2-row:focus-visible'),
+    styles.includes('.dashboard-v2-row:focus-visible'),
 };
 
 for (const [name, ok] of Object.entries(checks)) assert.equal(ok, true, name);
