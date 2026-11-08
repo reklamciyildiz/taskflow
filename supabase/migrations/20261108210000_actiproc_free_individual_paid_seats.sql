@@ -6,7 +6,7 @@
 BEGIN;
 DO $preflight$
 BEGIN
- IF to_regprocedure('public.actiproc_effective_plan_seats(organizations)') IS NULL
+ IF to_regprocedure('public.actiproc_effective_plan_seats(public.organizations)') IS NULL
     OR to_regprocedure('public.reserve_creem_seat_change(uuid,text,integer,integer,boolean,text)') IS NULL
     OR to_regclass('public.creem_plan_changes') IS NULL
     OR to_regclass('public.creem_seat_changes') IS NULL THEN
