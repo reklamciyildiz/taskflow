@@ -49,7 +49,8 @@
     "creem:inspect-seats": "tsx scripts/inspect-creem-seats.ts",
     "test:capacitor-oauth": "node scripts/test-capacitor-oauth-handoff.mjs",
     "migrate:auth": "tsx scripts/migrate-users-to-supabase-auth.ts",
-    "ios:check": "npm run test:ios-shell && npm run test:ios-auth && npm run test:ios-ci && npm run test:ios-device-ci"
+    "ios:check": "npm run test:ios-shell && npm run test:ios-auth && npm run test:ios-ci && npm run test:ios-device-ci",
+    "test:dashboard:premium": "tsx scripts/test-dashboard-premium.ts"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^18.0.1",
