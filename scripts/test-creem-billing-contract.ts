@@ -333,8 +333,13 @@ assert.ok(seatGuardSql.includes('guard_creem_team_member_seat') &&
  seatGuardSql.includes('BEFORE INSERT ON public.team_members'), 'DB must prevent concurrent paid seat over-allocation');
 assert.ok(seatGuardSql.includes('tm.user_id=NEW.user_id'), 'Existing users in additional teams must not consume extra seats');
 const invitationCode=fs.readFileSync('lib/db.ts','utf8');
-assert.ok(invitationCode.includes('SEAT_LIMIT_REACHED') &&
- invitationCode.includes('currentSeats>=allowed'), 'Invitations must check seats before creating user records');
+const inviteRpc=fs.readFileSync('lib/invitation-acceptance.ts','utf8');
+const atomicInviteSql=fs.readFileSync('supabase/migrations/20261108160000_actiproc_entitlement_invite_atomicity.sql','utf8');
+assert.ok(invitationCode.includes('acceptInvitationAtomic({') &&
+ inviteRpc.includes("rpc('accept_actiproc_invitation'") &&
+ atomicInviteSql.includes('ACTIPROC_SEAT_LIMIT') &&
+ atomicInviteSql.includes('COUNT(DISTINCT tm.user_id)'),
+ 'Invitations must verify seats atomically before user creation');
 
 assert.ok(seatGuardSql.includes("CREATE TRIGGER trg_guard_creem_team_member_seat"),
  'Creem membership guard must install an actual DB trigger');
