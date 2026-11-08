@@ -1,0 +1,44 @@
+name: Dashboard premium quality
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'components/dashboard/**'
+      - 'app/globals.css'
+      - 'app/(shell)/page.tsx'
+      - 'scripts/test-dashboard-premium.ts'
+      - 'package.json'
+      - '.github/workflows/dashboard-premium-quality.yml'
+  pull_request:
+    paths:
+      - 'components/dashboard/**'
+      - 'app/globals.css'
+      - 'app/(shell)/page.tsx'
+      - 'scripts/test-dashboard-premium.ts'
+      - 'package.json'
+      - '.github/workflows/dashboard-premium-quality.yml'
+  workflow_dispatch:
+
+jobs:
+  dashboard-premium:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Premium dashboard contracts
+        run: npm run test:dashboard:premium
+      - name: TypeScript typecheck
+        run: npx tsc --noEmit
+      - name: Planner scheduling regression
+        run: npm run test:scheduling
+      - name: Existing Board regression
+        run: npm run test:board:premium
+      - name: Knowledge Hub regression
+        run: npm run test:knowledge-hub
