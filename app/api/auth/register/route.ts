@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createUserWithOrganization, joinOrganizationViaInvitation, userDb } from '@/lib/db';
+import { joinOrganizationViaInvitation, userDb } from '@/lib/db';
+import { InvitationAcceptError } from '@/lib/invitation-acceptance';
 import { ApiResponse } from '@/lib/types';
 import bcrypt from 'bcryptjs';
 
@@ -7,71 +8,89 @@ import bcrypt from 'bcryptjs';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-
-    const { email, name, organizationName, invitationToken, password } = body;
-
-    if (!email || !name) {
+    const { email, name, invitationToken, password } = body;
+    if (typeof email !== 'string' || typeof name !== 'string' ||
+        !email.trim().includes('@') || !name.trim()) {
       return NextResponse.json<ApiResponse<null>>(
         { success: false, error: 'Email and name are required' },
-        { status: 400 }
+        { status: 400 },
       );
     }
-
     if (!password || typeof password !== 'string' || password.length < 8) {
       return NextResponse.json<ApiResponse<null>>(
         { success: false, error: 'Password must be at least 8 characters' },
-        { status: 400 }
+        { status: 400 },
       );
     }
-
-    // Check if user already exists
-    const existingUser = await userDb.getByEmail(email);
-    if (existingUser) {
+    const normalizedEmail = email.trim().toLowerCase();
+    const existing = await userDb.getByEmail(normalizedEmail);
+    if (existing) {
       return NextResponse.json<ApiResponse<null>>(
         { success: false, error: 'User with this email already exists' },
-        { status: 409 }
+        { status: 409 },
       );
     }
 
+    // Hash BEFORE the transactional invitation acceptance, so successful
+    // invite registration never leaves a new member without credentials.
+    const passwordHash = await bcrypt.hash(password, 10);
     let result;
-
     if (invitationToken) {
-      // Join existing organization via invitation
-      result = await joinOrganizationViaInvitation(email, name, invitationToken);
+      if (typeof invitationToken !== 'string') {
+        return NextResponse.json<ApiResponse<null>>(
+          { success: false, error: 'Invalid invitation token' }, { status: 400 },
+        );
+      }
+      result = await joinOrganizationViaInvitation(
+        normalizedEmail, name.trim(), invitationToken, passwordHash,
+      );
     } else {
-      // Create user without an organization; onboarding will create/join a workspace.
-      // NOTE: the DB schema allows `organization_id` to be null in practice (onboarding depends on it).
-      const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(String(name))}&background=random`;
+      const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(name.trim())}&background=random`;
       const user = await userDb.create({
-        email,
-        name,
+        email: normalizedEmail,
+        name: name.trim(),
         organization_id: null,
         role: 'member',
         avatar_url: avatarUrl,
+        password_hash: passwordHash,
       });
       result = { user };
     }
 
-    // Persist password hash for credentials sign-in.
+    // Sync the persisted identity to Supabase Auth for RLS compatibility.
     if (result?.user?.id) {
-      const hash = await bcrypt.hash(password, 10);
-      await userDb.update(result.user.id, { password_hash: hash });
-
-      // Keep Supabase Auth in sync (RLS compatibility).
       const { syncUserToSupabaseAuth } = await import('@/lib/supabase-auth');
-      await syncUserToSupabaseAuth(result.user.id, email, name);
+      await syncUserToSupabaseAuth(result.user.id, normalizedEmail, name.trim());
     }
 
     return NextResponse.json<ApiResponse<any>>({
       success: true,
-      data: result,
+      // Never return the password hash in an API response.
+      data: {
+        user: result?.user
+          ? {
+              id: result.user.id,
+              email: result.user.email,
+              name: result.user.name,
+              avatar_url: result.user.avatar_url,
+              organization_id: result.user.organization_id,
+              role: result.user.role,
+            }
+          : null,
+        ...('invitation' in result ? { invitation: result.invitation } : {}),
+      },
       message: 'Registration successful',
     }, { status: 201 });
-  } catch (error: any) {
-    console.error('Error registering user:', error);
+  } catch (error: unknown) {
+    if (error instanceof InvitationAcceptError) {
+      return NextResponse.json<ApiResponse<null>>(
+        { success: false, error: error.message },
+        { status: error.status },
+      );
+    }
+    console.error('[register] Registration failed');
     return NextResponse.json<ApiResponse<null>>(
-      { success: false, error: error.message || 'Internal server error' },
-      { status: 500 }
+      { success: false, error: 'Registration unavailable' }, { status: 503 },
     );
   }
 }
