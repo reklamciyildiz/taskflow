@@ -248,7 +248,9 @@ assert.ok(revisedReSql.includes('CREATE OR REPLACE FUNCTION public.reserve_creem
  revisedReSql.includes('REVOKE ALL ON FUNCTION public.reserve_creem_resubscription') &&
  revisedReSql.includes('REVOKE ALL ON FUNCTION public.apply_creem_resubscription') &&
  revisedReSql.includes('p_test IS NULL') &&
- revisedReSql.includes('p_seats IS DISTINCT FROM p_seats')===false,
+ revisedReSql.includes('ci.units IS DISTINCT FROM p_seats') &&
+ revisedReSql.includes('old_org.creem_test_mode IS DISTINCT FROM p_test') &&
+ revisedReSql.includes('creem_subscription_history'),
  'Re-subscription must support verified multi-seat Individual purchases and preserve identity, receipt and permission guards');
 const webhookRe=fs.readFileSync('app/api/webhooks/creem/route.ts','utf8');
 const checkoutRe=fs.readFileSync('lib/creem-billing-operations.ts','utf8');
