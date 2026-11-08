@@ -25,7 +25,7 @@ const schema = [
   "CREATE TABLE public.team_members (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), team_id uuid NOT NULL REFERENCES public.teams(id), user_id uuid NOT NULL REFERENCES public.users(id), role public.team_role DEFAULT 'member', UNIQUE(team_id,user_id));",
   "CREATE TABLE public.invitations (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), email text NOT NULL, organization_id uuid NOT NULL REFERENCES public.organizations(id), team_id uuid REFERENCES public.teams(id), role public.team_role DEFAULT 'member', invited_by uuid REFERENCES public.users(id), token text UNIQUE NOT NULL, expires_at timestamptz NOT NULL, accepted_at timestamptz, created_at timestamptz DEFAULT now());",
   "CREATE TABLE public.creem_plan_changes (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), organization_id uuid REFERENCES public.organizations(id), previous_plan text, desired_plan text, status text);",
-  "CREATE TABLE public.creem_seat_changes (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), organization_id uuid REFERENCES public.organizations(id), previous_seats integer, desired_seats integer, status text);",
+  "CREATE TABLE public.creem_seat_changes (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), organization_id uuid REFERENCES public.organizations(id), subscription_id text, previous_seats integer, desired_seats integer, test_mode boolean, previous_transaction_id text, status text DEFAULT 'pending');",
 ].join('\n');
 
 async function createOrg(plan = 'free', opts = {}) {
@@ -79,6 +79,9 @@ async function run() {
   await db.query(schema);
   await db.query(readFileSync('supabase/migrations/20261108120000_actiproc_atomic_plan_limits.sql', 'utf8'));
   await db.query(readFileSync('supabase/migrations/20261108160000_actiproc_entitlement_invite_atomicity.sql', 'utf8'));
+  // Disposable schema represents the pre-existing production reservation RPC;
+  // the new migration replaces it with the actual Individual-enabled version.
+  await db.query("CREATE FUNCTION public.reserve_creem_seat_change(uuid,text,integer,integer,boolean,text) RETURNS uuid LANGUAGE sql AS $ SELECT NULL::uuid $");
   await db.query(readFileSync('supabase/migrations/20261108210000_actiproc_free_individual_paid_seats.sql', 'utf8'));
 
   const perms = await db.query(
