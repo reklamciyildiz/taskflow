@@ -12,6 +12,14 @@ on:
       - 'components/marketing/sections/MarketingPricing.tsx'
       - 'scripts/test-plan-entitlement-matrix.ts'
       - 'supabase/migrations/20261108120000_actiproc_atomic_plan_limits.sql'
+      - 'supabase/migrations/20261108160000_actiproc_entitlement_invite_atomicity.sql'
+      - 'scripts/sql/actiproc-entitlements-after-atomicity-audit.sql'
+      - 'scripts/test-entitlement-atomic-invite-contract.ts'
+      - 'scripts/test-monetization-access.ts'
+      - 'lib/invitation-acceptance.ts'
+      - 'lib/db.ts'
+      - 'app/api/onboarding/join-organization/route.ts'
+      - 'app/api/auth/register/route.ts'
       - 'scripts/sql/actiproc-entitlements-production-audit.sql'
       - 'lib/google-calendar-*'
       - 'lib/google-calendar-sync.ts'
@@ -37,6 +45,14 @@ on:
       - 'components/marketing/sections/MarketingPricing.tsx'
       - 'scripts/test-plan-entitlement-matrix.ts'
       - 'supabase/migrations/20261108120000_actiproc_atomic_plan_limits.sql'
+      - 'supabase/migrations/20261108160000_actiproc_entitlement_invite_atomicity.sql'
+      - 'scripts/sql/actiproc-entitlements-after-atomicity-audit.sql'
+      - 'scripts/test-entitlement-atomic-invite-contract.ts'
+      - 'scripts/test-monetization-access.ts'
+      - 'lib/invitation-acceptance.ts'
+      - 'lib/db.ts'
+      - 'app/api/onboarding/join-organization/route.ts'
+      - 'app/api/auth/register/route.ts'
       - 'scripts/sql/actiproc-entitlements-production-audit.sql'
       - 'lib/google-calendar-*'
       - 'lib/google-calendar-sync.ts'
@@ -64,6 +80,8 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - name: Plan-feature policy and endpoint guards
         run: npm run test:entitlements
+      - name: Tenant invitation / member scope contracts
+        run: npx tsx scripts/test-monetization-access.ts
       - name: Static types
         run: npx tsc --noEmit
       - name: Scheduling rules
