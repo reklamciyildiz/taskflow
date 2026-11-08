@@ -1,92 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { customerDb } from '@/lib/db';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { requireAuthedUser } from '@/lib/server-authz';
+import { createCustomer, listCustomers, type CustomerResult } from '@/lib/customer-security';
 
-// GET /api/customers - Get all customers for the organization
+export const dynamic = 'force-dynamic';
+
+function respond<T>(result: CustomerResult<T>, successStatus = 200) {
+  return result.ok === false
+    ? NextResponse.json({ success: false, error: result.error }, { status: result.status, headers: { 'Cache-Control': 'no-store' } })
+    : NextResponse.json({ success: true, data: result.value }, { status: successStatus, headers: { 'Cache-Control': 'no-store' } });
+}
+
+// Member/Viewer may read customers in their own canonical organization.
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    const user = session?.user as any;
-    if (!user?.organizationId) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    const customers = await customerDb.getByOrganization(user.organizationId);
-
-    // Get task stats for each customer
-    const customersWithStats = await Promise.all(
-      customers.map(async (customer: any) => {
-        const stats = await customerDb.getTaskStats(customer.id);
-        return { ...customer, taskStats: stats };
-      })
-    );
-
-    return NextResponse.json({
-      success: true,
-      data: customersWithStats,
-    });
-  } catch (error) {
-    console.error('Error fetching customers:', error);
-    return NextResponse.json(
-      { success: false, error: 'Internal server error' },
-      { status: 500 }
-    );
+    const authed = await requireAuthedUser(request);
+    if (authed instanceof NextResponse) return authed;
+    return respond(await listCustomers(authed.user, customerDb));
+  } catch {
+    console.error('Customer list failed');
+    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 }
 
-// POST /api/customers - Create a new customer
+// Only an Owner/Admin from the canonical users row may create customers.
+// The client must never choose the record's organization_id.
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    const user = session?.user as any;
-    if (!user?.organizationId) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    // Check if user has permission (admin or owner)
-    const userRole = user.role;
-    if (userRole !== 'admin' && userRole !== 'owner') {
-      return NextResponse.json(
-        { success: false, error: 'Permission denied' },
-        { status: 403 }
-      );
-    }
-
-    const body = await request.json();
-    const { name, email, phone, address, notes } = body;
-
-    if (!name?.trim()) {
-      return NextResponse.json(
-        { success: false, error: 'Customer name is required' },
-        { status: 400 }
-      );
-    }
-
-    const customer = await customerDb.create({
-      name: name.trim(),
-      email: email?.trim() || null,
-      phone: phone?.trim() || null,
-      address: address?.trim() || null,
-      notes: notes?.trim() || null,
-      organization_id: user.organizationId,
-    });
-
-    return NextResponse.json({
-      success: true,
-      data: customer,
-    });
-  } catch (error) {
-    console.error('Error creating customer:', error);
-    return NextResponse.json(
-      { success: false, error: 'Internal server error' },
-      { status: 500 }
-    );
+    const authed = await requireAuthedUser(request);
+    if (authed instanceof NextResponse) return authed;
+    const body: unknown = await request.json().catch(() => null);
+    return respond(await createCustomer(authed.user, body, customerDb), 201);
+  } catch {
+    console.error('Customer creation failed');
+    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 }

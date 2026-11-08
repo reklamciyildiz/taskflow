@@ -1366,91 +1366,69 @@ export const pushSubscriptionDb = {
 export const customerDb = {
   async create(customerData: {
     name: string;
-    email?: string;
-    phone?: string;
-    address?: string;
-    notes?: string;
+    email: string | null;
+    phone: string | null;
+    address: string | null;
+    notes: string | null;
     organization_id: string;
   }) {
-    const { data, error } = await db
-      .from('customers')
-      .insert(customerData)
-      .select()
-      .single();
-    
+    const { data, error } = await db.from('customers')
+      .insert(customerData).select().single();
     if (error) throw error;
     return data;
   },
 
-  async getById(id: string) {
-    const { data, error } = await db
-      .from('customers')
-      .select('*')
-      .eq('id', id)
-      .single();
-    
+  async getById(id: string, organizationId: string) {
+    const { data, error } = await db.from('customers')
+      .select('*').eq('id', id).eq('organization_id', organizationId).maybeSingle();
     if (error) throw error;
     return data;
   },
 
   async getByOrganization(organizationId: string) {
-    const { data, error } = await db
-      .from('customers')
-      .select('*')
-      .eq('organization_id', organizationId)
-      .order('name', { ascending: true });
-    
+    const { data, error } = await db.from('customers')
+      .select('*').eq('organization_id', organizationId).order('name', { ascending: true });
     if (error) throw error;
     return data || [];
   },
 
-  async update(id: string, updates: {
+  async update(id: string, organizationId: string, updates: {
     name?: string;
-    email?: string;
-    phone?: string;
-    address?: string;
-    notes?: string;
+    email?: string | null;
+    phone?: string | null;
+    address?: string | null;
+    notes?: string | null;
   }) {
-    const { data, error } = await db
-      .from('customers')
+    const { data, error } = await db.from('customers')
       .update({ ...updates, updated_at: new Date().toISOString() })
-      .eq('id', id)
-      .select()
-      .single();
-    
+      .eq('id', id).eq('organization_id', organizationId).select().maybeSingle();
     if (error) throw error;
     return data;
   },
 
-  async delete(id: string) {
-    const { error } = await db
-      .from('customers')
-      .delete()
-      .eq('id', id);
-    
+  async delete(id: string, organizationId: string) {
+    const { data, error } = await db.from('customers')
+      .delete().eq('id', id).eq('organization_id', organizationId)
+      .select('id').maybeSingle();
     if (error) throw error;
-    return true;
+    return Boolean(data?.id);
   },
 
-  async getTaskStats(customerId: string) {
-    const { data, error } = await db
-      .from('tasks')
+  async getTaskStats(customerId: string, organizationId: string) {
+    const { data, error } = await db.from('tasks')
       .select('status,project_id,projects(column_config)')
-      .eq('customer_id', customerId);
-    
+      .eq('organization_id', organizationId).eq('customer_id', customerId);
     if (error) throw error;
-    
     const total = data?.length || 0;
     const completed = data?.filter((t: any) => resolveStageLifecycle(t.status,
       t.project_id ? parseColumnConfigFromJson(t.projects?.column_config) : FALLBACK_BOARD_COLUMNS
     ).isTerminal).length || 0;
-    
     return { total, completed };
   },
 };
 
 // =============================================
-// WEBHOOK DATABASE OPERATIONS
+// // WEBHOOK DATABASE OPERATIONS
 // =============================================
 
 export const webhookDb = {
