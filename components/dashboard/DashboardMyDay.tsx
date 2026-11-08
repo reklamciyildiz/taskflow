@@ -5,10 +5,13 @@ import Link from 'next/link';
 import {
   AlertCircle,
   ArrowUpRight,
+  CalendarClock,
   Check,
+  CheckCircle2,
   ChevronRight,
   Clock3,
   FolderKanban,
+  ListTodo,
   RefreshCw,
   Repeat2,
   SunMedium,
@@ -177,12 +180,18 @@ export function DashboardMyDay() {
   const actionable = [...(today?.overdue ?? []), ...(today?.today ?? [])];
   const visibleActionable = actionable.slice(0, TODAY_LIMIT);
   const hiddenCount = Math.max(0, actionable.length - visibleActionable.length);
+  const comingUpCount = (upcoming?.groups ?? []).reduce(
+    (count, group) => count + group.items.filter((item) => item.state !== 'completed').length, 0,
+  );
+  const doneToday = today?.completedToday.length ?? 0;
+  const dailyTotal = actionable.length + doneToday;
+  const dailyProgress = dailyTotal > 0 ? Math.round((doneToday / dailyTotal) * 100) : 0;
 
   return (
-    <section className="dashboard-v2-panel min-w-0" aria-labelledby="dashboard-my-day-title">
+    <section className="dashboard-v2-panel dashboard-v2-panel--day min-w-0" aria-labelledby="dashboard-my-day-title">
       <header className="dashboard-v2-panel-header">
         <div className="flex min-w-0 items-start gap-2.5">
-          <span className="dashboard-v2-icon"><SunMedium className="h-4 w-4" /></span>
+          <span className="dashboard-v2-icon dashboard-v2-icon--sun"><SunMedium className="h-4 w-4" /></span>
           <div className="min-w-0 pt-0.5">
             <h2 id="dashboard-my-day-title" className="dashboard-v2-section-title">My Day</h2>
             <p className="mt-0.5 text-[0.7rem] text-muted-foreground">{day ? dateLabel(day.date) : 'Your scheduled work'}</p>
@@ -192,6 +201,36 @@ export function DashboardMyDay() {
           <Link href="/planner">Open Planner <ArrowUpRight className="h-3.5 w-3.5" /></Link>
         </Button>
       </header>
+
+      {today && !error ? (
+        <div className="dashboard-v2-day-stats" aria-label="Today's activity summary">
+          <div className="dashboard-v2-day-stat">
+            <ListTodo className="h-4 w-4 text-lime-500 dark:text-lime-300" aria-hidden="true" />
+            <span><strong>{actionable.length}</strong><small>To do</small></span>
+          </div>
+          <div className="dashboard-v2-day-stat">
+            <CalendarClock className="h-4 w-4 text-sky-600 dark:text-sky-300" aria-hidden="true" />
+            <span><strong>{comingUpCount}</strong><small>Coming up</small></span>
+          </div>
+          <div className="dashboard-v2-day-stat">
+            <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-300" aria-hidden="true" />
+            <span><strong>{doneToday}</strong><small>Done today</small></span>
+          </div>
+          <div className="dashboard-v2-day-progress">
+            <div className="flex items-center justify-between gap-2">
+              <span>Today's progress</span><strong>{dailyProgress}%</strong>
+            </div>
+            <div
+              className="dashboard-v2-progress-track"
+              role="progressbar"
+              aria-label="Today's completed work"
+              aria-valuenow={dailyProgress}
+              aria-valuemin={0}
+              aria-valuemax={100}
+            ><span style={{ width: `${dailyProgress}%` }} /></div>
+          </div>
+        </div>
+      ) : null}
 
       {loading ? (
         <div className="space-y-2 px-4 pb-4 sm:px-5">
