@@ -79,20 +79,23 @@ async function run() {
   await db.query(schema);
   await db.query(readFileSync('supabase/migrations/20261108120000_actiproc_atomic_plan_limits.sql', 'utf8'));
   await db.query(readFileSync('supabase/migrations/20261108160000_actiproc_entitlement_invite_atomicity.sql', 'utf8'));
+  await db.query(readFileSync('supabase/migrations/20261108210000_actiproc_free_individual_paid_seats.sql', 'utf8'));
 
   const perms = await db.query(
     "SELECT has_function_privilege('anon','public.accept_actiproc_invitation(text,text,text,text,text)','EXECUTE') AS anon, has_function_privilege('authenticated','public.accept_actiproc_invitation(text,text,text,text,text)','EXECUTE') AS authed");
   assert.equal(perms.rows[0].anon, false);
   assert.equal(perms.rows[0].authed, false);
 
-  const f = await createOrg('free');
+  // The paid Pro fixture has one remaining purchased seat. Two simultaneous
+  // invites cannot both consume it under the organization lock.
+  const f = await createOrg('pro', { creem:true, seats:2 });
   const one = await invite(f, 'one@example.org');
   const two = await invite(f, 'two@example.org');
   const races = await Promise.allSettled([
     accept(one, 'one@example.org'), accept(two, 'two@example.org'),
   ]);
   assert.equal(races.filter(r => r.status === 'fulfilled').length, 1,
-    'Free org with 1 remaining seat must accept only 1 concurrent invite');
+    'Paid org with 1 remaining seat must accept only 1 concurrent invite');
   assert.match(String(races.find(r => r.status === 'rejected').reason.message), /ACTIPROC_SEAT_LIMIT/);
   assert.equal(await count('users', 'organization_id', f.org), 2);
   const loser = races[0].status === 'rejected' ? 'one@example.org' : 'two@example.org';
@@ -101,7 +104,7 @@ async function run() {
   assert.equal(await count('users', 'email', loser), 0, 'Failed invite must create no orphan user');
   await fails(accept(winnerToken, winnerEmail), 'ACTIPROC_INVITE_INVALID');
 
-  const wrong = await createOrg('free');
+  const wrong = await createOrg('individual', { creem:true, seats:2 });
   const wrongToken = await invite(wrong, 'correct@example.org');
   await fails(accept(wrongToken, 'wrong@example.org'), 'ACTIPROC_INVITE_EMAIL_MISMATCH');
   const invited = await db.query("SELECT accepted_at FROM public.invitations WHERE token=$1", [wrongToken]);
@@ -130,13 +133,34 @@ async function run() {
   for (let i = 0; i < 10; i++) await createProcess(pro.org);
   await fails(createProcess(pro.org), 'ACTIPROC_PLAN_LIMIT');
 
-  await createProcess(f.org);
-  await fails(createProcess(f.org), 'ACTIPROC_PLAN_LIMIT');
-  await fails(team(f.org, f.owner), 'ACTIPROC_PLAN_LIMIT');
+  const free = await createOrg('free');
+  const freeInvite = await invite(free,'free-new@example.org');
+  await fails(accept(freeInvite,'free-new@example.org'),'ACTIPROC_SEAT_LIMIT');
+  await createProcess(free.org);
+  await fails(createProcess(free.org), 'ACTIPROC_PLAN_LIMIT');
+  await fails(team(free.org, free.owner), 'ACTIPROC_PLAN_LIMIT');
 
   const individual = await createOrg('individual');
   for (let i = 0; i < 3; i++) await createProcess(individual.org);
   await fails(createProcess(individual.org), 'ACTIPROC_PLAN_LIMIT');
+
+  // Individual purchases a variable number of annually billed seats.
+  const annual = await createOrg('individual', { creem:true, seats:3 });
+  const annualOne = await invite(annual, 'annual-one@example.org');
+  const annualTwo = await invite(annual, 'annual-two@example.org');
+  await accept(annualOne, 'annual-one@example.org');
+  await accept(annualTwo, 'annual-two@example.org');
+  await fails(accept(await invite(annual, 'annual-extra@example.org'), 'annual-extra@example.org'), 'ACTIPROC_SEAT_LIMIT');
+  const subId = (await db.query('SELECT creem_subscription_id FROM public.organizations WHERE id=$1',[annual.org])).rows[0].creem_subscription_id;
+  const reservation = await db.query('SELECT public.reserve_creem_seat_change($1,$2,3,4,false,$3) AS id',[annual.org,subId,'tran_baseline']);
+  assert.ok(reservation.rows[0].id, 'Individual paid seat changes must be reservable');
+  const pendingExtra = await invite(annual, 'annual-extra@example.org');
+  await fails(accept(pendingExtra,'annual-extra@example.org'),'ACTIPROC_SEAT_LIMIT');
+  // Creem must confirm a paid quantity increase before the extra seat unlocks.
+  await db.query('UPDATE public.organizations SET seat_limit=4 WHERE id=$1',[annual.org]);
+  await fails(accept(pendingExtra,'annual-extra@example.org'),'ACTIPROC_SEAT_LIMIT');
+  await db.query("UPDATE public.creem_seat_changes SET status='confirmed' WHERE organization_id=$1",[annual.org]);
+  await accept(pendingExtra,'annual-extra@example.org');
 
   const manualTeam = await createOrg('team', { seats: 1 });
   for (let i = 0; i < 12; i++) await createProcess(manualTeam.org);
@@ -169,11 +193,11 @@ async function run() {
 
   // Preserve existing over-cap rows; disallow additions after downgrade.
   await db.query('ALTER TABLE public.projects DISABLE TRIGGER trg_actiproc_projects_plan_limit');
-  await createProcess(f.org);
+  await createProcess(free.org);
   await db.query('ALTER TABLE public.projects ENABLE TRIGGER trg_actiproc_projects_plan_limit');
-  assert.equal(await count('projects', 'organization_id', f.org), 2);
-  await fails(createProcess(f.org), 'ACTIPROC_PLAN_LIMIT');
-  assert.equal(await count('projects', 'organization_id', f.org), 2);
+  assert.equal(await count('projects', 'organization_id', free.org), 2);
+  await fails(createProcess(free.org), 'ACTIPROC_PLAN_LIMIT');
+  assert.equal(await count('projects', 'organization_id', free.org), 2);
   console.log('Postgres E2E passed: 2 concurrent invites, replay, tenant, password, seat, plan, sandbox, legacy caps');
 }
 run().catch(e => {
