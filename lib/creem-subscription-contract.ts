@@ -25,7 +25,7 @@ export function normalizeCreemSubscription(source: any, config: CreemConfig): Cr
    throw new Error('Creem subscription references an unexpected product or identifier');
  if (input.mode !== creemResponseMode(config)) throw new Error('Creem subscription test/live mode mismatch');
  const seats = Number(input.items?.[0]?.units ?? input.units ?? 1);
- if (!Number.isInteger(seats) || seats<1 || seats>500 || (plan==='individual' && seats!==1))
+ if (!Number.isInteger(seats) || seats<1 || seats>500)
    throw new Error('Invalid Creem subscription seat count');
  const statusRaw=String(input.status ?? '');
  const periodEnd=validIso(input.current_period_end_date);
