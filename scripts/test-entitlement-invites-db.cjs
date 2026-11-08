@@ -69,7 +69,7 @@ async function count(table, column, value) {
     " WHERE " + column + " = $1", [value]);
   return rows[0].n;
 }
-function process(org) {
+function createProcess(org) {
   return db.query("INSERT INTO public.projects(organization_id) VALUES ($1)", [org]);
 }
 function team(org, owner) {
@@ -127,32 +127,32 @@ async function run() {
   assert.equal(await count('team_members', 'user_id', pro.owner), 2);
   await team(pro.org, pro.owner);
   await fails(team(pro.org, pro.owner), 'ACTIPROC_PLAN_LIMIT');
-  for (let i = 0; i < 10; i++) await process(pro.org);
-  await fails(process(pro.org), 'ACTIPROC_PLAN_LIMIT');
+  for (let i = 0; i < 10; i++) await createProcess(pro.org);
+  await fails(createProcess(pro.org), 'ACTIPROC_PLAN_LIMIT');
 
-  await process(f.org);
-  await fails(process(f.org), 'ACTIPROC_PLAN_LIMIT');
+  await createProcess(f.org);
+  await fails(createProcess(f.org), 'ACTIPROC_PLAN_LIMIT');
   await fails(team(f.org, f.owner), 'ACTIPROC_PLAN_LIMIT');
 
   const individual = await createOrg('individual');
-  for (let i = 0; i < 3; i++) await process(individual.org);
-  await fails(process(individual.org), 'ACTIPROC_PLAN_LIMIT');
+  for (let i = 0; i < 3; i++) await createProcess(individual.org);
+  await fails(createProcess(individual.org), 'ACTIPROC_PLAN_LIMIT');
 
   const manualTeam = await createOrg('team', { seats: 1 });
-  for (let i = 0; i < 12; i++) await process(manualTeam.org);
+  for (let i = 0; i < 12; i++) await createProcess(manualTeam.org);
   for (let i = 0; i < 5; i++) await team(manualTeam.org, manualTeam.owner);
   const manualInvite = await invite(manualTeam, 'manual@example.org');
   await accept(manualInvite, 'manual@example.org'); // Preserve manual Team unlimited rule.
 
   const changing = await createOrg('team', { creem: true, seats: 2 });
   await db.query("INSERT INTO public.creem_plan_changes(organization_id,previous_plan,desired_plan,status) VALUES($1,'pro','team','pending')", [changing.org]);
-  for (let i = 0; i < 10; i++) await process(changing.org);
-  await fails(process(changing.org), 'ACTIPROC_PLAN_LIMIT');
+  for (let i = 0; i < 10; i++) await createProcess(changing.org);
+  await fails(createProcess(changing.org), 'ACTIPROC_PLAN_LIMIT');
   await team(changing.org, changing.owner);
   await team(changing.org, changing.owner);
   await fails(team(changing.org, changing.owner), 'ACTIPROC_PLAN_LIMIT');
   await db.query("UPDATE public.creem_plan_changes SET status='confirmed' WHERE organization_id=$1", [changing.org]);
-  await process(changing.org);
+  await createProcess(changing.org);
   await team(changing.org, changing.owner);
 
   const seats = await createOrg('pro', { creem: true, seats: 3 });
@@ -164,15 +164,15 @@ async function run() {
   await accept(seatInvite, 'seat@example.org');
 
   const sandbox = await createOrg('pro', { creem: true, testMode: true });
-  await process(sandbox.org);
-  await fails(process(sandbox.org), 'ACTIPROC_PLAN_LIMIT');
+  await createProcess(sandbox.org);
+  await fails(createProcess(sandbox.org), 'ACTIPROC_PLAN_LIMIT');
 
   // Preserve existing over-cap rows; disallow additions after downgrade.
   await db.query('ALTER TABLE public.projects DISABLE TRIGGER trg_actiproc_projects_plan_limit');
-  await process(f.org);
+  await createProcess(f.org);
   await db.query('ALTER TABLE public.projects ENABLE TRIGGER trg_actiproc_projects_plan_limit');
   assert.equal(await count('projects', 'organization_id', f.org), 2);
-  await fails(process(f.org), 'ACTIPROC_PLAN_LIMIT');
+  await fails(createProcess(f.org), 'ACTIPROC_PLAN_LIMIT');
   assert.equal(await count('projects', 'organization_id', f.org), 2);
   console.log('Postgres E2E passed: 2 concurrent invites, replay, tenant, password, seat, plan, sandbox, legacy caps');
 }
