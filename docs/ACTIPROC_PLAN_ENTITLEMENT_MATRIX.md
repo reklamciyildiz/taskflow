@@ -1,10 +1,10 @@
 # Actiproc: Free / Individual / Pro / Team entitlement matrix
 
 This document describes existing application behavior and production safety measures.
-On 2026-11-08 the operator reported that the FIRST process/workspace cap
-migration (20261108120000) was successfully applied in Production.
-That report is not independent verification and does not mean later migrations,
-invitation RPCs, staging E2E tests, live charges or deployments are complete.
+On 2026-11-08 the operator reported that the first (20261108120000) AND
+atomic invitation follow-up (20261108160000) migrations were applied in
+Production. Do not rerun them; verify their triggers and grants with the
+read-only audit. No live payment or webhook settlement is proven by SQL Success.
 
 Source of truth: lib/billing-plans.ts (prices and capacities),
 lib/ai/ai-plan-catalog.ts (AI quotas),
@@ -20,8 +20,8 @@ lib/entitlements.ts (subscription-aware effective limits).
 | Annual price | $0 | $12 | $40 / seat | $60 / seat |
 | Processes | 1 | 3 | 10 | Unlimited |
 | Workspaces/Teams | 1 | 1 | 3 | Unlimited |
-| Default seats (without purchased count) | 2 | 1 | 1 | 1 on paid subscription |
-| Paid seats | — | 1 | purchased seats | purchased seats |
+| Default seats (without purchased count) | 1 | 1 | 1 | 1 on paid subscription |
+| Paid seats | — | purchased seats ($12/seat/year) | purchased seats | purchased seats |
 | AI daily per user | 10 | 50 | 100 | 150 |
 | AI monthly organization allowance | 30 | 300 | 800 per verified paid seat | 1200 per verified paid seat |
 
@@ -56,13 +56,13 @@ existing source allows role-based collaboration on lower plans within seats.
 - Backend: projects/workspaces check getPlanLimits; AI uses server-side atomic
   quota; paid reminders and Google sync use authenticated provider-aware
   checks; Team webhooks check every API/dispatch path.
-- DB: RLS protects tenant data but service_role bypasses RLS. The operator
-  reports 20261108120000 already applied to Production (not independently
-  verified). The follow-up 20261108160000 replaces trigger function bodies,
+- DB: RLS protects tenant data but service_role bypasses RLS. The operator reports 20261108120000 and 20261108160000 applied to
+  Production (not independently verified). The latter replaces trigger bodies,
   uses one DB effective-plan calculator, and atomically accepts invitations.
   Both capacity and membership inserts serialize on an organization row lock.
   Existing excess capacity is preserved; only NEW inserts are restricted.
-  The follow-up is NOT yet applied and must precede deployment of RPC callers.
+  The NEW 20261108210000 Free/Individual pricing migration is NOT yet applied.
+  It must be applied before deploying this new seat-policy code.
 - Creem: sandbox subscription IDs on Production do NOT count as paid.
   Suspended/unpaid/expired access falls back to Free; a cancelled subscription
   remains paid only until the verified end of its paid period.
@@ -72,10 +72,12 @@ existing source allows role-based collaboration on lower plans within seats.
 
 ## Important product discrepancy
 
-Free currently has a default 2-member capacity while Individual is 1 member.
-This is inherited behavior, NOT a newly approved pricing policy. Silently
-reducing Free to 1 seat would break existing collaboration. Decide the
-commercial rule first and migrate intentionally, with user communication.
+Free now offers 1 seat for new/extra membership; paid Individual is
+$12/seat/year and uses verified Creem units (1–500). Existing Free accounts
+with 2 or more seats are **grandfathered for existing content and membership**:
+no users are removed; additional invitations are blocked until capacity is paid.
+Individual AI monthly 300 requests is a shared ORGANIZATION allowance,
+not multiplied by paid seats; disclose this commercially.
 
 ## Outstanding validation and non-atomic paths
 
@@ -145,3 +147,26 @@ Staging acceptance must verify:
 
 **Commercial policy not silently changed:** Free currently permits 2 distinct
 members, Individual 1. Decide future packaging/legacy policy separately.
+
+
+## 2026-11-08 further pricing rollout (NOT live until deployed)
+
+The new, separate, non-destructive migration is
+`supabase/migrations/20261108210000_actiproc_free_individual_paid_seats.sql`.
+After this migration is verified on disposable PostgreSQL CI and staging,
+apply it to Production before deploying the updated API. It REPLACES
+`actiproc_effective_plan_seats` and `reserve_creem_seat_change` functions
+without changing subscriptions, existing organization seat_limit values,
+memberships, users or projects. Confirm Free seat cap 1 and Individual
+purchased cap in a new test organization (do not delete legacy members).
+The checkout creates Creem transactions with `units` equal to the selected
+paid seats, not a flat Individual amount for the entire organization.
+
+CREEM_LIVE_CANARY_ORG_ID remains the deliberate single-org launch gate.
+The observed second-account 503 was this audience gate, NOT a seat error.
+Secret-mode Vercel variables cannot be read back but can be replaced. Do not
+set CREEM_LIVE_PUBLIC_CHECKOUT_ENABLED=true until the pilot checkout is paid,
+webhook signature accepted, purchased seats provisioned, downgrade/cancel
+semantics checked and customer portal verified. Remove CANARY when opening
+public (both flags together block everyone). Any environment-variable update
+requires a new Production deployment.
