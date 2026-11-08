@@ -1,6 +1,6 @@
 import { stageErrorMessage } from '@/lib/stage-server';
 import { NextRequest, NextResponse } from 'next/server';
-import { taskDb, notificationDb, userDb, teamMemberDb, projectDb } from '@/lib/db';
+import { taskDb, notificationDb, userDb, teamMemberDb, projectDb, customerDb } from '@/lib/db';
 import { ApiResponse } from '@/lib/types';
 import { canMutateTeamTasks, requireAuthedUser, viewerCannotMutateTasksResponse } from '@/lib/server-authz';
 import { triggerWebhook } from '@/lib/webhook-trigger';
@@ -18,6 +18,7 @@ import {
 import { legacyDueValueToSchedule, scheduleDueInstantIso } from '@/lib/scheduling-runtime';
 import { SchedulingValidationError } from '@/lib/scheduling-domain';
 import { extractChecklistItemsFromTipTap } from '@/lib/tiptap-parser';
+import { isCustomerId } from '@/lib/customer-security';
 
 // GET /api/tasks - Get all tasks (optionally filtered by teamId or organizationId)
 export async function GET(request: NextRequest) {
@@ -174,6 +175,15 @@ export async function POST(request: NextRequest) {
       const visible = await projectDb.getVisibleForUser({ organizationId, teamId: body.teamId, userId });
       if (!visible.some((project: any) => project.id === body.projectId)) {
         return NextResponse.json({ success: false, error: 'Process not accessible' }, { status: 403 });
+      }
+    }
+    // Do not link this Action to a Customer owned by another organization.
+    // This check runs before any write, including scheduling and notifications.
+    if (body.customerId !== undefined && body.customerId !== null && body.customerId !== '') {
+      if (!isCustomerId(body.customerId) ||
+          !(await customerDb.getById(body.customerId, String(organizationId)))) {
+        return NextResponse.json<ApiResponse<null>>(
+          { success: false, error: 'Customer not found' }, { status: 404 });
       }
     }
     const checklistBlocks = body.checklistBlocks ?? null;

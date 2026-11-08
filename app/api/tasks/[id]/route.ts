@@ -8,6 +8,7 @@ import {
   notificationDb,
   teamMemberDb,
   projectDb,
+  customerDb,
 } from "@/lib/db";
 import { ApiResponse } from "@/lib/types";
 import {
@@ -48,6 +49,7 @@ import {
   scheduleDueInstantIso,
 } from "@/lib/scheduling-runtime";
 import { SchedulingValidationError } from "@/lib/scheduling-domain";
+import { isCustomerId } from '@/lib/customer-security';
 
 // GET /api/tasks/[id] - Get a specific task
 export async function GET(
@@ -209,6 +211,16 @@ export async function PATCH(
           { success: false, error: "Forbidden" },
           { status: 403 },
         );
+      }
+    }
+
+    // Validate customer ownership before scheduling or any other Action write.
+    // Null/empty values intentionally clear an existing customer relation.
+    if (body.customerId !== undefined && body.customerId !== null && body.customerId !== '') {
+      if (!isCustomerId(body.customerId) ||
+          !(await customerDb.getById(body.customerId, String(actor.organization_id)))) {
+        return NextResponse.json<ApiResponse<null>>(
+          { success: false, error: 'Customer not found' }, { status: 404 });
       }
     }
 
