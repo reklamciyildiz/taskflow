@@ -66,7 +66,9 @@ only a simple FK to \`customers(id)\`. To make association integrity robust
 against unusual concurrent service-role reassignment, separately approve a
 **composite FK** \`tasks(organization_id,customer_id)\` referencing
 \`customers(organization_id,id)\`, using a new unique supporting constraint.
-Run a read-only check for pre-existing cross-tenant task/customer links first;
+Run `scripts/sql/actiproc-customer-tenant-readonly-audit.sql` before considering the
+review-only `scripts/sql/proposed-actiproc-customer-tenant-fk.sql` (not a normal
+migration and **not** executed by this change). Check pre-existing cross-tenant links first;
 resolve any mismatches with the owner. Stage the migration and verify
 ON DELETE SET NULL preserves the task organization ID.
 **No Production migration or data change was made.**
