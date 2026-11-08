@@ -71,7 +71,7 @@ const checks: Record<string,boolean>={
  'webhook API':read('app/api/webhooks/route.ts').includes('limits.canUseWebhooks'),
  'webhook dispatch':read('lib/webhook-trigger.ts').includes('getPlanLimits(ent).canUseWebhooks'),
  'invite seats':read('app/api/invitations/route.ts').includes('ent.seatLimit'),
- 'acceptance seats':read('app/api/onboarding/join-organization/route.ts').includes('assertSeatAvailableForAccept'),
+ 'acceptance seats':read('app/api/onboarding/join-organization/route.ts').includes('acceptInvitationAtomic(') && read('lib/invitation-acceptance.ts').includes("rpc('accept_actiproc_invitation'"),
  'SQL read-only':read('scripts/sql/actiproc-entitlements-production-audit.sql').includes('BEGIN READ ONLY'),
  'DB serialization':read('supabase/migrations/20261108120000_actiproc_atomic_plan_limits.sql').includes('FOR NO KEY UPDATE'),
  'DB project cap':read('supabase/migrations/20261108120000_actiproc_atomic_plan_limits.sql').includes('BEFORE INSERT ON public.projects'),
