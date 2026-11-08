@@ -512,7 +512,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
               <Button
                 type="button"
                 className={actionPrimary}
-                disabled={busy || !canUpgrade || (billingPlan==='free' && (!Number.isSafeInteger(checkoutSeats) || checkoutSeats<Math.max(1,seatsUsed) || checkoutSeats>500)) || (canResubscribe && !acceptNewCharge) ||
+                disabled={busy || !canUpgrade || needsPreviousSubscriptionReview || (billingPlan==='free' && (!Number.isSafeInteger(checkoutSeats) || checkoutSeats<Math.max(1,seatsUsed) || checkoutSeats>500)) || (canResubscribe && !acceptNewCharge) ||
                   (!canResubscribe && (selectedPlan === billingPlan || (billingPlan !== 'free' && ['individual','pro','team'].indexOf(selectedPlan) <= ['individual','pro','team'].indexOf(billingPlan))))}
                 onClick={() => canResubscribe
                   ? void openCheckout(selectedPlan, { billingInterval: selectedPlan === 'individual' ? 'yearly' : selectedBillingInterval, resubscribe: true, acceptNewCharge })
