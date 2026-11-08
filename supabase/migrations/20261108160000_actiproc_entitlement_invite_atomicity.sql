@@ -4,6 +4,22 @@
 -- No existing organization, member, invitation, process or workspace row is changed.
 BEGIN;
 
+-- Prerequisites are checked before replacing any currently active trigger body.
+DO $preflight$
+BEGIN
+  IF to_regclass('public.creem_plan_changes') IS NULL
+     OR to_regclass('public.creem_seat_changes') IS NULL
+     OR to_regprocedure('public.actiproc_enforce_entity_plan_limit()') IS NULL
+     OR NOT EXISTS (
+       SELECT 1 FROM pg_attribute
+       WHERE attrelid = 'public.users'::regclass
+         AND attname = 'password_hash' AND NOT attisdropped
+     ) THEN
+    RAISE EXCEPTION 'ACTIPROC_ATOMIC_MIGRATION_PREREQUISITE_MISSING';
+  END IF;
+END
+$preflight$;
+
 -- One authoritative database-side interpretation of effective paid capacity.
 -- Service-role backend continues to own authentication; this is NOT a public API.
 CREATE OR REPLACE FUNCTION public.actiproc_effective_plan_seats(
@@ -64,7 +80,8 @@ BEGIN
   END;
 
   -- A pending paid seat increase does not provision newly purchased seats yet.
-  IF p_org.billing_provider = 'creem'
+  IF v_plan IN ('pro', 'team')
+     AND p_org.billing_provider = 'creem'
      AND p_org.creem_subscription_id IS NOT NULL THEN
     SELECT MIN(sc.previous_seats) INTO v_pending_previous
     FROM public.creem_seat_changes sc
@@ -259,6 +276,10 @@ BEGIN
   WHERE LOWER(BTRIM(u.email)) = v_email
   ORDER BY u.created_at, u.id LIMIT 1 FOR UPDATE;
   IF FOUND THEN
+    -- Registration must never turn an existing account into a new account.
+    IF p_password_hash IS NOT NULL THEN
+      RAISE EXCEPTION 'ACTIPROC_USER_ALREADY_EXISTS' USING ERRCODE = 'P0001';
+    END IF;
     IF v_user.organization_id IS NOT NULL AND v_user.organization_id <> v_org.id THEN
       RAISE EXCEPTION 'ACTIPROC_USER_OTHER_ORG' USING ERRCODE = 'P0001';
     END IF;
