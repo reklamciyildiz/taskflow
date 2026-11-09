@@ -9,7 +9,7 @@ import { normalizeAIEntityName } from './entity-matching';
 // The LLM still decides whether a mutation was explicitly requested; our
 // deterministic gate only chooses whether to run that safe proposal selector.
 const CREATE_SIGNAL = /\b(create|add|make|prepare|new|olustur\w*|ekle\w*|hazirla\w*|yarat\w*|acalim|acmak|ac)\b/i;
-const COMPLETE_SIGNAL = /\b(tamamla\w*|isaretle\w*|mark|uncheck|geri al)\b/i;
+const COMPLETE_SIGNAL = /\b(tamamla(?:\b|y\w*|r\w*|sana\b)|isaretle\w*|mark|uncheck|geri al)\b/i;
 const ACTION_MUTATION_SIGNAL = /\b(update|change|edit|rename|append|schedule|reschedule|plan|move|guncelle\w*|degistir\w*|yeniden adlandir\w*|planla\w*|zamanla\w*|tasi\w*|ayarla\w*)\b/i;
 const WRITE_TARGET = /\b(action\w*|aksiyon\w*|aksion\w*|task\w*|gorev\w*|kart\w*|note\w*|notlar\w*|checklist\w*|kontrol listesi|madde\w*|planner|planlama|schedule|baslik\w*|aciklama\w*|oncelik\w*)\b/i;
 const SCHEDULE_SIGNAL = /\b(schedule|reschedule|plan|move|planla\w*|zamanla\w*|tasi\w*)\b/i;
