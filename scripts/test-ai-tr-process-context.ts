@@ -56,6 +56,7 @@ assert.match(enMessages[0].content,/Respond in English/);
 assert.ok(shouldPlanAIWrite('Aksiyonuma açıklama ekle',true));
 assert.ok(shouldPlanAIWrite('Aksiyonumu güncelle',true));
 assert.equal(shouldPlanAIWrite('Aksiyonumu göster',true),false,'Read-only question must not create a proposal');
+assert.equal(shouldPlanAIWrite('Bu hafta tamamlanmamış Actionlar hangileri?',true),false,'Passive completion adjective must not trigger a write');
 
 const execution:AIReadToolExecution={
   name:'get_process_content',statusLabel:'x',references:[],citations:[],
