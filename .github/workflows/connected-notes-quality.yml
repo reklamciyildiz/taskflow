@@ -1,0 +1,74 @@
+name: Connected Notes — checklist and Note relations
+
+on:
+  pull_request:
+    paths:
+      - 'app/api/tasks/**/checklist-note-links/**'
+      - 'components/action/ActionNotes.tsx'
+      - 'components/action/ChecklistNotesContext.tsx'
+      - 'components/editor/components/TaskItemNodeView.tsx'
+      - 'components/ActionPanel.tsx'
+      - 'lib/checklist-note-links.ts'
+      - 'lib/api.ts'
+      - 'supabase/migrations/20261109190000_connected_checklist_notes.sql'
+      - 'scripts/test-connected-notes*'
+      - '.github/workflows/connected-notes-quality.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  connected-notes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Connected Notes / UI / permission contracts
+        run: npx tsx scripts/test-connected-notes.ts
+      - name: Existing Action Notes navigator
+        run: npm run test:action-notes
+      - name: Existing editor behavior
+        run: npm run test:editor
+      - name: PostgreSQL constraint, tenant and deletion behavior
+        env:
+          PGHOST: localhost
+          PGPORT: '5432'
+          PGUSER: postgres
+          PGPASSWORD: postgres
+          PGDATABASE: postgres
+        run: |
+          command -v psql >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y postgresql-client)
+          bash scripts/test-connected-notes-sql.sh
+      - name: TypeScript
+        run: npx tsc --noEmit
+      - name: ESLint
+        run: npm run lint
+      - name: Production build with inert CI credentials
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-not-a-real-key
+          SUPABASE_SERVICE_ROLE_KEY: ci-not-a-real-service-role-key
+          NEXTAUTH_SECRET: ci-only-build-secret
+          NEXTAUTH_URL: http://localhost:3000
+          RESEND_API_KEY: re_ci_build_placeholder_never_valid
+          RESEND_FROM_EMAIL: ci@example.invalid
+        run: npm run build
