@@ -11,7 +11,7 @@ function processNameFromQuestion(question:string):string|undefined {
   // forms (sürecimde, sürecinin, süreçte) and English Process/Project.
   const patterns=[
     /^\s*(.+?)\s+(?:(?:process|project|proje|s[uü]re[cç])[\p{L}'’]*)(?=\s|[.,?!:]|$)/iu,
-    /^\s*(.+?)(?:'ta|'te|'da|'de|’ta|’te|’da|’de)(?=\s|[.,?!:]|$)/iu,
+    /^\s*(.+?)(?:'taki|'teki|'daki|'deki|'ta|'te|'da|'de|’taki|’teki|’daki|’deki|’ta|’te|’da|’de)(?=\s|[.,?!:]|$)/iu,
     /^\s*(.+?)\s+(?:projesindeki|projesinde|projectindeki|projectinde)(?=\s|[.,?!:]|$)/iu,
   ];
   for(const pattern of patterns){
