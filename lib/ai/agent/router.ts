@@ -37,9 +37,11 @@ const call=(name:AIReadToolCall['name'],args:unknown,index:number):AIReadToolCal
 export function planDirectAIReadTools(question:string,context:AIChatContext):AIReadToolCall[] {
   const text=normalized(question),processName=processNameFromQuestion(question);const calls:AIReadToolCall[]=[];
   const selector=context.processId?{processId:context.processId}:processName?{processName}:{};
+  const containsContentRequest=/\b(icerig\w*|icerik\w*|icerisind\w*|ayrinti\w*|detay\w*|contents?|inside|read|oku\w*|neler var|ne var|what is in|what's in)\b/.test(text);
+  const notesOnly=/\b(notlar\w*|notes)\b/.test(text)&&!/\b(action\w*|aksiyon\w*|isler\w*|gorev\w*|task\w*)\b/.test(text);
   if(/\b(kac|how many|listele|list)\b.*\b(process\w*|surec\w*|proje\w*)\b/.test(text)&&!/\b(action\w*|aksiyon\w*|checklist|note|not\w*)\b/.test(text)) {
     calls.push(call('list_processes',{...(context.teamId?{teamId:context.teamId}:{})},calls.length));
-  } else if(Object.keys(selector).length && /\b(icerig\w*|icerik\w*|icerisind\w*|ayrinti\w*|detay\w*|notlar\w*|notes|contents?|inside|read|neler var|ne var|what is in|what's in)\b/.test(text)) {
+  } else if(Object.keys(selector).length && (containsContentRequest||notesOnly)) {
     calls.push(call('get_process_content',{...selector,limit:5},calls.length));
   } else if(/\b(checklist|kontrol listesi)\b/.test(text)&&Object.keys(selector).length) {
     calls.push(call('get_process_overview',selector,calls.length));
