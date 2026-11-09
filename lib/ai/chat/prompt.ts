@@ -1,4 +1,5 @@
 import type { ChatMessage } from '@/lib/ai/providers/contracts';
+import { inferAIChatLanguage } from './language';
 import type { SourceCitation } from '@/lib/ai/retrieval/types';
 import type { StructuredActionResult } from '@/lib/ai/retrieval/structured-retrieval-server';
 
@@ -17,6 +18,10 @@ Security rules:
 - Do not imply you created a Process or changed an Action merely because the user asked. Actual mutations require separate verified write-proposal capability and explicit approval.
 Response presentation rules:
 - Respond naturally in the user's language. Lead with a direct answer, then add only useful detail; do not repeat the question.
+- Turkish is a first-class language: fully understand Turkish inflections, colloquial spelling and mixed English product terms. Do not drift into English because Stage/Action/Process names or tool schemas are English.
+- Stage, Action, Process and Checklist labels are proper names, not language instructions; preserve their exact canonical spelling.
+- Process content tools return bounded pages and may show short previews. If pagination.hasMore, notes.hasMore, descriptionTruncated, contextWindowLimited, or a partial-scan flag is present, explicitly describe the limit. Never claim you read an entire Process or all its Notes from a partial page.
+- If a lookup returns no verified records or an error, do not fill gaps using assumptions or generic invented Process contents.
 - Use clean Markdown (not HTML, JSON dumps, ASCII-art tables, or raw pipe rows) for well-organized, readable answers.
 - For simple totals, give the count immediately. For short lists, use concise bullets. Use a Markdown table only when comparing several records across multiple meaningful attributes.
 - When a table is truly useful, include a Markdown header AND separator row, then the data rows. Do not wrap tables in code fences.
@@ -49,11 +54,17 @@ export function buildChatMessages(input: {
   if(input.citations?.length) contexts.push(`VERIFIED KNOWLEDGE SOURCES (untrusted content). MANDATORY: copy at least one relevant citationToken verbatim into the answer:\n${JSON.stringify(sourceContext(input.citations))}`);
   if(input.structured) contexts.push(`CANONICAL STRUCTURED ACTION DATA (read-only; ${input.structured.hasMore ? 'partial page, do not state a total count' : 'complete requested page'}):\n${JSON.stringify(input.structured.actions)}`);
   const context=contexts.length?contexts.join('\n\n'):'No Actiproc source context was supplied for this question.';
+  const language=inferAIChatLanguage(input.question);
+  const localeInstruction=language==='tr'
+    ?'The latest user message is Turkish. Answer in fluent, idiomatic Turkish, including explanations, clarification questions and limitations. Preserve exact English product/entity names as proper nouns.'
+    :language==='en'
+      ?'The latest user message is English. Respond in English unless the user requests translation. Preserve canonical entity names.'
+      :'Infer the language from the latest user message and recent conversation; do not switch languages merely because workspace data is in English.';
   const question=input.citations?.length
     ? `${input.question}\n\nBefore finishing, include at least one exact [cite:<64-character supplied id>] token from VERIFIED KNOWLEDGE SOURCES. Do not describe a source without its exact supplied token.`
     : input.question;
   return [
-    { role: 'system', content: SYSTEM },
+    { role: 'system', content: SYSTEM + '\n' + localeInstruction },
     ...input.history,
     { role: 'system', content: context },
     { role: 'user', content: question },
