@@ -36,6 +36,7 @@ assert.equal((focusedCall.arguments as any).processId,focused.processId);
 assert.equal(shouldUseModelToolSelection('Süreçlerimin içeriğinde neler var?',[]),true);
 assert.deepEqual(planDirectAIReadTools("Kaç Process'im var?",global).map(x=>x.name),['list_processes']);
 assert.deepEqual(planDirectAIReadTools("Gün Gün Process'imdeki Checklist durumunu özetle.",global).map(x=>x.name),['get_process_overview']);
+assert.deepEqual(planDirectAIReadTools("Alumas'taki yapılmamış işleri ve geçmiş Notes kararlarını birlikte değerlendir.",global).map(x=>x.name),['list_actions','search_knowledge']);
 
 assert.equal(inferAIChatLanguage('İş Arama sürecimdeki notları okuyabilir misin?'),'tr');
 assert.equal(inferAIChatLanguage('Aksiyonlarımı listele lütfen'),'tr');
