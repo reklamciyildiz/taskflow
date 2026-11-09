@@ -10,6 +10,7 @@ import { releaseAIQuotaReservation,reserveAIQuota,recordAIRequest } from '@/lib/
 import { aiChatLimits,isAIChatRuntimeReady,areAIActionMutationToolsEnabled,areAIReadToolsEnabled,areAIWriteToolsEnabled } from '@/lib/ai/chat/config';
 import { citationIdsFromAnswer,sanitizeAnswerCitations } from '@/lib/ai/chat/citations';
 import { classifyChatIntent,fixedProductHelp,shouldAttemptKnowledgeRetrieval } from '@/lib/ai/chat/intent';
+import { inferAIChatLanguage } from '@/lib/ai/chat/language';
 import { chatRetrievalLimit,planChatContext } from '@/lib/ai/chat/context-budget';
 import { finalizeGroqTokens,reserveGroqTokens,reserveProviderTokens,backupTokenBudget } from '@/lib/ai/chat/provider-token-admission';
 import { createOptionalOpenAIBackup } from '@/lib/ai/chat/backup-provider';
@@ -153,6 +154,7 @@ export async function POST(request:NextRequest) {
           }
 
           const intent=classifyChatIntent(input.message);
+          const replyInTurkish=inferAIChatLanguage(input.message)==='tr';
           const actionMutationToolsEnabled=areAIActionMutationToolsEnabled();
           const writeRequested=areAIWriteToolsEnabled()&&shouldPlanAIWrite(input.message,actionMutationToolsEnabled);
           const fixed=intent==='product_help' ? fixedProductHelp(input.message) : null;
@@ -207,10 +209,16 @@ export async function POST(request:NextRequest) {
             if(failedRead) {
               const failure=failedRead.data as { error:string;message?:string };
               answer=failure.error==='not_found'
-                ? 'Belirttiğiniz Process bulunamadı veya bu Process için erişim izniniz yok. Lütfen Process adını kontrol edin ya da Board üzerinden ilgili Process’i seçerek tekrar deneyin.'
+                ? failure.message?.startsWith('Process adı belirsiz:')
+                  ? failure.message
+                  : replyInTurkish
+                    ? 'Belirttiğiniz Process bulunamadı veya bu Process için erişim izniniz yok. Lütfen tam adını yazın ya da ilgili Board üzerinden tekrar deneyin.'
+                    : 'This Process was not found or is not accessible. Please provide its full name or open it from the Board.'
                 :failure.error==='forbidden'
-                  ? 'Bu Process veya ekibin verilerine erişim izniniz yok.'
-                  : 'Actiproc iş verileri şu anda doğrulanamadı. Kayıt sayısını tahmin etmek yerine lütfen biraz sonra tekrar deneyin.';
+                  ? replyInTurkish?'Bu Process veya ekibin verilerine erişim izniniz yok.':'You do not have access to this Process or Team.'
+                  : replyInTurkish
+                    ? 'Actiproc verileri doğrulanamadı. Eksik içeriği tahmin etmek yerine lütfen tekrar deneyin.'
+                    : 'Actiproc could not verify these records. Please retry rather than relying on estimated contents.';
               if(quotaReserved) {
                 await releaseAIQuotaReservation(input.clientRequestId,scope.userId,scope.organizationId);
                 quotaReserved=false;

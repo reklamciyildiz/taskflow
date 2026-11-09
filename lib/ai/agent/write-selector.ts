@@ -9,14 +9,14 @@ import { normalizeAIEntityName } from './entity-matching';
 // The LLM still decides whether a mutation was explicitly requested; our
 // deterministic gate only chooses whether to run that safe proposal selector.
 const CREATE_SIGNAL = /\b(create|add|make|prepare|new|olustur\w*|ekle\w*|hazirla\w*|yarat\w*|acalim|acmak|ac)\b/i;
-const COMPLETE_SIGNAL = /\b(tamamla\w*|isaretle\w*|mark|uncheck|geri al)\b/i;
+const COMPLETE_SIGNAL = /\b(tamamla(?:\b|y\w*|r\w*|sana\b)|isaretle\w*|mark|uncheck|geri al)\b/i;
 const ACTION_MUTATION_SIGNAL = /\b(update|change|edit|rename|append|schedule|reschedule|plan|move|guncelle\w*|degistir\w*|yeniden adlandir\w*|planla\w*|zamanla\w*|tasi\w*|ayarla\w*)\b/i;
-const WRITE_TARGET = /\b(action|aksiyon|aksion|task|gorev|kart|note|not|checklist|kontrol listesi|madde|planner|planlama|schedule|baslik|aciklama|oncelik)\b/i;
+const WRITE_TARGET = /\b(action\w*|aksiyon\w*|aksion\w*|task\w*|gorev\w*|kart\w*|note\w*|notlar\w*|checklist\w*|kontrol listesi|madde\w*|planner|planlama|schedule|baslik\w*|aciklama\w*|oncelik\w*)\b/i;
 const SCHEDULE_SIGNAL = /\b(schedule|reschedule|plan|move|planla\w*|zamanla\w*|tasi\w*)\b/i;
 const ACTION_UPDATE_SIGNAL = /\b(update|change|edit|rename|append|guncelle\w*|degistir\w*|yeniden adlandir\w*|yaz|ayarla\w*|oncelig\w*)\b/i;
-const ACTION_SIGNAL = /\b(action|aksiyon|aksion|task|gorev|kart)\b/i;
+const ACTION_SIGNAL = /\b(action\w*|aksiyon\w*|aksion\w*|task\w*|gorev\w*|kart\w*)\b/i;
 const EXPLICIT_CREATE_ACTION_SIGNAL = /\b(create|new|olustur\w*|ekle\w*|yarat\w*|acalim|acmak|ac)\b/i;
-const ACTION_FIELD_APPEND_SIGNAL = /\b(baslik|aciklama|oncelik)\w*\b.*\b(ekle\w*|yap\w*)\b/i;
+const ACTION_FIELD_APPEND_SIGNAL = /\b(baslik\w*|aciklama\w*|oncelik\w*)\b.*\b(ekle\w*|yap\w*)\b/i;
 
 const SYSTEM = `You only select one Actiproc write proposal tool.
 The tool call creates an immutable proposal, never a database mutation. The user must click an approval button later.
@@ -49,7 +49,7 @@ export async function selectAIWriteProposal(input: {
   const availableDefinitions = aiWriteToolDefinitions(Boolean(input.includeActionMutations));
   const normalizedQuestion=normalizeAIEntityName(input.question);
   const preferredTool = input.includeActionMutations && SCHEDULE_SIGNAL.test(normalizedQuestion) ? 'schedule_action'
-    : /\b(note|not)\b/.test(normalizedQuestion) && CREATE_SIGNAL.test(normalizedQuestion) ? 'create_note'
+    : /\b(note\w*|notlar\w*)\b/.test(normalizedQuestion) && CREATE_SIGNAL.test(normalizedQuestion) ? 'create_note'
     : /\b(checklist|kontrol listesi|madde)\b/.test(normalizedQuestion) && COMPLETE_SIGNAL.test(normalizedQuestion) ? 'update_checklist'
     : ACTION_SIGNAL.test(normalizedQuestion) && EXPLICIT_CREATE_ACTION_SIGNAL.test(normalizedQuestion) ? 'create_action'
     : input.includeActionMutations && (ACTION_UPDATE_SIGNAL.test(normalizedQuestion) || ACTION_FIELD_APPEND_SIGNAL.test(normalizedQuestion))

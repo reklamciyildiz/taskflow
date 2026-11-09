@@ -1,3 +1,4 @@
+import { inferAIChatLanguage } from './language';
 export type ChatIntent = 'general' | 'knowledge' | 'structured' | 'product_help';
 
 function normalizeIntentText(query: string) {
@@ -9,11 +10,11 @@ function normalizeIntentText(query: string) {
 }
 
 const productHelp = /\b(how (do|can) i|(axiom|actiproc) (nasil|nedir)|yardim|help|knowledge hub|planner nasil)\b/i;
-const structured = /\b(kac|count|list|listele|hangi action|which action|priority|oncelik|status|stage|asama|due|scheduled|planlanmis|today|bugun|tomorrow|yarin)\b/i;
-const knowledge = /\b(notlarim|gecmiste|ogrendim|karar verdik|hatirliyor|my notes|previously|what did (i|we)|what do we know|knowledge|checklist|belgelerim|bilgilerim|(axiom|actiproc) bilgiler|workspace|calisma alani|cite|citation|source|kaynak|atif|referans|dogrulama kodu|verification phrase)\b/i;
+const structured = /\b(kac|toplam|say|count|list|listele\w*|hangi action|hangi aksiyon|which action|priority|oncelik\w*|status|stage|asama\w*|durum\w*|due|scheduled|planlanmis|today|bugun|tomorrow|yarin)\b/i;
+const knowledge = /\b(notlar\w*|gecmis\w*|ogrend\w*|karar\w*|hatirla\w*|my notes|previously|what did (i|we)|what do we know|knowledge|checklist|belge\w*|bilgi\w*|dokuman\w*|icerik\w*|(axiom|actiproc) bilgiler|workspace|calisma alani|cite|citation|source|kaynak\w*|atif|referans\w*|dogrulama kodu|verification phrase)\b/i;
 const workspaceIdentifier = /\b[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*-\d+\b/;
 const smallTalk = /^(hi|hello|hey|merhaba|selam|nasilsin|how are you|thanks|thank you|tesekkurler)[!.? ]*$/i;
-const workspaceSignal = /\b(action|checklist|note|not|process|surec|süreç|task|gorev|görev|kart|workspace|knowledge hub|planner|project|proje|dogrulama kodu|verification phrase)\b/i;
+const workspaceSignal = /\b(action\w*|aksiyon\w*|checklist\w*|note\w*|notlar\w*|process\w*|surec\w*|task\w*|gorev\w*|kart\w*|workspace|knowledge hub|planner|project\w*|proje\w*|dogrulama kodu|verification phrase)\b/i;
 const ownershipSignal = /\b(benim|bizim|bende|bizde|my|our|we|gecmis|geçmiş|kayit|kayıt)\b/i;
 
 export function classifyChatIntent(query: string): ChatIntent {
@@ -39,10 +40,14 @@ export function shouldAttemptKnowledgeRetrieval(query: string, intent: ChatInten
 
 export function fixedProductHelp(query: string): string | null {
   if (/knowledge hub/i.test(query)) {
-    return 'Knowledge Hub, erişebildiğiniz Action, Checklist ve Notes içeriklerini tek yerde aramanızı sağlar. Actiproc AI içinden soru sorarken mevcut ekip ve Process bağlamını da kullanabilirsiniz.';
+    return inferAIChatLanguage(query)==='en'
+      ? 'Knowledge Hub searches the Actions, Checklists and Notes you are authorized to access. Actiproc AI can also use your current Team and Process context.'
+      : 'Knowledge Hub, erişebildiğiniz Action, Checklist ve Notes içeriklerini tek yerde aramanızı sağlar. Actiproc AI içinden soru sorarken mevcut ekip ve Process bağlamını da kullanabilirsiniz.';
   }
   if (/planner/i.test(query)) {
-    return 'Planner, planlanmış Action ve Checklist öğelerini Today ve Upcoming görünümlerinde bir araya getirir. Planlama ayarlarını ActionPanel içindeki Schedule kontrolünden değiştirebilirsiniz.';
+    return inferAIChatLanguage(query)==='en'
+      ? 'Planner brings scheduled Actions and Checklist items together in Today and Upcoming. You can change scheduling from the Schedule control in an Action.'
+      : 'Planner, planlanmış Action ve Checklist öğelerini Today ve Upcoming görünümlerinde bir araya getirir. Planlama ayarlarını ActionPanel içindeki Schedule kontrolünden değiştirebilirsiniz.';
   }
   return null;
 }
