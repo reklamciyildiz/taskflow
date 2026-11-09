@@ -9,6 +9,8 @@ function normalized(value:string) {
 function processNameFromQuestion(question:string):string|undefined {
   // Preserve the original Unicode spelling while recognizing inflected Turkish
   // forms (sürecimde, sürecinin, süreçte) and English Process/Project.
+  const englishIn=question.match(/^\s*(?:please\s+)?(?:show|read|summarize|explain|give|tell)\b.*?\b(?:in|of|inside|from)\s+(.+?)\s+(?:process|project)\b/iu);
+  if(englishIn?.[1] && englishIn[1].trim().length<=120)return englishIn[1].trim();
   const patterns=[
     /^\s*(.+?)\s+(?:(?:process|project|proje|s[uü]re[cç])[\p{L}'’]*)(?=\s|[.,?!:]|$)/iu,
     /^\s*(.+?)(?:'taki|'teki|'daki|'deki|'ta|'te|'da|'de|’taki|’teki|’daki|’deki|’ta|’te|’da|’de)(?=\s|[.,?!:]|$)/iu,
@@ -19,7 +21,7 @@ function processNameFromQuestion(question:string):string|undefined {
     const value=match?.[1]?.trim();
     if(!value)continue;
     const canonicalHint=value
-      .replace(/^(?:benim|bizim|my|our)\s+/iu,'')
+      .replace(/^(?:(?:benim|bizim|my|our|lütfen|lutfen|bana|please)\s+)+/iu,'')
       .replace(/\s+(?:isimli|adlı|adli|adındaki|adindaki|named|called)$/iu,'')
       .replace(/^["“”'’]+|["“”'’]+$/gu,'')
       .trim();
