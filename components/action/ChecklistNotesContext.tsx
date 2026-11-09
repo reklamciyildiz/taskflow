@@ -47,6 +47,7 @@ export function ChecklistNoteChip({ itemId, itemText }: {itemId:string;itemText:
       }
     }finally{setBusy(false);}
   };
+  if(!context.canEdit && !count)return null;
   return (
     <Popover open={open} onOpenChange={(next)=>{setOpen(next);if(!next){setPicker(false);setQuery('');}}}>
       <PopoverTrigger asChild>
