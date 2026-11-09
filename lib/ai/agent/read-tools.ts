@@ -2,6 +2,7 @@ import 'server-only';
 import { z } from 'zod';
 import { projectDb } from '@/lib/db';
 import { retrieveKnowledge } from '@/lib/ai/retrieval/retrieval-server';
+import { sensitiveContentCategories } from '@/lib/ai/indexing/sensitive-content';
 import { getPlannerTodayProjection,getPlannerUpcomingProjection } from '@/lib/planner-retrieval-server';
 import { getUserSchedulingTimeZone } from '@/lib/scheduling-runtime-server';
 import { addCalendarDays } from '@/lib/scheduling-domain';
@@ -49,6 +50,8 @@ export class AIReadToolError extends Error {
 
 const isAdmin=(actor:AIReadToolActor)=>actor.role==='admin'||actor.role==='owner';
 const compact=(value:unknown,max=600)=>String(value??'').replace(/\s+/g,' ').trim().slice(0,max);
+const safeContent=(value:unknown,max=600)=>sensitiveContentCategories(String(value??'')).length
+  ? '[Potential credential or secret omitted from AI context]' : compact(value,max);
 
 async function accessibleTeamIds(actor:AIReadToolActor):Promise<Set<string>> {
   const { data:teams,error:teamError }=await supabaseAdmin.from('teams').select('id').eq('organization_id',actor.organizationId);
@@ -186,21 +189,21 @@ async function runProcessContent(actor:AIReadToolActor,input:z.infer<typeof proc
     const noteRows=notesByTask.get(String(task.id))??[];
     const description=String(task.description??'');
     return {
-      id:String(task.id),title:String(task.title),
-      description:compact(description,500),descriptionTruncated:description.length>500,
+      id:String(task.id),title:safeContent(task.title,240),
+      description:safeContent(description,500),descriptionTruncated:description.length>500,
       priority:String(task.priority),stageId:status,
       stageLabel:stages.find((stage)=>stage.id===status)?.title??status,
       completed:isTerminalBoardColumn(status,stages),
       checklist:{total:checklist.length,hasMore:checklist.length>8,
         items:checklist.slice(0,8).map((item)=>({
-          text:compact(item.text,160),textTruncated:item.text.length>160,
+          text:safeContent(item.text,160),textTruncated:item.text.length>160,
           checked:item.checked,
         }))},
       notes:{returned:Math.min(noteRows.length,3),
         hasMore:noteRows.length>3 || (notesCount??0)>(notes??[]).length,
         items:noteRows.slice(0,3).map((note:any)=>{
           const preview=previewTextFromTipTap(note.content,400);
-          return {title:String(note.title),type:String(note.type),preview,
+          return {title:safeContent(note.title,240),type:String(note.type),preview:safeContent(preview,400),
             contentIsPreview:preview.endsWith('…')};
         })},
       updatedAt:String(task.updated_at),
