@@ -3,6 +3,7 @@ import type { SourceCitation } from '@/lib/ai/retrieval/types';
 export type AIReadToolName =
   | 'list_processes'
   | 'get_process_overview'
+  | 'get_process_content'
   | 'list_actions'
   | 'get_action_details'
   | 'get_planner_overview'
