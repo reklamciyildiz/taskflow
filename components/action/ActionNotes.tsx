@@ -22,6 +22,8 @@ import {
   Search,
   SlidersHorizontal,
   StickyNote,
+  Link2,
+  Unlink,
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -47,8 +49,10 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { noteApi } from "@/lib/api";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { noteChecklistItemIds, type ChecklistNoteLink } from "@/lib/checklist-note-links";
 import { notifyKnowledgeSourcesChanged } from "@/lib/knowledge-events";
-import { previewTextFromTipTap } from "@/lib/tiptap-parser";
+import { previewTextFromTipTap, type ChecklistItemData } from "@/lib/tiptap-parser";
 import { indexActionNotes, selectActionNotes, type ActionNoteSort, type ActionNoteTypeFilter } from "@/lib/action-note-collection";
 import type { Note, NoteType, UpdateNoteRequest } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -130,6 +134,12 @@ interface ActionNotesProps {
   /** One-shot target from an Action notification; opens after the note list loads. */
   focusedNoteId?: string | null;
   focusRevision?: number;
+  checklistItems?: ChecklistItemData[];
+  checklistNoteLinks?: ChecklistNoteLink[];
+  onLinkChecklistNote?: (itemId:string,noteId:string)=>Promise<boolean>;
+  onUnlinkChecklistNote?: (itemId:string,noteId:string)=>Promise<boolean>;
+  onOpenChecklistItem?: (itemId:string)=>void;
+  onNoteDeleted?: (noteId:string)=>void;
 }
 
 export function ActionNotes({
@@ -145,8 +155,17 @@ export function ActionNotes({
   onTrackSave,
   focusedNoteId,
   focusRevision = 0,
+  checklistItems = [],
+  checklistNoteLinks = [],
+  onLinkChecklistNote,
+  onUnlinkChecklistNote,
+  onOpenChecklistItem,
+  onNoteDeleted,
 }: ActionNotesProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [checklistPickerOpen,setChecklistPickerOpen]=useState(false);
+  const [checklistPickerQuery,setChecklistPickerQuery]=useState("");
+  const [checklistLinkBusy,setChecklistLinkBusy]=useState(false);
   const [draft, setDraft] = useState<LocalNoteDraft | null>(null);
   const activeDraftRef = useRef<LocalNoteDraft | null>(null);
   const draftSessionsRef = useRef(new Map<string, LocalNoteDraft>());
@@ -478,6 +497,7 @@ export function ActionNotes({
     }
 
     setNotes((current) => current.filter((note) => note.id !== deleteId));
+    onNoteDeleted?.(deleteId);
     notifyKnowledgeSourcesChanged(deleteTeamId);
     if (draft) {
       draftSessionsRef.current.delete(draft.clientId);
@@ -666,6 +686,73 @@ export function ActionNotes({
             }
           }}
         />
+
+        {persistedId && onOpenChecklistItem ? (
+          <div className="rounded-xl border border-border/60 bg-muted/20 px-3 py-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground">
+                <Link2 className="h-3.5 w-3.5"/> Related checklist items
+              </span>
+              {canEdit && onLinkChecklistNote && (
+                <Popover open={checklistPickerOpen} onOpenChange={setChecklistPickerOpen}>
+                  <PopoverTrigger asChild>
+                    <button type="button" className="text-[11px] font-medium text-primary hover:underline">
+                      + Link checklist
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent align="end" className="z-[80] w-[min(320px,calc(100vw-1.5rem))] space-y-2 p-2.5">
+                    <input type="search" value={checklistPickerQuery}
+                      onChange={event=>setChecklistPickerQuery(event.target.value)}
+                      placeholder="Search checklist…" aria-label="Search checklist to connect"
+                      className="h-9 w-full rounded-lg border border-border/60 bg-background px-2.5 text-xs outline-none focus:ring-2 focus:ring-ring"/>
+                    <div className="max-h-44 space-y-1 overflow-y-auto">
+                      {checklistItems.filter(item=>!noteChecklistItemIds(persistedId,checklistNoteLinks).includes(item.id)
+                        &&item.text.toLocaleLowerCase('tr-TR').includes(checklistPickerQuery.toLocaleLowerCase('tr-TR')))
+                        .map(item=>(
+                          <button type="button" key={item.id} disabled={checklistLinkBusy}
+                            className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-xs hover:bg-muted"
+                            onClick={async()=>{
+                              if(!onLinkChecklistNote)return;
+                              setChecklistLinkBusy(true);
+                              try{
+                                if(await onLinkChecklistNote(item.id,persistedId)){
+                                  setChecklistPickerOpen(false);setChecklistPickerQuery('');
+                                }
+                              }finally{setChecklistLinkBusy(false);}
+                            }}>
+                            <Link2 className="h-3.5 w-3.5 shrink-0 text-primary"/>
+                            <span className="line-clamp-2">{item.text}</span>
+                          </button>
+                        ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              )}
+            </div>
+            {(()=>{
+              const linkedIds=noteChecklistItemIds(persistedId,checklistNoteLinks);
+              const linkedItems=checklistItems.filter(item=>linkedIds.includes(item.id));
+              return linkedItems.length?(
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {linkedItems.map(item=>(
+                    <span key={item.id} className="inline-flex max-w-full items-center rounded-lg border border-border/60 bg-background/80">
+                      <button type="button" onClick={()=>onOpenChecklistItem(item.id)}
+                        className="max-w-[220px] truncate px-2.5 py-1.5 text-[11px] font-medium hover:text-primary focus-visible:ring-2 focus-visible:ring-ring"
+                        title={item.text}>{item.text}</button>
+                      {canEdit&&onUnlinkChecklistNote&&(
+                        <button type="button" title="Unlink (keep Note)" aria-label="Unlink checklist item"
+                          className="rounded-r-lg p-1.5 text-muted-foreground hover:text-destructive"
+                          onClick={()=>void onUnlinkChecklistNote(item.id,persistedId)}>
+                          <Unlink className="h-3 w-3"/>
+                        </button>
+                      )}
+                    </span>
+                  ))}
+                </div>
+              ):<p className="mt-1.5 text-[11px] text-muted-foreground">No linked checklist items.</p>;
+            })()}
+          </div>
+        ):null}
 
         <div className="min-w-0 max-w-full overflow-x-hidden rounded-2xl border border-border/60 bg-background/65 px-3 py-3 shadow-sm md:px-4">
           <BlockEditor

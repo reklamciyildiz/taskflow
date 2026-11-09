@@ -64,6 +64,7 @@ import {
 } from '@/components/editor/reorderChecklistItem';
 import {
   countTaskItems,
+  extractChecklistItemsFromTipTap,
   type TaskItemCounts,
 } from '@/lib/tiptap-parser';
 import {
@@ -98,8 +99,10 @@ import {
 } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
 import { ActionNotes } from "@/components/action/ActionNotes";
+import { ChecklistNotesContext, type ChecklistNotesContextValue } from "@/components/action/ChecklistNotesContext";
+import type { ChecklistNoteLink } from "@/lib/checklist-note-links";
 import { AttachmentProvider, ActionAttachments } from "@/components/attachments/AttachmentProvider";
-import { noteApi } from "@/lib/api";
+import { noteApi, checklistNoteApi } from "@/lib/api";
 import { notifyKnowledgeSourcesChanged } from "@/lib/knowledge-events";
 import type { Note } from "@/lib/types";
 import type { WorkSchedule } from "@/lib/scheduling-domain";
@@ -590,6 +593,29 @@ function ActionPanelContent({
     };
   }, [loadNotes]);
   const notesCount = notes.length;
+  const [noteLinks,setNoteLinks]=useState<ChecklistNoteLink[]>([]);
+  const [noteLinksLoading,setNoteLinksLoading]=useState(true);
+  const [noteLinksError,setNoteLinksError]=useState<string|null>(null);
+  const noteLinksRequestRef=useRef(0);
+  useEffect(()=>{
+    const requestId=++noteLinksRequestRef.current;
+    setNoteLinksLoading(true);
+    void checklistNoteApi.getByTask(taskId).then(result=>{
+      if(requestId!==noteLinksRequestRef.current)return;
+      if(result.success&&result.data){
+        setNoteLinks(result.data);
+        setNoteLinksError(null);
+      }else setNoteLinksError(result.error||"Connected notes are unavailable.");
+      setNoteLinksLoading(false);
+    }).catch(()=>{
+      if(requestId===noteLinksRequestRef.current){
+        setNoteLinksError("Connected notes are unavailable.");
+        setNoteLinksLoading(false);
+      }
+    });
+    return ()=>{noteLinksRequestRef.current++;};
+  },[taskId]);
+
 
   /** A deep-linked Note takes precedence over the default Checklist tab.
    * Consumed once per ActionPanel mount so tab switches cannot reopen it. */
@@ -700,6 +726,8 @@ function ActionPanelContent({
   const checklistDirtyRef = useRef(false);
   const checklistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const checklistSaveInFlightRef = useRef(false);
+  const checklistSavePromiseRef=useRef<Promise<boolean>|null>(null);
+  const checklistLinksNeedRefreshRef=useRef(false);
   const persistChecklistNowRef = useRef<() => void>(() => undefined);
 
   const persistMetaNow = useCallback(() => {
@@ -730,6 +758,7 @@ function ActionPanelContent({
     const revision = checklistRevisionRef.current;
     const rollback = lastPersistedChecklistRef.current;
     const request = updateTaskRef.current(taskId, { checklistBlocks: data });
+    checklistSavePromiseRef.current=request;
     trackSave(request);
     void request.then((ok) => {
       checklistSaveInFlightRef.current = false;
@@ -752,6 +781,13 @@ function ActionPanelContent({
         toast.error("Checklist couldn't be saved yet. Retrying your latest changes.");
       }
 
+      if(checklistSavePromiseRef.current===request)checklistSavePromiseRef.current=null;
+      if(ok && !checklistDirtyRef.current && checklistLinksNeedRefreshRef.current){
+        checklistLinksNeedRefreshRef.current=false;
+        void checklistNoteApi.getByTask(taskId).then(result=>{
+          if(result.success&&result.data)setNoteLinks(result.data);
+        });
+      }
       if (checklistDirtyRef.current) {
         window.setTimeout(() => persistChecklistNowRef.current(), 0);
       }
@@ -779,6 +815,9 @@ function ActionPanelContent({
 
   const scheduleChecklistPersist = useCallback(
     (data: any) => {
+      const previousIds=new Set(extractChecklistItemsFromTipTap(checklistBlocksRef.current).map(item=>item.id));
+      const nextIds=new Set(extractChecklistItemsFromTipTap(data).map(item=>item.id));
+      if([...previousIds].some(id=>!nextIds.has(id)))checklistLinksNeedRefreshRef.current=true;
       checklistBlocksRef.current = data;
       checklistRevisionRef.current += 1;
       // Progress header: only re-render when the numbers actually change.
@@ -835,6 +874,92 @@ function ActionPanelContent({
     },
     [taskId, trackSave],
   );
+
+  /** Finish newly edited items before linking to DB-validated checklist IDs. */
+  const ensureChecklistSaved=useCallback(async():Promise<boolean>=>{
+    for(let attempt=0;attempt<5;attempt++){
+      persistChecklistNow();
+      const pending=checklistSavePromiseRef.current;
+      if(pending && !(await pending.catch(()=>false)))return false;
+      if(!checklistDirtyRef.current&&!checklistSaveInFlightRef.current)return true;
+      await new Promise<void>(resolve=>window.setTimeout(resolve,60));
+    }
+    return false;
+  },[persistChecklistNow]);
+
+  const linkNote=useCallback(async(itemId:string,noteId:string):Promise<boolean>=>{
+    if(!canEditRef.current||!await ensureChecklistSaved()){
+      toast.error("Save your checklist changes before connecting a note.");return false;
+    }
+    const result=await checklistNoteApi.link(taskId,noteId,itemId);
+    if(!result.success){toast.error(result.error||"Could not link this note.");return false;}
+    setNoteLinks(current=>current.some(link=>link.noteId===noteId&&link.checklistItemId===itemId)
+      ?current:[...current,{noteId,checklistItemId:itemId,createdAt:new Date().toISOString()}]);
+    toast.success("Note linked");
+    return true;
+  },[ensureChecklistSaved,taskId]);
+
+  const unlinkNote=useCallback(async(itemId:string,noteId:string):Promise<boolean>=>{
+    if(!canEditRef.current)return false;
+    const result=await checklistNoteApi.unlink(taskId,noteId,itemId);
+    if(!result.success){toast.error(result.error||"Could not unlink the note.");return false;}
+    setNoteLinks(current=>current.filter(link=>link.noteId!==noteId||link.checklistItemId!==itemId));
+    toast.success("Link removed. The note was kept.");
+    return true;
+  },[taskId]);
+
+  const openLinkedNote=useCallback((noteId:string)=>{
+    persistChecklistNow();
+    setFocusedNoteId(noteId);
+    setNoteFocusRevision(value=>value+1);
+    setTab('notes');
+  },[persistChecklistNow]);
+
+  const focusLinkedChecklist=useCallback((itemId:string)=>{
+    notesFlushRef.current?.();
+    setHideDone(false);
+    setTab('checklist');
+    let attempts=0;
+    const focus=()=>{
+      if(checklistEditorRef.current?.focusTaskItem(itemId))return;
+      if(++attempts<30)window.setTimeout(focus,50);
+      else toast.error("This checklist item is no longer available.");
+    };
+    window.setTimeout(focus,0);
+  },[]);
+
+  const createLinkedNote=useCallback(async(itemId:string,itemText:string):Promise<boolean>=>{
+    if(!canEditRef.current||!await ensureChecklistSaved()){
+      toast.error("Save your checklist changes before creating a linked note.");
+      return false;
+    }
+    const result=await noteApi.create(taskId,{
+      title:checklistTextToNoteTitle(itemText)||'Checklist note',
+      type:'note',content:{type:'doc',content:[{type:'paragraph'}]},
+    });
+    if(!result.success||!result.data){
+      toast.error(result.error||"Could not create a note.");return false;
+    }
+    const note=result.data;
+    setNotes(current=>current.some(item=>item.id===note.id)?current:[note,...current]);
+    notifyKnowledgeSourcesChanged(note.teamId);
+    const linked=await checklistNoteApi.link(taskId,note.id,itemId);
+    if(!linked.success){
+      toast.error("Note created, but linking failed. You can connect it from the checklist.");
+      openLinkedNote(note.id);
+      return false;
+    }
+    setNoteLinks(current=>[...current,{noteId:note.id,checklistItemId:itemId,createdAt:new Date().toISOString()}]);
+    toast.success("Linked note created");
+    openLinkedNote(note.id);
+    return true;
+  },[ensureChecklistSaved,openLinkedNote,taskId]);
+
+  const checklistNoteContext=useMemo<ChecklistNotesContextValue>(()=>({
+    notes,links:noteLinks,loading:notesLoading||noteLinksLoading,error:noteLinksError,
+    canEdit,createLinkedNote,linkNote,unlinkNote,openNote:openLinkedNote,
+  }),[notes,noteLinks,notesLoading,noteLinksLoading,noteLinksError,canEdit,
+    createLinkedNote,linkNote,unlinkNote,openLinkedNote]);
 
   // Unmount (exit finished, action switched, or task vanished): flush whatever is still pending.
   // `flushAll` only depends on `taskId`, which is fixed for this mount, so this runs exactly once.
@@ -1499,6 +1624,7 @@ function ActionPanelContent({
                 </span>
               </form>
             ) : null}
+            <ChecklistNotesContext.Provider value={checklistNoteContext}>
             <BlockEditor
               ref={checklistEditorRef}
               taskId={task.id}
@@ -1521,6 +1647,7 @@ function ActionPanelContent({
                 !canEdit && "opacity-60",
               )}
             />
+            </ChecklistNotesContext.Provider>
             {hideDone && allDone ? (
               <p className="px-1 pt-2 text-xs text-muted-foreground">
                 Everything is done — all {checklistCounts.total} items are hidden.
@@ -1542,6 +1669,12 @@ function ActionPanelContent({
               onTrackSave={trackSave}
               focusedNoteId={focusedNoteId}
               focusRevision={noteFocusRevision}
+              checklistItems={extractChecklistItemsFromTipTap(checklistBlocksRef.current)}
+              checklistNoteLinks={noteLinks}
+              onLinkChecklistNote={linkNote}
+              onUnlinkChecklistNote={unlinkNote}
+              onOpenChecklistItem={focusLinkedChecklist}
+              onNoteDeleted={(noteId)=>setNoteLinks(current=>current.filter(link=>link.noteId!==noteId))}
             />
           </TabsContent>
         </div>
