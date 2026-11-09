@@ -5,7 +5,7 @@ import { retrieveKnowledge } from '@/lib/ai/retrieval/retrieval-server';
 import { getPlannerTodayProjection,getPlannerUpcomingProjection } from '@/lib/planner-retrieval-server';
 import { getUserSchedulingTimeZone } from '@/lib/scheduling-runtime-server';
 import { addCalendarDays } from '@/lib/scheduling-domain';
-import { extractChecklistItemsFromTipTap } from '@/lib/tiptap-parser';
+import { extractChecklistItemsFromTipTap,previewTextFromTipTap } from '@/lib/tiptap-parser';
 import { isTerminalBoardColumn,parseColumnConfigFromJson } from '@/lib/types';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import type { AIReadReference,AIReadToolActor,AIReadToolExecution,AIReadToolName } from './types';
@@ -16,6 +16,8 @@ const processSelector=z.object({ processId:uuid.optional(),processName:z.string(
   .refine((value)=>Boolean(value.processId||value.processName),'processId or processName is required');
 const listProcessesSchema=z.object({ teamId:uuid.optional(),query:z.string().trim().max(120).optional(),limit:z.number().int().min(1).max(50).default(25) }).strict();
 const processOverviewSchema=processSelector;
+const processContentSchema=z.object({ processId:uuid.optional(),processName:z.string().trim().min(1).max(120).optional(),offset:z.number().int().min(0).max(10_000).default(0),limit:z.number().int().min(1).max(10).default(5) }).strict()
+  .refine((value)=>Boolean(value.processId||value.processName),'processId or processName is required');
 const listActionsSchema=z.object({
   teamId:uuid.optional(),processId:uuid.optional(),processName:z.string().trim().min(1).max(120).optional(),
   query:z.string().trim().max(160).optional(),completion:z.enum(['all','completed','incomplete']).default('all'),
@@ -37,7 +39,7 @@ const knowledgeSchema=z.object({
 }).strict();
 
 const schemas:Record<AIReadToolName,z.ZodTypeAny>={
-  list_processes:listProcessesSchema,get_process_overview:processOverviewSchema,list_actions:listActionsSchema,
+  list_processes:listProcessesSchema,get_process_overview:processOverviewSchema,get_process_content:processContentSchema,list_actions:listActionsSchema,
   get_action_details:actionDetailsSchema,get_planner_overview:plannerSchema,search_knowledge:knowledgeSchema,
 };
 
@@ -106,16 +108,118 @@ async function runListProcesses(actor:AIReadToolActor,input:z.infer<typeof listP
 async function runProcessOverview(actor:AIReadToolActor,input:z.infer<typeof processOverviewSchema>):Promise<AIReadToolExecution> {
   const project=await resolveProcess(actor,input);
   if (!project) throw new AIReadToolError('not_found','Process was not found or is not accessible');
-  const { data,error }=await supabaseAdmin.from('tasks').select('id,title,status,priority,checklist_blocks,updated_at')
-    .eq('organization_id',actor.organizationId).eq('project_id',project.id).limit(500);
+  // Count is authoritative; aggregates over the bounded sample are explicitly partial.
+  // Previously a silent .limit(500) could misrepresent a large Process as complete.
+  const { data,error,count }=await supabaseAdmin.from('tasks')
+    .select('id,title,status,priority,checklist_blocks,updated_at',{count:'exact'})
+    .eq('organization_id',actor.organizationId).eq('project_id',project.id)
+    .order('updated_at',{ascending:false}).limit(500);
   if (error) throw new AIReadToolError('unavailable','Process overview is temporarily unavailable');
-  const columns=parseColumnConfigFromJson(project.column_config);const stageById=new Map(columns.map((stage)=>[stage.id,stage]));
-  const stages=new Map<string,{id:string;label:string;isTerminal:boolean;actionCount:number}>();let completedActions=0,checklistTotal=0,checklistCompleted=0;
-  for (const task of data??[]) { const stage=stageById.get(String(task.status));const terminal=isTerminalBoardColumn(String(task.status),columns);if(terminal)completedActions++;
-    const current=stages.get(String(task.status))??{id:String(task.status),label:stage?.title??String(task.status),isTerminal:terminal,actionCount:0};current.actionCount++;stages.set(current.id,current);
-    for(const item of extractChecklistItemsFromTipTap(task.checklist_blocks)){checklistTotal++;if(item.checked)checklistCompleted++;}
+  const columns=parseColumnConfigFromJson(project.column_config);
+  const stageById=new Map(columns.map((stage)=>[stage.id,stage]));
+  const stages=new Map<string,{id:string;label:string;isTerminal:boolean;actionCount:number}>();
+  let completedActions=0,checklistTotal=0,checklistCompleted=0;
+  for (const task of data??[]) {
+    const stage=stageById.get(String(task.status));
+    const terminal=isTerminalBoardColumn(String(task.status),columns);
+    if(terminal)completedActions++;
+    const current=stages.get(String(task.status))??{
+      id:String(task.status),label:stage?.title??String(task.status),
+      isTerminal:terminal,actionCount:0,
+    };
+    current.actionCount++;stages.set(current.id,current);
+    for (const item of extractChecklistItemsFromTipTap(task.checklist_blocks)) {
+      checklistTotal++;if(item.checked)checklistCompleted++;
+    }
   }
-  return { name:'get_process_overview',statusLabel:'Süreç özeti hazırlanıyor…',citations:[],references:[processReference(project),...(data??[]).slice(0,25).map((task:any)=>actionReference(task,String(project.id)))],data:{ process:{id:String(project.id),name:String(project.name),visibility:String(project.visibility??'team')},actions:{total:(data??[]).length,completed:completedActions,incomplete:(data??[]).length-completedActions},checklist:{total:checklistTotal,completed:checklistCompleted,incomplete:checklistTotal-checklistCompleted},stages:[...stages.values()] } };
+  const scanned=(data??[]).length;
+  const incompleteScan=count===null || count>scanned;
+  return { name:'get_process_overview',statusLabel:'Süreç özeti hazırlanıyor…',
+    citations:[],references:[processReference(project),...(data??[]).slice(0,20)
+      .map((task:any)=>actionReference(task,String(project.id)))],
+    data:{
+      process:{id:String(project.id),name:String(project.name),visibility:String(project.visibility??'team')},
+      completeness:{isPartial:incompleteScan,scannedActions:scanned,totalActions:count},
+      actions:{total:count,completed:incompleteScan?null:completedActions,
+        incomplete:incompleteScan?null:scanned-completedActions},
+      checklist:{isPartial:incompleteScan,total:checklistTotal,completed:checklistCompleted,
+        incomplete:checklistTotal-checklistCompleted},
+      stages:[...stages.values()].map((stage)=>({...stage,
+        countIsPartial:incompleteScan})),
+    },
+  };
+}
+
+/** A fresh, ACL-filtered content page independent of the eventual RAG index.
+ * Every query is tenant scoped and the Process has already passed visibility
+ * checks. Notes are only fetched for Actions returned by this authorized page.
+ */
+async function runProcessContent(actor:AIReadToolActor,input:z.infer<typeof processContentSchema>):Promise<AIReadToolExecution> {
+  const process=await resolveProcess(actor,input);
+  if(!process)throw new AIReadToolError('not_found','Process was not found or is not accessible');
+  const {data:rows,error,count}=await supabaseAdmin.from('tasks')
+    .select('id,title,description,status,priority,checklist_blocks,updated_at',{count:'exact'})
+    .eq('organization_id',actor.organizationId).eq('project_id',process.id)
+    .order('updated_at',{ascending:false}).order('id',{ascending:true})
+    .range(input.offset,input.offset+input.limit-1);
+  if(error)throw new AIReadToolError('unavailable','Process content is temporarily unavailable');
+  const tasks=rows??[];
+  const ids=tasks.map((task:any)=>String(task.id));
+  const {data:notes,error:notesError,count:notesCount}=ids.length
+    ?await supabaseAdmin.from('notes')
+      .select('id,task_id,title,type,content,updated_at',{count:'exact'})
+      .eq('organization_id',actor.organizationId).in('task_id',ids)
+      .order('updated_at',{ascending:false}).limit(60)
+    :{data:[],error:null,count:0};
+  if(notesError)throw new AIReadToolError('unavailable','Process notes are temporarily unavailable');
+  const notesByTask=new Map<string,any[]>();
+  const allowedTaskIds=new Set(ids);
+  for(const note of notes??[]){
+    const id=String(note.task_id);
+    if(!allowedTaskIds.has(id))continue;
+    const group=notesByTask.get(id)??[];group.push(note);notesByTask.set(id,group);
+  }
+  const stages=parseColumnConfigFromJson(process.column_config);
+  const output=tasks.map((task:any)=>{
+    const status=String(task.status);
+    const checklist=extractChecklistItemsFromTipTap(task.checklist_blocks);
+    const noteRows=notesByTask.get(String(task.id))??[];
+    const description=String(task.description??'');
+    return {
+      id:String(task.id),title:String(task.title),
+      description:compact(description,500),descriptionTruncated:description.length>500,
+      priority:String(task.priority),stageId:status,
+      stageLabel:stages.find((stage)=>stage.id===status)?.title??status,
+      completed:isTerminalBoardColumn(status,stages),
+      checklist:{total:checklist.length,hasMore:checklist.length>8,
+        items:checklist.slice(0,8).map((item)=>({
+          text:compact(item.text,160),textTruncated:item.text.length>160,
+          checked:item.checked,
+        }))},
+      notes:{returned:Math.min(noteRows.length,3),
+        hasMore:noteRows.length>3 || (notesCount??0)>(notes??[]).length,
+        items:noteRows.slice(0,3).map((note:any)=>{
+          const preview=previewTextFromTipTap(note.content,400);
+          return {title:String(note.title),type:String(note.type),preview,
+            contentIsPreview:preview.endsWith('…')};
+        })},
+      updatedAt:String(task.updated_at),
+    };
+  });
+  const totalActions=count??null;
+  return {
+    name:'get_process_content',statusLabel:'Süreç içeriği kontrol ediliyor…',
+    citations:[],references:[processReference(process),...tasks.map((task:any)=>
+      actionReference(task,String(process.id)))],
+    data:{
+      process:{id:String(process.id),name:String(process.name),stageLabels:stages.map((stage)=>stage.title)},
+      pagination:{offset:input.offset,limit:input.limit,returned:tasks.length,totalActions,
+        hasMore:totalActions===null?tasks.length===input.limit:input.offset+tasks.length<totalActions},
+      linkedNotesInActionPage:{returned:(notes??[]).length,total:notesCount,
+        hasMore:(notesCount??0)>(notes??[]).length},
+      actions:output,
+    },
+  };
 }
 
 async function runListActions(actor:AIReadToolActor,input:z.infer<typeof listActionsSchema>):Promise<AIReadToolExecution> {
@@ -191,6 +295,7 @@ export async function executeAIReadTool(name:string,rawArguments:unknown,actor:A
   if(!parsed.success)throw new AIReadToolError('invalid_arguments',`Invalid arguments for ${tool}`);
   if(tool==='list_processes')return runListProcesses(actor,parsed.data);
   if(tool==='get_process_overview')return runProcessOverview(actor,parsed.data);
+  if(tool==='get_process_content')return runProcessContent(actor,parsed.data);
   if(tool==='list_actions')return runListActions(actor,parsed.data);
   if(tool==='get_action_details')return runActionDetails(actor,parsed.data);
   if(tool==='get_planner_overview')return runPlanner(actor,parsed.data);
