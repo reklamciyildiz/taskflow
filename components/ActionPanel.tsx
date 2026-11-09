@@ -727,6 +727,7 @@ function ActionPanelContent({
   const checklistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const checklistSaveInFlightRef = useRef(false);
   const checklistSavePromiseRef=useRef<Promise<boolean>|null>(null);
+  const checklistLinksNeedRefreshRef=useRef(false);
   const persistChecklistNowRef = useRef<() => void>(() => undefined);
 
   const persistMetaNow = useCallback(() => {
@@ -780,6 +781,13 @@ function ActionPanelContent({
         toast.error("Checklist couldn't be saved yet. Retrying your latest changes.");
       }
 
+      if(checklistSavePromiseRef.current===request)checklistSavePromiseRef.current=null;
+      if(ok && !checklistDirtyRef.current && checklistLinksNeedRefreshRef.current){
+        checklistLinksNeedRefreshRef.current=false;
+        void checklistNoteApi.getByTask(taskId).then(result=>{
+          if(result.success&&result.data)setNoteLinks(result.data);
+        });
+      }
       if (checklistDirtyRef.current) {
         window.setTimeout(() => persistChecklistNowRef.current(), 0);
       }
@@ -807,6 +815,9 @@ function ActionPanelContent({
 
   const scheduleChecklistPersist = useCallback(
     (data: any) => {
+      const previousIds=new Set(extractChecklistItemsFromTipTap(checklistBlocksRef.current).map(item=>item.id));
+      const nextIds=new Set(extractChecklistItemsFromTipTap(data).map(item=>item.id));
+      if([...previousIds].some(id=>!nextIds.has(id)))checklistLinksNeedRefreshRef.current=true;
       checklistBlocksRef.current = data;
       checklistRevisionRef.current += 1;
       // Progress header: only re-render when the numbers actually change.
