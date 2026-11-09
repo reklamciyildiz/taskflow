@@ -1,0 +1,47 @@
+name: Security hardening quality
+on:
+  pull_request:
+    paths:
+      - 'app/api/customers/**'
+      - 'app/api/tasks/**'
+      - 'components/Settings.tsx'
+      - 'components/TwoFactorModal.tsx'
+      - 'components/ActiveSessionsModal.tsx'
+      - 'app/(shell)/settings/account/page.tsx'
+      - 'lib/customer-security.ts'
+      - 'lib/db.ts'
+      - 'scripts/test-customer-tenant-security.ts'
+      - 'package.json'
+      - '.github/workflows/security-hardening-quality.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  security-contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Customer IDOR and fake security UI regression
+        run: npm run test:security
+      - name: Existing Process tenant ACL regression
+        run: npx tsx scripts/test-process-tenant-access.ts
+      - name: TypeScript
+        run: npx tsc --noEmit
+      - name: ESLint
+        run: npm run lint
+      - name: Build (with non-functional CI placeholders only)
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-not-a-real-key
+          SUPABASE_SERVICE_ROLE_KEY: ci-not-a-real-service-role-key
+          NEXTAUTH_SECRET: ci-non-production-build-placeholder-only
+          NEXTAUTH_URL: http://localhost:3000
+          RESEND_API_KEY: re_ci_build_placeholder_never_valid
+          RESEND_FROM_EMAIL: ci@example.invalid
+        run: npm run build

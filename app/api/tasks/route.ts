@@ -1,6 +1,6 @@
 import { stageErrorMessage } from '@/lib/stage-server';
 import { NextRequest, NextResponse } from 'next/server';
-import { taskDb, notificationDb, userDb, teamMemberDb, projectDb } from '@/lib/db';
+import { taskDb, notificationDb, userDb, teamMemberDb, projectDb, teamDb, customerDb } from '@/lib/db';
 import { ApiResponse } from '@/lib/types';
 import { canMutateTeamTasks, requireAuthedUser, viewerCannotMutateTasksResponse } from '@/lib/server-authz';
 import { triggerWebhook } from '@/lib/webhook-trigger';
@@ -18,6 +18,7 @@ import {
 import { legacyDueValueToSchedule, scheduleDueInstantIso } from '@/lib/scheduling-runtime';
 import { SchedulingValidationError } from '@/lib/scheduling-domain';
 import { extractChecklistItemsFromTipTap } from '@/lib/tiptap-parser';
+import { isCustomerId } from '@/lib/customer-security';
 
 // GET /api/tasks - Get all tasks (optionally filtered by teamId or organizationId)
 export async function GET(request: NextRequest) {
@@ -37,6 +38,14 @@ export async function GET(request: NextRequest) {
           { status: 404 }
         );
       }
+      // The service-role query bypasses RLS. Membership alone and an org
+      // admin override do NOT prove that the requested Team belongs to us.
+      const requestedTeam = await teamDb.getById(teamId);
+      if (!user.organization_id || !requestedTeam ||
+          requestedTeam.organization_id !== user.organization_id) {
+        return NextResponse.json<ApiResponse<null>>(
+          { success: false, error: 'Team not found' }, { status: 404 });
+      }
       // Must be a team member (or org admin) to view team tasks.
       const isOrgAdmin = user.role === 'admin' || user.role === 'owner';
       const membership = await teamMemberDb.getMembership(teamId, user.id);
@@ -55,7 +64,7 @@ export async function GET(request: NextRequest) {
       });
       const visibleProjectIds = new Set<string>(visibleProjects.map((p: any) => p.id));
 
-      const raw = await taskDb.getByTeam(teamId);
+      const raw = await taskDb.getByTeamScoped(teamId, String(user.organization_id));
       tasks = (raw ?? []).filter((t: any) => {
         const pid = t.project_id ?? null;
         if (!pid) return true; // General actions remain team-wide in v1
@@ -125,6 +134,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Fail closed for a foreign/nonexistent Team before any Action or schedule
+    // write, even when the actor is an organization Owner/Admin.
+    const targetTeam = await teamDb.getById(body.teamId);
+    if (!targetTeam || targetTeam.organization_id !== organizationId) {
+      return NextResponse.json<ApiResponse<null>>(
+        { success: false, error: 'Team not found' }, { status: 404 });
+    }
+
     const schedulingTimeZone = await getUserSchedulingTimeZone(String(actor?.id ?? userId));
 
     // Server-side paywall: Free cannot set advanced scheduled reminders.
@@ -174,6 +191,15 @@ export async function POST(request: NextRequest) {
       const visible = await projectDb.getVisibleForUser({ organizationId, teamId: body.teamId, userId });
       if (!visible.some((project: any) => project.id === body.projectId)) {
         return NextResponse.json({ success: false, error: 'Process not accessible' }, { status: 403 });
+      }
+    }
+    // Do not link this Action to a Customer owned by another organization.
+    // This check runs before any write, including scheduling and notifications.
+    if (body.customerId !== undefined && body.customerId !== null && body.customerId !== '') {
+      if (!isCustomerId(body.customerId) ||
+          !(await customerDb.getById(body.customerId, String(organizationId)))) {
+        return NextResponse.json<ApiResponse<null>>(
+          { success: false, error: 'Customer not found' }, { status: 404 });
       }
     }
     const checklistBlocks = body.checklistBlocks ?? null;

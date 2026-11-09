@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { organizationDb, teamDb, customerDb, userDb } from '@/lib/db';
 import { ApiResponse } from '@/lib/types';
+import { publicOrganizationRow, publicUserRow } from '@/lib/public-identity-projection';
 
 /**
  * GET /api/bootstrap — single aggregated payload for the initial app-shell load.
@@ -54,7 +55,7 @@ export async function GET(_request: NextRequest) {
               Promise.all(
                 (rows || []).map(async (c: any) => ({
                   ...c,
-                  taskStats: await customerDb.getTaskStats(c.id).catch(() => ({ total: 0, completed: 0 })),
+                  taskStats: await customerDb.getTaskStats(c.id, String(organizationId)).catch(() => ({ total: 0, completed: 0 })),
                 }))
               )
             )
@@ -65,8 +66,8 @@ export async function GET(_request: NextRequest) {
     return NextResponse.json<ApiResponse<any>>({
       success: true,
       data: {
-        user,
-        organization: organization ?? null,
+        user: publicUserRow(user),
+        organization: organization ? publicOrganizationRow(organization) : null,
         teams: teams ?? [],
         customers: customers ?? [],
       },

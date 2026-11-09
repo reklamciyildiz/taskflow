@@ -3,9 +3,18 @@
 
 **Tarih:** 16 Ocak 2026  
 **Versiyon:** 2.0 - İki Katmanlı Güvenlik  
-**Durum:** ✅ Production Ready
+**Durum:** Tarihsel rapor — güncel Production güvenlik sertifikası değildir
 
 ---
+
+> **8 Kasım 2026 güncellemesi:** Bu rapor tarihsel mimari notudur, güncel bir
+> güvenlik onayı değildir. Actiproc uygulaması **yerleşik 2FA sunmaz**; eski
+> gösterim amaçlı 2FA ve Active Sessions ekranları silinmiştir. Web NextAuth
+> oturumları JWT'dir; cihaz bazlı güvenilir oturum listesi ve diğer oturumları
+> sunucu tarafında iptal etme özelliği bulunmamaktadır. Mevcut yetkilendirme,
+> servis rolü kullanılan rotalarda açık tenant/resource scope gerektirir.
+> Güncel denetim ve onay bekleyen işler için
+> \`docs/SECURITY_HARDENING_2026-11-08.md\` belgesine bakın.
 
 ## 📊 Özet
 
@@ -566,9 +575,10 @@ CREATE POLICY "users_select_own"
 
 ### **Orta Vadeli (1-2 Ay)**
 
-1. **2FA (Two-Factor Authentication)**
-   - Email/SMS verification
-   - Authenticator app support
+1. **Yerleşik 2FA (uygulanmamış gelecek geliştirme)** 
+   - Actiproc'un kendi 2FA hizmeti şu anda **yoktur**; Google'ın sağladığı
+     hesap güvenliği Actiproc içinde yerleşik 2FA olduğu anlamına gelmez.
+   - Gerçek doğrulama sunucu tarafında geliştirilip test edilmeden UI eklenmemeli.
 
 2. **IP Whitelisting**
    - Organization bazında IP kısıtlama
