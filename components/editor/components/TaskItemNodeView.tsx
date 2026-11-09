@@ -46,6 +46,7 @@ import {
 } from '@/components/editor/reorderChecklistItem';
 import type { ChecklistNoteConversionRequest } from '@/components/editor/BlockEditor';
 import type { NoteType } from '@/lib/types';
+import { ChecklistNoteChip } from '@/components/action/ChecklistNotesContext';
 import { cn } from '@/lib/utils';
 import { formatDueDateYmdLocal } from '@/lib/due-date';
 import { plannerApi } from '@/lib/api';
@@ -560,6 +561,7 @@ export const TaskItemNodeView = React.memo(
               ) : null}
             </div> : null}
 
+              {checklistMode ? <ChecklistNoteChip itemId={String(id??'')} itemText={text} /> : null}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
