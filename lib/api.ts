@@ -16,6 +16,7 @@ import {
   CreateNoteRequest,
   UpdateNoteRequest,
 } from './types';
+import type { ChecklistNoteLink } from './checklist-note-links';
 import type { PlannerProjectionItem, PlannerTodayProjection, PlannerUpcomingProjection } from './planner-projection';
 import type { WorkSchedule, WorkScheduleInput, WorkSource } from './scheduling-domain';
 
@@ -158,6 +159,20 @@ export const noteApi = {
   delete: (id: string) =>
     fetchApi<null>(`/notes/${id}`, {
       method: 'DELETE',
+    }),
+};
+
+/** Typed client for same-Action Note ↔ Checklist connections. */
+export const checklistNoteApi = {
+  getByTask: (taskId:string) =>
+    fetchApi<ChecklistNoteLink[]>(`/tasks/${taskId}/checklist-note-links`),
+  link: (taskId:string,noteId:string,checklistItemId:string) =>
+    fetchApi<{linked:boolean}>(`/tasks/${taskId}/checklist-note-links`,{
+      method:'POST',body:JSON.stringify({noteId,checklistItemId}),
+    }),
+  unlink: (taskId:string,noteId:string,checklistItemId:string) =>
+    fetchApi<null>(`/tasks/${taskId}/checklist-note-links`,{
+      method:'DELETE',body:JSON.stringify({noteId,checklistItemId}),
     }),
 };
 
