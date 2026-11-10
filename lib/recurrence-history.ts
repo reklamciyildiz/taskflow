@@ -133,8 +133,8 @@ export function countRecentMissedOccurrences(
   today: string,
   maxLookbackDays = 30,
 ): { count: number; oldestMissedDate: string | null } {
-  const history = buildRecurrenceHistory(schedule, persisted, addCalendarDays(today, -1), maxLookbackDays);
-  const days = history.days.slice().reverse();
+  const history = buildRecurrenceHistory(schedule, persisted, today, maxLookbackDays);
+  const days = history.days.filter(day => day.date < today).reverse();
   let count = 0;
   let oldestMissedDate: string | null = null;
   for (const day of days) {
