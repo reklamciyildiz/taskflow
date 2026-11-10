@@ -144,3 +144,13 @@ export function countRecentMissedOccurrences(
   }
   return { count, oldestMissedDate };
 }
+
+/** Local-morning, coarse hourly gate for opt-in missed-work notifications. */
+export function missedRecurrenceAlertWindow(now: Date, timeZone: string): boolean {
+  if (now.getUTCMinutes() >= 10) return false;
+  const hourString = new Intl.DateTimeFormat('en-GB', {
+    hour: '2-digit', hourCycle: 'h23', timeZone,
+  }).format(now);
+  const hour = Number(hourString);
+  return Number.isInteger(hour) && hour >= 9 && hour <= 12;
+}
