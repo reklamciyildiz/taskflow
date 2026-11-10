@@ -23,6 +23,8 @@ export async function GET(request: NextRequest) {
       push_notifications: false,
       team_activity: false,
       compact_view: false,
+      recurrence_missed_alerts_enabled: false,
+      recurrence_missed_alert_threshold: 3,
       time_zone: null as string | null,
     };
 
@@ -51,10 +53,13 @@ export async function PATCH(request: NextRequest) {
     if (!body || typeof body !== 'object' || Array.isArray(body)) {
       return NextResponse.json({ success: false, error: 'Invalid settings payload' }, { status: 400 });
     }
-    const updates: Record<string, boolean | string | null> = {};
-    const allowedBooleanFields = ['email_notifications', 'push_notifications', 'team_activity', 'compact_view'];
+    const updates: Record<string, boolean | string | number | null> = {};
+    const allowedBooleanFields = ['email_notifications', 'push_notifications', 'team_activity', 'compact_view', 'recurrence_missed_alerts_enabled'];
     for (const [key, value] of Object.entries(body)) {
       if (allowedBooleanFields.includes(key) && typeof value === 'boolean') updates[key] = value;
+      else if (key === 'recurrence_missed_alert_threshold' && (value === 2 || value === 3 || value === 5)) {
+        updates[key] = value;
+      }
       else if (key === 'time_zone' && (value === null || (typeof value === 'string' && value.length <= 100))) {
         if (value !== null) {
           try { new Intl.DateTimeFormat('en-US', { timeZone: value }); }

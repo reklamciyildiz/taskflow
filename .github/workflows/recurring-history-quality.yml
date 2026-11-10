@@ -1,0 +1,89 @@
+name: Recurring history and missed work quality
+on:
+  pull_request:
+    paths:
+      - 'lib/recurrence-history.ts'
+      - 'lib/work-schedule-server.ts'
+      - 'lib/scheduling-runtime-server.ts'
+      - 'lib/process-missed-recurrence-reminders.ts'
+      - 'app/api/planner/history/route.ts'
+      - 'app/api/planner/occurrences/route.ts'
+      - 'app/api/cron/reminders-tick/route.ts'
+      - 'app/api/users/settings/route.ts'
+      - 'components/planner/RecurrenceHistoryDialog.tsx'
+      - 'components/planner/PlannerRoutines.tsx'
+      - 'components/PlannerToday.tsx'
+      - 'components/settings/NotificationsSettings.tsx'
+      - 'lib/api.ts'
+      - 'scripts/test-recurring-history*'
+      - 'supabase/migrations/20261110213000_missed_recurrence_preferences.sql'
+      - '.github/workflows/recurring-history-quality.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'lib/recurrence-history.ts'
+      - 'lib/work-schedule-server.ts'
+      - 'lib/process-missed-recurrence-reminders.ts'
+      - 'app/api/planner/history/route.ts'
+      - 'components/planner/RecurrenceHistoryDialog.tsx'
+      - 'components/planner/PlannerRoutines.tsx'
+      - 'scripts/test-recurring-history.ts'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  recurring-history-quality:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Recurring history, timezone, streak, ACL and notification contracts
+        run: npx tsx scripts/test-recurring-history.ts
+      - name: Existing scheduling & Planner projections
+        run: npm run test:scheduling
+      - name: Existing planner drag and date-only behavior
+        run: npm run test:planner:drag
+      - name: Preference migration idempotence and opt-in safety
+        env:
+          PGHOST: localhost
+          PGPORT: '5432'
+          PGUSER: postgres
+          PGPASSWORD: postgres
+          PGDATABASE: postgres
+        run: |
+          command -v psql >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y postgresql-client)
+          bash scripts/test-recurring-history-sql.sh
+      - name: TypeScript
+        run: npx tsc --noEmit
+      - name: ESLint
+        run: npm run lint
+      - name: Production build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-not-a-real-key
+          SUPABASE_SERVICE_ROLE_KEY: ci-not-a-real-service-role-key
+          NEXTAUTH_SECRET: ci-only-build-secret
+          NEXTAUTH_URL: http://localhost:3000
+          RESEND_API_KEY: re_ci_build_placeholder_never_valid
+          RESEND_FROM_EMAIL: ci@example.invalid
+        run: npm run build

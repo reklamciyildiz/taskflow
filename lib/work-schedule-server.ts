@@ -3,13 +3,15 @@ import 'server-only';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { getOrganizationEntitlements } from '@/lib/entitlements';
 import { canUsePaidFeature, hasOnlyBasicReminderRules } from '@/lib/paid-feature-policy';
-import { scheduleDueInstantIso } from '@/lib/scheduling-runtime';
+import { calendarDateInTimeZone, scheduleDueInstantIso } from '@/lib/scheduling-runtime';
+import { buildRecurrenceHistory, type RecurrenceHistory } from '@/lib/recurrence-history';
 import { canMutateTeamTasks, isOrgAdmin } from '@/lib/server-authz';
 import { extractChecklistItemsFromTipTap } from '@/lib/tiptap-parser';
 import {
   SchedulingValidationError,
   assertCalendarDate,
   implicitOccurrenceState,
+  isIanaTimeZone,
   normalizeWorkScheduleInput,
   scheduleMatchesDate,
   workOccurrenceFromRow,
@@ -377,6 +379,34 @@ export async function resolveScheduleForSource(
   return data ? workScheduleFromRow(data) : null;
 }
 
+/**
+ * Builds 7/30-day history from sparse exception rows. Never materializes
+ * pending days or bypasses the canonical source/team/process ACL.
+ */
+export async function getRecurrenceHistory(
+  actor: SchedulingActor,
+  scheduleId: string,
+  timeZone: string,
+  windowDays: 7 | 30 = 30,
+): Promise<RecurrenceHistory> {
+  if (!isIanaTimeZone(timeZone)) throw new SchedulingValidationError('Invalid time zone');
+  const { schedule } = await requireScheduleAccess(actor, scheduleId, false);
+  if (schedule.scheduleType !== 'recurring') {
+    throw new SchedulingValidationError('History is available for recurring work only');
+  }
+  const today = calendarDateInTimeZone(new Date(), timeZone);
+  const start = new Date(Date.parse(today+'T12:00:00Z')-(windowDays-1)*86_400_000).toISOString().slice(0,10);
+  const { data, error } = await supabaseAdmin.from('work_occurrences')
+    .select('id,schedule_id,occurrence_date,effective_date,state,completed_at,rescheduled_at,created_at,updated_at')
+    .eq('schedule_id', scheduleId)
+    .gte('occurrence_date', start)
+    .lte('occurrence_date', today)
+    .order('occurrence_date', { ascending: true })
+    .limit(90);
+  if (error) throw error;
+  return buildRecurrenceHistory(schedule, (data ?? []).map(workOccurrenceFromRow), today, windowDays);
+}
+
 export async function getOccurrenceState(
   actor: SchedulingActor,
   scheduleId: string,
@@ -579,7 +609,7 @@ export async function uncompleteOccurrence(
     .maybeSingle();
   if (existingError) throw existingError;
   if (!existing) return null;
-  if (existing.state !== 'completed') return workOccurrenceFromRow(existing);
+  if (existing.state !== 'completed' && existing.state !== 'skipped') return workOccurrenceFromRow(existing);
 
   const wasRescheduled = String(existing.effective_date) !== occurrenceDate;
   if (!wasRescheduled) {
