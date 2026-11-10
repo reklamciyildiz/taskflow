@@ -6,6 +6,7 @@ import {
   CalendarClock,
   CheckCircle2,
   Clock3,
+  History,
   ListChecks,
   MoreHorizontal,
   RefreshCw,
@@ -20,6 +21,7 @@ import { formatDueDateYmdLocal } from "@/lib/due-date";
 import { formatScheduleDate } from "@/lib/schedule-presentation";
 import { usePlannerRuntime } from './PlannerRuntime';
 import { PlannerScheduleDialog } from "./PlannerScheduleDialog";
+import { RecurrenceHistoryDialog } from "./RecurrenceHistoryDialog";
 import { dispatchOccurrenceChanged } from "@/lib/schedule-events";
 import {
   DropdownMenu,
@@ -50,12 +52,13 @@ function sourceTitle(item: PlannerProjectionItem) {
 }
 
 export function PlannerRoutines() {
-  const { currentTeam, openTaskEditor, plannerApi } = usePlannerRuntime();
+  const { currentTeam, openTaskEditor, plannerApi, tasks, canCompleteTask, canEditTask } = usePlannerRuntime();
   const [items, setItems] = useState<PlannerProjectionItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [editing, setEditing] = useState<PlannerProjectionItem | null>(null);
+  const [historyTarget,setHistoryTarget] = useState<{item:PlannerProjectionItem;canEdit:boolean}|null>(null);
 
   const today = useMemo(() => formatDueDateYmdLocal(new Date()), []);
 
@@ -241,6 +244,17 @@ export function PlannerRoutines() {
                       >
                         <RotateCcw className="mr-2 h-4 w-4" /> Move this occurrence +1 day
                       </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onSelect={() => {
+                          const task=tasks.find(candidate=>candidate.id===item.taskId);
+                          const canEdit=Boolean(task && (item.source.sourceType==='action'
+                            ? canCompleteTask(task.assigneeId)
+                            : canEditTask(task.createdBy,task.assigneeId)));
+                          setHistoryTarget({item,canEdit});
+                        }}
+                      >
+                        <History className="mr-2 h-4 w-4" /> History & insights
+                      </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onSelect={() => setEditing(item)}>
                         <Repeat2 className="mr-2 h-4 w-4" /> Edit entire series
@@ -261,6 +275,13 @@ export function PlannerRoutines() {
         </div>
       )}
 
+      <RecurrenceHistoryDialog
+        scheduleId={historyTarget?.item.scheduleId ?? null}
+        title={historyTarget?sourceTitle(historyTarget.item):'Recurring work'}
+        canEdit={historyTarget?.canEdit ?? false}
+        open={Boolean(historyTarget)}
+        onOpenChange={open=>{if(!open)setHistoryTarget(null);}}
+      />
       <PlannerScheduleDialog
         open={editing !== null}
         onOpenChange={(open) => {
