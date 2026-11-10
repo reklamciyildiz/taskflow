@@ -10,7 +10,7 @@ import { countRecentMissedOccurrences } from '@/lib/recurrence-history';
  * A user-enabled threshold (2/3/5) triggers the first alert.
  * No notification is generated for a deliberately skipped or moved-forward day.
  */
-const HISTORY_LOOKBACK_DAYS = 30;
+const HISTORY_LOOKBACK_DAYS = 180;
 
 export type MissedRecurrenceStats = {
   considered: number;
@@ -76,7 +76,7 @@ export async function processMissedRecurrenceReminders(nowDate = new Date()): Pr
     Boolean(item.recipientId && alertThresholdByUser.has(item.recipientId)));
   if (!optedTemplates.length) return result;
 
-  const earliestUtcDate = addCalendarDays(nowDate.toISOString().slice(0, 10), -32);
+  const earliestUtcDate = addCalendarDays(nowDate.toISOString().slice(0, 10), -182);
   const rows: WorkOccurrence[] = [];
   for (const group of chunks([...new Set(optedTemplates.map(item => item.schedule.id))])) {
     const { data, error } = await supabaseAdmin.from('work_occurrences')
