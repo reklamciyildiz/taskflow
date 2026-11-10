@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Bell } from 'lucide-react';
+import { Bell, Repeat2 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { subscribeWebPush, unsubscribeWebPush } from '@/components/push/push-client';
 
@@ -26,6 +27,9 @@ export function NotificationsSettings() {
   const [mounted, setMounted] = useState(false);
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [pushNotifications, setPushNotifications] = useState(false);
+  const [recurrenceAlertsEnabled,setRecurrenceAlertsEnabled] = useState(false);
+  const [recurrenceAlertThreshold,setRecurrenceAlertThreshold] = useState<2|3|5>(3);
+  const [recurrenceAlertsBusy,setRecurrenceAlertsBusy] = useState(false);
   const [teamActivity, setTeamActivity] = useState(false);
   const [pushPermission, setPushPermission] = useState<NotificationPermission | 'unsupported'>('default');
 
@@ -58,12 +62,18 @@ export function NotificationsSettings() {
               setEmailNotifications(s.email_notifications ?? s.emailNotifications ?? true);
               setPushNotifications(s.push_notifications ?? s.pushNotifications ?? false);
               setTeamActivity(s.team_activity ?? s.teamActivity ?? false);
+              // A local setting must never masquerade as a persisted server opt-in.
+              setRecurrenceAlertsEnabled(false);
+              setRecurrenceAlertThreshold(3);
               return;
             }
           }
           setEmailNotifications(data.data.email_notifications ?? true);
           setPushNotifications(data.data.push_notifications ?? false);
           setTeamActivity(data.data.team_activity ?? false);
+          setRecurrenceAlertsEnabled(data.data.recurrence_missed_alerts_enabled === true);
+          const threshold = data.data.recurrence_missed_alert_threshold;
+          setRecurrenceAlertThreshold(threshold === 2 || threshold === 5 ? threshold : 3);
         }
       } catch {
         const saved = localStorage.getItem('taskflow-settings');
@@ -77,6 +87,32 @@ export function NotificationsSettings() {
     };
     void load();
   }, [mounted]);
+
+  const updateRecurrencePreference = async (field: 'recurrence_missed_alerts_enabled'|'recurrence_missed_alert_threshold',value:boolean|2|3|5) => {
+    if(recurrenceAlertsBusy)return;
+    const previousEnabled=recurrenceAlertsEnabled;
+    const previousThreshold=recurrenceAlertThreshold;
+    if(field==='recurrence_missed_alerts_enabled')setRecurrenceAlertsEnabled(value===true);
+    else setRecurrenceAlertThreshold(value as 2|3|5);
+    setRecurrenceAlertsBusy(true);
+    try{
+      const response=await fetch('/api/users/settings',{
+        method:'PATCH',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({[field]:value}),
+      });
+      const json=await response.json().catch(()=>null);
+      if(!response.ok||!json?.success)throw new Error(
+        response.status===503 ? 'Recurring alerts are not configured in the database yet.' :
+        json?.error||'Could not save recurring reminder settings.',
+      );
+      toast.success('Recurring reminder preference saved.');
+    }catch(cause){
+      setRecurrenceAlertsEnabled(previousEnabled);
+      setRecurrenceAlertThreshold(previousThreshold);
+      toast.error(cause instanceof Error?cause.message:'Could not save preference.');
+    }finally{setRecurrenceAlertsBusy(false);}
+  };
 
   const handleEmail = (checked: boolean) => {
     setEmailNotifications(checked);
@@ -185,6 +221,47 @@ export function NotificationsSettings() {
             </div>
             <Switch checked={teamActivity} onCheckedChange={handleTeamActivity} />
           </div>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Repeat2 className="h-4 w-4" /> Recurring work check-ins
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0 space-y-1">
+              <Label htmlFor="recurrence-alerts-toggle" className="text-sm font-medium">Alert me when recurring work is missed</Label>
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                Covers daily and weekly Actions and checklist items. Off by default.
+                One reminder per calendar week at most, even if several days are missed.
+              </p>
+            </div>
+            <Switch id="recurrence-alerts-toggle" checked={recurrenceAlertsEnabled} disabled={recurrenceAlertsBusy}
+              onCheckedChange={value=>void updateRecurrencePreference('recurrence_missed_alerts_enabled',value)}/>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 bg-muted/20 px-3 py-3">
+            <div className="space-y-0.5">
+              <Label className="text-xs font-medium">Notify after</Label>
+              <p className="text-[11px] text-muted-foreground">Consecutive missed scheduled occurrences</p>
+            </div>
+            <Select value={String(recurrenceAlertThreshold)} disabled={!recurrenceAlertsEnabled||recurrenceAlertsBusy}
+              onValueChange={value=>void updateRecurrencePreference('recurrence_missed_alert_threshold',Number(value) as 2|3|5)}>
+              <SelectTrigger className="h-9 w-[112px]" aria-label="Number of missed occurrences">
+                <SelectValue/>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="2">2 misses</SelectItem>
+                <SelectItem value="3">3 misses</SelectItem>
+                <SelectItem value="5">5 misses</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            Check-ins appear in the notification center. Browser push follows your Push Notifications setting.
+            Past dates are never automatically completed or copied into today's workload.
+          </p>
         </CardContent>
       </Card>
     </div>
