@@ -93,8 +93,8 @@ export function buildRecurrenceHistory(
   windowDays = 30,
 ): RecurrenceHistory {
   if (schedule.scheduleType !== 'recurring') throw new Error('History requires a recurring schedule');
-  if (!Number.isInteger(windowDays) || windowDays < 1 || windowDays > 90) {
-    throw new Error('History window must be 1–90 days');
+  if (!Number.isInteger(windowDays) || windowDays < 1 || windowDays > 180) {
+    throw new Error('History window must be 1–180 days');
   }
   const startDate = addCalendarDays(today, 1 - windowDays);
   const endDate = today;
@@ -131,7 +131,7 @@ export function countRecentMissedOccurrences(
   schedule: WorkSchedule,
   persisted: readonly WorkOccurrence[],
   today: string,
-  maxLookbackDays = 30,
+  maxLookbackDays = 180,
 ): { count: number; oldestMissedDate: string | null } {
   const history = buildRecurrenceHistory(schedule, persisted, today, maxLookbackDays);
   const days = history.days.filter(day => day.date < today).reverse();
