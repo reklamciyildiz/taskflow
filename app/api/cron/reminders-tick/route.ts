@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cronRemindersUnauthorizedResponse } from '@/lib/cron-reminders-guard';
 import { processScheduledReminders } from '@/lib/process-scheduled-reminders';
 import { processTaskDueReminders } from '@/lib/process-task-reminders';
+import { processMissedRecurrenceReminders } from '@/lib/process-missed-recurrence-reminders';
 
 /**
  * Single entrypoint for all reminder processing:
  * 1) Absolute instants from work_schedules reminder rules — needs frequent ticks for "5m before".
  * 2) Due-date buckets (overdue / today / tomorrow in the recipient's IANA time zone) — deduped; safe on the same cadence.
+ * 3) Missed recurrence digest — after 3 missed occurrences, at most once per ISO week, local morning.
  *
  * Auth: see `cronRemindersUnauthorizedResponse`.
  *
@@ -25,15 +27,17 @@ export async function GET(request: NextRequest) {
 
   try {
     const startedAt = performance.now();
-    // Both processors must run, even when one fails. A partial failure is
+    // All processors must run, even when one fails. A partial failure is
     // reported as non-2xx so the scheduler/monitoring can alert and retry.
-    const [scheduledResult, dueResult] = await Promise.allSettled([
+    const [scheduledResult, dueResult, missedResult] = await Promise.allSettled([
       processScheduledReminders(),
       processTaskDueReminders(),
+      processMissedRecurrenceReminders(),
     ]);
     const failed = [
       ...(scheduledResult.status === 'rejected' ? ['scheduled'] : []),
       ...(dueResult.status === 'rejected' ? ['due'] : []),
+      ...(missedResult.status === 'rejected' ? ['missedRecurrence'] : []),
     ];
     for (const component of failed) console.error('Reminder cron processor failed:', component);
     const response = NextResponse.json({
@@ -43,6 +47,7 @@ export async function GET(request: NextRequest) {
       stats: {
         scheduled: scheduledResult.status === 'fulfilled' ? scheduledResult.value : null,
         due: dueResult.status === 'fulfilled' ? dueResult.value : null,
+        missedRecurrence: missedResult.status === 'fulfilled' ? missedResult.value : null,
       },
     }, { status: failed.length ? 503 : 200 });
     response.headers.set('Cache-Control', 'no-store');
