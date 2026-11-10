@@ -17,6 +17,7 @@ import {
   UpdateNoteRequest,
 } from './types';
 import type { ChecklistNoteLink } from './checklist-note-links';
+import type { RecurrenceHistory } from './recurrence-history';
 import type { PlannerProjectionItem, PlannerTodayProjection, PlannerUpcomingProjection } from './planner-projection';
 import type { WorkSchedule, WorkScheduleInput, WorkSource } from './scheduling-domain';
 
@@ -189,6 +190,14 @@ function coalescedPlannerRequest<T>(key: string, request: () => Promise<ApiRespo
 }
 
 export const plannerApi = {
+  getHistory: (input: { scheduleId: string; timeZone: string; days?: 7 | 30 }) => {
+    const params = new URLSearchParams({
+      scheduleId: input.scheduleId,
+      timeZone: input.timeZone,
+      days: String(input.days ?? 30),
+    });
+    return fetchApi<RecurrenceHistory>(`/planner/history?${params.toString()}`);
+  },
   getToday: (input: { date: string; teamId: string; timeZone: string }, fresh = false) => {
     const params = new URLSearchParams(input);
     const endpoint = `/planner/today?${params.toString()}`;
