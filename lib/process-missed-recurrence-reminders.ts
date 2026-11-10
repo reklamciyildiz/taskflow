@@ -4,7 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase-admin';
 import { listActiveRecurringScheduledWork } from '@/lib/scheduling-runtime-server';
 import { calendarDateInTimeZone } from '@/lib/scheduling-runtime';
 import { addCalendarDays, isoWeekday, workOccurrenceFromRow, type WorkOccurrence } from '@/lib/scheduling-domain';
-import { countRecentMissedOccurrences } from '@/lib/recurrence-history';
+import { countRecentMissedOccurrences, missedRecurrenceAlertWindow } from '@/lib/recurrence-history';
 
 /** In-app and opt-in browser push, never email, at most once per ISO week.
  * A user-enabled threshold (2/3/5) triggers the first alert.
@@ -19,21 +19,6 @@ export type MissedRecurrenceStats = {
   pushFailures: number;
   deferred: boolean;
 };
-
-function localHour(date: Date, timeZone: string): number {
-  const value = new Intl.DateTimeFormat('en-GB', {
-    hour: '2-digit', hourCycle: 'h23', timeZone,
-  }).format(date);
-  return Number(value);
-}
-
-export function missedRecurrenceAlertWindow(now: Date, timeZone: string): boolean {
-  // Evaluate once per hour, not on every 5-minute cron invocation. Vercel's
-  // twice-daily backup can still deliver for time zones within this window.
-  if (now.getUTCMinutes() >= 10) return false;
-  const hour = localHour(now, timeZone);
-  return Number.isInteger(hour) && hour >= 9 && hour <= 12;
-}
 
 function chunks<T>(values: T[], size = 200): T[][] {
   const result: T[][] = [];
