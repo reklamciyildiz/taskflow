@@ -11,6 +11,7 @@ import {
   FolderKanban,
   MoreHorizontal,
   Repeat2,
+  History,
   RefreshCw,
   UserRound,
 } from 'lucide-react';
@@ -43,6 +44,7 @@ import {
   SCHEDULE_CHANGED_EVENT,
 } from '@/lib/schedule-events';
 import { PlannerMutationGuard } from '@/lib/planner-mutation-guard';
+import { RecurrenceHistoryDialog } from '@/components/planner/RecurrenceHistoryDialog';
 
 const plannerCache = new Map<string, PlannerTodayProjection>();
 const upcomingCache = new Map<string, PlannerUpcomingProjection>();
@@ -131,6 +133,7 @@ function PlannerRow({
   showDate,
   onReschedule,
   onSkip,
+  onHistory,
 }: {
   item: PlannerProjectionItem;
   completed: boolean;
@@ -141,6 +144,7 @@ function PlannerRow({
   showDate: boolean;
   onReschedule: (date: string) => void;
   onSkip: () => void;
+  onHistory: () => void;
 }) {
   const [dateOpen, setDateOpen] = useState(false);
   const title = item.source.sourceType === 'checklist_item'
@@ -207,6 +211,7 @@ function PlannerRow({
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => setDateOpen(true)}>Pick another date</DropdownMenuItem>
               {item.isRecurring ? <DropdownMenuItem onSelect={onSkip}>Skip this occurrence</DropdownMenuItem> : null}
+              {item.isRecurring ? <DropdownMenuItem onSelect={onHistory}><History className="mr-2 h-4 w-4" /> History & insights</DropdownMenuItem> : null}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -322,6 +327,7 @@ export function PlannerToday({ embedded = false }: { embedded?: boolean }) {
   const [upcomingError, setUpcomingError] = useState<string | null>(null);
   const visibleUpcoming = upcomingScopeKey === upcomingKey ? upcoming : null;
   const [completedOpen, setCompletedOpen] = useState(true);
+  const [historyTarget, setHistoryTarget] = useState<{item:PlannerProjectionItem;canEdit:boolean}|null>(null);
   const [pendingItemIds, setPendingItemIds] = useState<Set<string>>(() => new Set());
   const pendingItemIdsRef = useRef<Set<string>>(new Set());
   const checklistDocumentsRef = useRef<Map<string, unknown>>(new Map());
@@ -712,6 +718,13 @@ export function PlannerToday({ embedded = false }: { embedded?: boolean }) {
           onOpen={() => openTaskEditor(item.taskId, item.checklistItemId)}
           onReschedule={(nextDate) => void reschedule(item, nextDate)}
           onSkip={() => void skip(item)}
+          onHistory={() => {
+            const task=tasksRef.current.find(candidate=>candidate.id===item.taskId);
+            const canEdit=Boolean(task && (item.source.sourceType==='action'
+              ? canCompleteTask(task.assigneeId)
+              : canEditTask(task.createdBy,task.assigneeId)));
+            setHistoryTarget({item,canEdit});
+          }}
         />
       ))}
     </div>
@@ -766,6 +779,13 @@ export function PlannerToday({ embedded = false }: { embedded?: boolean }) {
         </div>
       ) : null}
 
+      <RecurrenceHistoryDialog
+        scheduleId={historyTarget?.item.scheduleId ?? null}
+        title={historyTarget?.item.checklistItemText || historyTarget?.item.taskTitle || 'Recurring work'}
+        canEdit={historyTarget?.canEdit ?? false}
+        open={Boolean(historyTarget)}
+        onOpenChange={open => { if(!open)setHistoryTarget(null); }}
+      />
       {view === 'today' ? (remaining === 0 && groups.completedToday.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border/70 bg-card/20 px-6 py-14 text-center">
           <CheckCircle2 className="mx-auto mb-3 h-8 w-8 text-muted-foreground/60" aria-hidden />
