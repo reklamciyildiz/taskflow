@@ -7,10 +7,9 @@ import { addCalendarDays, isoWeekday, workOccurrenceFromRow, type WorkOccurrence
 import { countRecentMissedOccurrences } from '@/lib/recurrence-history';
 
 /** In-app and opt-in browser push, never email, at most once per ISO week.
- * Three successive missed scheduled days trigger the first alert.
+ * A user-enabled threshold (2/3/5) triggers the first alert.
  * No notification is generated for a deliberately skipped or moved-forward day.
  */
-const MIN_CONSECUTIVE_MISSES = 3;
 const HISTORY_LOOKBACK_DAYS = 30;
 
 export type MissedRecurrenceStats = {
@@ -54,9 +53,32 @@ export async function processMissedRecurrenceReminders(nowDate = new Date()): Pr
     .filter(item => item.recipientId && missedRecurrenceAlertWindow(nowDate, item.recipientTimeZone));
   if (!templates.length) return result;
 
+  // The new columns are opt-in. SELECT * deliberately remains compatible with
+  // installations that haven't applied the additive migration: no preference
+  // means no alert. The other reminder processors keep working.
+  const recipients = [...new Set(templates.map(item => item.recipientId).filter(
+    (value): value is string => Boolean(value),
+  ))];
+  const alertThresholdByUser = new Map<string, number>();
+  for (const recipientBatch of chunks(recipients)) {
+    const { data, error } = await supabaseAdmin.from('user_settings')
+      .select('*').in('user_id', recipientBatch);
+    if (error) throw error;
+    for (const setting of data ?? []) {
+      const value = setting as Record<string, unknown>;
+      if (value.recurrence_missed_alerts_enabled !== true) continue;
+      const threshold = value.recurrence_missed_alert_threshold;
+      alertThresholdByUser.set(String(value.user_id),
+        threshold === 2 || threshold === 3 || threshold === 5 ? threshold : 3);
+    }
+  }
+  const optedTemplates = templates.filter(item =>
+    Boolean(item.recipientId && alertThresholdByUser.has(item.recipientId)));
+  if (!optedTemplates.length) return result;
+
   const earliestUtcDate = addCalendarDays(nowDate.toISOString().slice(0, 10), -32);
   const rows: WorkOccurrence[] = [];
-  for (const group of chunks([...new Set(templates.map(item => item.schedule.id))])) {
+  for (const group of chunks([...new Set(optedTemplates.map(item => item.schedule.id))])) {
     const { data, error } = await supabaseAdmin.from('work_occurrences')
       .select('*')
       .in('schedule_id', group)
@@ -71,8 +93,9 @@ export async function processMissedRecurrenceReminders(nowDate = new Date()): Pr
     bySchedule.set(row.scheduleId, existing);
   }
 
-  for (const work of templates) {
+  for (const work of optedTemplates) {
     if (!work.recipientId) continue;
+    const threshold = alertThresholdByUser.get(work.recipientId) ?? 3;
     const localToday = calendarDateInTimeZone(nowDate, work.recipientTimeZone);
     if (work.schedule.scheduleDate >= localToday ||
         (work.schedule.endsOn && work.schedule.endsOn < localToday)) continue;
@@ -83,7 +106,7 @@ export async function processMissedRecurrenceReminders(nowDate = new Date()): Pr
       localToday,
       HISTORY_LOOKBACK_DAYS,
     );
-    if (count < MIN_CONSECUTIVE_MISSES) continue;
+    if (count < threshold) continue;
 
     const weekStart = addCalendarDays(localToday, 1 - isoWeekday(localToday));
     const isChecklist = work.sourceType === 'checklist_item';
