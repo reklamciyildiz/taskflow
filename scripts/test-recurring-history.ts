@@ -173,7 +173,7 @@ for(const file of ['components/PlannerToday.tsx','components/planner/PlannerRout
 const visual=read('components/planner/RecurrenceHistoryDialog.tsx');
 assert.match(visual,/Mark completed/);
 assert.match(visual,/Restore to pending/);
-assert.match(visual,/7 days/);
+assert.match(visual,/\(\[7, 30\] as const\)/);
 assert.match(visual,/STATUS_STYLE/);
 assert.doesNotMatch(visual,/insert.*task|create.*Action/);
 const sql=read('supabase/migrations/20261110213000_missed_recurrence_preferences.sql');
