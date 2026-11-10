@@ -406,6 +406,13 @@ export async function listActiveOneOffScheduledWork(): Promise<ScheduledWorkRunt
   return listActiveScheduledWorkTemplates(false);
 }
 
+/** Templates for bounded missed-recurrence alerts; no pending rows are created. */
+export async function listActiveRecurringScheduledWork(): Promise<ScheduledWorkRuntimeItem[]> {
+  const templates = await listActiveScheduledWorkTemplates(true);
+  return templates.filter(item => item.schedule.scheduleType === 'recurring');
+}
+
+
 /**
  * Resolve actionable reminder targets without materializing pending occurrences.
  * Persisted completion/skip/reschedule exceptions are merged by occurrence identity.
