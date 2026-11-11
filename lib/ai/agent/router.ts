@@ -46,17 +46,22 @@ export function planDirectAIReadTools(question:string,context:AIChatContext):AIR
   const actionWords=/\b(actions?|aksiyon\w*|isler\w*|gorev\w*|tasks?)\b/;
   const noteWords=/\b(notes?|notlar\w*|notum\w*|notlarim\w*)\b/;
   const recentWords=/\b(recent|recently|last|latest|newest|son|en son|sonuncu|yeni|gecmis|gecmiste|yaptiklarim\w*|yaptigim\w*|aktivit\w*|faaliyet\w*)\b/;
-  const asksRecentActivity=/\b(activity|activities|work logs?|calismalarim\w*|yaptiklarim\w*|yaptigim\w*|aktivit\w*|faaliyet\w*)\b/;
+  const asksRecentActivity=/\b(activity|activities|work logs?|calismalarim\w*|yaptiklarim\w*|yaptigim\w*|aktivit\w*|faaliyet\w*|what (?:you|i) did|what did (?:you|i) do)\b/;
   const asksList=/\b(kac|hangi|listele\w*|list|names?|name|give|provide|show|tell|goster\w*|sirala\w*|ozet\w*|summary|summarize|what|neler|ne var|how many|first|top|last|latest|be[sş]|five|three|\d+)\b/;
   const containsContentRequest=/\b(icerig\w*|icerik\w*|icerisind\w*|ayrinti\w*|detay\w*|contents?|inside|read|oku\w*|neler var|ne var|what is in|what's in)\b/.test(text);
   const notesOnly=noteWords.test(text)&&!actionWords.test(text);
   const requestsRecent=(recentWords.test(text)||asksRecentActivity.test(text))
     &&(noteWords.test(text)||actionWords.test(text)||asksRecentActivity.test(text));
-  const listRecentNotes=notesOnly&&asksList.test(text)
-    &&/\b(my|mine|benim|son|en son|latest|last|recent|listele\w*|list|show|goster\w*)\b/.test(text);
+  const noteTopicMatch=notesOnly ? question.match(/^\s*(?:benim\s+)?(.+?)\s+hakk(?:ında|inda|ındaki|indaki)\s+notlar/iu)
+    ?? question.match(/\babout\s+(.+?)\s*[?.!]?$/iu) : null;
+  const noteTopic=noteTopicMatch?.[1]?.replace(/^(?:what is|what are|my|benim)\s+/iu,'').trim();
+  const noteSearch=Boolean(noteTopic&&noteTopic.length<=120);
+  const listRecentNotes=notesOnly&&(asksList.test(text)||noteSearch)
+    &&/\b(my|mine|benim|son|en son|latest|last|recent|listele\w*|list|show|goster\w*|about|hakkinda)\b/.test(text);
   if(requestsRecent||listRecentNotes) {
     calls.push(call('get_recent_workspace',{...selector,...team,
-      focus:notesOnly?'notes':actionWords.test(text)&&!noteWords.test(text)?'actions':'all',
+      ...(noteSearch?{query:noteTopic}:{}),
+      focus:asksRecentActivity.test(text)?'all':notesOnly?'notes':actionWords.test(text)&&!noteWords.test(text)?'actions':'all',
       limit:Math.min(15,selectRequestedActionCount(question,8))},calls.length));
   } else if(/\b(kac|how many|listele|list)\b.*\b(process\w*|surec\w*|proje\w*)\b/.test(text)
     &&!actionWords.test(text)&&!noteWords.test(text)) {
