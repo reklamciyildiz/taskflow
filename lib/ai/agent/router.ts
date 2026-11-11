@@ -56,7 +56,7 @@ export function planDirectAIReadTools(question:string,context:AIChatContext):AIR
     ?? question.match(/\babout\s+(.+?)\s*[?.!]?$/iu) : null;
   const noteTopic=noteTopicMatch?.[1]?.replace(/^(?:what is|what are|my|benim)\s+/iu,'').trim();
   const noteSearch=Boolean(noteTopic&&noteTopic.length<=120);
-  const listRecentNotes=notesOnly&&(asksList.test(text)||noteSearch)
+  const listRecentNotes=notesOnly&&!Object.keys(selector).length&&(asksList.test(text)||noteSearch)
     &&/\b(my|mine|benim|son|en son|latest|last|recent|listele\w*|list|show|goster\w*|about|hakkinda)\b/.test(text);
   const combinedProcessResearch=Boolean(processName&&actionWords.test(text)&&noteWords.test(text)
     &&/\b(karar\w*|degerlendir\w*|analyze|analysis|compare|karsilastir\w*)\b/.test(text));
