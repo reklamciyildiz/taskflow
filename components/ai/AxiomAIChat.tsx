@@ -197,7 +197,8 @@ export function AxiomAIChatView({
   };
 
   const activeConversation=conversations.find((item)=>item.id===conversationId);
-  const contextLabel=context.processId?'Process context':context.teamId?'Team workspace':'Workspace context';
+  const activeContext=activeConversation?.context ?? context;
+  const contextLabel=activeContext.processId?'Process context':activeContext.teamId?'Team workspace':'Authorized workspace';
   const history=(
     <AIHistoryPanel conversations={conversations} activeId={conversationId} disabled={loading}
       historyLoading={historyLoading} historyError={historyError}
