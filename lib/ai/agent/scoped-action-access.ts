@@ -31,7 +31,7 @@ export function canReadScopedAction(
 
 export function selectRequestedActionCount(query: string, fallback = 10): number {
   const normalized = query.toLocaleLowerCase('tr-TR').replace(/\u0131/g,'i');
-  const word = normalized.match(/\b(?:first|top|last|latest|son|ilk|en son)?\s*(\d{1,2})\s+(?:action|aksiyon|gorev|görev|tasks?)\b/u);
+  const word = normalized.match(/\b(?:first|top|last|latest|son|ilk|en son)?\s*(\d{1,2})\s+(?:actions?\w*|aksiyon\w*|gorev\w*|görev\w*|tasks?\w*)\b/u);
   if (word) return Math.min(50, Math.max(1, Number(word[1])));
   const wordCount = /\b(?:five|bes|beş)\b/u.test(normalized) ? 5
     : /\b(?:three|uc|üç)\b/u.test(normalized) ? 3
