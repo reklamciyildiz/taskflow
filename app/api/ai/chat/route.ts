@@ -25,6 +25,7 @@ import { chatErrorResponse,requireAIChatUser } from '@/lib/ai/chat/http-server';
 import type { AIChatStreamEvent } from '@/lib/ai/chat/types';
 import { encodeChatSSE } from '@/lib/ai/chat/sse';
 import { buildAIReadToolContext } from '@/lib/ai/agent/context';
+import { renderCanonicalWorkspaceAnswer } from '@/lib/ai/agent/canonical-answer';
 import { executeAIReadTool,AIReadToolError } from '@/lib/ai/agent/read-tools';
 import { planDirectAIReadTools,shouldUseModelToolSelection } from '@/lib/ai/agent/router';
 import { selectAIReadTools,estimateAIReadToolSelectionTokens } from '@/lib/ai/agent/selector';
@@ -180,7 +181,30 @@ export async function POST(request:NextRequest) {
           quotaReserved=Boolean(quota.reservationId);
 
           const readToolsEnabled=areAIReadToolsEnabled();
+          // A data question must never be passed to an ungrounded model when
+          // workspace read tools are administratively disabled.
+          if(!readToolsEnabled&&!writeRequested) {
+            const requested=planDirectAIReadTools(input.message,effectiveContext);
+            if(requested.length||shouldUseModelToolSelection(input.message,[])) {
+              answer=replyInTurkish
+                ?'Bu oturumda Actiproc workspace veri okuma özelliği etkin değil. Action veya Note kayıtlarını doğrulayamadığım için sonuç uydurmayacağım. Yönetici AI Read Tools ayarını kontrol etmeli.'
+                :'Workspace data reading is not enabled for this session. I cannot verify your Actions or Notes; an administrator should check the AI Read Tools configuration.';
+              if(quotaReserved) {
+                await releaseAIQuotaReservation(input.clientRequestId,scope.userId,scope.organizationId);
+                quotaReserved=false;
+              }
+              send({type:'delta',text:answer});assistantStatus='completed';
+              await finalizeAssistantMessage({messageId:turn.assistantMessageId,scope,content:answer,
+                status:'completed',model:'actiproc-read-tools-disabled'});
+              send({type:'done',finishReason:'completed'});return;
+            }
+          }
           const directReadToolCalls=readToolsEnabled&&!writeRequested?planDirectAIReadTools(input.message,effectiveContext):[];
+          if(directReadToolCalls.length)console.info(JSON.stringify({
+            event:'ai_direct_workspace_read_planned',requestId:input.clientRequestId,
+            readToolNames:directReadToolCalls.map(call=>call.name),
+            scopedToTeam:Boolean(effectiveContext.teamId),scopedToProcess:Boolean(effectiveContext.processId),
+          }));
           const needsModelToolSelection=readToolsEnabled&&!writeRequested&&shouldUseModelToolSelection(input.message,directReadToolCalls);
           const runReadToolCalls=async(calls:AIReadToolCall[])=>{
             const executions:AIReadToolExecution[]=[];
@@ -235,6 +259,30 @@ export async function POST(request:NextRequest) {
             if(readToolReferences.length)send({type:'references',references:readToolReferences});
             grounding=citations.length?{kind:'knowledge',teamId:effectiveContext.teamId,processId:effectiveContext.processId}
               :readToolReferences.length?{kind:'structured',teamId:effectiveContext.teamId,processId:effectiveContext.processId}:{kind:'none'};
+          }
+
+          // Exact lists and recent record previews don't require generation.
+          // This path is reliable even when the model provider is overloaded.
+          const canonicalReply=renderCanonicalWorkspaceAnswer(input.message,readToolExecutions);
+          if(canonicalReply) {
+            answer=canonicalReply;
+            await finalizeAssistantMessage({
+              messageId:turn.assistantMessageId,scope,content:answer,status:'completed',
+              model:'actiproc-canonical-read',
+              ...(readToolReferences.length?{references:readToolReferences}:{}),
+              grounding:readToolReferences.length
+                ?{kind:'structured',teamId:effectiveContext.teamId,processId:effectiveContext.processId}
+                :{kind:'none'},
+            });
+            send({type:'delta',text:answer});send({type:'done',finishReason:'completed'});
+            assistantStatus='completed';
+            await recordAIRequest(scope.userId,scope.organizationId,'axiom-chat','actiproc-canonical-read',
+              0,0,0,Date.now()-startedAt,true,undefined,{
+                intent,plan:allowance.plan,canonicalRead:true,
+                readTools:readToolExecutions.map(execution=>execution.name),
+                toolCallCount:readToolExecutions.length,
+              }).catch(()=>undefined);
+            return;
           }
 
           let structured:Awaited<ReturnType<typeof retrieveStructuredActions>>|undefined;
@@ -378,6 +426,28 @@ export async function POST(request:NextRequest) {
             inputTokens=(inputTokens??0)+selection.inputTokens;outputTokens=(outputTokens??0)+selection.outputTokens;
             if(selection.calls.length) {
               readToolExecutions=await runReadToolCalls(selection.calls);
+              const failedSelectionRead=readToolExecutions.find(execution=>{
+                const payload=execution.data as {error?:string}|null;
+                return Boolean(payload&&typeof payload.error==='string');
+              });
+              if(failedSelectionRead) {
+                // Model selection errors are equally authoritative; never let
+                // the final generator interpret error JSON as an empty list.
+                const failure=failedSelectionRead.data as {error:string;message?:string};
+                answer=failure.error==='not_found'
+                  ?replyInTurkish?'Belirttiğiniz Process bulunamadı veya erişim izniniz yok.':'The Process was not found or is not accessible.'
+                  :failure.error==='forbidden'
+                    ?replyInTurkish?'Bu kayıtlara erişim izniniz yok.':'You do not have access to those records.'
+                    :replyInTurkish?'Workspace verileri doğrulanamadı; lütfen tekrar deneyin.':'Workspace data could not be verified. Please retry.';
+                if(quotaReserved){
+                  await releaseAIQuotaReservation(input.clientRequestId,scope.userId,scope.organizationId);
+                  quotaReserved=false;
+                }
+                send({type:'delta',text:answer});assistantStatus='completed';
+                await finalizeAssistantMessage({messageId:turn.assistantMessageId,scope,content:answer,
+                  status:'completed',model:'actiproc-selected-read-scope-guard'});
+                send({type:'done',finishReason:'completed'});return;
+              }
               citations=readToolExecutions.flatMap((execution)=>execution.citations);
               readToolReferences=readToolExecutions.flatMap((execution)=>execution.references)
                 .filter((reference,index,all)=>all.findIndex((candidate)=>candidate.type===reference.type&&candidate.id===reference.id)===index).slice(0,20);
@@ -462,6 +532,7 @@ export async function POST(request:NextRequest) {
               throw providerError;
             }
           }
+          if(!answer.trim()) throw new Error('Provider returned an empty response');
           const allowed=new Set(registry.ids);
           answer=sanitizeAnswerCitations(answer,allowed);
           const referenced=citationIdsFromAnswer(answer);

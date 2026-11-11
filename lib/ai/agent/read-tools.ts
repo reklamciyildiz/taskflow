@@ -11,6 +11,7 @@ import { isTerminalBoardColumn,parseColumnConfigFromJson } from '@/lib/types';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import type { AIReadReference,AIReadToolActor,AIReadToolExecution,AIReadToolName } from './types';
 import { matchAIEntity, normalizeAIEntityName } from './entity-matching';
+import { canReadScopedAction } from './scoped-action-access';
 
 const uuid=z.string().uuid();
 const processSelector=z.object({ processId:uuid.optional(),processName:z.string().trim().min(1).max(120).optional() }).strict()
@@ -28,6 +29,7 @@ const listActionsSchema=z.object({
   scheduleDateFrom:z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),scheduleDateTo:z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   limit:z.number().int().min(1).max(50).default(20),offset:z.number().int().min(0).max(500).default(0),
 }).strict();
+const recentWorkspaceSchema=z.object({teamId:uuid.optional(),processId:uuid.optional(),processName:z.string().trim().min(1).max(120).optional(),query:z.string().trim().min(1).max(120).optional(),limit:z.number().int().min(1).max(15).default(8),focus:z.enum(['notes','actions','all']).default('all')}).strict();
 const actionDetailsSchema=z.object({ actionId:uuid }).strict();
 const plannerSchema=z.object({
   range:z.enum(['today','tomorrow','this_week','custom']).default('today'),teamId:uuid.optional(),
@@ -41,7 +43,7 @@ const knowledgeSchema=z.object({
 
 const schemas:Record<AIReadToolName,z.ZodTypeAny>={
   list_processes:listProcessesSchema,get_process_overview:processOverviewSchema,get_process_content:processContentSchema,list_actions:listActionsSchema,
-  get_action_details:actionDetailsSchema,get_planner_overview:plannerSchema,search_knowledge:knowledgeSchema,
+  get_recent_workspace:recentWorkspaceSchema,get_action_details:actionDetailsSchema,get_planner_overview:plannerSchema,search_knowledge:knowledgeSchema,
 };
 
 export class AIReadToolError extends Error {
@@ -225,39 +227,190 @@ async function runProcessContent(actor:AIReadToolActor,input:z.infer<typeof proc
   };
 }
 
-async function runListActions(actor:AIReadToolActor,input:z.infer<typeof listActionsSchema>):Promise<AIReadToolExecution> {
-  if(input.scheduleDateFrom&&input.scheduleDateTo&&input.scheduleDateFrom>input.scheduleDateTo) throw new AIReadToolError('invalid_arguments','Invalid schedule date range');
+type ReadActionFilter = {
+  teamId?: string;
+  processId?: string;
+  processName?: string;
+};
+
+const ACTION_READ_FIELDS='id,title,description,status,priority,assignee_id,project_id,team_id,checklist_blocks,updated_at';
+
+/**
+ * Always prefilter by ALLOWED Process IDs, then by allowed Team IDs for
+ * projectless Actions. Filtering by tasks.team_id before Process resolution
+ * would lose legacy/migrated cards still displayed by the Board.
+ *
+ * Each slice is explicitly bounded; data from other teams/Processes is never
+ * sent to the model, and a partial scan can never be described as exhaustive.
+ */
+async function readVisibleActions(actor:AIReadToolActor,input:ReadActionFilter) {
   const teams=await accessibleTeamIds(actor);
-  if(input.teamId&&!teams.has(input.teamId))
-    throw new AIReadToolError('forbidden','Requested team is not accessible');
-  const projects=await visibleProcesses(actor,input.teamId);const projectById=new Map(projects.map((p:any)=>[String(p.id),p]));
+  if(input.teamId&&!teams.has(input.teamId))throw new AIReadToolError('forbidden','Requested Team is not accessible');
+  const projects=await visibleProcesses(actor,input.teamId);
+  const projectById=new Map<string,any>(projects.map((p:any)=>[String(p.id),p]));
   let selectedProject:any=null;
   if(input.processId||input.processName){
     selectedProject=await resolveProcess(actor,input,input.teamId);
-    if(!selectedProject)
-      throw new AIReadToolError('not_found','Requested Process was not found or is not accessible. Check the Process name.');
+    if(!selectedProject)throw new AIReadToolError('not_found','Requested Process was not found or is not accessible. Check the Process name.');
   }
-  let query=supabaseAdmin.from('tasks').select('id,title,description,status,priority,assignee_id,project_id,team_id,checklist_blocks,updated_at')
-    .eq('organization_id',actor.organizationId).limit(501);
-  // A verified Process ID is the canonical scope. Legacy Actions may have
-  // stale/null team_id while still belonging to this authorized Process.
-  // Filtering those records by team_id as well can falsely report zero.
-  if(selectedProject) query=query.eq('project_id',selectedProject.id);
-  else if(input.teamId) query=query.eq('team_id',input.teamId);
-  else if(teams.size) query=query.in('team_id',[...teams]);
-  else return{name:'list_actions',statusLabel:'Action’lar kontrol ediliyor…',citations:[],references:[],data:{total:0,hasMore:false,actions:[]}};
-  if(input.priorities?.length)query=query.in('priority',input.priorities);
-  if(input.stageIds?.length)query=query.in('status',input.stageIds);
-  if(input.assignedToMe)query=query.eq('assignee_id',actor.userId);else if(input.assigneeId===null)query=query.is('assignee_id',null);else if(input.assigneeId)query=query.eq('assignee_id',input.assigneeId);
-  const {data,error}=await query.order('updated_at',{ascending:false});if(error)throw new AIReadToolError('unavailable','Actions are temporarily unavailable');
-  let tasks=(data??[]).filter((task:any)=>{const pid=task.project_id?String(task.project_id):null;return pid?projectById.has(pid):teams.has(String(task.team_id));});
-  if(input.query){const q=input.query.toLocaleLowerCase('tr-TR');tasks=tasks.filter((t:any)=>`${t.title} ${t.description??''}`.toLocaleLowerCase('tr-TR').includes(q));}
-  tasks=tasks.filter((task:any)=>{const project=task.project_id?projectById.get(String(task.project_id)):null;const columns=project?parseColumnConfigFromJson(project.column_config):[];const completed=isTerminalBoardColumn(String(task.status),columns);return input.completion==='all'||(input.completion==='completed'?completed:!completed);});
-  const taskIds=tasks.map((t:any)=>String(t.id));const {data:schedules,error:scheduleError}=taskIds.length?await supabaseAdmin.from('work_schedules').select('task_id,schedule_type,schedule_date,schedule_time,time_zone').in('task_id',taskIds).is('checklist_item_id',null).is('archived_at',null):{data:[],error:null};
-  if(scheduleError)throw new AIReadToolError('unavailable','Action schedules are temporarily unavailable');const scheduleByTask=new Map((schedules??[]).map((s:any)=>[String(s.task_id),s]));
-  if(input.scheduleDateFrom||input.scheduleDateTo)tasks=tasks.filter((t:any)=>{const s:any=scheduleByTask.get(String(t.id));return s&&(!input.scheduleDateFrom||String(s.schedule_date)>=input.scheduleDateFrom)&&(!input.scheduleDateTo||String(s.schedule_date)<=input.scheduleDateTo);});
-  const page=tasks.slice(input.offset,input.offset+input.limit);const actions=page.map((task:any)=>{const project:any=task.project_id?projectById.get(String(task.project_id)):null;const columns=project?parseColumnConfigFromJson(project.column_config):[];const stage=columns.find((c)=>c.id===String(task.status));const checklist=extractChecklistItemsFromTipTap(task.checklist_blocks);const schedule:any=scheduleByTask.get(String(task.id));return{id:String(task.id),title:String(task.title),description:compact(task.description,300),priority:String(task.priority),stageId:String(task.status),stageLabel:stage?.title??String(task.status),completed:isTerminalBoardColumn(String(task.status),columns),assigneeId:task.assignee_id?String(task.assignee_id):null,processId:project?String(project.id):null,processName:project?String(project.name):null,checklist:{total:checklist.length,completed:checklist.filter((i)=>i.checked).length},schedule:schedule?{type:String(schedule.schedule_type),date:String(schedule.schedule_date),time:schedule.schedule_time?String(schedule.schedule_time):null,timeZone:schedule.time_zone?String(schedule.time_zone):null}:null,updatedAt:String(task.updated_at)}});
-  return{name:'list_actions',statusLabel:'Action’lar kontrol ediliyor…',citations:[],references:page.map((t:any)=>actionReference(t,t.project_id?String(t.project_id):null)),data:{total:tasks.length,hasMore:input.offset+page.length<tasks.length,actions}};
+  const candidateProjects=selectedProject?[String(selectedProject.id)]:[...projectById.keys()];
+  const limitPerScope=501;
+  const results:any[]=[];
+  let partialScan=false;
+  const read=async(query:any)=>{
+    const {data,error,count}=await query.order('updated_at',{ascending:false}).limit(limitPerScope);
+    if(error)throw new AIReadToolError('unavailable','Action lookup is temporarily unavailable');
+    results.push(...(data??[]));
+    if(count===null || count>(data??[]).length)partialScan=true;
+  };
+  // Limit the size of each IN filter, respecting PostgREST URL and row caps.
+  for(let index=0;index<candidateProjects.length;index+=75){
+    await read(supabaseAdmin.from('tasks').select(ACTION_READ_FIELDS,{count:'exact'})
+      .eq('organization_id',actor.organizationId)
+      .in('project_id',candidateProjects.slice(index,index+75)));
+  }
+  // Process filters are canonical; do not silently blend general Actions.
+  if(!selectedProject&&teams.size) {
+    await read(supabaseAdmin.from('tasks').select(ACTION_READ_FIELDS,{count:'exact'})
+      .eq('organization_id',actor.organizationId)
+      .is('project_id',null).in('team_id',[...teams]));
+  }
+  const seen=new Set<string>();
+  const tasks=results.filter(task=>{
+    const id=String(task.id);
+    if(seen.has(id))return false;
+    seen.add(id);
+    return canReadScopedAction(task,teams,projectById);
+  }).sort((a,b)=>{
+    const order=String(b.updated_at).localeCompare(String(a.updated_at));
+    return order||String(a.id).localeCompare(String(b.id));
+  });
+  return {teams,projects,projectById,selectedProject,tasks,partialScan};
+}
+
+async function runListActions(actor:AIReadToolActor,input:z.infer<typeof listActionsSchema>):Promise<AIReadToolExecution> {
+  if(input.scheduleDateFrom&&input.scheduleDateTo&&input.scheduleDateFrom>input.scheduleDateTo)
+    throw new AIReadToolError('invalid_arguments','Invalid schedule date range');
+  const scope=await readVisibleActions(actor,input);
+  let tasks=scope.tasks;
+  if(input.priorities?.length)tasks=tasks.filter((t:any)=>input.priorities!.includes(t.priority));
+  if(input.stageIds?.length)tasks=tasks.filter((t:any)=>input.stageIds!.includes(t.status));
+  if(input.assignedToMe)tasks=tasks.filter((t:any)=>String(t.assignee_id??'')===actor.userId);
+  else if(input.assigneeId===null)tasks=tasks.filter((t:any)=>!t.assignee_id);
+  else if(input.assigneeId)tasks=tasks.filter((t:any)=>String(t.assignee_id)===input.assigneeId);
+  if(input.query){
+    const query=normalizeAIEntityName(input.query);
+    tasks=tasks.filter((t:any)=>normalizeAIEntityName(t.title+' '+(t.description??'')).includes(query));
+  }
+  tasks=tasks.filter((task:any)=>{
+    const project=task.project_id?scope.projectById.get(String(task.project_id)):null;
+    const columns=project?parseColumnConfigFromJson(project.column_config):[];
+    const completed=isTerminalBoardColumn(String(task.status),columns);
+    return input.completion==='all'||(input.completion==='completed'?completed:!completed);
+  });
+  // Pagination is AFTER authorization; no page can be filled with inaccessible rows.
+  const scheduleFiltered=Boolean(input.scheduleDateFrom||input.scheduleDateTo);
+  const scheduleTaskIds=(scheduleFiltered?tasks:tasks.slice(input.offset,input.offset+input.limit))
+    .map(t=>String(t.id));
+  const scheduleByTask=new Map<string,any>();
+  for(let index=0;index<scheduleTaskIds.length;index+=80){
+    const {data,error}=await supabaseAdmin.from('work_schedules')
+      .select('task_id,schedule_type,schedule_date,schedule_time,time_zone')
+      .in('task_id',scheduleTaskIds.slice(index,index+80))
+      .is('checklist_item_id',null).is('archived_at',null);
+    if(error)throw new AIReadToolError('unavailable','Action schedules are temporarily unavailable');
+    for(const row of data??[])scheduleByTask.set(String(row.task_id),row);
+  }
+  if(input.scheduleDateFrom||input.scheduleDateTo)tasks=tasks.filter((task:any)=>{
+    const schedule:any=scheduleByTask.get(String(task.id));
+    return schedule&&(!input.scheduleDateFrom||String(schedule.schedule_date)>=input.scheduleDateFrom)
+      &&(!input.scheduleDateTo||String(schedule.schedule_date)<=input.scheduleDateTo);
+  });
+  const page=tasks.slice(input.offset,input.offset+input.limit);
+  const actions=page.map((task:any)=>{
+    const project:any=task.project_id?scope.projectById.get(String(task.project_id)):null;
+    const columns=project?parseColumnConfigFromJson(project.column_config):[];
+    const stage=columns.find((c)=>c.id===String(task.status));
+    const checklist=extractChecklistItemsFromTipTap(task.checklist_blocks);
+    const schedule:any=scheduleByTask.get(String(task.id));
+    return {id:String(task.id),title:safeContent(task.title,200),description:safeContent(task.description,300),
+      priority:String(task.priority),stageId:String(task.status),stageLabel:stage?.title??String(task.status),
+      completed:isTerminalBoardColumn(String(task.status),columns),
+      assigneeId:task.assignee_id?String(task.assignee_id):null,
+      processId:project?String(project.id):null,processName:project?String(project.name):null,
+      checklist:{total:checklist.length,completed:checklist.filter(i=>i.checked).length},
+      schedule:schedule?{type:String(schedule.schedule_type),date:String(schedule.schedule_date),
+        time:schedule.schedule_time?String(schedule.schedule_time):null,
+        timeZone:schedule.time_zone?String(schedule.time_zone):null}:null,updatedAt:String(task.updated_at)};
+  });
+  return {name:'list_actions',statusLabel:'Action’lar kontrol ediliyor…',citations:[],
+    references:page.map((t:any)=>actionReference(t,t.project_id?String(t.project_id):null)),
+    data:{total:scope.partialScan?null:tasks.length,minimumKnownCount:tasks.length,
+      partialScan:scope.partialScan,hasMore:scope.partialScan||input.offset+page.length<tasks.length,actions}};
+}
+
+async function runRecentWorkspace(actor:AIReadToolActor,input:z.infer<typeof recentWorkspaceSchema>):Promise<AIReadToolExecution> {
+  const scope=await readVisibleActions(actor,input);
+  // Latest Action updates from authorized Process+Team scopes.
+  const actions=scope.tasks.slice(0,input.limit).map((task:any)=>{
+    const project:any=task.project_id?scope.projectById.get(String(task.project_id)):null;
+    return {id:String(task.id),title:safeContent(task.title,200),
+      processName:project?safeContent(project.name,140):null,
+      updatedAt:String(task.updated_at),stage:String(task.status)};
+  });
+  // Notes are canonical TipTap JSON. Search only Notes attached to already
+  // authorized Actions; never query another tenant or return unknown task IDs.
+  const allowedTaskIds=scope.tasks.map((task:any)=>String(task.id));
+  const recentNotes:any[]=[];
+  let notesPartial=false;
+  for(let index=0;input.focus!=='actions'&&index<allowedTaskIds.length;index+=75) {
+    const {data,error,count}=await supabaseAdmin.from('notes')
+      .select('id,task_id,title,type,content,updated_at',{count:'exact'})
+      .eq('organization_id',actor.organizationId)
+      .in('task_id',allowedTaskIds.slice(index,index+75))
+      .order('updated_at',{ascending:false}).limit(100);
+    if(error)throw new AIReadToolError('unavailable','Recent Notes are temporarily unavailable');
+    recentNotes.push(...(data??[]));
+    if(count===null||count>(data??[]).length)notesPartial=true;
+  }
+  recentNotes.sort((a,b)=>String(b.updated_at).localeCompare(String(a.updated_at)));
+  const actionById=new Map(scope.tasks.map((task:any)=>[String(task.id),task]));
+  const normalizedQuery=input.query?normalizeAIEntityName(input.query):null;
+  const relevantNotes=normalizedQuery?recentNotes.filter(note=>
+    normalizeAIEntityName(String(note.title??'')+' '+previewTextFromTipTap(note.content,1000))
+      .includes(normalizedQuery)) :recentNotes;
+  const selectedNotes=relevantNotes.slice(0,input.limit);
+  const notes=selectedNotes.map((note:any)=>{
+    const task:any=actionById.get(String(note.task_id));
+    const project:any=task?.project_id?scope.projectById.get(String(task.project_id)):null;
+    return {id:String(note.id),title:safeContent(note.title,180),
+      type:String(note.type),actionTitle:task?safeContent(task.title,160):null,
+      processName:project?safeContent(project.name,140):null,
+      preview:safeContent(previewTextFromTipTap(note.content,400),400),
+      updatedAt:String(note.updated_at)};
+  });
+  const actionRefs=scope.tasks.slice(0,input.limit).map((task:any)=>
+    actionReference(task,task.project_id?String(task.project_id):null));
+  const notesRefs=selectedNotes.map((note:any)=>{
+    const task:any=actionById.get(String(note.task_id));
+    return task?actionReference(task,task.project_id?String(task.project_id):null):null;
+  }).filter((reference):reference is AIReadReference=>Boolean(reference));
+  const refs=[...actionRefs,...notesRefs].filter((reference,index,all)=>
+    all.findIndex(value=>value.id===reference.id&&value.type===reference.type)===index);
+  return {name:'get_recent_workspace',statusLabel:'Son Action ve Notes kayıtları kontrol ediliyor…',
+    citations:[],references:refs,
+    data:{scope:{teamId:input.teamId??null,processId:scope.selectedProject?String(scope.selectedProject.id):null},
+      latestActions:input.focus==='notes'?[]:actions,
+      latestNotes:input.focus==='actions'?[]:notes,
+      focus:input.focus,
+      // Snapshot is bounded by the latest eligible Action rows; do not imply
+      // full organization activity logs or deleted/hidden history was read.
+      partialScan:scope.partialScan||notesPartial,
+      noteSource:'Notes linked to accessible Actions; latest bounded canonical snapshot, not an exhaustive audit log',
+      observedActionCount:scope.tasks.length,
+      query:input.query??null,
+      returnedNotes:notes.length,
+    }};
 }
 
 async function runActionDetails(actor:AIReadToolActor,input:z.infer<typeof actionDetailsSchema>):Promise<AIReadToolExecution>{
@@ -300,6 +453,7 @@ export async function executeAIReadTool(name:string,rawArguments:unknown,actor:A
   if(tool==='get_process_overview')return runProcessOverview(actor,parsed.data);
   if(tool==='get_process_content')return runProcessContent(actor,parsed.data);
   if(tool==='list_actions')return runListActions(actor,parsed.data);
+  if(tool==='get_recent_workspace')return runRecentWorkspace(actor,parsed.data);
   if(tool==='get_action_details')return runActionDetails(actor,parsed.data);
   if(tool==='get_planner_overview')return runPlanner(actor,parsed.data);
   return runKnowledge(actor,parsed.data);

@@ -414,7 +414,15 @@ export function AIMessageRow({ message, lastUser, proposalBusy, onProposal, onOp
               </div>
             ) : null}
           {isAssistant && message.status === 'failed' && (
-            <p role="status" className="mt-2 text-xs text-muted-foreground">This response wasn't completed. Your question has been preserved.</p>
+            <div role="status" className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+              <span>This response wasn't completed. Your question has been preserved.</span>
+              {message.errorCode && /^[A-Z0-9_]{3,48}$/.test(message.errorCode) ? (
+                <span className="rounded-md border border-border/60 bg-muted/40 px-1.5 py-0.5 font-mono text-[10px]"
+                  title="Error category for support and troubleshooting">
+                  {message.errorCode}
+                </span>
+              ) : null}
+            </div>
           )}
           {message.sources.length > 0 && (
             <section className="mt-4 border-t border-border/60 pt-3" aria-label="Verified sources">

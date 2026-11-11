@@ -5,6 +5,7 @@ export type AIReadToolName =
   | 'get_process_overview'
   | 'get_process_content'
   | 'list_actions'
+  | 'get_recent_workspace'
   | 'get_action_details'
   | 'get_planner_overview'
   | 'search_knowledge';
