@@ -257,7 +257,7 @@ async function readVisibleActions(actor:AIReadToolActor,input:ReadActionFilter) 
   const limitPerScope=501;
   const results:any[]=[];
   let partialScan=false;
-  const read=async(query:ReturnType<ReturnType<typeof supabaseAdmin.from>['select']>)=>{
+  const read=async(query:any)=>{
     const {data,error,count}=await query.order('updated_at',{ascending:false}).limit(limitPerScope);
     if(error)throw new AIReadToolError('unavailable','Action lookup is temporarily unavailable');
     results.push(...(data??[]));
@@ -309,13 +309,18 @@ async function runListActions(actor:AIReadToolActor,input:z.infer<typeof listAct
     return input.completion==='all'||(input.completion==='completed'?completed:!completed);
   });
   // Pagination is AFTER authorization; no page can be filled with inaccessible rows.
-  const taskIds=tasks.slice(input.offset,input.offset+input.limit).map(t=>String(t.id));
-  const {data:schedules,error:scheduleError}=taskIds.length
-    ?await supabaseAdmin.from('work_schedules').select('task_id,schedule_type,schedule_date,schedule_time,time_zone')
-      .in('task_id',taskIds).is('checklist_item_id',null).is('archived_at',null)
-    :{data:[],error:null};
-  if(scheduleError)throw new AIReadToolError('unavailable','Action schedules are temporarily unavailable');
-  const scheduleByTask=new Map((schedules??[]).map((s:any)=>[String(s.task_id),s]));
+  const scheduleFiltered=Boolean(input.scheduleDateFrom||input.scheduleDateTo);
+  const scheduleTaskIds=(scheduleFiltered?tasks:tasks.slice(input.offset,input.offset+input.limit))
+    .map(t=>String(t.id));
+  const scheduleByTask=new Map<string,any>();
+  for(let index=0;index<scheduleTaskIds.length;index+=80){
+    const {data,error}=await supabaseAdmin.from('work_schedules')
+      .select('task_id,schedule_type,schedule_date,schedule_time,time_zone')
+      .in('task_id',scheduleTaskIds.slice(index,index+80))
+      .is('checklist_item_id',null).is('archived_at',null);
+    if(error)throw new AIReadToolError('unavailable','Action schedules are temporarily unavailable');
+    for(const row of data??[])scheduleByTask.set(String(row.task_id),row);
+  }
   if(input.scheduleDateFrom||input.scheduleDateTo)tasks=tasks.filter((task:any)=>{
     const schedule:any=scheduleByTask.get(String(task.id));
     return schedule&&(!input.scheduleDateFrom||String(schedule.schedule_date)>=input.scheduleDateFrom)
@@ -358,7 +363,7 @@ async function runRecentWorkspace(actor:AIReadToolActor,input:z.infer<typeof rec
   const allowedTaskIds=scope.tasks.map((task:any)=>String(task.id));
   const recentNotes:any[]=[];
   let notesPartial=false;
-  for(let index=0;index<allowedTaskIds.length;index+=75) {
+  for(let index=0;input.focus!=='actions'&&index<allowedTaskIds.length;index+=75) {
     const {data,error,count}=await supabaseAdmin.from('notes')
       .select('id,task_id,title,type,content,updated_at',{count:'exact'})
       .eq('organization_id',actor.organizationId)
@@ -370,7 +375,11 @@ async function runRecentWorkspace(actor:AIReadToolActor,input:z.infer<typeof rec
   }
   recentNotes.sort((a,b)=>String(b.updated_at).localeCompare(String(a.updated_at)));
   const actionById=new Map(scope.tasks.map((task:any)=>[String(task.id),task]));
-  const selectedNotes=recentNotes.slice(0,input.limit);
+  const normalizedQuery=input.query?normalizeAIEntityName(input.query):null;
+  const relevantNotes=normalizedQuery?recentNotes.filter(note=>
+    normalizeAIEntityName(String(note.title??'')+' '+previewTextFromTipTap(note.content,1000))
+      .includes(normalizedQuery)) :recentNotes;
+  const selectedNotes=relevantNotes.slice(0,input.limit);
   const notes=selectedNotes.map((note:any)=>{
     const task:any=actionById.get(String(note.task_id));
     const project:any=task?.project_id?scope.projectById.get(String(task.project_id)):null;
@@ -397,8 +406,10 @@ async function runRecentWorkspace(actor:AIReadToolActor,input:z.infer<typeof rec
       // Snapshot is bounded by the latest eligible Action rows; do not imply
       // full organization activity logs or deleted/hidden history was read.
       partialScan:scope.partialScan||notesPartial,
-      noteSource:'Notes linked to the latest accessible Actions; not an exhaustive audit log',
+      noteSource:'Notes linked to accessible Actions; latest bounded canonical snapshot, not an exhaustive audit log',
       observedActionCount:scope.tasks.length,
+      query:input.query??null,
+      returnedNotes:notes.length,
     }};
 }
 
