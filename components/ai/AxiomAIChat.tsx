@@ -253,7 +253,7 @@ export function AxiomAIChatView({
             </p>
           </div>
           <span className="hidden shrink-0 items-center gap-1.5 rounded-full border border-border/75 bg-muted/45 px-2.5 py-1.5 text-[10px] font-semibold text-foreground/80 xl:inline-flex">
-            <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" aria-hidden="true"/> {contextLabel}
+            <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" aria-hidden="true"/> <span title="Results depend on Teams and Processes you are authorized to access; read tools must be enabled.">{contextLabel}</span>
           </span>
           <AIAllowanceIndicator request={request} refreshKey={usageRefreshKey}/>
           <Button type="button" variant="ghost" size="icon" aria-label="New conversation"
