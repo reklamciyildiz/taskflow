@@ -55,7 +55,9 @@ export function planDirectAIReadTools(question:string,context:AIChatContext):AIR
   const listRecentNotes=notesOnly&&asksList.test(text)
     &&/\b(my|mine|benim|son|en son|latest|last|recent|listele\w*|list|show|goster\w*)\b/.test(text);
   if(requestsRecent||listRecentNotes) {
-    calls.push(call('get_recent_workspace',{...selector,...team,limit:Math.min(15,selectRequestedActionCount(question,8))},calls.length));
+    calls.push(call('get_recent_workspace',{...selector,...team,
+      focus:notesOnly?'notes':actionWords.test(text)&&!noteWords.test(text)?'actions':'all',
+      limit:Math.min(15,selectRequestedActionCount(question,8))},calls.length));
   } else if(/\b(kac|how many|listele|list)\b.*\b(process\w*|surec\w*|proje\w*)\b/.test(text)
     &&!actionWords.test(text)&&!noteWords.test(text)) {
     calls.push(call('list_processes',{...team},calls.length));
