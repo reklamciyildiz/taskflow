@@ -47,7 +47,7 @@ export function planDirectAIReadTools(question:string,context:AIChatContext):AIR
   const noteWords=/\b(notes?|notlar\w*|notum\w*|notlarim\w*)\b/;
   const recentWords=/\b(recent|recently|last|latest|newest|son|en son|sonuncu|yeni|gecmis|gecmiste|yaptiklarim\w*|yaptigim\w*|aktivit\w*|faaliyet\w*)\b/;
   const asksRecentActivity=/\b(activity|activities|work logs?|calismalarim\w*|yaptiklarim\w*|yaptigim\w*|aktivit\w*|faaliyet\w*|what (?:you|i) did|what did (?:you|i) do)\b/;
-  const asksList=/\b(kac|hangi|listele\w*|list|names?|name|give|provide|show|tell|goster\w*|sirala\w*|ozet\w*|summary|summarize|what|neler|ne var|how many|first|top|last|latest|be[sş]|five|three|\d+)\b/;
+  const asksList=/\b(kac|hangi|listele\w*|list|names?|name|give|provide|show|tell|goster\w*|sirala\w*|ozet\w*|summary|summarize|what|neler|ne var|how many|hangileri|which|tamamlanmamis|yapilmamis|incomplete|open|first|top|last|latest|be[sş]|five|three|\d+)\b/;
   const containsContentRequest=/\b(icerig\w*|icerik\w*|icerisind\w*|ayrinti\w*|detay\w*|contents?|inside|read|oku\w*|neler var|ne var|what is in|what's in)\b/.test(text);
   const notesOnly=noteWords.test(text)&&!actionWords.test(text);
   const requestsRecent=(recentWords.test(text)||asksRecentActivity.test(text))
