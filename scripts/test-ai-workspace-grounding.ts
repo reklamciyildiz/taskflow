@@ -53,7 +53,7 @@ assert.equal(canReadScopedAction({project_id:processId,team_id:alienTeam},teams,
   'Teamless Process must not expand Action access beyond Team');
 
 const fakeExecution=(name:AIReadToolExecution['name'],data:unknown):AIReadToolExecution=>({
-  name,data,refs:undefined as never,references:[],citations:[],statusLabel:'synthetic',
+  name,data,references:[],citations:[],statusLabel:'synthetic',
 });
 const titles=['Tech Stacks','VB.NET','YHT','TLSuite Geliştirilmesi Gerekenler','KnowledgeBase Project'];
 const actions=fakeExecution('list_actions',{
