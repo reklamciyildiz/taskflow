@@ -58,7 +58,12 @@ export function planDirectAIReadTools(question:string,context:AIChatContext):AIR
   const noteSearch=Boolean(noteTopic&&noteTopic.length<=120);
   const listRecentNotes=notesOnly&&(asksList.test(text)||noteSearch)
     &&/\b(my|mine|benim|son|en son|latest|last|recent|listele\w*|list|show|goster\w*|about|hakkinda)\b/.test(text);
-  if(requestsRecent||listRecentNotes) {
+  const combinedProcessResearch=Boolean(processName&&actionWords.test(text)&&noteWords.test(text)
+    &&/\b(karar\w*|degerlendir\w*|analyze|analysis|compare|karsilastir\w*)\b/.test(text));
+  if(combinedProcessResearch) {
+    calls.push(call('list_actions',{...selector,...team,completion:'all',limit:20},calls.length));
+    calls.push(call('search_knowledge',{query:question,...selector,...team,limit:4},calls.length));
+  } else if(requestsRecent||listRecentNotes) {
     calls.push(call('get_recent_workspace',{...selector,...team,
       ...(noteSearch?{query:noteTopic}:{}),
       focus:asksRecentActivity.test(text)?'all':notesOnly?'notes':actionWords.test(text)&&!noteWords.test(text)?'actions':'all',
