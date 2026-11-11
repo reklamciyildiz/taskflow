@@ -1,0 +1,54 @@
+name: AI workspace grounding and cross-account reliability
+
+on:
+  pull_request:
+    paths:
+      - 'lib/ai/agent/**'
+      - 'lib/ai/chat/**'
+      - 'app/api/ai/chat/route.ts'
+      - 'components/ai/AxiomAIChat.tsx'
+      - 'components/ai/AIChatPresentation.tsx'
+      - 'scripts/test-ai-workspace-grounding.ts'
+      - 'scripts/test-ai-read-tools.ts'
+      - 'scripts/test-ai-tr-process-context.ts'
+      - '.github/workflows/ai-workspace-grounding-quality.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  workspace-grounding:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Real user screenshot routing and access contracts
+        run: npx tsx scripts/test-ai-workspace-grounding.ts
+      - name: Existing multilingual Process and Action lookups
+        run: npx tsx scripts/test-ai-tr-process-context.ts
+      - name: Existing read-tool contracts
+        run: npx tsx scripts/test-ai-read-tools.ts
+      - name: AI chat and citations
+        run: npx tsx scripts/test-ai-chat.ts
+      - name: AI provider reliability
+        run: npx tsx scripts/test-ai-reliability.ts
+      - name: TypeScript
+        run: npx tsc --noEmit
+      - name: ESLint
+        run: npm run lint
+      - name: Next.js production build (inert credentials)
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-not-a-real-key
+          SUPABASE_SERVICE_ROLE_KEY: ci-not-a-real-service-role-key
+          NEXTAUTH_SECRET: ci-workspace-grounding-build-only
+          NEXTAUTH_URL: http://localhost:3000
+          RESEND_API_KEY: re_ci_build_placeholder_never_valid
+          RESEND_FROM_EMAIL: ci@example.invalid
+        run: npm run build
