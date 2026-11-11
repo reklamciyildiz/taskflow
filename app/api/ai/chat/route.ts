@@ -202,7 +202,7 @@ export async function POST(request:NextRequest) {
           const directReadToolCalls=readToolsEnabled&&!writeRequested?planDirectAIReadTools(input.message,effectiveContext):[];
           if(directReadToolCalls.length)console.info(JSON.stringify({
             event:'ai_direct_workspace_read_planned',requestId:input.clientRequestId,
-            tools:directReadToolCalls.map(call=>call.name),
+            readToolNames:directReadToolCalls.map(call=>call.name),
             scopedToTeam:Boolean(effectiveContext.teamId),scopedToProcess:Boolean(effectiveContext.processId),
           }));
           const needsModelToolSelection=readToolsEnabled&&!writeRequested&&shouldUseModelToolSelection(input.message,directReadToolCalls);
