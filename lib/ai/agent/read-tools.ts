@@ -29,7 +29,7 @@ const listActionsSchema=z.object({
   scheduleDateFrom:z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),scheduleDateTo:z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   limit:z.number().int().min(1).max(50).default(20),offset:z.number().int().min(0).max(500).default(0),
 }).strict();
-const recentWorkspaceSchema=z.object({teamId:uuid.optional(),processId:uuid.optional(),processName:z.string().trim().min(1).max(120).optional(),limit:z.number().int().min(1).max(15).default(8),focus:z.enum(['notes','actions','all']).default('all')}).strict();
+const recentWorkspaceSchema=z.object({teamId:uuid.optional(),processId:uuid.optional(),processName:z.string().trim().min(1).max(120).optional(),query:z.string().trim().min(1).max(120).optional(),limit:z.number().int().min(1).max(15).default(8),focus:z.enum(['notes','actions','all']).default('all')}).strict();
 const actionDetailsSchema=z.object({ actionId:uuid }).strict();
 const plannerSchema=z.object({
   range:z.enum(['today','tomorrow','this_week','custom']).default('today'),teamId:uuid.optional(),
