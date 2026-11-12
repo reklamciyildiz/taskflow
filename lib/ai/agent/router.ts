@@ -48,22 +48,22 @@ export function planDirectAIReadTools(question:string,context:AIChatContext):AIR
   // The LLM planner handles open-ended language. This fast path recognizes
   // canonical Note nouns, including inflected Turkish singular 'not', without
   // treating English negation ('not') as a Note request.
-  const noteWords=/\b(notes?\w*|notlar\w*|notum\w*|notlarim\w*)\b/
+  const hasNote=/\b(notes?\w*|notlar\w*|notum\w*|notlarim\w*)\b/
     .test(text)||(inferAIChatLanguage(question)==='tr' && /\bnot\w*\b/.test(text));
   const recentWords=/\b(recent|recently|last|latest|newest|son|en son|sonuncu|yeni|gecmis|gecmiste|yaptiklarim\w*|yaptigim\w*|aktivit\w*|faaliyet\w*)\b/;
   const asksRecentActivity=/\b(activity|activities|work logs?|calismalarim\w*|yaptiklarim\w*|yaptigim\w*|aktivit\w*|faaliyet\w*|what (?:you|i) did|what did (?:you|i) do)\b/;
   const asksList=/\b(kac|hangi|listele\w*|list|names?|name|give|provide|show|tell|goster\w*|sirala\w*|ozet\w*|summary|summarize|what|neler|ne var|how many|hangileri|which|tamamlanmamis|yapilmamis|incomplete|open|first|top|last|latest|be[sş]|five|three|\d+)\b/;
   const containsContentRequest=/\b(icerig\w*|icerik\w*|icerisind\w*|ayrinti\w*|detay\w*|contents?|inside|read|oku\w*|neler var|ne var|what is in|what's in)\b/.test(text);
-  const notesOnly=noteWords.test(text)&&!actionWords.test(text);
+  const notesOnly=hasNote&&!actionWords.test(text);
   const requestsRecent=(recentWords.test(text)||asksRecentActivity.test(text))
-    &&(noteWords.test(text)||actionWords.test(text)||asksRecentActivity.test(text));
+    &&(hasNote||actionWords.test(text)||asksRecentActivity.test(text));
   const noteTopicMatch=notesOnly ? question.match(/^\s*(?:benim\s+)?(.+?)\s+hakk(?:ında|inda|ındaki|indaki)\s+notlar/iu)
     ?? question.match(/\babout\s+(.+?)\s*[?.!]?$/iu) : null;
   const noteTopic=noteTopicMatch?.[1]?.replace(/^(?:what is|what are|my|benim)\s+/iu,'').trim();
   const noteSearch=Boolean(noteTopic&&noteTopic.length<=120);
   const listRecentNotes=notesOnly&&!Object.keys(selector).length&&(asksList.test(text)||noteSearch)
     &&/\b(my|mine|benim|son|en son|latest|last|recent|listele\w*|list|show|goster\w*|about|hakkinda)\b/.test(text);
-  const combinedProcessResearch=Boolean(processName&&actionWords.test(text)&&noteWords.test(text)
+  const combinedProcessResearch=Boolean(processName&&actionWords.test(text)&&hasNote
     &&/\b(karar\w*|degerlendir\w*|analyze|analysis|compare|karsilastir\w*)\b/.test(text));
   const noteAnalysis=/\b(analiz\w*|cikarim\w*|degerlendir\w*|karsilastir\w*|oner\w*|insight\w*|conclusion\w*|analy[sz]\w*|compare\w*|summari[sz]\w*|ozetle\w*)\b/.test(text);
   const noteOwned=/\b(benim|bana|aldigim|yazdigim|ekledigim|olusturdugum|my|mine|i wrote|i added)\b/.test(text);
@@ -87,10 +87,10 @@ export function planDirectAIReadTools(question:string,context:AIChatContext):AIR
   } else if(requestsRecent) {
     calls.push(call('get_recent_workspace',{...selector,...team,
       ...(noteSearch?{query:noteTopic}:{}),
-      focus:asksRecentActivity.test(text)?'all':notesOnly?'notes':actionWords.test(text)&&!noteWords.test(text)?'actions':'all',
+      focus:asksRecentActivity.test(text)?'all':notesOnly?'notes':actionWords.test(text)&&!hasNote?'actions':'all',
       limit:Math.min(15,selectRequestedActionCount(question,8))},calls.length));
   } else if(/\b(kac|how many|listele|list)\b.*\b(process\w*|surec\w*|proje\w*)\b/.test(text)
-    &&!actionWords.test(text)&&!noteWords.test(text)) {
+    &&!actionWords.test(text)&&!hasNote) {
     calls.push(call('list_processes',{...team},calls.length));
   } else if(Object.keys(selector).length&&(containsContentRequest||notesOnly)) {
     calls.push(call('get_process_content',{...selector,limit:5},calls.length));
