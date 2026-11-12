@@ -75,6 +75,7 @@ export async function listCanonicalAuthorizedNotes(input:{
   for(let t=0;t<teamIds.length;t+=GROUP_LIMIT){
     const group=teamIds.slice(t,t+GROUP_LIMIT);
     let offset=0,groupScanned=0;
+    const matchesBeforeGroup=matches.length;
     while(scanned<SCAN_CAP&&groupScanned<PER_GROUP_CAP){
       const pageSize=Math.min(PAGE_SIZE,SCAN_CAP-scanned,PER_GROUP_CAP-groupScanned);
       if(!pageSize)break;
@@ -112,10 +113,13 @@ export async function listCanonicalAuthorizedNotes(input:{
         });
       }
       const more=count===null||offset<count;
-      if(more)hasMore=true;
-      // For a latest/list query, the remaining rows in this team group are
-      // older; they cannot outrank its selected first-page matches.
-      if(!query&&matches.length>=input.limit)break;
+      // A match from another team group must never make us stop before this
+      // group's first authorized match. This matters when initial pages hold
+      // private or otherwise invisible parent Actions.
+      if(!query&&matches.length-matchesBeforeGroup>=input.limit){
+        if(more)hasMore=true;
+        break;
+      }
       if(!more)break;
       if(scanned>=SCAN_CAP||groupScanned>=PER_GROUP_CAP){partialScan=true;break;}
     }
