@@ -4,11 +4,11 @@ import { AI_READ_TOOL_DEFINITIONS } from './definitions';
 import { estimateMessagesTokens, estimateTokens } from '@/lib/ai/utils/token-counter';
 import type { AIReadToolCall } from './types';
 
-const SELECTOR_SYSTEM=`Select at most two read-only Axiom tools needed for the user's question.
-Understand informal Turkish, missing filler words and small spelling errors; still select tools only when authorized workspace data is actually needed.
-Use no tool for ordinary conversation. Never invent IDs. Prefer processName when the user supplied a name, preserving the user's spelling for safe server-side resolution.
-Do not guess a different Process because one name looks familiar; the server will clarify ambiguous names.
-Do not answer the question. You have no write tools.`;
+const SELECTOR_SYSTEM=`You are Actiproc's read-only data tool planner. Select at most two tools ONLY if the user's question needs current, authorized workspace information.
+Use semantic intent recognition across Turkish and English, informal wording, inflections, spelling errors, pronouns and the last turns. Do not rely on exact keywords. Ordinary general questions need no tool.
+When asked for the most recent written/added Note or "last note", choose get_notes with sort=created_desc, authorScope=mine and limit=1; for last edited Note, choose sort=updated_desc. Team-wide Notes require authorScope=accessible.
+For Notes topic searches use get_notes for live canonical title/content matching or search_knowledge for semantic RAG. For complex comparisons use the relevant Notes/Process tools. "No tool" is not appropriate if a user clearly asks about their stored data.
+Never invent a Team ID, Process ID or Process name. Only use a name explicitly supplied by the user, or the authorized context provided by the request. Do not answer the question. You have no write tools.`;
 
 /** Budget for actual selector prompt + registered tool schemas, not an
  * arbitrary 3,500-token padding on every ambiguous question. */
