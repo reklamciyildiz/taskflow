@@ -14,6 +14,8 @@ import { inferAIChatLanguage } from '@/lib/ai/chat/language';
 import { chatRetrievalLimit,planChatContext } from '@/lib/ai/chat/context-budget';
 import { finalizeGroqTokens,reserveGroqTokens,reserveProviderTokens,backupTokenBudget } from '@/lib/ai/chat/provider-token-admission';
 import { createOptionalOpenAIBackup } from '@/lib/ai/chat/backup-provider';
+import { selectChatModel } from '@/lib/ai/chat/model-router';
+import { admissionRetryDelayMs } from '@/lib/ai/chat/provider-capacity-policy';
 import { AI_RETRYING_MESSAGE, AI_TEMPORARY_CAPACITY_MESSAGE, AI_TEMPORARY_SERVICE_MESSAGE,
   mayFailOverBeforeResponse, shortRetryDelayMs } from '@/lib/ai/chat/reliability-policy';
 import { formatAIQuotaMessage,shouldRefundAIUserQuota } from '@/lib/ai/chat/quota-policy';
@@ -332,7 +334,16 @@ export async function POST(request:NextRequest) {
           const contextPlan=planChatContext({ intent,question:input.message,history:availableHistory,
             citations,structured,agentContext,configuredMaxOutputTokens:aiChatLimits.maxOutputTokens });
 
-          provider=new GroqChatProvider(); model=provider.modelId;
+          const decision=selectChatModel({
+            intent,question:input.message,profile:contextPlan.profile,writeRequested,
+            organizationId:scope.organizationId,configuredMaxOutputTokens:contextPlan.maxOutputTokens,
+          });
+          provider=new GroqChatProvider({model:decision.model});model=provider.modelId;
+          if(decision.routed) console.info(JSON.stringify({
+            event:'ai_model_v2_routed',requestId:input.clientRequestId,
+            route:decision.route,model:decision.model,
+            rolloutBucket:decision.rolloutBucket,provider:'groq',
+          }));
           // Backup is opt-in, separately metered, and never used to repeat
           // a mutation/proposal flow. It inherits exactly the same authorized
           // retrieval, citation validation, and context as the primary.
@@ -341,7 +352,7 @@ export async function POST(request:NextRequest) {
           const requestedInputTokens=contextPlan.estimatedInputTokens
             +(needsModelToolSelection?estimateAIReadToolSelectionTokens(input.message,availableHistory):0)
             +(writeRequested?1_200:0);
-          const requestedOutputTokens=contextPlan.maxOutputTokens
+          const requestedOutputTokens=Math.min(contextPlan.maxOutputTokens,decision.maxOutputTokens)
             +(needsModelToolSelection?280:0)+(writeRequested?500:0);
           const reserveBackup=async():Promise<GroqChatProvider|null>=>{
             if (!backupProvider||fallbackUsed||overallSignal.signal.aborted) return null;
@@ -356,7 +367,7 @@ export async function POST(request:NextRequest) {
               estimatedInputTokens:latestContextPlan.estimatedInputTokens
                 +(needsModelToolSelection&&!usedModelToolSelection
                   ?estimateAIReadToolSelectionTokens(input.message,availableHistory):0),
-              maxOutputTokens:latestContextPlan.maxOutputTokens
+              maxOutputTokens:Math.min(latestContextPlan.maxOutputTokens,decision.maxOutputTokens)
                 +(needsModelToolSelection&&!usedModelToolSelection?280:0),
             });
             if (!backupAdmission.allowed || !backupAdmission.reservationId) return null;
@@ -366,10 +377,28 @@ export async function POST(request:NextRequest) {
             return backupProvider;
           };
 
-          const tokenAdmission=await reserveGroqTokens({
+          const admissionArgs={
             requestKey:input.clientRequestId,userId:scope.userId,organizationId:scope.organizationId,model,
             estimatedInputTokens:requestedInputTokens,maxOutputTokens:requestedOutputTokens,
-          });
+          };
+          let tokenAdmission=await reserveGroqTokens(admissionArgs);
+          if(!tokenAdmission.allowed) {
+            console.warn(JSON.stringify({
+              event:'ai_provider_admission_denied',requestId:input.clientRequestId,
+              model,reason:tokenAdmission.reason??'capacity',requestedTokens:tokenAdmission.requestedTokens,
+              retryAfterSeconds:tokenAdmission.retryAfterSeconds??null,
+              v2:process.env.AI_PROVIDER_ADMISSION_V2_ENABLED==='true',
+            }));
+            const wait=admissionRetryDelayMs({
+              ...tokenAdmission,enabled:process.env.AI_CAPACITY_SHORT_WAIT_ENABLED==='true',
+              timeRemainingMs:aiChatLimits.timeoutMs-(Date.now()-startedAt),
+            });
+            if(wait!==null && !overallSignal.signal.aborted){
+              send({type:'tool_status',label:'AI kapasitesi kısa süreliğine dolu; yeniden deneniyor…'});
+              await abortableDelay(wait,overallSignal.signal);
+              tokenAdmission=await reserveGroqTokens(admissionArgs);
+            }
+          }
           tokenReservationId=tokenAdmission.reservationId;
           if (!tokenAdmission.allowed) {
             const backup=await reserveBackup();
@@ -471,7 +500,7 @@ export async function POST(request:NextRequest) {
           while (true) {
             try {
               const events=provider.stream({ messages:finalContextPlan.messages,
-                temperature:0.25,maxOutputTokens:finalContextPlan.maxOutputTokens,
+                temperature:0.25,maxOutputTokens:Math.min(finalContextPlan.maxOutputTokens,decision.maxOutputTokens),
                 reasoning:{ effort:finalContextPlan.profile==='general'&&model.startsWith('qwen/')?'none':'low',format:'hidden' } },
                 { requestId:randomUUID(),timeoutMs:aiChatLimits.timeoutMs,signal:overallSignal.signal });
               for await (const event of events) {
@@ -555,7 +584,9 @@ export async function POST(request:NextRequest) {
               maxOutputTokens:finalContextPlan.maxOutputTokens,droppedHistoryMessages:finalContextPlan.droppedHistoryMessages,
               droppedCitations:finalContextPlan.droppedCitations,droppedStructuredActions:finalContextPlan.droppedStructuredActions,
               readTools:readToolExecutions.map((execution)=>execution.name),toolCallCount:readToolExecutions.length,
-              modelToolSelection:usedModelToolSelection,fallbackUsed });
+              modelToolSelection:usedModelToolSelection,fallbackUsed,
+              ...(decision.routed?{modelRoute:decision.route,rolloutBucket:decision.rolloutBucket}:{}),
+              providerAdmissionV2:process.env.AI_PROVIDER_ADMISSION_V2_ENABLED==='true' });
         } catch(error) {
           if (error instanceof AIWriteProposalError
               && (error.code==='ambiguous' || error.code==='not_found')) {
