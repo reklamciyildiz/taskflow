@@ -70,6 +70,7 @@ export function planDirectAIReadTools(question:string,context:AIChatContext):AIR
     &&/\b(karar\w*|degerlendir\w*|analyze|analysis|compare|karsilastir\w*)\b/.test(text));
   const noteAnalysis=/\b(analiz\w*|cikarim\w*|degerlendir\w*|karsilastir\w*|oner\w*|insight\w*|conclusion\w*|analy[sz]\w*|compare\w*|summari[sz]\w*|ozetle\w*)\b/.test(text);
   const noteOwned=/\b(benim|bana|aldigim|yazdigim|ekledigim|olusturdugum|notlarim\w*|notum\w*|my|mine|i wrote|i added)\b/.test(text);
+  const groupNotes=/\b(notlarimiz\w*|bizim|ekibimiz\w*|our|ours|team)\b/.test(text);
   const latestNoteRequest=notesOnly&&recentWords.test(text)&&!asksRecentActivity.test(text);
   const lastEdited=/\b(duzenle\w*|degistir\w*|guncelle\w*|edit\w*|modified|updated)\b/.test(text);
   const singularNote=/\b(note|not|notum|notumu|my note|my last note)\b/.test(text)
@@ -82,7 +83,7 @@ export function planDirectAIReadTools(question:string,context:AIChatContext):AIR
     calls.push(call('get_notes',{
       ...selector,...team,
       ...(noteSearch?{query:noteTopic}:{}),
-      authorScope:noteOwned?'mine':'accessible',
+      authorScope:groupNotes?'accessible':noteOwned?'mine':'accessible',
       sort:lastEdited?'updated_desc':'created_desc',
       limit:singularNote?1:Math.min(15,selectRequestedActionCount(question,5)),
       answerStyle:noteAnalysis?'analysis':'list',
