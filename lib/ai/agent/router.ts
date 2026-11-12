@@ -1,6 +1,7 @@
 import type { AIChatContext } from '@/lib/ai/chat/types';
 import type { AIReadToolCall } from './types';
 import { selectRequestedActionCount } from './scoped-action-access';
+import { inferAIChatLanguage } from '@/lib/ai/chat/language';
 
 function normalized(value:string) {
   return value.toLocaleLowerCase('tr-TR').replace(/\u0131/g,'i').replace(/\u015f/g,'s').replace(/\u011f/g,'g')
@@ -44,7 +45,11 @@ export function planDirectAIReadTools(question:string,context:AIChatContext):AIR
   const selector=context.processId?{processId:context.processId}:processName?{processName}:{};
   const team=context.teamId?{teamId:context.teamId}:{};
   const actionWords=/\b(actions?|aksiyon\w*|isler\w*|gorev\w*|tasks?)\b/;
-  const noteWords=/\b(notes?|notlar\w*|notum\w*|notlarim\w*)\b/;
+  // The LLM planner handles open-ended language. This fast path recognizes
+  // canonical Note nouns, including inflected Turkish singular 'not', without
+  // treating English negation ('not') as a Note request.
+  const noteWords=/\b(notes?\w*|notlar\w*|notum\w*|notlarim\w*)\b/
+    .test(text)||(inferAIChatLanguage(question)==='tr' && /\bnot\w*\b/.test(text));
   const recentWords=/\b(recent|recently|last|latest|newest|son|en son|sonuncu|yeni|gecmis|gecmiste|yaptiklarim\w*|yaptigim\w*|aktivit\w*|faaliyet\w*)\b/;
   const asksRecentActivity=/\b(activity|activities|work logs?|calismalarim\w*|yaptiklarim\w*|yaptigim\w*|aktivit\w*|faaliyet\w*|what (?:you|i) did|what did (?:you|i) do)\b/;
   const asksList=/\b(kac|hangi|listele\w*|list|names?|name|give|provide|show|tell|goster\w*|sirala\w*|ozet\w*|summary|summarize|what|neler|ne var|how many|hangileri|which|tamamlanmamis|yapilmamis|incomplete|open|first|top|last|latest|be[sş]|five|three|\d+)\b/;
@@ -60,10 +65,26 @@ export function planDirectAIReadTools(question:string,context:AIChatContext):AIR
     &&/\b(my|mine|benim|son|en son|latest|last|recent|listele\w*|list|show|goster\w*|about|hakkinda)\b/.test(text);
   const combinedProcessResearch=Boolean(processName&&actionWords.test(text)&&noteWords.test(text)
     &&/\b(karar\w*|degerlendir\w*|analyze|analysis|compare|karsilastir\w*)\b/.test(text));
+  const noteAnalysis=/\b(analiz\w*|cikarim\w*|degerlendir\w*|karsilastir\w*|oner\w*|insight\w*|conclusion\w*|analy[sz]\w*|compare\w*|summari[sz]\w*|ozetle\w*)\b/.test(text);
+  const noteOwned=/\b(benim|bana|aldigim|yazdigim|ekledigim|olusturdugum|my|mine|i wrote|i added)\b/.test(text);
+  const latestNoteRequest=notesOnly&&recentWords.test(text)&&!asksRecentActivity.test(text);
+  const lastEdited=/\b(duzenle\w*|degistir\w*|guncelle\w*|edit\w*|modified|updated)\b/.test(text);
+  const singularNote=/\b(note|not|notum|notumu|my note|my last note)\b/.test(text)
+    &&!/\b(notes|notlar\w*)\b/.test(text);
   if(combinedProcessResearch) {
     calls.push(call('list_actions',{...selector,...team,completion:'all',limit:20},calls.length));
     calls.push(call('search_knowledge',{query:question,...selector,...team,limit:4},calls.length));
-  } else if(requestsRecent||listRecentNotes) {
+  } else if((latestNoteRequest||listRecentNotes||noteSearch)&&!asksRecentActivity.test(text)
+    &&(!Object.keys(selector).length || latestNoteRequest)) {
+    calls.push(call('get_notes',{
+      ...selector,...team,
+      ...(noteSearch?{query:noteTopic}:{}),
+      authorScope:noteOwned?'mine':'accessible',
+      sort:lastEdited?'updated_desc':'created_desc',
+      limit:singularNote?1:Math.min(15,selectRequestedActionCount(question,5)),
+      answerStyle:noteAnalysis?'analysis':'list',
+    },calls.length));
+  } else if(requestsRecent) {
     calls.push(call('get_recent_workspace',{...selector,...team,
       ...(noteSearch?{query:noteTopic}:{}),
       focus:asksRecentActivity.test(text)?'all':notesOnly?'notes':actionWords.test(text)&&!noteWords.test(text)?'actions':'all',
@@ -96,7 +117,25 @@ export function planDirectAIReadTools(question:string,context:AIChatContext):AIR
   return calls.slice(0,2);
 }
 
-export function shouldUseModelToolSelection(question:string,calls:AIReadToolCall[]) {
-  if(calls.length)return false;const text=normalized(question);
-  return /\b(process\w*|surec\w*|proje\w*|actions?\w*|aksiyon\w*|checklist\w*|planner\w*|gorev\w*|tasks?\w*|notes?\w*|notlar\w*|icerik\w*|workspaces?\w*)\b/.test(text)&&question.trim().length>=8;
+/**
+ * Open-ended, model-led discovery. This is deliberately NOT a dictionary of
+ * every possible user's phrase. Ambiguous personal/workspace questions invoke
+ * a read-only tool selector that may choose no tool. Direct, exact lookups
+ * above avoid an extra provider request.
+ */
+export function shouldUseModelToolSelection(
+  question:string,
+  calls:AIReadToolCall[],
+  context?:AIChatContext,
+):boolean {
+  if(calls.length)return false;
+  const text=normalized(question).trim();
+  if(text.length<8)return false;
+  if(/^(?:hi|hello|hey|merhaba|selam|thanks|thank you|tesekkurler|ok|tamam)[!.? ]*$/.test(text))return false;
+  // Data-domain hints are only a cheap signal; the selector infers intent
+  // semantically rather than relying on a manually maintained phrase list.
+  const workspace=/\b(process\w*|surec\w*|proje\w*|actions?\w*|aksiyon\w*|checklist\w*|planner\w*|gorev\w*|tasks?\w*|notes?\w*|notlar\w*|knowledge\w*|workspaces?\w*|dosya\w*|belge\w*|karar\w*)\b/.test(text);
+  const personal=/\b(benim|bende|bana|benden|bizim|bizde|bize|my|mine|our|ours|we|previously|recently|yaptigim\w*|yazdigim\w*|olusturdugum\w*)\b/.test(text);
+  const followUp=Boolean(context?.processId||context?.teamId);
+  return workspace||personal||followUp;
 }
