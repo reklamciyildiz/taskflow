@@ -2,6 +2,7 @@ import 'server-only';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { previewTextFromTipTap } from '@/lib/tiptap-parser';
 import { normalizeAIEntityName } from './entity-matching';
+import { canReadCanonicalNote, type NoteAccessTask, type NoteAccessProject } from './note-access-policy';
 
 /**
  * Primary source is notes, not a truncated list of recently modified Actions.
@@ -10,27 +11,10 @@ import { normalizeAIEntityName } from './entity-matching';
  */
 export type CanonicalNoteSort = 'created_desc' | 'updated_desc';
 export type CanonicalNoteAuthorScope = 'mine' | 'accessible';
-export type NoteAccessTask = {id:string;team_id:string|null;project_id:string|null;title:string|null};
-export type NoteAccessProject = {id:string;team_id:string|null};
 export type CanonicalNoteRow = {
   id:string;task_id:string;team_id:string;author_id:string;
   title:string|null;type:string;content:unknown;created_at:string;updated_at:string;
 };
-
-export function canReadCanonicalNote(
-  note:Pick<CanonicalNoteRow,'task_id'|'team_id'>,
-  task:NoteAccessTask|undefined,
-  allowedTeams:ReadonlySet<string>,
-  visibleProjects:ReadonlyMap<string,NoteAccessProject>,
-  requestedProjectId?:string,
-):boolean {
-  if(!task||task.id!==note.task_id||!note.team_id||note.team_id!==task.team_id
-    ||!allowedTeams.has(note.team_id))return false;
-  if(requestedProjectId && task.project_id!==requestedProjectId)return false;
-  if(!task.project_id)return requestedProjectId===undefined;
-  const project=visibleProjects.get(task.project_id);
-  return Boolean(project && (!project.team_id || project.team_id===task.team_id));
-}
 
 export type CanonicalNoteSnapshot = {
   notes:Array<{
