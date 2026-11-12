@@ -14,7 +14,7 @@ export function buildAIReadToolContext(executions:AIReadToolExecution[],maxToken
   const serialize=()=>JSON.stringify(payload);
   if(estimateTokens(serialize())<=maxTokens)return serialize();
 
-  const keys=['actions','processes','items','stages','sources'] as const;
+  const keys=['notes','latestNotes','latestActions','actions','processes','items','stages','sources'] as const;
   while(estimateTokens(serialize())>maxTokens){
     let removed=false;
     // Removing from the end preserves the highest-ranked/recent page results.
