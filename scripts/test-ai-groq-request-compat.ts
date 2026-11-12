@@ -6,6 +6,7 @@ import { classifyChatIntent } from '../lib/ai/chat/intent';
 import { selectChatModel } from '../lib/ai/chat/model-router';
 import { planDirectAIReadTools, shouldUseModelToolSelection } from '../lib/ai/agent/router';
 
+async function main(){
 const qwen={providerId:'groq' as const,modelId:'qwen/qwen3.8-27b',supportsGroqReasoning:true};
 const gpt={providerId:'groq' as const,modelId:'openai/gpt-oss-120b',supportsGroqReasoning:true};
 const gpt20={...gpt,modelId:'openai/gpt-oss-20b'};
@@ -132,3 +133,5 @@ console.log(JSON.stringify({
   nonStreaming:true,streaming:true,independentProvider:true,
   screenshotQuestionRoute:'qwen-deep',providerCallsAreMocked:true,
 }));
+}
+main().catch(error=>{ console.error(error); process.exitCode=1; });
