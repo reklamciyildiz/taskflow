@@ -48,8 +48,11 @@ export function planDirectAIReadTools(question:string,context:AIChatContext):AIR
   // The LLM planner handles open-ended language. This fast path recognizes
   // canonical Note nouns, including inflected Turkish singular 'not', without
   // treating English negation ('not') as a Note request.
-  const hasNote=/\b(notes?\w*|notlar\w*|notum\w*|notlarim\w*)\b/
-    .test(text)||(inferAIChatLanguage(question)==='tr' && /\bnot\w*\b/.test(text));
+  const hasNote=/\b(notes?\w*|notlar\w*|notum\w*|notlarim\w*)\b/.test(text)
+    ||(/\bnot\b/.test(text)&&(
+      inferAIChatLanguage(question)==='tr'
+      ||/\b(son|benim|hangisi|hakkinda|aldigim|yazdigim|ekledigim|olusturdugum|ne)\b/.test(text)
+    ));
   const recentWords=/\b(recent|recently|last|latest|newest|son|en son|sonuncu|yeni|gecmis|gecmiste|yaptiklarim\w*|yaptigim\w*|aktivit\w*|faaliyet\w*)\b/;
   const asksRecentActivity=/\b(activity|activities|work logs?|calismalarim\w*|yaptiklarim\w*|yaptigim\w*|aktivit\w*|faaliyet\w*|what (?:you|i) did|what did (?:you|i) do)\b/;
   const asksList=/\b(kac|hangi|listele\w*|list|names?|name|give|provide|show|tell|goster\w*|sirala\w*|ozet\w*|summary|summarize|what|neler|ne var|how many|hangileri|which|tamamlanmamis|yapilmamis|incomplete|open|first|top|last|latest|be[sş]|five|three|\d+)\b/;
