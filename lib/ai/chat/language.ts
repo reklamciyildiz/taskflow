@@ -12,7 +12,7 @@ function normalize(value:string) {
     .normalize('NFKD').replace(/\p{M}/gu,'');
 }
 
-const TURKISH = /\b(?:benim|bizim|bana|bende|bunu|bunun|bunlari|hangi|kac|neden|nasil|neler|var|yok|misin|miyim|miyiz|lutfen|selam|merhaba|nasilsin|sagol|tesekkur\w*|surec\w*|aksiyon\w*|gorev\w*|isler\w*|notlar\w*|icerik\w*|icerig\w*|aciklama\w*|karar\w*|ozetle\w*|listele\w*|goster\w*|olustur\w*|ekle\w*|planla\w*|tamamla\w*|kontrol\w*|yapil\w*|bulunan|bulunuyor|hakkinda|incele\w*)\b/gu;
+const TURKISH = /\b(?:hangisi|hangisini|yazdigim\w*|duzenledigim\w*|aldigim\w*|ekledigim\w*|olusturdugum\w*|benim|bizim|bana|bende|bunu|bunun|bunlari|hangi|kac|neden|nasil|neler|var|yok|misin|miyim|miyiz|lutfen|selam|merhaba|nasilsin|sagol|tesekkur\w*|surec\w*|aksiyon\w*|gorev\w*|isler\w*|notlar\w*|icerik\w*|icerig\w*|aciklama\w*|karar\w*|ozetle\w*|listele\w*|goster\w*|olustur\w*|ekle\w*|planla\w*|tamamla\w*|kontrol\w*|yapil\w*|bulunan|bulunuyor|hakkinda|incele\w*)\b/gu;
 const ENGLISH = /\b(?:please|hello|thanks|thank|what|which|where|when|why|how|can|could|would|should|show|list|summarize|explain|read|find|about|inside|contents?|tasks?|my|our|the|this|with|does|have|are|is)\b/gu;
 
 export function inferAIChatLanguage(question:string):AIChatLanguage {
