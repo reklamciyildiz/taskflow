@@ -3,6 +3,7 @@ import type { ChatMessage,ChatProvider } from '@/lib/ai/providers/contracts';
 import { AI_READ_TOOL_DEFINITIONS } from './definitions';
 import { estimateMessagesTokens, estimateTokens } from '@/lib/ai/utils/token-counter';
 import type { AIReadToolCall } from './types';
+import type { AIChatContext } from '@/lib/ai/chat/types';
 
 const SELECTOR_SYSTEM=`You are Actiproc's read-only data tool planner. Select at most two tools ONLY if the user's question needs current, authorized workspace information.
 Use semantic intent recognition across Turkish and English, informal wording, inflections, spelling errors, pronouns and the last turns. Do not rely on exact keywords. Ordinary general questions need no tool.
@@ -12,17 +13,25 @@ Never invent a Team ID, Process ID or Process name. Only use a name explicitly s
 
 /** Budget for actual selector prompt + registered tool schemas, not an
  * arbitrary 3,500-token padding on every ambiguous question. */
-export function estimateAIReadToolSelectionTokens(question:string,history:ChatMessage[]):number {
+export function estimateAIReadToolSelectionTokens(question:string,history:ChatMessage[],context?:AIChatContext):number {
   return estimateMessagesTokens([
-    {role:'system',content:SELECTOR_SYSTEM},...history.slice(-2),{role:'user',content:question},
+    {role:'system',content:SELECTOR_SYSTEM},...(context?[{role:'system' as const,content:selectionContext(context)}]:[]),
+    ...history.slice(-2),{role:'user',content:question},
   ]) + estimateTokens(JSON.stringify(AI_READ_TOOL_DEFINITIONS));
 }
 
+function selectionContext(context:AIChatContext):string {
+  return 'Server-provided conversation scope (IDs are not user text): '+
+    JSON.stringify({teamId:context.teamId??null,processId:context.processId??null})+
+    '. Use these IDs only when relevant; the server revalidates ACL.';
+}
+
 export async function selectAIReadTools(input:{
-  provider:ChatProvider;question:string;history:ChatMessage[];signal:AbortSignal;timeoutMs:number;
+  provider:ChatProvider;question:string;history:ChatMessage[];signal:AbortSignal;timeoutMs:number;context?:AIChatContext;
 }):Promise<{ calls:AIReadToolCall[];inputTokens:number;outputTokens:number }> {
   const response=await input.provider.complete({
-    messages:[{role:'system',content:SELECTOR_SYSTEM},...input.history.slice(-2),{role:'user',content:input.question}],
+    messages:[{role:'system',content:SELECTOR_SYSTEM},...(input.context?[{role:'system' as const,content:selectionContext(input.context)}]:[]),
+      ...input.history.slice(-2),{role:'user',content:input.question}],
     tools:AI_READ_TOOL_DEFINITIONS,temperature:0,maxOutputTokens:280,reasoning:{effort:'none',format:'hidden'},
   },{requestId:randomUUID(),timeoutMs:Math.min(input.timeoutMs,10_000),signal:input.signal});
   const allowed=new Set(AI_READ_TOOL_DEFINITIONS.map((tool)=>tool.name));
