@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { NextRequest,NextResponse } from 'next/server';
 import { z } from 'zod';
 import { GroqChatProvider } from '@/lib/ai/providers/groq-chat-provider';
+import { readToolSelectorMaxOutputTokens } from '@/lib/ai/providers/model-reasoning-compat';
 import { createRequestSignal,abortableDelay } from '@/lib/ai/providers/provider-http';
 import { retrieveKnowledge } from '@/lib/ai/retrieval/retrieval-server';
 import { retrieveStructuredActions } from '@/lib/ai/retrieval/structured-retrieval-server';
@@ -354,7 +355,7 @@ export async function POST(request:NextRequest) {
             +(needsModelToolSelection?estimateAIReadToolSelectionTokens(input.message,availableHistory,effectiveContext):0)
             +(writeRequested?1_200:0);
           const requestedOutputTokens=Math.min(contextPlan.maxOutputTokens,decision.maxOutputTokens)
-            +(needsModelToolSelection?280:0)+(writeRequested?500:0);
+            +(needsModelToolSelection?readToolSelectorMaxOutputTokens(model):0)+(writeRequested?500:0);
           const reserveBackup=async():Promise<GroqChatProvider|null>=>{
             if (!backupProvider||fallbackUsed||overallSignal.signal.aborted) return null;
             const backupAdmission=await reserveProviderTokens({
@@ -369,7 +370,7 @@ export async function POST(request:NextRequest) {
                 +(needsModelToolSelection&&!usedModelToolSelection
                   ?estimateAIReadToolSelectionTokens(input.message,availableHistory,effectiveContext):0),
               maxOutputTokens:Math.min(latestContextPlan.maxOutputTokens,decision.maxOutputTokens)
-                +(needsModelToolSelection&&!usedModelToolSelection?280:0),
+                +(needsModelToolSelection&&!usedModelToolSelection?readToolSelectorMaxOutputTokens(backupProvider.modelId):0),
             });
             if (!backupAdmission.allowed || !backupAdmission.reservationId) return null;
             fallbackUsed=true;
