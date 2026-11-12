@@ -11,7 +11,7 @@ function normalizeIntentText(query: string) {
 
 const productHelp = /\b(how (do|can) i|(axiom|actiproc) (nasil|nedir)|yardim|help|knowledge hub|planner nasil)\b/i;
 const structured = /\b(kac|toplam|say|count|list|listele\w*|hangi action|hangi aksiyon|which action|priority|oncelik\w*|status|stage|asama\w*|durum\w*|due|scheduled|planlanmis|today|bugun|tomorrow|yarin)\b/i;
-const knowledge = /\b(notlar\w*|gecmis\w*|ogrend\w*|karar\w*|hatirla\w*|my notes|previously|what did (i|we)|what do we know|knowledge|checklist|belge\w*|bilgi\w*|dokuman\w*|icerik\w*|(axiom|actiproc) bilgiler|workspace|calisma alani|cite|citation|source|kaynak\w*|atif|referans\w*|dogrulama kodu|verification phrase)\b/i;
+const knowledge = /\b(notlar\w*|gecmis\w*|ogrend\w*|karar\w*|hatirla\w*|my notes|previously|what did (i|we)|what do we know|knowledge|checklist\w*|belge\w*|bilgi\w*|dokuman\w*|icerik\w*|(axiom|actiproc) bilgiler|workspace|calisma alani|cite|citation|source|kaynak\w*|atif|referans\w*|dogrulama kodu|verification phrase)\b/i;
 const workspaceIdentifier = /\b[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*-\d+\b/;
 const smallTalk = /^(hi|hello|hey|merhaba|selam|nasilsin|how are you|thanks|thank you|tesekkurler)[!.? ]*$/i;
 const workspaceSignal = /\b(action\w*|aksiyon\w*|checklist\w*|note\w*|notlar\w*|process\w*|surec\w*|task\w*|gorev\w*|kart\w*|workspace|knowledge hub|planner|project\w*|proje\w*|dogrulama kodu|verification phrase)\b/i;

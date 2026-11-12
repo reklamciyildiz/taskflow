@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { NextRequest,NextResponse } from 'next/server';
 import { z } from 'zod';
 import { GroqChatProvider } from '@/lib/ai/providers/groq-chat-provider';
+import { readToolSelectorMaxOutputTokens } from '@/lib/ai/providers/model-reasoning-compat';
 import { createRequestSignal,abortableDelay } from '@/lib/ai/providers/provider-http';
 import { retrieveKnowledge } from '@/lib/ai/retrieval/retrieval-server';
 import { retrieveStructuredActions } from '@/lib/ai/retrieval/structured-retrieval-server';
@@ -90,6 +91,9 @@ function safeError(error:unknown,provider?:GroqChatProvider) {
     }
     if (normalized.code==='timeout') return { code:'PROVIDER_TIMEOUT',message:AI_TEMPORARY_SERVICE_MESSAGE,retryable:true };
     if (normalized.code==='configuration') return { code:'PROVIDER_CONFIGURATION',message:AI_TEMPORARY_SERVICE_MESSAGE,retryable:false };
+    if (normalized.code==='invalid_request') return { code:'PROVIDER_REQUEST_REJECTED',message:AI_TEMPORARY_SERVICE_MESSAGE,retryable:false };
+    if (normalized.code==='unauthorized') return { code:'PROVIDER_AUTHENTICATION',message:AI_TEMPORARY_SERVICE_MESSAGE,retryable:false };
+    if (normalized.code==='unavailable') return { code:'PROVIDER_UNAVAILABLE',message:AI_TEMPORARY_SERVICE_MESSAGE,retryable:true };
   }
   return { code:'AI_UNAVAILABLE',message:AI_TEMPORARY_SERVICE_MESSAGE,retryable:true };
 }
@@ -136,6 +140,7 @@ export async function POST(request:NextRequest) {
         const startedAt=Date.now(); let answer=''; let assistantStatus:'completed'|'failed'|'cancelled'='failed';
         let inputTokens:number|undefined,outputTokens:number|undefined,model:string|undefined;
         let provider:GroqChatProvider|undefined,billableAttempt=false;
+        let failureStage='initialization';
         let tokenReservationId:string|undefined;
         let fallbackUsed=false;
         let fallbackStartingTokens=0;
@@ -209,6 +214,7 @@ export async function POST(request:NextRequest) {
           }));
           const needsModelToolSelection=readToolsEnabled&&!writeRequested
             &&shouldUseModelToolSelection(input.message,directReadToolCalls,effectiveContext);
+          failureStage='workspace_read';
           const runReadToolCalls=async(calls:AIReadToolCall[])=>{
             const executions:AIReadToolExecution[]=[];
             for(const call of calls.slice(0,2)) {
@@ -332,6 +338,7 @@ export async function POST(request:NextRequest) {
             grounding={ kind:'structured',teamId:effectiveContext.teamId,processId:effectiveContext.processId };
           }
 
+          failureStage='context_preparation';
           const contextPlan=planChatContext({ intent,question:input.message,history:availableHistory,
             citations,structured,agentContext,configuredMaxOutputTokens:aiChatLimits.maxOutputTokens });
 
@@ -339,6 +346,7 @@ export async function POST(request:NextRequest) {
             intent,question:input.message,profile:contextPlan.profile,writeRequested,
             organizationId:scope.organizationId,configuredMaxOutputTokens:contextPlan.maxOutputTokens,
           });
+          failureStage='provider_initialization';
           provider=new GroqChatProvider({model:decision.model});model=provider.modelId;
           if(decision.routed) console.info(JSON.stringify({
             event:'ai_model_v2_routed',requestId:input.clientRequestId,
@@ -354,7 +362,7 @@ export async function POST(request:NextRequest) {
             +(needsModelToolSelection?estimateAIReadToolSelectionTokens(input.message,availableHistory,effectiveContext):0)
             +(writeRequested?1_200:0);
           const requestedOutputTokens=Math.min(contextPlan.maxOutputTokens,decision.maxOutputTokens)
-            +(needsModelToolSelection?280:0)+(writeRequested?500:0);
+            +(needsModelToolSelection?readToolSelectorMaxOutputTokens(model):0)+(writeRequested?500:0);
           const reserveBackup=async():Promise<GroqChatProvider|null>=>{
             if (!backupProvider||fallbackUsed||overallSignal.signal.aborted) return null;
             const backupAdmission=await reserveProviderTokens({
@@ -369,7 +377,7 @@ export async function POST(request:NextRequest) {
                 +(needsModelToolSelection&&!usedModelToolSelection
                   ?estimateAIReadToolSelectionTokens(input.message,availableHistory,effectiveContext):0),
               maxOutputTokens:Math.min(latestContextPlan.maxOutputTokens,decision.maxOutputTokens)
-                +(needsModelToolSelection&&!usedModelToolSelection?280:0),
+                +(needsModelToolSelection&&!usedModelToolSelection?readToolSelectorMaxOutputTokens(backupProvider.modelId):0),
             });
             if (!backupAdmission.allowed || !backupAdmission.reservationId) return null;
             fallbackUsed=true;
@@ -382,6 +390,7 @@ export async function POST(request:NextRequest) {
             requestKey:input.clientRequestId,userId:scope.userId,organizationId:scope.organizationId,model,
             estimatedInputTokens:requestedInputTokens,maxOutputTokens:requestedOutputTokens,
           };
+          failureStage='provider_admission';
           let tokenAdmission=await reserveGroqTokens(admissionArgs);
           if(!tokenAdmission.allowed) {
             console.warn(JSON.stringify({
@@ -450,6 +459,7 @@ export async function POST(request:NextRequest) {
             }
           }
           if(needsModelToolSelection) {
+            failureStage='read_tool_selection';
             billableAttempt=true;usedModelToolSelection=true;
             const selection=await selectAIReadTools({provider,question:input.message,history:availableHistory,
               context:effectiveContext,signal:overallSignal.signal,timeoutMs:aiChatLimits.timeoutMs});
@@ -521,6 +531,7 @@ export async function POST(request:NextRequest) {
           }
           citations=finalContextPlan.citations;
 
+          failureStage='model_generation';
           billableAttempt=true;
           const registry=createCitationRegistry(citations);
           let retriedOnce=false;
@@ -601,6 +612,7 @@ export async function POST(request:NextRequest) {
             error.name='CitationRequiredError';
             throw error;
           }
+          failureStage='assistant_finalization';
           await finalizeAssistantMessage({ messageId:turn.assistantMessageId,scope,content:answer,status:'completed',model,
             inputTokens,outputTokens,sources:verified,
             ...(readToolReferences.length?{references:readToolReferences}:{}),grounding });
@@ -648,6 +660,7 @@ export async function POST(request:NextRequest) {
             userQuotaRefunded=true;
           }
           console.error(JSON.stringify({ event:'ai_chat_failed',requestId:input.clientRequestId,code:normalized.code,
+            failureStage,providerCategory:providerFailure?.code,modelId:model??null,
             durationMs:Date.now()-startedAt,retryable:normalized.retryable,
             providerStatus:providerFailure?.providerStatus,retryAfterMs:providerFailure?.retryAfterMs,
             upstreamRequestId:providerFailure?.upstreamRequestId,rateLimit:providerFailure?.rateLimit }));

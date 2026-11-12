@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { estimateMessagesTokens, estimateTokens } from '@/lib/ai/utils/token-counter';
+import { groqReasoningBodyOptions } from './model-reasoning-compat';
 import type {
   AIProviderContext,
   AIProviderUsage,
@@ -193,8 +194,10 @@ export class GroqChatProvider implements ChatProvider {
         parallel_tool_calls: this.parallelToolCalls,
       } : {}),
       ...(request.temperature !== undefined ? { temperature: request.temperature } : {}),
-      ...(this.supportsGroqReasoning && request.reasoning?.effort ? { reasoning_effort: request.reasoning.effort } : {}),
-      ...(this.supportsGroqReasoning && request.reasoning?.format ? { reasoning_format: request.reasoning.format } : {}),
+      ...groqReasoningBodyOptions({
+        providerId:this.providerId,modelId:this.modelId,
+        supportsGroqReasoning:this.supportsGroqReasoning,reasoning:request.reasoning,
+      }),
       max_completion_tokens: maxOutputTokens,
       stream,
       ...(stream ? { stream_options: { include_usage: true } } : {}),
