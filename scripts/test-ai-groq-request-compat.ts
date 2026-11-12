@@ -80,9 +80,9 @@ for await(const event of providerStream.stream({
   maxOutputTokens:1024,
 },context))events.push(event);
 assert.ok(events.some(event=>event.type==='text_delta'));
-assert.equal((streamBody as Record<string,unknown>).reasoning_format,undefined);
-assert.equal((streamBody as Record<string,unknown>).include_reasoning,false);
-assert.equal((streamBody as Record<string,unknown>).reasoning_effort,'low');
+assert.equal((streamBody as unknown as Record<string,unknown>).reasoning_format,undefined);
+assert.equal((streamBody as unknown as Record<string,unknown>).include_reasoning,false);
+assert.equal((streamBody as unknown as Record<string,unknown>).reasoning_effort,'low');
 
 let qwenBody:Record<string,unknown>|null=null;
 const qwenProvider=new GroqChatProvider({
@@ -96,9 +96,9 @@ const qwenProvider=new GroqChatProvider({
 });
 await qwenProvider.complete({messages:[{role:'user',content:'Merhaba'}],
   reasoning:{effort:'none',format:'hidden'}},context);
-assert.equal((qwenBody as Record<string,unknown>).reasoning_effort,'none');
-assert.equal((qwenBody as Record<string,unknown>).reasoning_format,'hidden');
-assert.equal((qwenBody as Record<string,unknown>).include_reasoning,undefined);
+assert.equal((qwenBody as unknown as Record<string,unknown>).reasoning_effort,'none');
+assert.equal((qwenBody as unknown as Record<string,unknown>).reasoning_format,'hidden');
+assert.equal((qwenBody as unknown as Record<string,unknown>).include_reasoning,undefined);
 
 const userQuestion='tell me about Creating a few processes with another Google account in my checklists??';
 const intent=classifyChatIntent(userQuestion);
