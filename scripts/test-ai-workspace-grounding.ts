@@ -24,7 +24,7 @@ assert.equal(calls('could you please provide me what you did as last!')[0].name,
 const noteSearch=calls('cocoindex hakkında notlarımda neler var?');
 assert.equal(noteSearch[0]?.name,'get_notes');
 assert.equal((noteSearch[0].arguments as any).query.toLowerCase(),'cocoindex');
-assert.equal((noteSearch[0].arguments as any).focus,'notes');
+assert.equal((noteSearch[0].arguments as any).authorScope,'mine');
 const enNotes=calls('what is my notes about cocoindex?');
 assert.equal(enNotes[0]?.name,'get_notes');
 assert.equal((enNotes[0].arguments as any).query,'cocoindex');
