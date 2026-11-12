@@ -1,0 +1,56 @@
+name: Actiproc AI semantic Notes grounding
+on:
+  pull_request:
+    paths:
+      - 'lib/ai/agent/**'
+      - 'app/api/ai/chat/route.ts'
+      - 'scripts/test-ai-semantic-notes.ts'
+      - 'scripts/test-ai-workspace-grounding.ts'
+      - '.github/workflows/ai-semantic-notes.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'lib/ai/agent/**'
+      - 'app/api/ai/chat/route.ts'
+      - 'scripts/test-ai-semantic-notes.ts'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  semantic-notes-quality:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Semantic Note lookup, data isolation and model-independent responses
+        run: npx tsx scripts/test-ai-semantic-notes.ts
+      - name: Existing workspace, multilingual and read-tool regressions
+        run: |
+          npx tsx scripts/test-ai-workspace-grounding.ts
+          npx tsx scripts/test-ai-tr-process-context.ts
+          npx tsx scripts/test-ai-read-tools.ts
+      - name: AI reliability and model provider regressions
+        run: |
+          npx tsx scripts/test-ai-reliability.ts
+          npx tsx scripts/test-ai-providers.ts
+      - name: TypeScript
+        run: npx tsc --noEmit
+      - name: ESLint
+        run: npm run lint
+      - name: Production build with inert CI credentials
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-not-a-real-key
+          SUPABASE_SERVICE_ROLE_KEY: ci-not-a-real-service-role-key
+          NEXTAUTH_SECRET: ci-semantic-notes-build-secret-not-real
+          NEXTAUTH_URL: http://localhost:3000
+          RESEND_API_KEY: re_ci_build_placeholder_never_valid
+          RESEND_FROM_EMAIL: ci@example.invalid
+        run: npm run build
