@@ -12,6 +12,7 @@ import { supabaseAdmin } from '@/lib/supabase-admin';
 import type { AIReadReference,AIReadToolActor,AIReadToolExecution,AIReadToolName } from './types';
 import { matchAIEntity, normalizeAIEntityName } from './entity-matching';
 import { canReadScopedAction } from './scoped-action-access';
+import { listCanonicalAuthorizedNotes } from './canonical-note-reader';
 
 const uuid=z.string().uuid();
 const processSelector=z.object({ processId:uuid.optional(),processName:z.string().trim().min(1).max(120).optional() }).strict()
@@ -30,6 +31,14 @@ const listActionsSchema=z.object({
   limit:z.number().int().min(1).max(50).default(20),offset:z.number().int().min(0).max(500).default(0),
 }).strict();
 const recentWorkspaceSchema=z.object({teamId:uuid.optional(),processId:uuid.optional(),processName:z.string().trim().min(1).max(120).optional(),query:z.string().trim().min(1).max(120).optional(),limit:z.number().int().min(1).max(15).default(8),focus:z.enum(['notes','actions','all']).default('all')}).strict();
+const notesSchema=z.object({
+  teamId:uuid.optional(),processId:uuid.optional(),processName:z.string().trim().min(1).max(120).optional(),
+  authorScope:z.enum(['mine','accessible']).default('mine'),
+  sort:z.enum(['created_desc','updated_desc']).default('created_desc'),
+  answerStyle:z.enum(['list','analysis']).default('list'),
+  query:z.string().trim().min(1).max(120).optional(),
+  limit:z.number().int().min(1).max(15).default(5),
+}).strict();
 const actionDetailsSchema=z.object({ actionId:uuid }).strict();
 const plannerSchema=z.object({
   range:z.enum(['today','tomorrow','this_week','custom']).default('today'),teamId:uuid.optional(),
@@ -43,7 +52,7 @@ const knowledgeSchema=z.object({
 
 const schemas:Record<AIReadToolName,z.ZodTypeAny>={
   list_processes:listProcessesSchema,get_process_overview:processOverviewSchema,get_process_content:processContentSchema,list_actions:listActionsSchema,
-  get_recent_workspace:recentWorkspaceSchema,get_action_details:actionDetailsSchema,get_planner_overview:plannerSchema,search_knowledge:knowledgeSchema,
+  get_recent_workspace:recentWorkspaceSchema,get_notes:notesSchema,get_action_details:actionDetailsSchema,get_planner_overview:plannerSchema,search_knowledge:knowledgeSchema,
 };
 
 export class AIReadToolError extends Error {
@@ -358,43 +367,30 @@ async function runRecentWorkspace(actor:AIReadToolActor,input:z.infer<typeof rec
       processName:project?safeContent(project.name,140):null,
       updatedAt:String(task.updated_at),stage:String(task.status)};
   });
-  // Notes are canonical TipTap JSON. Search only Notes attached to already
-  // authorized Actions; never query another tenant or return unknown task IDs.
-  const allowedTaskIds=scope.tasks.map((task:any)=>String(task.id));
-  const recentNotes:any[]=[];
-  let notesPartial=false;
-  for(let index=0;input.focus!=='actions'&&index<allowedTaskIds.length;index+=75) {
-    const {data,error,count}=await supabaseAdmin.from('notes')
-      .select('id,task_id,title,type,content,updated_at',{count:'exact'})
-      .eq('organization_id',actor.organizationId)
-      .in('task_id',allowedTaskIds.slice(index,index+75))
-      .order('updated_at',{ascending:false}).limit(100);
-    if(error)throw new AIReadToolError('unavailable','Recent Notes are temporarily unavailable');
-    recentNotes.push(...(data??[]));
-    if(count===null||count>(data??[]).length)notesPartial=true;
-  }
-  recentNotes.sort((a,b)=>String(b.updated_at).localeCompare(String(a.updated_at)));
-  const actionById=new Map(scope.tasks.map((task:any)=>[String(task.id),task]));
-  const normalizedQuery=input.query?normalizeAIEntityName(input.query):null;
-  const relevantNotes=normalizedQuery?recentNotes.filter(note=>
-    normalizeAIEntityName(String(note.title??'')+' '+previewTextFromTipTap(note.content,1000))
-      .includes(normalizedQuery)) :recentNotes;
-  const selectedNotes=relevantNotes.slice(0,input.limit);
-  const notes=selectedNotes.map((note:any)=>{
-    const task:any=actionById.get(String(note.task_id));
-    const project:any=task?.project_id?scope.projectById.get(String(task.project_id)):null;
-    return {id:String(note.id),title:safeContent(note.title,180),
-      type:String(note.type),actionTitle:task?safeContent(task.title,160):null,
-      processName:project?safeContent(project.name,140):null,
-      preview:safeContent(previewTextFromTipTap(note.content,400),400),
-      updatedAt:String(note.updated_at)};
+  // Read Notes from canonical Notes rows, NOT just from the first 501 Actions.
+  // Every row is independently rechecked against current Team/Process ACL.
+  const rawNotes=input.focus==='actions' ? null : await listCanonicalAuthorizedNotes({
+    actor,allowedTeams:scope.teams,
+    visibleProjects:new Map(scope.projects.map((project:any)=>[String(project.id),{
+      id:String(project.id),team_id:project.team_id?String(project.team_id):null,
+      name:project.name?String(project.name):null,
+    }])),
+    teamId:input.teamId,processId:scope.selectedProject?String(scope.selectedProject.id):undefined,
+    authorScope:'accessible',sort:'updated_desc',query:input.query,limit:input.limit,
+  }).catch(()=>{
+    throw new AIReadToolError('unavailable','Recent Notes lookup is temporarily unavailable');
   });
+  const notes=(rawNotes?.notes??[]).map(note=>({
+    id:note.id,title:safeContent(note.title,180),type:note.type,
+    actionTitle:safeContent(note.actionTitle,160),
+    processName:note.processName?safeContent(note.processName,140):null,
+    preview:safeContent(note.preview,400),
+    updatedAt:note.updatedAt,createdAt:note.createdAt,
+  }));
+  const notesRefs=(rawNotes?.notes??[]).map((note)=>
+    actionReference({id:note.actionId,title:note.actionTitle},note.processId));
   const actionRefs=scope.tasks.slice(0,input.limit).map((task:any)=>
     actionReference(task,task.project_id?String(task.project_id):null));
-  const notesRefs=selectedNotes.map((note:any)=>{
-    const task:any=actionById.get(String(note.task_id));
-    return task?actionReference(task,task.project_id?String(task.project_id):null):null;
-  }).filter((reference):reference is AIReadReference=>Boolean(reference));
   const refs=[...actionRefs,...notesRefs].filter((reference,index,all)=>
     all.findIndex(value=>value.id===reference.id&&value.type===reference.type)===index);
   return {name:'get_recent_workspace',statusLabel:'Son Action ve Notes kayıtları kontrol ediliyor…',
@@ -403,14 +399,57 @@ async function runRecentWorkspace(actor:AIReadToolActor,input:z.infer<typeof rec
       latestActions:input.focus==='notes'?[]:actions,
       latestNotes:input.focus==='actions'?[]:notes,
       focus:input.focus,
-      // Snapshot is bounded by the latest eligible Action rows; do not imply
-      // full organization activity logs or deleted/hidden history was read.
-      partialScan:scope.partialScan||notesPartial,
-      noteSource:'Notes linked to accessible Actions; latest bounded canonical snapshot, not an exhaustive audit log',
+      partialScan:scope.partialScan||Boolean(rawNotes?.partialScan),
+      notesPartialScan:rawNotes?.partialScan??false,
+      noteSource:'Live canonical Notes, individually checked against Team and Process access; not a historical activity log.',
       observedActionCount:scope.tasks.length,
       query:input.query??null,
       returnedNotes:notes.length,
     }};
+}
+
+async function runNotes(actor:AIReadToolActor,input:z.infer<typeof notesSchema>):Promise<AIReadToolExecution>{
+  const teams=await accessibleTeamIds(actor);
+  if(input.teamId&&!teams.has(input.teamId))
+    throw new AIReadToolError('forbidden','Requested Team is not accessible');
+  const visible=await visibleProcesses(actor,input.teamId);
+  const projectById=new Map<string,{
+    id:string;team_id:string|null;name:string|null
+  }>(visible.map((project:any)=>[String(project.id),{
+    id:String(project.id),team_id:project.team_id?String(project.team_id):null,
+    name:project.name?String(project.name):null,
+  }]));
+  let processId=input.processId;
+  if(input.processId||input.processName) {
+    const process=await resolveProcess(actor,input,input.teamId);
+    if(!process)throw new AIReadToolError('not_found','Process not found or inaccessible');
+    processId=String(process.id);
+  }
+  let result:Awaited<ReturnType<typeof listCanonicalAuthorizedNotes>>;
+  try {
+    result=await listCanonicalAuthorizedNotes({
+      actor,allowedTeams:teams,visibleProjects:projectById,
+      teamId:input.teamId,processId,authorScope:input.authorScope,
+      sort:input.sort,query:input.query,limit:input.limit,
+    });
+  } catch {
+    throw new AIReadToolError('unavailable','Canonical Notes lookup is temporarily unavailable');
+  }
+  const notes=result.notes.map((note)=>({
+    ...note,title:safeContent(note.title,240),actionTitle:safeContent(note.actionTitle,200),
+    processName:note.processName?safeContent(note.processName,140):null,
+    preview:safeContent(note.preview,700),
+  }));
+  const refs=notes.map(note=>actionReference({
+    id:note.actionId,title:note.actionTitle,
+  },note.processId)).filter((value,index,all)=>
+    all.findIndex(item=>item.id===value.id)===index);
+  return {name:'get_notes',statusLabel:'Notlarınızın gerçek kayıtları inceleniyor…',
+    citations:[],references:refs,
+    data:{notes,sort:input.sort,authorScope:input.authorScope,
+      answerStyle:input.answerStyle,query:input.query??null,
+      scanned:result.scanned,partialScan:result.partialScan,hasMore:result.hasMore},
+  };
 }
 
 async function runActionDetails(actor:AIReadToolActor,input:z.infer<typeof actionDetailsSchema>):Promise<AIReadToolExecution>{
@@ -454,6 +493,7 @@ export async function executeAIReadTool(name:string,rawArguments:unknown,actor:A
   if(tool==='get_process_content')return runProcessContent(actor,parsed.data);
   if(tool==='list_actions')return runListActions(actor,parsed.data);
   if(tool==='get_recent_workspace')return runRecentWorkspace(actor,parsed.data);
+  if(tool==='get_notes')return runNotes(actor,parsed.data);
   if(tool==='get_action_details')return runActionDetails(actor,parsed.data);
   if(tool==='get_planner_overview')return runPlanner(actor,parsed.data);
   return runKnowledge(actor,parsed.data);
