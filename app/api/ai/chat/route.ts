@@ -207,7 +207,8 @@ export async function POST(request:NextRequest) {
             readToolNames:directReadToolCalls.map(call=>call.name),
             scopedToTeam:Boolean(effectiveContext.teamId),scopedToProcess:Boolean(effectiveContext.processId),
           }));
-          const needsModelToolSelection=readToolsEnabled&&!writeRequested&&shouldUseModelToolSelection(input.message,directReadToolCalls);
+          const needsModelToolSelection=readToolsEnabled&&!writeRequested
+            &&shouldUseModelToolSelection(input.message,directReadToolCalls,effectiveContext);
           const runReadToolCalls=async(calls:AIReadToolCall[])=>{
             const executions:AIReadToolExecution[]=[];
             for(const call of calls.slice(0,2)) {
@@ -350,7 +351,7 @@ export async function POST(request:NextRequest) {
           const backupProvider=!writeRequested ? createOptionalOpenAIBackup() : null;
           let latestContextPlan=contextPlan;
           const requestedInputTokens=contextPlan.estimatedInputTokens
-            +(needsModelToolSelection?estimateAIReadToolSelectionTokens(input.message,availableHistory):0)
+            +(needsModelToolSelection?estimateAIReadToolSelectionTokens(input.message,availableHistory,effectiveContext):0)
             +(writeRequested?1_200:0);
           const requestedOutputTokens=Math.min(contextPlan.maxOutputTokens,decision.maxOutputTokens)
             +(needsModelToolSelection?280:0)+(writeRequested?500:0);
@@ -366,7 +367,7 @@ export async function POST(request:NextRequest) {
               // may have grown since the initial admission estimate.
               estimatedInputTokens:latestContextPlan.estimatedInputTokens
                 +(needsModelToolSelection&&!usedModelToolSelection
-                  ?estimateAIReadToolSelectionTokens(input.message,availableHistory):0),
+                  ?estimateAIReadToolSelectionTokens(input.message,availableHistory,effectiveContext):0),
               maxOutputTokens:Math.min(latestContextPlan.maxOutputTokens,decision.maxOutputTokens)
                 +(needsModelToolSelection&&!usedModelToolSelection?280:0),
             });
@@ -451,7 +452,7 @@ export async function POST(request:NextRequest) {
           if(needsModelToolSelection) {
             billableAttempt=true;usedModelToolSelection=true;
             const selection=await selectAIReadTools({provider,question:input.message,history:availableHistory,
-              signal:overallSignal.signal,timeoutMs:aiChatLimits.timeoutMs});
+              context:effectiveContext,signal:overallSignal.signal,timeoutMs:aiChatLimits.timeoutMs});
             inputTokens=(inputTokens??0)+selection.inputTokens;outputTokens=(outputTokens??0)+selection.outputTokens;
             if(selection.calls.length) {
               readToolExecutions=await runReadToolCalls(selection.calls);
@@ -476,6 +477,35 @@ export async function POST(request:NextRequest) {
                 await finalizeAssistantMessage({messageId:turn.assistantMessageId,scope,content:answer,
                   status:'completed',model:'actiproc-selected-read-scope-guard'});
                 send({type:'done',finishReason:'completed'});return;
+              }
+              // A semantic tool selection can recover an exact fact missed by
+              // the fast path. Do not ask another LLM to hallucinate it.
+              const selectedCanonical=renderCanonicalWorkspaceAnswer(input.message,readToolExecutions);
+              if(selectedCanonical){
+                answer=selectedCanonical;
+                readToolReferences=readToolExecutions.flatMap(execution=>execution.references)
+                  .filter((reference,index,all)=>all.findIndex(item=>
+                    item.type===reference.type&&item.id===reference.id)===index).slice(0,20);
+                definitelyNoNewProviderTokens=true; // selector billed, no generation
+                await finalizeAssistantMessage({
+                  messageId:turn.assistantMessageId,scope,content:answer,status:'completed',
+                  model,inputTokens,outputTokens,
+                  ...(readToolReferences.length?{references:readToolReferences}:{}),
+                  grounding:{kind:'structured',teamId:effectiveContext.teamId,processId:effectiveContext.processId},
+                });
+                if(readToolReferences.length)send({type:'references',references:readToolReferences});
+                send({type:'delta',text:answer});
+                send({type:'done',finishReason:'completed'});
+                assistantStatus='completed';
+                await recordAIRequest(scope.userId,scope.organizationId,'axiom-chat',model??'groq',
+                  inputTokens??0,outputTokens??0,
+                  estimateGroqChatCostUsd(model??'groq',inputTokens??0,outputTokens??0),
+                  Date.now()-startedAt,true,undefined,{
+                    intent,plan:allowance.plan,modelToolSelection:true,canonicalRead:true,costIsEstimate:true,
+                    readTools:readToolExecutions.map(execution=>execution.name),
+                    toolCallCount:readToolExecutions.length,
+                  }).catch(()=>undefined);
+                return;
               }
               citations=readToolExecutions.flatMap((execution)=>execution.citations);
               readToolReferences=readToolExecutions.flatMap((execution)=>execution.references)
