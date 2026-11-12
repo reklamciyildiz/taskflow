@@ -1,0 +1,79 @@
+name: Actiproc AI Architecture V2 — canary and capacity
+
+on:
+  pull_request:
+    paths:
+      - 'lib/ai/chat/model-router.ts'
+      - 'lib/ai/chat/provider-capacity-policy.ts'
+      - 'lib/ai/chat/provider-token-admission.ts'
+      - 'app/api/ai/chat/route.ts'
+      - 'supabase/migrations/20261112183000_ai_provider_capacity_v2.sql'
+      - 'scripts/test-ai-architecture-v2*'
+      - '.github/workflows/ai-architecture-v2.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'lib/ai/chat/model-router.ts'
+      - 'lib/ai/chat/provider-capacity-policy.ts'
+      - 'lib/ai/chat/provider-token-admission.ts'
+      - 'app/api/ai/chat/route.ts'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  v2-quality:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Model routing, rollout, output and fallback guardrails
+        run: npx tsx scripts/test-ai-architecture-v2.ts
+      - name: Previous provider and reliability coverage
+        run: |
+          npx tsx scripts/test-ai-reliability.ts
+          npx tsx scripts/test-ai-providers.ts
+          npx tsx scripts/test-ai-workspace-grounding.ts
+      - name: PostgreSQL provider-wide admission and row security
+        env:
+          PGHOST: localhost
+          PGPORT: '5432'
+          PGUSER: postgres
+          PGPASSWORD: postgres
+          PGDATABASE: postgres
+        run: |
+          command -v psql >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y postgresql-client)
+          bash scripts/test-ai-architecture-v2-sql.sh
+      - name: TypeScript
+        run: npx tsc --noEmit
+      - name: ESLint
+        run: npm run lint
+      - name: Production build with inert credentials
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-not-a-real-key
+          SUPABASE_SERVICE_ROLE_KEY: ci-not-a-real-service-role-key
+          NEXTAUTH_SECRET: ci-ai-v2-build-only-not-valid
+          NEXTAUTH_URL: http://localhost:3000
+          RESEND_API_KEY: re_ci_build_placeholder_never_valid
+          RESEND_FROM_EMAIL: ci@example.invalid
+        run: npm run build
