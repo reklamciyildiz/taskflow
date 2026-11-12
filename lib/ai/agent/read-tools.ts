@@ -12,6 +12,7 @@ import { supabaseAdmin } from '@/lib/supabase-admin';
 import type { AIReadReference,AIReadToolActor,AIReadToolExecution,AIReadToolName } from './types';
 import { matchAIEntity, normalizeAIEntityName } from './entity-matching';
 import { canReadScopedAction } from './scoped-action-access';
+import { listCanonicalAuthorizedNotes } from './canonical-note-reader';
 
 const uuid=z.string().uuid();
 const processSelector=z.object({ processId:uuid.optional(),processName:z.string().trim().min(1).max(120).optional() }).strict()
@@ -30,6 +31,14 @@ const listActionsSchema=z.object({
   limit:z.number().int().min(1).max(50).default(20),offset:z.number().int().min(0).max(500).default(0),
 }).strict();
 const recentWorkspaceSchema=z.object({teamId:uuid.optional(),processId:uuid.optional(),processName:z.string().trim().min(1).max(120).optional(),query:z.string().trim().min(1).max(120).optional(),limit:z.number().int().min(1).max(15).default(8),focus:z.enum(['notes','actions','all']).default('all')}).strict();
+const notesSchema=z.object({
+  teamId:uuid.optional(),processId:uuid.optional(),processName:z.string().trim().min(1).max(120).optional(),
+  authorScope:z.enum(['mine','accessible']).default('mine'),
+  sort:z.enum(['created_desc','updated_desc']).default('created_desc'),
+  answerStyle:z.enum(['list','analysis']).default('list'),
+  query:z.string().trim().min(1).max(120).optional(),
+  limit:z.number().int().min(1).max(15).default(5),
+}).strict();
 const actionDetailsSchema=z.object({ actionId:uuid }).strict();
 const plannerSchema=z.object({
   range:z.enum(['today','tomorrow','this_week','custom']).default('today'),teamId:uuid.optional(),
@@ -43,7 +52,7 @@ const knowledgeSchema=z.object({
 
 const schemas:Record<AIReadToolName,z.ZodTypeAny>={
   list_processes:listProcessesSchema,get_process_overview:processOverviewSchema,get_process_content:processContentSchema,list_actions:listActionsSchema,
-  get_recent_workspace:recentWorkspaceSchema,get_action_details:actionDetailsSchema,get_planner_overview:plannerSchema,search_knowledge:knowledgeSchema,
+  get_recent_workspace:recentWorkspaceSchema,get_notes:notesSchema,get_action_details:actionDetailsSchema,get_planner_overview:plannerSchema,search_knowledge:knowledgeSchema,
 };
 
 export class AIReadToolError extends Error {
@@ -413,6 +422,50 @@ async function runRecentWorkspace(actor:AIReadToolActor,input:z.infer<typeof rec
     }};
 }
 
+async function runNotes(actor:AIReadToolActor,input:z.infer<typeof notesSchema>):Promise<AIReadToolExecution>{
+  const teams=await accessibleTeamIds(actor);
+  if(input.teamId&&!teams.has(input.teamId))
+    throw new AIReadToolError('forbidden','Requested Team is not accessible');
+  const visible=await visibleProcesses(actor,input.teamId);
+  const projectById=new Map<string,{
+    id:string;team_id:string|null;name:string|null
+  }>(visible.map((project:any)=>[String(project.id),{
+    id:String(project.id),team_id:project.team_id?String(project.team_id):null,
+    name:project.name?String(project.name):null,
+  }]));
+  let processId=input.processId;
+  if(input.processId||input.processName) {
+    const process=await resolveProcess(actor,input,input.teamId);
+    if(!process)throw new AIReadToolError('not_found','Process not found or inaccessible');
+    processId=String(process.id);
+  }
+  let result:Awaited<ReturnType<typeof listCanonicalAuthorizedNotes>>;
+  try {
+    result=await listCanonicalAuthorizedNotes({
+      actor,allowedTeams:teams,visibleProjects:projectById,
+      teamId:input.teamId,processId,authorScope:input.authorScope,
+      sort:input.sort,query:input.query,limit:input.limit,
+    });
+  } catch {
+    throw new AIReadToolError('unavailable','Canonical Notes lookup is temporarily unavailable');
+  }
+  const notes=result.notes.map((note)=>({
+    ...note,title:safeContent(note.title,240),actionTitle:safeContent(note.actionTitle,200),
+    processName:note.processName?safeContent(note.processName,140):null,
+    preview:safeContent(note.preview,700),
+  }));
+  const refs=notes.map(note=>actionReference({
+    id:note.actionId,title:note.actionTitle,
+  },note.processId)).filter((value,index,all)=>
+    all.findIndex(item=>item.id===value.id)===index);
+  return {name:'get_notes',statusLabel:'Notlarınızın gerçek kayıtları inceleniyor…',
+    citations:[],references:refs,
+    data:{notes,sort:input.sort,authorScope:input.authorScope,
+      answerStyle:input.answerStyle,query:input.query??null,
+      scanned:result.scanned,partialScan:result.partialScan,hasMore:result.hasMore},
+  };
+}
+
 async function runActionDetails(actor:AIReadToolActor,input:z.infer<typeof actionDetailsSchema>):Promise<AIReadToolExecution>{
   const {data:task,error}=await supabaseAdmin.from('tasks').select('id,title,description,status,priority,assignee_id,project_id,team_id,organization_id,checklist_blocks,updated_at').eq('id',input.actionId).eq('organization_id',actor.organizationId).maybeSingle();
   if(error)throw new AIReadToolError('unavailable','Action details are temporarily unavailable');if(!task)throw new AIReadToolError('not_found','Action was not found or is not accessible');
@@ -454,6 +507,7 @@ export async function executeAIReadTool(name:string,rawArguments:unknown,actor:A
   if(tool==='get_process_content')return runProcessContent(actor,parsed.data);
   if(tool==='list_actions')return runListActions(actor,parsed.data);
   if(tool==='get_recent_workspace')return runRecentWorkspace(actor,parsed.data);
+  if(tool==='get_notes')return runNotes(actor,parsed.data);
   if(tool==='get_action_details')return runActionDetails(actor,parsed.data);
   if(tool==='get_planner_overview')return runPlanner(actor,parsed.data);
   return runKnowledge(actor,parsed.data);
