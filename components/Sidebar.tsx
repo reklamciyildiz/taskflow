@@ -25,6 +25,7 @@ import {
   Webhook,
   Brain,
   Sparkles,
+  Lightbulb,
 } from 'lucide-react';
 import { useTaskContext, Team } from '@/components/TaskContext';
 import { useView, ViewType } from '@/components/ViewContext';
@@ -52,6 +53,7 @@ const VIEW_ROUTES: Partial<Record<ViewType, string>> = {
   list: '/list',
   customers: '/customers',
   integrations: '/integrations',
+  feedback: '/feedback',
   analytics: '/analytics',
   achievements: '/achievements',
   team: '/team',
@@ -199,6 +201,7 @@ export function Sidebar({ mobileOpen, onCloseMobile, desktopCollapsed }: Sidebar
     { id: 'ai', label: 'Actiproc AI', icon: Sparkles },
     { id: 'customers', label: customerDirectoryLabel, icon: Building2 },
     { id: 'integrations', label: 'Integrations', icon: Webhook },
+    { id: 'feedback', label: 'Fikirler & Öneriler', icon: Lightbulb },
     { id: 'analytics', label: 'Analytics', icon: BarChart3 },
     { id: 'achievements', label: 'Achievements', icon: Trophy },
     { id: 'team', label: 'Team', icon: Users },
