@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { projectDb, teamMemberDb, teamDb } from '@/lib/db';
 import { ApiResponse } from '@/lib/types';
 import { getOrganizationEntitlements, getPlanLimits } from '@/lib/entitlements';
+import { recommendedProcessUpgrade } from '@/lib/upgrade-recommendations';
 import { requireAuthedUser } from '@/lib/server-authz';
 
 // GET /api/projects — list projects for the signed-in user's organization
@@ -115,7 +116,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Entitlement gate: max processes per plan (Free/Pro limited; Team unlimited).
+    // Entitlement gate: effective per-plan Process limits, including Individual.
     const ent = await getOrganizationEntitlements(organizationId);
     const limits = getPlanLimits(ent);
     if (Number.isFinite(limits.maxProcesses) && limits.maxProcesses !== Number.POSITIVE_INFINITY) {
@@ -126,7 +127,9 @@ export async function POST(request: NextRequest) {
             success: false,
             error: `Process limit reached (${limits.maxProcesses}). Upgrade to create more processes.`,
             code: 'PAYWALL_PROCESSES',
-            recommendedPlan: ent.plan === 'free' ? 'pro' : 'team',
+            currentPlan: ent.plan,
+            currentProcessCount: existingCount,
+            recommendedPlan: recommendedProcessUpgrade(ent.plan, existingCount),
           },
           { status: 402 }
         );
