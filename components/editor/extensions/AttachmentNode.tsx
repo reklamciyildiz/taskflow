@@ -49,7 +49,7 @@ function AttachmentView({node,updateAttributes,deleteNode,selected,editor}:NodeV
       data-attachment-id={node.attrs.attachmentId}
       data-media-display={grid?'grid':'block'}
       className={cn('group relative my-3 min-w-0 max-w-full',
-        grid&&'sm:!mr-2 sm:!inline-block sm:!w-[calc(50%-0.6rem)] sm:align-top')}
+        grid&&'sm:!mr-2 sm:!inline-block sm:!w-[calc(50%_-_0.6rem)] sm:align-top')}
     >
       <figure ref={root}
         className={cn('relative flex max-w-full min-w-0 flex-col overflow-hidden rounded-2xl border bg-card/90 shadow-sm transition-colors',
