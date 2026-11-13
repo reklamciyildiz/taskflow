@@ -168,7 +168,7 @@ function PlannerPanel(){
     </div>
     <div className="mx-3 mb-3 inline-flex flex-wrap gap-1 rounded-xl border border-[#33444a] bg-[#121d22] p-1 sm:mx-4" role="tablist" aria-label={t("Planner demo views")}>
       {(['Today','Calendar','Routines'] as const).map(item=><button role="tab" aria-selected={item===view} key={item} type="button" onClick={()=>setView(item)}
-        className={'rounded-lg px-3 py-2 text-[11px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8ff93] '+(item===view?'bg-[#25353f] text-white':'text-[#a4b5bd] hover:text-white')}>{item}</button>)}
+        className={'rounded-lg px-3 py-2 text-[11px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8ff93] '+(item===view?'bg-[#25353f] text-white':'text-[#a4b5bd] hover:text-white')}>{t(item)}</button>)}
     </div>
     {view==='Today'&&<div className="mx-3 mb-4 space-y-2 sm:mx-4">
       <p className={'mb-1 '+smallLabel}>TODAY · {items.length} PLANNED</p>
@@ -187,7 +187,7 @@ function PlannerPanel(){
       </div>
       <div className="mt-3 space-y-2">
         {[['09:30','Campaign review','Review'],['11:15','Product demo','Work'],['14:00','Customer follow-up','Follow-up']].map(([time,title,tag])=>
-          <div key={time} className="flex gap-2 text-[10px]"><span className="w-10 pt-2 text-[#98adb5]">{time}</span><div className="flex-1 rounded-lg border border-[#426659] bg-[#27483d] px-3 py-2"><span className="font-semibold text-[#f3fbf6]">{title}</span><span className="ml-2 text-[#abcfb6]">{t(tag)}</span></div></div>)}
+          <div key={time} className="flex gap-2 text-[10px]"><span className="w-10 pt-2 text-[#98adb5]">{time}</span><div className="flex-1 rounded-lg border border-[#426659] bg-[#27483d] px-3 py-2"><span className="font-semibold text-[#f3fbf6]">{t(title)}</span><span className="ml-2 text-[#abcfb6]">{t(tag)}</span></div></div>)}
       </div>
     </div>}
     {view==='Routines'&&<div className="mx-3 mb-4 space-y-2 sm:mx-4">
@@ -238,7 +238,7 @@ function KnowledgePanel({query}:{query:string}){
         </div>
         <h4 className="mt-3 text-[11px] font-bold leading-5 text-white">{t(note.title)}</h4>
         <p className="mt-1.5 line-clamp-2 text-[10px] leading-[1.7] text-[#aec2c8]">{t(note.detail)}</p>
-        <div className="mt-3 flex items-center gap-1.5 border-t border-[#3c4f54] pt-2.5 text-[9px] text-[#9bb3b5]"><FolderOpen className="h-3 w-3" aria-hidden/><span className="truncate">{t(note.context)}</span><span className="ml-auto shrink-0">{note.count}</span></div>
+        <div className="mt-3 flex items-center gap-1.5 border-t border-[#3c4f54] pt-2.5 text-[9px] text-[#9bb3b5]"><FolderOpen className="h-3 w-3" aria-hidden/><span className="truncate">{t(note.context)}</span><span className="ml-auto shrink-0">{t(note.count)}</span></div>
       </article>)}
       {!filtered.length&&<div className="col-span-full rounded-xl border border-dashed border-[#43585e] p-7 text-center"><Search className="mx-auto mb-2 h-5 w-5 text-[#8caeab]" aria-hidden/><p className="text-[11px] text-[#c2d4d3]">{t("No matching knowledge entries")}</p></div>}
     </div>

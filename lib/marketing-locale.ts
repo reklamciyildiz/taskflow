@@ -456,7 +456,18 @@ const turkish: Record<string,string> = {
   "The thinking stays with the work.": "Düşünceler işlerle birlikte kalır.",
   "Notes, decisions and next steps in one place.": "Notlar, kararlar ve sonraki adımlar tek yerde.",
   "WORK IN MOTION": "İŞLER İLERLİYOR",
-  "Illustrative experience · not live statistics": "Örnek deneyim · gerçek istatistik değildir"
+  "Illustrative experience · not live statistics": "Örnek deneyim · gerçek istatistik değildir",
+  "Plan the next product sprint": "Sonraki ürün sprintini planla",
+  "2/4 done": "2/4 tamamlandı",
+  "3/6 done": "3/6 tamamlandı",
+  "8/12 done": "8/12 tamamlandı",
+  "1/3 done": "1/3 tamamlandı",
+  "7/9 done": "7/9 tamamlandı",
+  "2/2 done": "2/2 tamamlandı",
+  "Settings": "Ayarlar",
+  "English": "İngilizce",
+  "Turkish": "Türkçe",
+  "Marketing": "Ürün tanıtımı"
 };
 export function marketingT(locale:MarketingLocale) {
   return (english:string):string => translateMarketing(locale,english);
