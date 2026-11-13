@@ -29,7 +29,8 @@ function AttachmentView({node,updateAttributes,deleteNode,selected,editor}:NodeV
     return ()=>observer.disconnect();
   },[]);
   const {url,file:remote,error,retry}=useAttachmentUrl(
-    visible ? node.attrs.attachmentId : undefined,
+    visible && (!knownFile || knownFile.mime_type.startsWith('image/') || knownFile.preview_allowed !== false)
+      ? node.attrs.attachmentId : undefined,
     Boolean(knownFile?.mime_type.startsWith('image/')),
   );
   const file=knownFile??remote;
