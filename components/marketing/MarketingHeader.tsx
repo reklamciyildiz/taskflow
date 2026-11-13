@@ -17,7 +17,7 @@ const links = [
 export function MarketingHeader({locale='en'}:{locale?:MarketingLocale}) {
   const t=marketingT(locale);
   return (
-    <header className="ap-header sticky top-0 z-50 border-b border-white/10 bg-[#091512]/90 backdrop-blur-2xl">
+    <header lang={locale} className="ap-header sticky top-0 z-50 border-b border-white/10 bg-[#091512]/90 backdrop-blur-2xl">
       <div className="mx-auto flex h-[72px] max-w-[1320px] items-center justify-between gap-3 px-5 sm:px-8 lg:px-10">
         <Link href={locale==='tr'?'/marketing/tr':'/marketing'} aria-label={t('Actiproc home')}
           className="group inline-flex min-w-0 shrink-0 items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8ff93]">

@@ -62,35 +62,9 @@ export const metadata: Metadata = {
   },
 };
 
-const jsonLd = {
-  '@context': 'https://schema.org',
-  '@type': 'SoftwareApplication',
-  name: 'Actiproc',
-  applicationCategory: 'BusinessApplication',
-  applicationSubCategory: 'Personal and team productivity operating system',
-  operatingSystem: 'Web',
-  description,
-  url: new URL('/marketing', base).toString(),
-  featureList: [
-    'Process boards and Action list view',
-    'Planner, due dates and reminders',
-    'Action checklists and rich notes',
-    'Knowledge Hub and searchable context',
-    'Actiproc AI assistant with verified workspace access when available',
-    'Multi-team collaboration and assignments',
-    'Customers, analytics, notifications and achievements',
-    'Google Calendar integrations and Team plan webhooks',
-    'Responsive web app and installable PWA',
-  ].join('\\n'),
-};
-
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="marketing-theme min-h-screen bg-[#091512] text-foreground antialiased">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
       {children}
     </div>
   );

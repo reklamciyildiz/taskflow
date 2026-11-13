@@ -159,6 +159,9 @@ async function main() {
         assert.equal(await page.getByRole('link',{name:'Fikrini paylaş'}).count(),1);
         assert.equal(await page.getByRole('heading',{name:'İyi sorular. Net yanıtlar.'}).count(),0);
         assert.equal(await page.locator('html').getAttribute('lang'),'tr');
+        const structuredData=JSON.parse(await page.locator('script[type="application/ld+json"]').first().textContent());
+        assert.equal(structuredData.inLanguage,'tr');
+        assert.ok(structuredData.url.endsWith('/marketing/tr'));
         assert.equal(await page.locator('#community').count(),1);
         assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1),true);
         await page.getByRole('button',{name:'Önizleme: Planlayıcı'}).click();

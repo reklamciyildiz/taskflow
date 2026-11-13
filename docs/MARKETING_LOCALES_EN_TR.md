@@ -5,7 +5,8 @@
 - Turkish canonical landing: `/marketing/tr`.
 - Both pages are rendered as localized React content on the server, not client-side text-node replacement.
 - The EN/TR navigation uses crawlable links and retains the active `#section` anchor.
-- Turkish metadata includes separate title, description, keywords, `tr_TR` OpenGraph locale, canonical and cross-language alternatives.
+- Turkish metadata includes separate title, description, keywords, `tr_TR` OpenGraph locale, canonical and cross-language alternatives; both locales have matching per-page JSON-LD.
+- Both English and Turkish landing routes are listed in the public sitemap. Semantic `<main>`, header and footer carry the correct server-rendered `lang`.
 - The shared root layout currently sets `<html lang="en">`; the marketing-specific client component updates the document language to `tr` on the Turkish route after hydration. A server-rendered root `lang` would require refactoring the application's shared root layout, intentionally excluded to avoid altering signed-in app behavior.
 - All authenticated features, plans, payments and data model are unchanged.
 

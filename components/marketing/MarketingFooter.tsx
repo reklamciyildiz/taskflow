@@ -27,7 +27,7 @@ const groups = [
 export function MarketingFooter({locale='en'}:{locale?:MarketingLocale}) {
   const t=marketingT(locale);
   return (
-    <footer className="border-t border-[#2e4839] bg-[#091711] pb-8 pt-16 text-[#9dacca] sm:pt-20">
+    <footer lang={locale} className="border-t border-[#2e4839] bg-[#091711] pb-8 pt-16 text-[#9dacca] sm:pt-20">
       <div className="mx-auto max-w-[1250px] px-5 sm:px-8 lg:px-10">
         <div className="grid gap-12 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.5fr)] lg:gap-16">
           <div>
