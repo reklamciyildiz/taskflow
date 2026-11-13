@@ -86,7 +86,7 @@ function AttachmentView({node,updateAttributes,deleteNode,selected,editor}:NodeV
               {!visible&&<span className="text-[11px]">Scroll to load preview</span>}
               {error&&<button type="button" className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs text-foreground hover:bg-muted"
                 onClick={retry}><RotateCcw className="h-3 w-3"/>Retry preview</button>}
-              {!image&&file&&<button type="button" className="rounded-md bg-primary px-3 py-1.5 text-xs text-primary-foreground"
+              {!image&&file&&<button type="button" aria-label={`Preview ${filename}`} className="rounded-md bg-primary px-3 py-1.5 text-xs text-primary-foreground"
                 onClick={()=>ctx?.open(file)}>Open file</button>}
             </div>
           )}
