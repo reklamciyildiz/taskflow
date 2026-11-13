@@ -754,11 +754,26 @@
 /* Actiproc Notes: editor semantics, responsive authoring controls and code blocks.
    Scoped to Notes; the existing checklist/Planner editor remains unchanged. */
 .actiproc-note-editor .tiptap {
+  container-type: inline-size;
+  container-name: actiproc-note-media;
   min-width: 0;
   overflow-wrap: anywhere;
   color: hsl(var(--foreground));
   line-height: 1.72;
   font-size: 0.875rem;
+}
+/* Notes are often in a narrow action panel even on a desktop viewport.
+   Container queries, not only screen breakpoints, keep image cards readable. */
+@container actiproc-note-media (max-width: 520px) {
+  [data-attachment-id][data-media-display="grid"] {
+    display: block !important;
+    width: 100% !important;
+    margin-inline: 0 !important;
+  }
+  [data-attachment-id] > figure {
+    width: 100% !important;
+    margin-inline: 0 !important;
+  }
 }
 .actiproc-note-editor .tiptap > p { margin: 0.5rem 0; }
 .actiproc-note-editor .tiptap > h1,
