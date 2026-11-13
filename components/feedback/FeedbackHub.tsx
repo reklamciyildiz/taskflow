@@ -63,6 +63,7 @@ export function FeedbackHub(){
   const [notice,setNotice]=useState<string|null>(null);
   const [createOpen,setCreateOpen]=useState(false);
   const [form,setForm]=useState<FormState>(initialForm);
+  const [formError,setFormError]=useState<string|null>(null);
   const [detail,setDetail]=useState<Detail|null>(null);
   const [detailLoading,setDetailLoading]=useState(false);
   const [selectedId,setSelectedId]=useState<string|null>(null);
@@ -70,6 +71,8 @@ export function FeedbackHub(){
   const [updates,setUpdates]=useState<UpdateItem[]>([]);
   const [admin,setAdmin]=useState<AdminData>({posts:[],comments:[]});
   const [mergeTarget,setMergeTarget]=useState('');
+  const [mergeSearch,setMergeSearch]=useState('');
+  const [mergeCandidates,setMergeCandidates]=useState<FeedbackPost[]>([]);
 
   useEffect(()=>setCurrentView('feedback'),[setCurrentView]);
   useEffect(()=>{const timer=setTimeout(()=>setQuery(qInput.trim()),300);return()=>clearTimeout(timer);},[qInput]);
@@ -96,23 +99,32 @@ export function FeedbackHub(){
     finally{setLoading(false);}
   },[tab,page,query,status,category,sort]);
   useEffect(()=>{void load();},[load]);
+  useEffect(()=>{
+    if(!staff||!detail||detail.post.moderation!=='approved')return;
+    let cancelled=false;
+    const timer=setTimeout(()=>{
+      void requestJson<FeedData>('/api/feedback?sort=popular&q='+encodeURIComponent(mergeSearch))
+        .then(result=>{if(!cancelled)setMergeCandidates(result.posts.filter(p=>p.id!==detail.post.id));})
+        .catch(()=>{if(!cancelled)setMergeCandidates([]);});
+    },250);
+    return ()=>{cancelled=true;clearTimeout(timer);};
+  },[staff,detail?.post.id,detail?.post.moderation,mergeSearch]);
   const unread=useMemo(()=>updates.filter(item=>!item.is_read).length,[updates]);
 
   const submit=async(e:React.FormEvent)=>{
     e.preventDefault();
     if(busy)return;
-    setBusy(true);setNotice(null);
+    setBusy(true);setNotice(null);setFormError(null);
     try{
       await requestJson('/api/feedback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(form)});
       setCreateOpen(false);setForm(initialForm);setTab('mine');setPage(0);
       setNotice('Önerin alındı. Moderasyon onayından sonra toplulukta yayınlanacak.');
-      await load();
-    }catch(error){setNotice((error as Error).message);}
+    }catch(error){setFormError((error as Error).message);}
     finally{setBusy(false);}
   };
 
   const openDetail=async(id:string)=>{
-    setSelectedId(id);setDetail(null);setDetailLoading(true);setCommentText('');setMergeTarget('');
+    setSelectedId(id);setDetail(null);setDetailLoading(true);setCommentText('');setMergeTarget('');setMergeSearch('');
     try{setDetail(await requestJson<Detail>('/api/feedback/'+id));}
     catch(error){setNotice((error as Error).message);setSelectedId(null);}
     finally{setDetailLoading(false);}
@@ -178,7 +190,7 @@ export function FeedbackHub(){
           Eksik gördüğün özellikleri paylaş, başkalarının fikirlerini destekle ve üzerinde çalıştığımız yenilikleri takip et.
         </p>
         <div className="flex flex-wrap items-center gap-3">
-          <Button className="gap-2 bg-emerald-400 text-emerald-950 hover:bg-emerald-300" onClick={()=>{setNotice(null);setCreateOpen(true);}}>
+          <Button className="gap-2 bg-emerald-400 text-emerald-950 hover:bg-emerald-300" onClick={()=>{setNotice(null);setFormError(null);setCreateOpen(true);}}>
             <Plus className="h-4 w-4"/> Fikir öner
           </Button>
           <span className="text-xs text-slate-400">Tüm planlarda ücretsiz</span>
@@ -356,6 +368,7 @@ export function FeedbackHub(){
               onChange={e=>setForm(f=>({...f,description:e.target.value}))}
               placeholder="Şu anda ne yapmak zor? Nasıl çalışmasını isterdin?"/></div>
           <p className="text-xs text-muted-foreground">Hassas şirket veya kişisel bilgileri paylaşma. Günlük en fazla 5 öneri gönderilebilir.</p>
+          {formError?<p role="alert" className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-300">{formError}</p>:null}
           <DialogFooter><Button type="button" variant="outline" onClick={()=>setCreateOpen(false)}>Vazgeç</Button>
             <Button type="submit" disabled={busy||form.title.trim().length<8||form.description.trim().length<20} className="gap-2">
               {busy?<Loader2 className="h-4 w-4 animate-spin"/>:<Send className="h-4 w-4"/>} Öneriyi gönder</Button></DialogFooter>
@@ -389,8 +402,15 @@ export function FeedbackHub(){
             <strong className="flex items-center gap-2 text-sm"><ShieldCheck className="h-4 w-4"/> Platform yönetimi</strong>
             <div className="flex flex-wrap gap-2">{FEEDBACK_STATUSES.map(s=><Button key={s} size="sm" variant={s===detail.post.status?'default':'outline'} disabled={busy||s===detail.post.status}
               onClick={()=>void moderate('status',detail.post.id,{status:s})}>{statusLabels[s]}</Button>)}</div>
-            <div className="flex gap-2"><Input aria-label="Birleştirme hedefi öneri UUID" placeholder="Birleştirilecek hedef fikir UUID" value={mergeTarget} onChange={e=>setMergeTarget(e.target.value)}/>
+            <div className="space-y-2"><label htmlFor="feedback-merge-search" className="text-xs font-medium text-muted-foreground">Benzer öneriyi bul ve birleştir</label>
+              <Input id="feedback-merge-search" placeholder="Öneri başlığında ara..." value={mergeSearch} onChange={e=>setMergeSearch(e.target.value)}/>
+              <div className="flex gap-2"><Select value={mergeTarget} onValueChange={setMergeTarget}>
+                <SelectTrigger aria-label="Birleştirme hedefi" className="min-w-0 flex-1"><SelectValue placeholder="Hedef öneriyi seç"/></SelectTrigger>
+                <SelectContent>{mergeCandidates.map(candidate=><SelectItem key={candidate.id} value={candidate.id}>{candidate.title}</SelectItem>)}</SelectContent>
+              </Select>
               <Button variant="outline" disabled={busy||!mergeTarget} onClick={()=>void moderate('merge',detail.post.id,{targetId:mergeTarget})}>Birleştir</Button></div>
+              <p className="text-[11px] text-muted-foreground">Destekleyen kullanıcılar ve yorumlar hedef öneriye taşınır.</p>
+            </div>
           </div>:null}
           <section className="space-y-4">
             <h3 className="font-semibold">Yorumlar</h3>

@@ -29,7 +29,7 @@
 - Published roadmap is **not** a separate route in V1: status filters in the main feedback board are the transparent lightweight roadmap.
 - To reduce noise and abuse, author display is intentionally anonymous to other users; moderators receive IDs, not private email records.
 - New status updates are stored as private feedback_updates; global notification integration and email/push require separate provider-specific release validation.
-- Current UI's admin merge action accepts the destination idea UUID. Improve with a suggestion picker once real usage justifies the complexity.
+- The admin merge action includes a searchable approved-suggestion picker, preventing manual UUID entry.
 
 ## Schema/RLS verification (read-only, after staging migration)
 
