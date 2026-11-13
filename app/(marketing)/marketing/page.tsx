@@ -10,6 +10,7 @@ import {
 } from '@/components/marketing/MarketingExperience';
 import { MarketingPricing } from '@/components/marketing/sections/MarketingPricing';
 import { MarketingFooter } from '@/components/marketing/MarketingFooter';
+import { MarketingFeedbackCommunity } from '@/components/marketing/MarketingFeedbackCommunity';
 
 /**
  * Product-led editorial storytelling with interactive illustrative experiences.
@@ -26,6 +27,7 @@ export default function MarketingPage() {
         <MarketingProductSystem />
         <MarketingConnectedWorkspace />
         <MarketingIntegrations />
+        <MarketingFeedbackCommunity />
         <MarketingPricing />
         <MarketingFAQ />
         <MarketingFinalCta />

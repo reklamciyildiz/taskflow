@@ -7,12 +7,14 @@ const groups = [
     {label:'How it works',href:'#workflow'},
     {label:'Product',href:'#product'},
     {label:'Teams',href:'#teams'},
+    {label:'Community & feedback',href:'#community'},
     {label:'Pricing',href:'#pricing'},
   ]},
   {title:'Get started',items:[
     {label:'Create account',href:'/auth/signup'},
     {label:'Sign in',href:'/auth/signin'},
     {label:'Integrations',href:'#integrations'},
+    {label:'Suggest a feature',href:'/feedback'},
   ]},
   {title:'Legal',items:[
     {label:'Privacy',href:'/privacy'},

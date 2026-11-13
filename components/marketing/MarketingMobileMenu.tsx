@@ -10,6 +10,7 @@ const links = [
   { title: 'Everything inside', href: '#product' },
   { title: 'For teams', href: '#teams' },
   { title: 'Integrations', href: '#integrations' },
+  { title: 'Community', href: '#community' },
   { title: 'Pricing', href: '#pricing' },
   { title: 'Questions', href: '#faq' },
 ] as const;
