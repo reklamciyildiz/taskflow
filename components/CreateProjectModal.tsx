@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 import { portalDndRowToBody } from '@/lib/dnd-body-portal';
 import { Layers, CheckCircle2, Trash2, GripVertical } from 'lucide-react';
 import { UpgradePlanModal } from '@/components/billing/UpgradePlanModal';
+import type { CurrentPlan, UpgradePlan } from '@/lib/upgrade-recommendations';
 import { ProcessPropertiesManager } from '@/components/ProcessPropertiesManager';
 
 interface CreateProjectModalProps {
@@ -67,7 +68,10 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId }
   const [presetId, setPresetId] = useState<string>(editingProject ? 'custom' : 'default');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [upgradePlan, setUpgradePlan] = useState<'pro' | 'team' | null>(null);
+  const [upgradePlan, setUpgradePlan] = useState<UpgradePlan | null>(null);
+  const [upgradeCurrentPlan, setUpgradeCurrentPlan] = useState<CurrentPlan | null>(null);
+  const [upgradeProcessCount, setUpgradeProcessCount] = useState<number | null>(null);
+  const [upgradeReason, setUpgradeReason] = useState<'processes' | 'teams'>('processes');
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [columnsDraft, setColumnsDraft] = useState<ProjectColumnConfig[]>(
     () =>
@@ -177,6 +181,9 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId }
     e.preventDefault();
     setError(null);
     setUpgradePlan(null);
+    setUpgradeCurrentPlan(null);
+    setUpgradeProcessCount(null);
+    setUpgradeReason('processes');
     setShowUpgrade(false);
 
     if (!organizationId) {
@@ -213,7 +220,17 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId }
       const data = await res.json();
       if (!data?.success) {
         if (res.status === 402 && (data?.code === 'PAYWALL_PROCESSES' || data?.code === 'PAYWALL_TEAMS')) {
-          setUpgradePlan(data?.recommendedPlan === 'team' ? 'team' : 'pro');
+          const proposed = data?.recommendedPlan;
+          setUpgradePlan(proposed === 'individual' || proposed === 'pro' || proposed === 'team'
+            ? proposed : null);
+          const plan = data?.currentPlan;
+          setUpgradeCurrentPlan(plan === 'free' || plan === 'individual' || plan === 'pro' || plan === 'team'
+            ? plan : null);
+          setUpgradeProcessCount(
+            Number.isSafeInteger(data?.currentProcessCount) && data.currentProcessCount >= 0
+              ? data.currentProcessCount : null,
+          );
+          setUpgradeReason(data.code === 'PAYWALL_TEAMS' ? 'teams' : 'processes');
           setShowUpgrade(true);
         }
         throw new Error(data?.error || (mode === 'edit' ? 'Process update failed' : 'Process creation failed'));
@@ -543,8 +560,10 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId }
       <UpgradePlanModal
         open={showUpgrade}
         onClose={() => setShowUpgrade(false)}
-        reason="processes"
+        reason={upgradeReason}
         recommendedPlan={upgradePlan}
+        currentPlan={upgradeCurrentPlan}
+        existingProcessCount={upgradeProcessCount}
       />
     </Dialog>
   );

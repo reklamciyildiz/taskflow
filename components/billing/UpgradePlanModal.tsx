@@ -9,9 +9,9 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { isCapacitorNative } from '@/lib/client/is-capacitor-native';
-
-type UpgradePlan = 'individual' | 'pro' | 'team';
-type UpgradeReason = 'teams' | 'processes' | 'webhooks' | 'seats';
+import {
+  getUpgradeModalPlans, type UpgradePlan, type UpgradeReason, type CurrentPlan,
+} from '@/lib/upgrade-recommendations';
 
 const FEATURES: Record<UpgradePlan, readonly string[]> = {
   individual: PLAN_MARKETING_FEATURES.individual,
@@ -20,7 +20,7 @@ const FEATURES: Record<UpgradePlan, readonly string[]> = {
 };
 
 const DESCRIPTIONS: Record<UpgradePlan, string> = {
-  individual: 'Annual per-seat access for lean teams',
+  individual: 'For growing personal workflows · 3 Processes',
   pro: 'More room for growing workflows',
   team: 'Collaboration without workspace limits',
 };
@@ -77,19 +77,23 @@ export function UpgradePlanModal(props: {
   title?: string;
   description?: string;
   recommendedPlan?: UpgradePlan | null;
+  currentPlan?: CurrentPlan | null;
+  existingProcessCount?: number | null;
   reason?: UpgradeReason;
 }) {
-  const { open, onClose, title, description, recommendedPlan, reason } = props;
+  const { open, onClose, title, description, recommendedPlan, currentPlan, existingProcessCount, reason } = props;
   const [busy, setBusy] = useState<UpgradePlan | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [billingInterval,setBillingInterval] = useState<BillingInterval>('monthly');
   const isNativeApp = typeof window !== 'undefined' && isCapacitorNative();
-  const plans = useMemo<UpgradePlan[]>(() => {
-    if (recommendedPlan === 'team' || reason === 'webhooks') return ['team'];
-    if (reason === 'teams') return ['pro', 'team'];
-    if (reason === 'seats' || recommendedPlan === 'pro') return ['pro', 'team'];
-    return ['individual', 'pro', 'team'];
-  }, [recommendedPlan, reason]);
+  // Product capabilities and current capacity determine the valid upgrades.
+  // The server's recommendation only highlights a plan; it must never hide
+  // a cheaper plan that can solve the same Process limit.
+  const plans = useMemo<UpgradePlan[]>(() => getUpgradeModalPlans({
+    reason, currentPlan, existingProcessCount, recommendedPlan,
+  }), [reason, currentPlan, existingProcessCount, recommendedPlan]);
+  const highlightedPlan = recommendedPlan && plans.includes(recommendedPlan)
+    ? recommendedPlan : plans[0] ?? null;
   const onePlan = plans.length === 1;
   const message = reasonCopy[reason ?? 'processes'];
 
@@ -151,8 +155,14 @@ export function UpgradePlanModal(props: {
                 >{period==='yearly'?'Yearly · save 16.7%':'Monthly'}</button>)}
             </div>
             <div className={cn('grid min-w-0 gap-3.5', onePlan ? 'grid-cols-1' : plans.length === 2 ? 'sm:grid-cols-2' : 'sm:grid-cols-2 lg:grid-cols-3')}>
+              {plans.length === 0 && (
+                <div className="rounded-xl border border-white/15 bg-white/[0.05] p-5 text-sm leading-relaxed text-slate-300">
+                  No higher plan is available for this request. Review your existing subscription in
+                  {' '}<a href="/settings/billing" className="font-semibold text-[#C8FF93] underline underline-offset-4">Billing settings</a>.
+                </div>
+              )}
               {plans.map((plan) => {
-                const featured = recommendedPlan === plan || (onePlan && plan === 'team');
+                const featured = highlightedPlan === plan;
                 const annual = plan === 'individual' || billingInterval==='yearly';
                 const price = actiprocPriceUsd(plan,annual?'yearly':'monthly');
                 return (
@@ -165,6 +175,7 @@ export function UpgradePlanModal(props: {
                       {featured && <span className="rounded-full border border-[#C8FF93]/20 bg-[#C8FF93]/[0.10] px-2 py-0.5 text-[10px] font-semibold text-[#DBF6C8]">Recommended</span>}
                     </div>
                     <p className="mt-1 text-[11px] text-slate-400">{DESCRIPTIONS[plan]}</p>
+                    {plan === 'individual' && <p className="mt-2 text-[10.5px] font-medium text-[#C8FF93]">Annual billing only · $12/seat per year</p>}
                     <div className="mt-5 flex flex-wrap items-baseline gap-1">
                       <strong className="text-[38px] font-semibold leading-none tracking-[-0.055em] text-white">${price}</strong>
                       <span className="text-[11px] text-slate-400">{plan==='individual'?'/seat/year':annual?'/seat/year':'/seat/month'}</span>
