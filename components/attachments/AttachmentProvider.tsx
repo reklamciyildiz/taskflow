@@ -453,7 +453,7 @@ export function useAttachmentUrl(id: string | undefined, thumbnail = false) {
   }, [id, thumbnail, attempt, resolveUrl]);
   return { url, file, error, retry: () => setAttempt((n) => n + 1) };
 }
-export function AttachmentThumbnail({ file }: { file: Attachment }) {
+export function AttachmentThumbnail({ file, variant='compact' }: { file: Attachment;variant?:'compact'|'card' }) {
   const root = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
   useEffect(() => {
@@ -474,7 +474,7 @@ export function AttachmentThumbnail({ file }: { file: Attachment }) {
   return (
     <div
       ref={root}
-      className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded bg-muted"
+      className={variant==='card' ? "grid h-28 w-full shrink-0 place-items-center overflow-hidden rounded-xl bg-muted/40 sm:h-32" : "grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-lg bg-muted/40"}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       {url ? (
@@ -488,7 +488,7 @@ export function AttachmentThumbnail({ file }: { file: Attachment }) {
               retry();
             }
           }}
-          className="h-full w-full object-contain"
+          className="h-full w-full object-contain p-1"
         />
       ) : (
         <Paperclip className="h-4 w-4" />
@@ -496,6 +496,38 @@ export function AttachmentThumbnail({ file }: { file: Attachment }) {
     </div>
   );
 }
+/** Compact, contextual image thumbnails for a checklist row.
+ * The signed preview URL is only resolved lazily by AttachmentThumbnail.
+ */
+export function ChecklistAttachmentRail({
+  itemId,onOpen,
+}:{itemId:string;onOpen:()=>void}){
+  const ctx=useAttachments();
+  if(!ctx)return null;
+  const matched=ctx.files.filter(file=>
+    file.links.some(link=>link.checklist_item_id===itemId));
+  if(!matched.length)return null;
+  const images=matched.filter(file=>file.mime_type.startsWith('image/'));
+  return (
+    <div className="mt-2 flex min-w-0 flex-wrap items-center gap-1.5" contentEditable={false}
+      aria-label={`${matched.length} checklist attachments`}>
+      {images.slice(0,4).map(file=>(
+        <button key={file.id} type="button" onClick={()=>ctx.open(file)}
+          className="group/thumbnail overflow-hidden rounded-xl border border-border/70 bg-card p-0.5 shadow-sm transition-colors hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label={`Preview ${file.filename}`} title={file.filename}>
+          <AttachmentThumbnail file={file}/>
+        </button>
+      ))}
+      <button type="button" onClick={onOpen}
+        className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-border/60 bg-muted/20 px-2.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        aria-label={`Manage ${matched.length} checklist attachments`}>
+        <Paperclip className="h-3.5 w-3.5"/>
+        {images.length?matched.length>images.slice(0,4).length?`+${matched.length-images.slice(0,4).length} more`:'View files':`${matched.length} file${matched.length===1?'':'s'}`}
+      </button>
+    </div>
+  );
+}
+
 export function AttachmentList({
   target,
   onInsert,
@@ -563,30 +595,35 @@ export function AttachmentList({
           </button>
         </>
       )}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3" role="list" aria-label="Attached files">
       {files.map((file) => (
         <div
           key={file.id}
-          className="flex min-w-0 items-center gap-2 rounded border p-2"
+          role="listitem"
+          className="group min-w-0 rounded-xl border border-border/70 bg-card p-2 shadow-sm transition-colors hover:border-primary/35"
         >
           <button
             type="button"
             onClick={() => ctx.open(file)}
             aria-label={`Preview ${file.filename}`}
+            className="block w-full rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
-            <AttachmentThumbnail file={file} />
+            <AttachmentThumbnail file={file} variant="card" />
           </button>
+          <div className="mt-2 flex min-w-0 items-start justify-between gap-1">
           <button
             type="button"
             className="min-w-0 flex-1 text-left text-xs"
             onClick={() => ctx.open(file)}
           >
-            <span className="block truncate">{file.filename}</span>
-            <span className="text-muted-foreground">
-              {(file.size_bytes / 1024).toFixed(0)} KB
-            </span>
+            <span className="block truncate font-medium" title={file.filename}>{file.filename}</span>
+            <span className="text-[10px] text-muted-foreground">{formatMediaSize(file.size_bytes)}</span>
           </button>
+          </div>
+          <div className="mt-1 flex flex-wrap items-center justify-between gap-0.5 border-t border-border/40 pt-1">
           {onInsert && (
-            <button className="p-2 text-xs" onClick={() => onInsert(file.id)}>
+            <button type="button" className="rounded-md bg-primary/10 px-2 py-1.5 text-[11px] font-medium text-primary hover:bg-primary/15"
+              onClick={() => onInsert(file.id)}>
               Insert
             </button>
           )}
@@ -656,8 +693,10 @@ export function AttachmentList({
                 )}
             </>
           )}
+          </div>
         </div>
       ))}
+      </div>
       {ctx.hasMore && (
         <button
           className="p-2 text-xs"
