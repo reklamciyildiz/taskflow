@@ -58,6 +58,7 @@ export const metadata: Metadata = {
   },
   alternates: {
     canonical: '/marketing',
+    languages: {en:'/marketing',tr:'/marketing/tr','x-default':'/marketing'},
   },
 };
 

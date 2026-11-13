@@ -16,8 +16,25 @@ const community = read('components/marketing/MarketingFeedbackCommunity.tsx');
 const css = read('app/(marketing)/marketing.css');
 const metadata = read('app/(marketing)/layout.tsx');
 const vercel = JSON.parse(read('vercel.json'));
+const turkishPage = read('app/(marketing)/marketing/tr/page.tsx');
+const switcher = read('components/marketing/MarketingLanguageSwitcher.tsx');
+const documentLanguage = read('components/marketing/MarketingDocumentLanguage.tsx');
+const translations = read('lib/marketing-locale.ts');
 
 let checks = 0;
+for(const part of [experience,preview,audience,community,header,mobile,footer,pricing]) {
+  assert.match(part,/marketingT|MarketingLocale|locale/);
+}
+assert.match(page,/locale='en'/);
+assert.match(turkishPage,/locale="tr"/);
+assert.match(turkishPage,/canonical:'\/marketing\/tr'/);
+assert.match(turkishPage,/tr_TR/);
+assert.match(switcher,/window\.location\.hash/);
+assert.match(switcher,/aria-current/);
+assert.match(documentLanguage,/document\.documentElement\.lang=locale/);
+assert.match(translations,/Kullanıcı başına günde en fazla/);
+checks+=16;
+
 for (const name of ['MarketingHero','MarketingWorkflow','MarketingProductSystem',
   'MarketingConnectedWorkspace','MarketingIntegrations','MarketingPricing',
   'MarketingFinalCta','MarketingFAQ','MarketingFooter','MarketingFeedbackCommunity']) {
@@ -25,7 +42,7 @@ for (const name of ['MarketingHero','MarketingWorkflow','MarketingProductSystem'
   checks++;
 }
 assert.match(page,/id="main-content"/);
-assert.match(page,/<MarketingIntegrations \/>\s*<MarketingFeedbackCommunity \/>\s*<MarketingPricing \/>/);
+assert.match(page,/<MarketingIntegrations locale=\{locale\} \/>\s*<MarketingFeedbackCommunity locale=\{locale\} \/>\s*<MarketingPricing locale=\{locale\} \/>/);
 assert.match(community,/id="community"/);
 assert.match(community,/href="\/feedback"/);
 assert.match(community,/href="\/auth\/signup\?callbackUrl=%2Ffeedback"/);
@@ -62,7 +79,7 @@ for(const text of ['Northstar Studio','Product launch','Knowledge Hub','QUICK CA
   assert.ok(preview.includes(text),'Missing realistic demo detail: '+text);
 }
 assert.doesNotMatch(preview,/Yiğit|Tilaver|Delta Marine|İş Arama|SmartSafe AI|Swing Trade|hook\.eu1\.make\.com|integration\.mihu\.ai/i);
-assert.match(preview,/aria-label="Search the sample workspace"/);
+assert.match(preview,/aria-label=\{t\("Search the sample workspace"\)\}/);
 assert.match(preview,/onClick=\{\(\)=>setPinned/);
 assert.match(preview,/onClick=\{\(\)=>setView/);
 assert.match(preview,/setMoved\(true\)/);

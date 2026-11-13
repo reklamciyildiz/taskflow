@@ -103,7 +103,7 @@ async function main() {
         assertions+=3;
         assertions+=2;
 
-        if(width<1024){
+        if(width<1280){
           await page.getByRole('button',{name:'Open navigation menu'}).click();
           assert.equal(await page.getByRole('button',{name:'Close navigation menu'}).getAttribute('aria-expanded'),'true');
           await page.getByRole('navigation',{name:'Mobile navigation'}).getByRole('link',{name:'Everything inside'}).click();
@@ -143,6 +143,45 @@ async function main() {
         await page.screenshot({path:path.join(outputDir,'marketing-failure-'+width+'.png'),fullPage:true}).catch(()=>undefined);
         failures.push({width,error:String(error),pageErrors});
       } finally { await page.close(); }
+    }
+    // Turkish is a real server-rendered route, not a DOM translation overlay.
+    // Exercise both localized content and language switching across responsive viewports.
+    for (const width of [375,1024,1440]) {
+      const page=await browser.newPage({viewport:{width,height:880},deviceScaleFactor:1});
+      const pageErrors=[];
+      page.on('pageerror',e=>pageErrors.push(e.message));
+      try {
+        const response=await page.goto(baseUrl+'/marketing/tr#community',{waitUntil:'domcontentloaded',timeout:90_000});
+        assert.equal(response.status(),200);
+        await page.getByRole('heading',{name:/Daha iyi çalışma/}).waitFor({timeout:90_000});
+        await page.waitForLoadState('load');
+        await page.waitForFunction(()=>document.documentElement.lang==='tr',{timeout:30_000});
+        assert.equal(await page.getByRole('link',{name:'Fikrini paylaş'}).count(),1);
+        assert.equal(await page.getByRole('heading',{name:'İyi sorular. Net yanıtlar.'}).count(),0);
+        assert.equal(await page.locator('html').getAttribute('lang'),'tr');
+        assert.equal(await page.locator('#community').count(),1);
+        assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1),true);
+        await page.getByRole('button',{name:'Önizleme: Planlayıcı'}).click();
+        await page.getByText('HIZLI KAYIT').waitFor();
+        await page.getByRole('button',{name:'Önizleme: Panolar'}).click();
+        await page.getByText('Ürün lansmanı').first().waitFor();
+        await page.getByRole('button',{name:'Yıllık · %16,7 tasarruf'}).click();
+        const pro=page.getByRole('article').filter({has:page.getByRole('heading',{name:'Pro',exact:true})});
+        await pro.getByText('$40',{exact:true}).waitFor();
+        // The switch keeps the current section anchor and returns canonical EN content.
+        if(width<1280)await page.getByRole('button',{name:'Menüyü aç'}).click();
+        await page.getByRole('link',{name:'English'}).click();
+        await page.waitForURL(/\/marketing#community$/,{timeout:20_000});
+        await page.getByRole('heading',{name:/Better work starts with/}).waitFor();
+        await page.waitForFunction(()=>document.documentElement.lang==='en',{timeout:20_000});
+        assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1),true);
+        assert.deepEqual(pageErrors,[]);
+        assertions+=15;
+      }catch(error){
+        fs.mkdirSync(outputDir,{recursive:true});
+        await page.screenshot({path:path.join(outputDir,'marketing-locale-failure-'+width+'.png'),fullPage:true}).catch(()=>undefined);
+        failures.push({width,locale:'tr',error:String(error),pageErrors});
+      }finally{await page.close();}
     }
     assert.deepEqual(failures,[],'Responsive marketing route failures');
     console.log(JSON.stringify({marketingBrowserChecks:assertions,widths,failures,publicRoute:true}));
