@@ -52,7 +52,7 @@ async function main() {
           'Document horizontally overflows at '+width+': '+JSON.stringify({scrollSize,overflowNodes}));
         assertions++;
 
-        for(const text of ['An idea should never become','Not another task list','From one brilliant mind','Start small']) {
+        for(const text of ['An idea should never become','Not another task list','From one brilliant mind','Better work starts with','Start small']) {
           assert.equal(await page.getByRole('heading',{name:new RegExp(text)}).count(),1,'Missing section '+text);
           assertions++;
         }
@@ -97,6 +97,10 @@ async function main() {
         }
         await page.getByText('A clearer day starts here.').waitFor();
         await page.getByText('Good questions.').waitFor();
+        assert.equal(await page.locator('#community').count(),1);
+        assert.equal(await page.locator('#community').getByRole('link',{name:'Share your idea'}).getAttribute('href'),'/feedback');
+        assert.equal(await page.locator('#community').getByRole('link',{name:'Join for free'}).getAttribute('href'),'/auth/signup?callbackUrl=%2Ffeedback');
+        assertions+=3;
         assertions+=2;
 
         if(width<1024){

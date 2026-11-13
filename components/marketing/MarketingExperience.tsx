@@ -113,7 +113,7 @@ export function MarketingHero() {
             <span className="h-2 w-2 rounded-full bg-[#c9ff92] shadow-[0_0_18px_#a6ff65]" />
             WORK, WITHOUT THE FRAGMENTS
           </span>
-          <span className="hidden font-mono text-[10px] tracking-[.13em] text-[#8c9aab] sm:inline">ONE WORKSPACE / MANY WAYS TO MOVE</span>
+          <Link href="#community" className="group inline-flex items-center gap-1.5 text-[10px] font-semibold tracking-[.04em] text-[#bff5af] transition-colors hover:text-white focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8ff93]"><span className="rounded-full border border-[#577f58] bg-[#234530] px-2 py-1 text-[9px] font-bold text-[#d8ffb8]">NEW</span> Suggest features & follow updates <ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" aria-hidden="true" /></Link>
         </div>
         <div className="grid gap-8 pb-12 pt-10 lg:grid-cols-[minmax(0,1.45fr)_minmax(285px,.55fr)] lg:items-end lg:gap-16 lg:pb-16 lg:pt-14">
           <div className="min-w-0">
@@ -322,13 +322,14 @@ export function MarketingFAQ() {
     { question: 'Can I use Actiproc on my phone?', answer: 'Actiproc offers a responsive web experience, including supported installable web options. Platform-specific native app availability may vary.' },
     { question: 'How does Actiproc AI work?', answer: 'AI can help with accessible workspace context and assist with work, subject to access, plan limits and service availability. The pricing cards show the current published allowances.' },
     { question: 'Do teams need a different product?', answer: 'No. Shared workspaces, assignments, access controls and team-specific integrations build on the same connected Actiproc workflow.' },
+    { question: 'Can I suggest a feature or improvement?', answer: 'Yes. Signed-in users on any plan can submit ideas, support suggestions and follow review or release updates in the Fikirler & Öneriler feedback hub. Submissions are moderated, and votes do not guarantee implementation.' },
     { question: 'Where can I check the final subscription price?', answer: 'Plans are listed in USD. Any applicable taxes, seat counts and the final amount are presented during the secure checkout process.' },
   ] as const;
   return (
     <section id="faq" className="ap-faq-section border-t border-[#dce4df] py-24 sm:py-28" aria-labelledby="ap-faq-heading">
       <div className="mx-auto grid max-w-[1320px] gap-10 px-5 sm:px-8 lg:grid-cols-[minmax(0,.7fr)_minmax(0,1fr)] lg:gap-20 lg:px-10">
         <div>
-          <Kicker number="06" inverse>THE DETAILS MATTER</Kicker>
+          <Kicker number="07" inverse>THE DETAILS MATTER</Kicker>
           <h2 id="ap-faq-heading" className="ap-section-title mt-7 max-w-[500px] text-[#16231f]">Good questions. <em className="ap-serif-accent text-[#718475]">Clear answers.</em></h2>
           <p className="mt-5 max-w-[350px] text-[14px] leading-[1.85] text-[#64716c]">A quick look at what to expect before you build your workspace.</p>
         </div>
@@ -353,7 +354,7 @@ export function MarketingFinalCta() {
     <section className="ap-final-section relative isolate overflow-hidden py-24 sm:py-32 lg:py-40" aria-labelledby="ap-final-heading">
       <div aria-hidden className="ap-final-halo pointer-events-none absolute inset-0" />
       <div className="relative mx-auto max-w-[1320px] px-5 sm:px-8 lg:px-10">
-        <Kicker number="07">MAKE THE NEXT MOVE</Kicker>
+        <Kicker number="08">MAKE THE NEXT MOVE</Kicker>
         <div className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,.6fr)] lg:items-end">
           <h2 id="ap-final-heading" className="ap-final-title max-w-[950px] font-semibold uppercase text-white">Less managing.<br /><span className="text-[#c8ff93]">More making.</span></h2>
           <div className="max-w-[410px] pb-3">

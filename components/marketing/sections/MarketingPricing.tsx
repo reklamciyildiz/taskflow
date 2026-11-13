@@ -25,7 +25,7 @@ export function MarketingPricing() {
       <div className="mx-auto max-w-[1320px] px-5 sm:px-8 lg:px-10">
         <div className="grid items-end gap-6 md:grid-cols-[1fr_.75fr]">
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[.22em] text-[#5a7d5c]">05 / Transparent pricing</p>
+            <p className="text-[10px] font-semibold uppercase tracking-[.22em] text-[#5a7d5c]">06 / Transparent pricing</p>
             <h2 id="pricing-title" className="ap-section-title mt-5 max-w-[630px] text-[#162a20]">Start small. <span className="text-[#77937b]">Go further.</span></h2>
           </div>
           <p className="max-w-[435px] text-[14px] leading-[1.85] text-[#657a6a]">Choose the capacity you need today. Move to another plan as your processes and team grow.</p>

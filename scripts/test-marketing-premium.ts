@@ -12,6 +12,7 @@ const header = read('components/marketing/MarketingHeader.tsx');
 const mobile = read('components/marketing/MarketingMobileMenu.tsx');
 const pricing = read('components/marketing/sections/MarketingPricing.tsx');
 const footer = read('components/marketing/MarketingFooter.tsx');
+const community = read('components/marketing/MarketingFeedbackCommunity.tsx');
 const css = read('app/(marketing)/marketing.css');
 const metadata = read('app/(marketing)/layout.tsx');
 const vercel = JSON.parse(read('vercel.json'));
@@ -19,11 +20,19 @@ const vercel = JSON.parse(read('vercel.json'));
 let checks = 0;
 for (const name of ['MarketingHero','MarketingWorkflow','MarketingProductSystem',
   'MarketingConnectedWorkspace','MarketingIntegrations','MarketingPricing',
-  'MarketingFinalCta','MarketingFAQ','MarketingFooter']) {
+  'MarketingFinalCta','MarketingFAQ','MarketingFooter','MarketingFeedbackCommunity']) {
   assert.match(page, new RegExp('<' + name + '\\b'));
   checks++;
 }
 assert.match(page,/id="main-content"/);
+assert.match(page,/<MarketingIntegrations \/>\s*<MarketingFeedbackCommunity \/>\s*<MarketingPricing \/>/);
+assert.match(community,/id="community"/);
+assert.match(community,/href="\/feedback"/);
+assert.match(community,/href="\/auth\/signup\?callbackUrl=%2Ffeedback"/);
+assert.match(community,/Illustrative product preview/);
+assert.match(community,/Not live vote counts or customer activity/);
+assert.doesNotMatch(community,/Yiğit|Tilaver|Yigit Tech Company|yiğit tech company/i);
+checks+=7;
 assert.match(page,/ap-skip-link/);
 assert.doesNotMatch(page,/MarketingSocialProof|MarketingConfetti|MarketingParallaxGlow|MarketingHeroInteractive/);
 checks+=3;
@@ -61,6 +70,10 @@ assert.match(preview,/setCreated\(!created\)/);
 checks+=4;
 
 assert.match(header,/MarketingMobileMenu/);
+assert.match(experience,/href="#community"/);
+assert.match(mobile,/href: '#community'/);
+assert.match(footer,/href:'#community'/);
+checks+=3;
 assert.match(mobile,/aria-expanded=\{open\}/);
 assert.match(mobile,/closeOnEscape/);
 assert.match(mobile,/closeOnOutsideClick/);
