@@ -20,7 +20,7 @@ const FEATURES: Record<UpgradePlan, readonly string[]> = {
 };
 
 const DESCRIPTIONS: Record<UpgradePlan, string> = {
-  individual: 'Annual per-seat access for lean teams',
+  individual: 'For growing personal workflows · 3 Processes',
   pro: 'More room for growing workflows',
   team: 'Collaboration without workspace limits',
 };
