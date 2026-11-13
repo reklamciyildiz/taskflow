@@ -129,7 +129,7 @@ export async function POST(request: NextRequest) {
             code: 'PAYWALL_PROCESSES',
             currentPlan: ent.plan,
             currentProcessCount: existingCount,
-            recommendedPlan: recommendedProcessUpgrade(ent.plan, existingCount),
+            recommendedPlan: recommendedProcessUpgrade(ent.plan, existingCount) ?? undefined,
           },
           { status: 402 }
         );
