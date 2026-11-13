@@ -1,0 +1,56 @@
+name: Process paywall — Individual upgrade and billing safety
+
+on:
+  pull_request:
+    paths:
+      - 'lib/upgrade-recommendations.ts'
+      - 'app/api/projects/route.ts'
+      - 'components/CreateProjectModal.tsx'
+      - 'components/billing/UpgradePlanModal.tsx'
+      - 'scripts/test-process-upgrade-options.ts'
+      - 'scripts/test-plan-entitlement-matrix.ts'
+      - '.github/workflows/process-upgrade-quality.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'lib/upgrade-recommendations.ts'
+      - 'app/api/projects/route.ts'
+      - 'components/CreateProjectModal.tsx'
+      - 'components/billing/UpgradePlanModal.tsx'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  paywall-quality:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Process upgrade options, legacy over-limits and annual billing
+        run: npx tsx scripts/test-process-upgrade-options.ts
+      - name: Full existing plan entitlement and Creem payment contracts
+        run: |
+          npm run test:entitlements
+          npm run test:creem
+          npx tsx scripts/test-creem-annual-catalog.ts
+      - name: TypeScript
+        run: npx tsc --noEmit
+      - name: Lint
+        run: npm run lint
+      - name: Production build with inert credentials
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-not-a-real-key
+          SUPABASE_SERVICE_ROLE_KEY: ci-not-a-real-service-role-key
+          NEXTAUTH_SECRET: ci-only-process-paywall-not-valid
+          NEXTAUTH_URL: http://localhost:3000
+          RESEND_API_KEY: re_ci_build_placeholder_never_valid
+          RESEND_FROM_EMAIL: ci@example.invalid
+        run: npm run build
