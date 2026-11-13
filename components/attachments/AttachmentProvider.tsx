@@ -509,7 +509,7 @@ export function ChecklistAttachmentRail({
   if(!matched.length)return null;
   const images=matched.filter(file=>file.mime_type.startsWith('image/'));
   return (
-    <div className="mt-2 flex min-w-0 flex-wrap items-center gap-1.5" contentEditable={false}
+    <div className="checklist-item-files mt-2 flex min-w-0 max-w-full flex-wrap items-center gap-1.5" contentEditable={false}
       aria-label={`${matched.length} checklist attachments`}>
       {images.slice(0,4).map(file=>(
         <button key={file.id} type="button" onClick={()=>ctx.open(file)}
