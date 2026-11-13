@@ -795,8 +795,8 @@ function AttachmentPreview({
             </div>}
           {downloadOnlyPdf&&<div className="flex flex-col items-center gap-2 p-8 text-center">
             <ShieldAlert className="h-7 w-7 text-muted-foreground"/>
-            <p className="font-medium">Private PDF · download only</p>
-            <p className="max-w-sm text-xs text-muted-foreground">This file has not been malware-scanned. Open only if you trust its source.</p>
+            <p className="font-medium">Ready to download</p>
+            <p className="max-w-sm text-xs text-muted-foreground"><span className="font-medium">Not malware-scanned</span> · Open this PDF only if you trust its source.</p>
           </div>}
           {url&&isImage&&
             <div className="flex h-[min(72dvh,740px)] w-full items-center justify-center overflow-auto p-4 sm:p-8">
