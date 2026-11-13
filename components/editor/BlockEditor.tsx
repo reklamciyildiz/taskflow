@@ -645,10 +645,16 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
     try {
       const target=await prepareAttachmentTarget();
       if(!target || editor.isDestroyed){editor.off('transaction',map);return;}
-      attachments.upload(files,target,id=>{
+      attachments.upload(files,target,(id,uploadedFile)=>{
         if(editor.isDestroyed)return;
         const selection=bookmark.resolve(editor.state.doc);
-        editor.commands.insertContentAt(selection.from,{type:'attachment',attrs:{attachmentId:id}});
+        const image=uploadedFile.type.startsWith('image/');
+        editor.commands.insertContentAt(selection.from,{
+          type:'attachment',attrs:{
+            attachmentId:id,display:image&&files.filter(file=>file.type.startsWith('image/')).length>1?'grid':'block',
+            width:image&&files.length===1?65:100,align:'left',
+          },
+        });
         if(++completed===files.length)editor.off('transaction',map);
       });
       // Subscription lives with this editor; remove on destruction as well.
@@ -893,13 +899,19 @@ export const BlockEditor = forwardRef<BlockEditorRef, BlockEditorProps>(
 
   return (
     <div data-attachment-note={prepareAttachmentTarget ? '' : undefined} className={cn('relative flex flex-col w-full', !checklistMode && 'actiproc-note-editor', className)}>
-      {prepareAttachmentTarget && attachments?.enabled && attachments.canEdit && <div className="flex py-1">
+      {prepareAttachmentTarget && attachments?.enabled && attachments.canEdit && <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border/60 bg-muted/15 px-2 py-1.5">
         <input ref={fileInput} type="file" multiple accept={attachments.pdfUploadsEnabled ? ATTACHMENT_ACCEPT : IMAGE_ATTACHMENT_ACCEPT} className="sr-only" aria-label={attachments.pdfUploadsEnabled ? "Insert image or PDF" : "Insert image"} onChange={e=>{uploadAtSelectionRef.current(Array.from(e.target.files??[]));e.target.value='';}}/>
-        <button type="button" className="flex min-h-9 items-center gap-1 rounded px-2 text-xs text-muted-foreground hover:bg-muted" onMouseDown={e=>e.preventDefault()} onClick={()=>fileInput.current?.click()}><Paperclip className="h-3.5 w-3.5"/>Image / file</button>
-        <button type="button" className="min-h-9 rounded px-2 text-xs text-muted-foreground hover:bg-muted" onMouseDown={e=>e.preventDefault()} onClick={()=>setLibraryOpen(true)}>Existing file</button>
+        <button type="button" className="inline-flex min-h-9 items-center gap-2 rounded-lg bg-primary/10 px-3 text-xs font-semibold text-primary transition-colors hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          onMouseDown={e=>e.preventDefault()} onClick={()=>fileInput.current?.click()}>
+          <ImageIcon className="h-4 w-4"/> Add images / files
+        </button>
+        <button type="button" className="min-h-9 rounded-lg px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          onMouseDown={e=>e.preventDefault()} onClick={()=>setLibraryOpen(true)}>Browse library</button>
+        <span className="ml-auto text-[11px] text-muted-foreground">Drop or paste screenshots directly into the editor</span>
         <Dialog open={libraryOpen} onOpenChange={setLibraryOpen}>
           <DialogContent className="z-[71] w-[calc(100vw-1rem)] max-w-lg max-h-[85dvh] overflow-y-auto" overlayClassName="z-[70]">
-            <DialogTitle>Action files</DialogTitle><DialogDescription>Insert an existing file into this note.</DialogDescription>
+            <DialogTitle className="text-base">Media library</DialogTitle>
+            <DialogDescription>Preview an existing image or insert it at your cursor. Files remain private to this Action.</DialogDescription>
             <AttachmentList target={{taskId:attachments.taskId}} onInsert={id=>{
               void prepareAttachmentTarget().then(target=>{
                 if(target&&!editor.isDestroyed){editor.chain().focus().insertContentAt(editor.state.selection.to,{type:'attachment',attrs:{attachmentId:id}}).run();setLibraryOpen(false);}

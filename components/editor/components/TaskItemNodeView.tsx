@@ -38,7 +38,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { WorkSchedulePicker } from '@/components/schedule/WorkSchedulePicker';
-import { AttachmentList, useAttachments } from '@/components/attachments/AttachmentProvider';
+import { AttachmentList, ChecklistAttachmentRail, useAttachments } from '@/components/attachments/AttachmentProvider';
 import { Paperclip } from 'lucide-react';
 import {
   groupChecklistItem,
@@ -606,10 +606,7 @@ export const TaskItemNodeView = React.memo(
             </div>
           </div>
 
-          {attachedCount > 0 && <button type="button" contentEditable={false} onClick={() => setFilesOpen(true)}
-            className="checklist-item-files mt-1 flex min-h-8 items-center gap-1 rounded px-1.5 text-xs text-muted-foreground" aria-label={`${attachedCount} attached files`}>
-            <Paperclip className="h-3 w-3" />{attachedCount} file{attachedCount > 1 ? 's' : ''}
-          </button>}
+          {attachedCount > 0 && <ChecklistAttachmentRail itemId={String(id??'')} onOpen={() => setFilesOpen(true)} />}
           {suggestConversion ? (
             <button
               type="button"

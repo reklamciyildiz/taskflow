@@ -265,7 +265,7 @@ async function main() {
     checks++;
     assert.ok(
       await page
-        .getByLabel("1 attached files")
+        .getByLabel("1 checklist attachments", { exact: true })
         .evaluate((element) => element.getBoundingClientRect().width > 45),
     );
     checks++;
@@ -304,7 +304,7 @@ async function main() {
     }, png.toString("base64"));
     await page.waitForFunction(
       () =>
-        document.querySelectorAll('[aria-label="1 attached files"]').length ===
+        document.querySelectorAll('[aria-label="1 checklist attachments"]').length ===
         2,
     );
     assert.ok(
@@ -371,7 +371,7 @@ async function main() {
     await page.keyboard.press("Escape");
     const beforeReuse = rows.size;
     await page
-      .getByRole("button", { name: "Existing file", exact: true })
+      .getByRole("button", { name: "Browse library", exact: true })
       .click();
     await page
       .getByRole("dialog")
@@ -394,7 +394,7 @@ async function main() {
     await page
       .locator('[data-test="note"] [data-attachment-id]')
       .first()
-      .getByRole("button", { name: /^Preview / })
+      .getByRole("button", { name: /^Enlarge image / })
       .click();
     await page.getByRole("dialog").waitFor();
     await page.keyboard.press("Escape");

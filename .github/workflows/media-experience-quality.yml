@@ -1,0 +1,57 @@
+name: Premium Notes and Checklist media experience
+on:
+  pull_request:
+    paths:
+      - 'lib/media-presentation.ts'
+      - 'components/editor/extensions/AttachmentNode.tsx'
+      - 'components/editor/BlockEditor.tsx'
+      - 'components/attachments/AttachmentProvider.tsx'
+      - 'components/editor/components/TaskItemNodeView.tsx'
+      - 'scripts/test-media-experience.ts'
+      - '.github/workflows/media-experience-quality.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'lib/media-presentation.ts'
+      - 'components/editor/extensions/AttachmentNode.tsx'
+      - 'components/editor/BlockEditor.tsx'
+      - 'components/attachments/AttachmentProvider.tsx'
+      - 'components/editor/components/TaskItemNodeView.tsx'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  media-quality:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Media layout, gallery navigation and legacy TipTap JSON compatibility
+        run: npx tsx scripts/test-media-experience.ts
+      - name: Existing rich Notes editing regressions
+        run: npm run test:editor
+      - name: Existing Notes workspace contract
+        run: npm run test:action-notes
+      - name: Existing attachments access, metadata and content security
+        run: npx tsx scripts/test-attachments.ts
+      - name: TypeScript
+        run: npx tsc --noEmit
+      - name: Lint
+        run: npm run lint
+      - name: Production build (inert CI credentials)
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-not-a-real-key
+          SUPABASE_SERVICE_ROLE_KEY: ci-not-a-real-service-role-key
+          NEXTAUTH_SECRET: ci-only-build-secret-not-valid
+          NEXTAUTH_URL: http://localhost:3000
+          RESEND_API_KEY: re_ci_build_placeholder_never_valid
+          RESEND_FROM_EMAIL: ci@example.invalid
+        run: npm run build
