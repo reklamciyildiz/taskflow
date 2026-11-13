@@ -178,8 +178,11 @@ export interface ApiResponse<T> {
   code?: string;
   /** HTTP status if available (client wrapper can pass it through). */
   status?: number;
-  /** Suggested upgrade plan for paywalls (e.g. 'pro' or 'team'). */
-  recommendedPlan?: 'pro' | 'team';
+  /** Suggested upgrade tier for an authenticated paywall; not an entitlement. */
+  recommendedPlan?: 'individual' | 'pro' | 'team';
+  /** Server-resolved plan and Process usage for accurate upsell cards. */
+  currentPlan?: 'free' | 'individual' | 'pro' | 'team';
+  currentProcessCount?: number;
 }
 
 export interface CreateTaskRequest {
