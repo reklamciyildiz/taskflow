@@ -19,6 +19,12 @@ import {
   RotateCcw,
   Pencil,
   Trash2,
+  ChevronLeft,
+  ChevronRight,
+  ZoomIn,
+  ZoomOut,
+  Maximize2,
+  Image as ImageIcon,
 } from "lucide-react";
 import {
   Dialog,
@@ -34,6 +40,7 @@ import {
   type Attachment,
   type AttachmentTarget,
 } from "@/lib/attachments";
+import { adjacentMediaIndex, formatMediaSize } from '@/lib/media-presentation';
 
 export async function attachmentRequest(url: string, init?: RequestInit) {
   const response = await fetch(url, {
@@ -414,7 +421,7 @@ export function AttachmentProvider({
           ))}
         </div>
       )}
-      <AttachmentPreview file={preview} close={() => setPreview(null)} />
+      <AttachmentPreview file={preview} files={files} onNavigate={setPreview} close={() => setPreview(null)} />
     </AttachmentContext.Provider>
   );
 }
@@ -674,99 +681,142 @@ export function AttachmentList({
   );
 }
 function AttachmentPreview({
-  file,
-  close,
-}: {
-  file: Attachment | null;
-  close: () => void;
-}) {
-  const mayPreview =
-    file?.mime_type !== "application/pdf" || file.preview_allowed !== false;
-  const downloadOnlyPdf =
-    file?.mime_type === "application/pdf" && file.preview_allowed === false;
-  const { url, error, retry } = useAttachmentUrl(
-    mayPreview ? file?.id : undefined,
-  );
+  file,files,onNavigate,close,
+}:{
+  file:Attachment|null;
+  files:Attachment[];
+  onNavigate:(file:Attachment)=>void;
+  close:()=>void;
+}){
+  const isImage=Boolean(file?.mime_type.startsWith('image/'));
+  const [zoom,setZoom]=useState(1);
+  const gestureX=useRef<number|null>(null);
+  const imageFiles=files.filter(item=>item.mime_type.startsWith('image/'));
+  const imageIds=imageFiles.map(item=>item.id);
+  const imagePosition=file?imageIds.indexOf(file.id):-1;
+  const canNavigate=isImage&&imagePosition>=0&&imageFiles.length>1;
+  const navigate=(direction:-1|1)=>{
+    if(!file)return;
+    const id=adjacentMediaIndex(imageIds,file.id,direction);
+    const found=imageFiles.find(item=>item.id===id);
+    if(found){setZoom(1);onNavigate(found);}
+  };
+  useEffect(()=>{setZoom(1);},[file?.id]);
+  useEffect(()=>{
+    if(!file||!canNavigate)return;
+    const onKey=(event:KeyboardEvent)=>{
+      if(event.altKey||event.ctrlKey||event.metaKey)return;
+      const active=document.activeElement;
+      if(active instanceof HTMLInputElement||active instanceof HTMLTextAreaElement||active instanceof HTMLSelectElement)return;
+      if(event.key==='ArrowLeft'||event.key==='ArrowRight'){
+        event.preventDefault();
+        const direction=event.key==='ArrowLeft'?-1:1;
+        const target=adjacentMediaIndex(imageIds,file.id,direction);
+        const item=imageFiles.find(candidate=>candidate.id===target);
+        if(item){setZoom(1);onNavigate(item);}
+      }
+    };
+    window.addEventListener('keydown',onKey);
+    return ()=>window.removeEventListener('keydown',onKey);
+    // Array contents are stable in practice but not references between renders.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[file?.id,canNavigate,files,onNavigate]);
+  const mayPreview=file?.mime_type!=='application/pdf'||file.preview_allowed!==false;
+  const downloadOnlyPdf=file?.mime_type==='application/pdf'&&file.preview_allowed===false;
+  const {url,error,retry}=useAttachmentUrl(mayPreview?file?.id:undefined);
   return (
-    <Dialog open={!!file} onOpenChange={(open) => !open && close()}>
-      <DialogContent
-        className="z-[81] max-h-[90dvh] w-[calc(100vw-1rem)] max-w-3xl overflow-y-auto"
-        overlayClassName="z-[80]"
-      >
-        <DialogTitle className="pr-8 text-sm break-words">
-          {file?.filename}
-        </DialogTitle>
-        <DialogDescription>
-          {downloadOnlyPdf ? "Private PDF" : "Private file preview"}
-        </DialogDescription>
-        {error && (
-          <button className="text-sm" onClick={retry}>
-            {error} · Retry
-          </button>
-        )}
-        {downloadOnlyPdf && (
-          <div className="flex min-h-[11rem] flex-col items-center justify-center rounded-xl border border-border/60 bg-muted/20 px-5 py-8 text-center">
-            <span className="mb-3 inline-flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <FileText className="h-5 w-5" aria-hidden />
-            </span>
-            <p className="max-w-md text-sm font-medium">Ready to download</p>
-            <p
-              className="mt-2 inline-flex items-center gap-1.5 text-xs text-muted-foreground"
-              title="This PDF has not been checked by a malware-scanning service. Open it only if you trust its source."
-            >
-              <ShieldAlert className="h-3.5 w-3.5" aria-hidden />
-              Not malware-scanned
-            </p>
+    <Dialog open={Boolean(file)} onOpenChange={open=>{if(!open)close();}}>
+      <DialogContent overlayClassName="z-[90]"
+        className="z-[91] flex max-h-[96dvh] w-[calc(100vw-0.75rem)] max-w-5xl flex-col gap-0 overflow-hidden rounded-2xl border border-border/70 bg-background p-0 shadow-2xl sm:w-[calc(100vw-2rem)]">
+        <div className="flex min-w-0 items-center gap-3 border-b border-border/60 px-4 py-3 pr-12">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
+            {isImage?<ImageIcon className="h-4 w-4"/>:<FileText className="h-4 w-4"/>}
+          </span>
+          <div className="min-w-0 flex-1">
+            <DialogTitle className="truncate text-sm font-semibold" title={file?.filename}>{file?.filename}</DialogTitle>
+            <DialogDescription className="mt-0.5 text-[11px]">
+              {downloadOnlyPdf?'Private PDF · download only':file?`${formatMediaSize(file.size_bytes)}${file.width&&file.height?` · ${file.width} × ${file.height}`:''}`:'Private attachment'}
+              {canNavigate?` · ${imagePosition+1} of ${imageFiles.length} images`:''}
+            </DialogDescription>
           </div>
-        )}
-        {mayPreview && !url && !error && (
-          <p className="text-sm text-muted-foreground">Loading preview…</p>
-        )}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        {url && file?.mime_type.startsWith("image/") && (
-          <img
-            src={url}
-            alt={file.filename}
-            className="max-h-[65dvh] w-full object-contain"
-          />
-        )}
-        {url && file?.mime_type === "application/pdf" && (
-          <iframe
-            title={file.filename}
-            sandbox="allow-scripts"
-            referrerPolicy="no-referrer"
-            src={url}
-            className="h-[60dvh] w-full rounded border"
-          />
-        )}
-        {url && (
-          <button
-            className="min-h-9 text-left text-xs text-muted-foreground"
-            onClick={retry}
-          >
-            Refresh preview
+        </div>
+        <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-muted/20"
+          onTouchStart={event=>{gestureX.current=event.touches[0]?.clientX??null;}}
+          onTouchEnd={event=>{
+            if(!canNavigate||zoom!==1||gestureX.current===null)return;
+            const diff=(event.changedTouches[0]?.clientX??gestureX.current)-gestureX.current;
+            gestureX.current=null;
+            if(Math.abs(diff)>55)navigate(diff>0?-1:1);
+          }}>
+          {error&&<button type="button" className="flex items-center gap-2 rounded-lg border bg-background px-3 py-2 text-sm"
+            onClick={retry}><RotateCcw className="h-4 w-4"/>Preview unavailable · Retry</button>}
+          {!error&&mayPreview&&!url&&
+            <div className="flex flex-col items-center gap-2 p-10 text-sm text-muted-foreground">
+              <span className="h-8 w-8 animate-pulse rounded-xl bg-muted"/>Loading private preview…
+            </div>}
+          {downloadOnlyPdf&&<div className="flex flex-col items-center gap-2 p-8 text-center">
+            <ShieldAlert className="h-7 w-7 text-muted-foreground"/>
+            <p className="font-medium">Private PDF · download only</p>
+            <p className="max-w-sm text-xs text-muted-foreground">This file has not been malware-scanned. Open only if you trust its source.</p>
+          </div>}
+          {url&&isImage&&
+            <div className="flex h-[min(72dvh,740px)] w-full items-center justify-center overflow-auto p-4 sm:p-8">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={url} alt={file?.filename||'Private image'}
+                className="block max-h-none rounded-lg object-contain shadow-sm"
+                style={{width:zoom===1?'auto':`${Math.round(zoom*100)}%`,
+                  maxWidth:zoom===1?'100%':'none',maxHeight:zoom===1?'69dvh':'none'}}/>
+            </div>}
+          {url&&file?.mime_type==='application/pdf'&&
+            <iframe title={file.filename} sandbox="allow-scripts"
+              referrerPolicy="no-referrer" src={url} className="h-[68dvh] w-full rounded border-0"/>}
+          {canNavigate&&
+            <>
+              <button type="button" aria-label="Previous image" onClick={()=>navigate(-1)}
+                className="absolute left-2 top-1/2 z-10 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full border bg-background/95 shadow-md transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring">
+                <ChevronLeft className="h-5 w-5"/>
+              </button>
+              <button type="button" aria-label="Next image" onClick={()=>navigate(1)}
+                className="absolute right-2 top-1/2 z-10 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full border bg-background/95 shadow-md transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring">
+                <ChevronRight className="h-5 w-5"/>
+              </button>
+            </>}
+        </div>
+        <div className="flex shrink-0 flex-wrap items-center gap-2 border-t border-border/60 bg-background px-4 py-3">
+          {isImage&&url&&<div className="inline-flex items-center gap-1 rounded-lg border border-border/70 p-0.5">
+            <button type="button" aria-label="Zoom out" disabled={zoom<=1}
+              onClick={()=>setZoom(value=>Math.max(1,value-0.5))}
+              className="grid h-8 w-8 place-items-center rounded-md hover:bg-muted disabled:opacity-30">
+              <ZoomOut className="h-4 w-4"/>
+            </button>
+            <span className="min-w-12 text-center text-xs tabular-nums">{Math.round(zoom*100)}%</span>
+            <button type="button" aria-label="Zoom in" disabled={zoom>=3}
+              onClick={()=>setZoom(value=>Math.min(3,value+0.5))}
+              className="grid h-8 w-8 place-items-center rounded-md hover:bg-muted disabled:opacity-30">
+              <ZoomIn className="h-4 w-4"/>
+            </button>
+            <button type="button" aria-label="Reset zoom" onClick={()=>setZoom(1)}
+              className="grid h-8 w-8 place-items-center rounded-md hover:bg-muted">
+              <Maximize2 className="h-3.5 w-3.5"/>
+            </button>
+          </div>}
+          {canNavigate&&<span className="hidden text-[11px] text-muted-foreground sm:inline">← → to browse · Esc to close</span>}
+          <div className="flex-1"/>
+          <button type="button"
+            className="inline-flex min-h-9 items-center gap-2 rounded-lg bg-primary px-4 text-xs font-semibold text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring"
+            onClick={async()=>{
+              if(!file)return;
+              try{
+                const data=await attachmentRequest(`/api/attachments/${file.id}?download=1`);
+                const anchor=document.createElement('a');
+                anchor.href=data.url;anchor.rel='noopener noreferrer';anchor.target='_blank';
+                anchor.click();
+              }catch(e){toast.error((e as Error).message);}
+            }}>
+            <Download className="h-4 w-4"/>
+            {downloadOnlyPdf?'Download PDF':'Open original / download'}
           </button>
-        )}
-        <button
-          className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          onClick={async () => {
-            try {
-              const data = await attachmentRequest(
-                `/api/attachments/${file!.id}?download=1`,
-              );
-              const a = document.createElement("a");
-              a.href = data.url;
-              a.rel = "noopener noreferrer";
-              a.target = "_blank";
-              a.click();
-            } catch (e) {
-              toast.error((e as Error).message);
-            }
-          }}
-        >
-          <Download className="h-4 w-4" />
-          {downloadOnlyPdf ? "Download PDF" : "Download file"}
-        </button>
+        </div>
       </DialogContent>
     </Dialog>
   );
