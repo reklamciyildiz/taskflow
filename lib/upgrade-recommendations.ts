@@ -62,12 +62,14 @@ export function getUpgradeModalPlans(input:{
   if(reason==='teams'){
     if(currentPlan==='team')return [];
     if(currentPlan==='pro')return ['team'];
+    if(!currentPlan&&recommendedPlan==='team')return ['team'];
     return ['pro','team']; // Individual has only one workspace.
   }
   if(reason==='seats'){
     if(currentPlan==='team')return [];
     if(currentPlan==='individual')return ['pro','team'];
     if(currentPlan==='free')return [...PAID_PLANS]; // Individual supports paid seats.
+    if(!currentPlan&&recommendedPlan==='team')return ['team'];
     return ['pro','team'];
   }
   // Generic upgrade prompts retain historical recommendations, but never
