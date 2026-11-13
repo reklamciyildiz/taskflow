@@ -37,3 +37,4 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-build-placeholder
           SUPABASE_SERVICE_ROLE_KEY: ci-build-placeholder
           NEXTAUTH_SECRET: ci-build-placeholder-not-for-real-sessions
+          RESEND_API_KEY: re_ci_build_placeholder
