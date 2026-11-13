@@ -60,7 +60,7 @@ type Upload = {
   error?: string;
   done?: boolean;
   controller: AbortController;
-  onReady?: (id: string) => void;
+  onReady?: (id: string, file: File) => void;
 };
 type Context = {
   taskId: string;
@@ -78,7 +78,7 @@ type Context = {
   upload: (
     files: File[],
     target: AttachmentTarget,
-    onReady?: (id: string) => void,
+    onReady?: (id: string, file: File) => void,
   ) => void;
   open: (file: Attachment) => void;
 };
@@ -253,7 +253,7 @@ export function AttachmentProvider({
         job.done = true;
         if (active.current) {
           try {
-            job.onReady?.(signed.id);
+            job.onReady?.(signed.id,job.file);
           } catch {
             toast.error(
               "File uploaded to Action Files. Insert it again in your note.",
