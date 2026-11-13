@@ -67,6 +67,8 @@ assert.deepEqual(getUpgradeModalPlans({reason:'teams',recommendedPlan:'pro'}),['
 assert.deepEqual(getUpgradeModalPlans({reason:'teams',currentPlan:'free'}),['pro','team']);
 assert.deepEqual(getUpgradeModalPlans({reason:'teams',currentPlan:'individual'}),['pro','team']);
 assert.deepEqual(getUpgradeModalPlans({reason:'teams',currentPlan:'pro'}),['team']);
+assert.deepEqual(getUpgradeModalPlans({reason:'teams',recommendedPlan:'team'}),['team']);
+assert.deepEqual(getUpgradeModalPlans({reason:'seats',recommendedPlan:'team'}),['team']);
 assert.deepEqual(getUpgradeModalPlans({reason:'webhooks',currentPlan:'free'}),['team']);
 assert.deepEqual(getUpgradeModalPlans({reason:'webhooks',currentPlan:'pro'}),['team']);
 assert.deepEqual(getUpgradeModalPlans({reason:'seats'}),['pro','team']);
