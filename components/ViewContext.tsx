@@ -10,6 +10,7 @@ export type ViewType =
   | 'list'
   | 'customers'
   | 'integrations'
+  | 'feedback'
   | 'analytics'
   | 'settings'
   | 'profile'

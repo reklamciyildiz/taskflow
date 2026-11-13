@@ -1,0 +1,33 @@
+name: Feedback Hub quality
+on:
+  pull_request:
+    paths:
+      - 'app/api/feedback/**'
+      - 'app/(shell)/feedback/**'
+      - 'components/feedback/**'
+      - 'components/Sidebar.tsx'
+      - 'components/ViewContext.tsx'
+      - 'lib/feedback/**'
+      - 'supabase/migrations/20261113110000_actiproc_feedback_hub.sql'
+      - 'scripts/test-feedback-contract.ts'
+      - '.github/workflows/feedback-quality.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'app/api/feedback/**'
+      - 'components/feedback/**'
+      - 'lib/feedback/**'
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx tsx scripts/test-feedback-contract.ts
+      - run: npx tsc --noEmit
+      - run: npm run build
