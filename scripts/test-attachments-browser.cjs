@@ -265,7 +265,7 @@ async function main() {
     checks++;
     assert.ok(
       await page
-        .getByLabel("1 checklist attachments")
+        .getByLabel("1 checklist attachments", { exact: true })
         .evaluate((element) => element.getBoundingClientRect().width > 45),
     );
     checks++;
