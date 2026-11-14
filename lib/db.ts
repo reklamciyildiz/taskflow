@@ -653,6 +653,7 @@ const TASK_SELECT = `
   created_by,
   created_at,
   updated_at,
+  completed_at,
   assignee:users!tasks_assignee_id_fkey (
     id,
     email,

@@ -5,15 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useTaskContext } from '@/components/TaskContext';
 import { ChangePasswordModal } from '@/components/ChangePasswordModal';
-import { TwoFactorModal } from '@/components/TwoFactorModal';
-import { ActiveSessionsModal } from '@/components/ActiveSessionsModal';
-import { Shield, KeyRound, Smartphone, MonitorSmartphone } from 'lucide-react';
+import { Shield, KeyRound } from 'lucide-react';
 
 export default function SettingsAccountPage() {
   const { currentUser } = useTaskContext();
   const [showChangePassword, setShowChangePassword] = useState(false);
-  const [showTwoFactor, setShowTwoFactor] = useState(false);
-  const [showActiveSessions, setShowActiveSessions] = useState(false);
 
   if (!currentUser) return null;
 
@@ -65,37 +61,15 @@ export default function SettingsAccountPage() {
             </Button>
           </div>
 
-          <div className="flex items-center justify-between rounded-lg border p-4">
-            <div className="flex items-center gap-3">
-              <Smartphone className="h-4 w-4 text-muted-foreground" />
-              <div>
-                <p className="text-sm font-medium">Two-factor authentication</p>
-                <p className="text-xs text-muted-foreground">Add an extra layer of security</p>
-              </div>
-            </div>
-            <Button variant="outline" size="sm" onClick={() => setShowTwoFactor(true)}>
-              Manage
-            </Button>
-          </div>
-
-          <div className="flex items-center justify-between rounded-lg border p-4">
-            <div className="flex items-center gap-3">
-              <MonitorSmartphone className="h-4 w-4 text-muted-foreground" />
-              <div>
-                <p className="text-sm font-medium">Active sessions</p>
-                <p className="text-xs text-muted-foreground">View and revoke active login sessions</p>
-              </div>
-            </div>
-            <Button variant="outline" size="sm" onClick={() => setShowActiveSessions(true)}>
-              View
-            </Button>
-          </div>
+          <p className="rounded-xl border bg-muted/40 px-4 py-3 text-xs leading-5 text-muted-foreground">
+            Actiproc does not currently offer built-in two-factor authentication or remote session
+            revocation. For Google sign-in, manage account security in your Google Account.
+            Password changes apply only to accounts with an Actiproc password.
+          </p>
         </CardContent>
       </Card>
 
       <ChangePasswordModal open={showChangePassword} onClose={() => setShowChangePassword(false)} />
-      <TwoFactorModal open={showTwoFactor} onClose={() => setShowTwoFactor(false)} />
-      <ActiveSessionsModal open={showActiveSessions} onClose={() => setShowActiveSessions(false)} />
     </div>
   );
 }

@@ -37,8 +37,6 @@ import { subscribeWebPush, unsubscribeWebPush } from '@/components/push/push-cli
 import { cn } from '@/lib/utils';
 import { useTheme } from 'next-themes';
 import { ChangePasswordModal } from '@/components/ChangePasswordModal';
-import { TwoFactorModal } from '@/components/TwoFactorModal';
-import { ActiveSessionsModal } from '@/components/ActiveSessionsModal';
 import { CreateTeamModal } from '@/components/CreateTeamModal';
 import { EditTeamModal } from '@/components/EditTeamModal';
 import { DeleteTeamModal } from '@/components/DeleteTeamModal';
@@ -70,8 +68,6 @@ export function Settings() {
   
   // Security modals state
   const [showChangePassword, setShowChangePassword] = useState(false);
-  const [showTwoFactor, setShowTwoFactor] = useState(false);
-  const [showActiveSessions, setShowActiveSessions] = useState(false);
   
   // Teams management state
   const [showCreateTeam, setShowCreateTeam] = useState(false);
@@ -1176,22 +1172,10 @@ export function Settings() {
               >
                 Change Password
               </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="w-full"
-                onClick={() => setShowTwoFactor(true)}
-              >
-                Two-Factor Auth
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="w-full"
-                onClick={() => setShowActiveSessions(true)}
-              >
-                Active Sessions
-              </Button>
+              <p className="rounded-xl border bg-muted/40 px-4 py-3 text-xs leading-5 text-muted-foreground">
+                Two-factor authentication and remote session management are not available inside Actiproc.
+                If you sign in with Google, manage those protections from your Google Account.
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -1208,14 +1192,6 @@ export function Settings() {
       <ChangePasswordModal
         open={showChangePassword}
         onClose={() => setShowChangePassword(false)}
-      />
-      <TwoFactorModal
-        open={showTwoFactor}
-        onClose={() => setShowTwoFactor(false)}
-      />
-      <ActiveSessionsModal
-        open={showActiveSessions}
-        onClose={() => setShowActiveSessions(false)}
       />
 
       {/* Teams / Projects Management Modals */}

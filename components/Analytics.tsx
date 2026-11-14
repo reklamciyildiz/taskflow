@@ -1,3 +1,4 @@
+import {completedWithin,completionDurationDays,verifiedCompletionAt} from '@/lib/metrics/completions';
 'use client';
 
 import { useMemo, useState } from 'react';
@@ -216,14 +217,19 @@ export function Analytics() {
 
   const velocityThisWeek = useMemo(() => {
     const weekAgo = subDays(now, 7);
-    return completedTasks.filter(t => t.updatedAt >= weekAgo).length;
+    return completedTasks.filter(t => completedWithin(t,weekAgo,now)).length;
   }, [completedTasks, now]);
 
+  const incompleteHistoryCount = useMemo(
+    () => completedTasks.filter(t => !verifiedCompletionAt(t)).length,
+    [completedTasks]
+  );
+
   const avgCompletionDays = useMemo(() => {
-    const valid = completedTasks.filter(t => t.createdAt && t.updatedAt);
+    const valid = completedTasks.map(completionDurationDays).filter((days):days is number => days!==null);
     if (!valid.length) return null;
     return valid.reduce(
-      (s, t) => s + (t.updatedAt.getTime() - t.createdAt.getTime()) / 86_400_000,
+      (sum,days) => sum+days,
       0
     ) / valid.length;
   }, [completedTasks]);
@@ -237,7 +243,7 @@ export function Analytics() {
       const weekStart = subDays(weekEnd, 6);
       weekStart.setHours(0, 0, 0, 0);
       const count = completedTasks.filter(
-        t => t.updatedAt >= weekStart && t.updatedAt <= weekEnd
+        t => completedWithin(t,weekStart,weekEnd)
       ).length;
       return { week: format(weekStart, 'MMM d'), completed: count };
     }).reverse();
@@ -445,6 +451,7 @@ export function Analytics() {
             <CardTitle className="flex items-center gap-2 text-sm font-semibold">
               <TrendingUp className="h-4 w-4" />
               Completion velocity — last 12 weeks
+              {incompleteHistoryCount > 0 && <span className="ml-2 text-xs font-normal text-muted-foreground">({incompleteHistoryCount} historical completions without verified dates excluded)</span>}
             </CardTitle>
           </CardHeader>
           <CardContent>

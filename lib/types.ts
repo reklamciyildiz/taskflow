@@ -115,12 +115,14 @@ export interface Task {
   createdBy: string;
   createdAt: Date;
   updatedAt: Date;
+  /** Last verified terminal-stage transition. Null for legacy unknown completions. */
+  completedAt?: Date | null;
   attachments: string[];
   comments: Comment[];
 }
 
 /** Client-side task updates. `dueDate: null` clears the due date. */
-export type TaskUpdateFields = Partial<Omit<Task, 'dueDate'>> & {
+export type TaskUpdateFields = Partial<Omit<Task, 'dueDate' | 'completedAt'>> & {
   dueDate?: Date | null;
 };
 
