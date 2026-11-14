@@ -1,5 +1,6 @@
-import {completedWithin,completionDurationDays,verifiedCompletionAt} from '@/lib/metrics/completions';
 'use client';
+
+import {completedWithin,completionDurationDays,verifiedCompletionAt} from '@/lib/metrics/completions';
 
 import { useMemo, useState } from 'react';
 import {

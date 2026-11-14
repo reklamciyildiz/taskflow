@@ -1,5 +1,6 @@
-import {completionCalendarDay,verifiedCompletionAt} from '@/lib/metrics/completions';
 'use client';
+
+import {completionCalendarDay,verifiedCompletionAt} from '@/lib/metrics/completions';
 
 import { useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
