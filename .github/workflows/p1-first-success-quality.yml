@@ -1,0 +1,54 @@
+name: P1 first-success onboarding quality
+on:
+  pull_request:
+    paths:
+      - 'lib/process-template-catalog.ts'
+      - 'lib/onboarding/**'
+      - 'components/onboarding/**'
+      - 'components/CreateProjectModal.tsx'
+      - 'app/(shell)/dashboard/processes/**'
+      - 'app/(shell)/get-started/**'
+      - 'components/dashboard/DashboardV2.tsx'
+      - 'app/onboarding/page.tsx'
+      - 'scripts/test-p1-first-success.ts'
+      - '.github/workflows/p1-first-success-quality.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'components/onboarding/**'
+      - 'app/(shell)/get-started/**'
+      - 'scripts/test-p1-first-success.ts'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Template identity, milestone truthfulness and no demo data writes
+        run: npx tsx scripts/test-p1-first-success.ts
+      - name: Existing Process upgrade plan routing
+        run: npx tsx scripts/test-process-upgrade-options.ts
+      - name: Existing Process stage and ACL tests
+        run: npx tsx scripts/test-stage-identity.ts
+      - name: Current plan entitlements regression
+        run: npx tsx scripts/test-plan-entitlement-matrix.ts
+      - name: TypeScript
+        run: npx tsc --noEmit
+      - name: Production build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-not-a-real-key
+          SUPABASE_SERVICE_ROLE_KEY: ci-not-a-real-service-role-key
+          NEXTAUTH_SECRET: ci-only-build-secret
+          NEXTAUTH_URL: http://localhost:3000
+          RESEND_API_KEY: re_ci_build_placeholder_never_valid
+          RESEND_FROM_EMAIL: ci@example.invalid
+        run: npm run build
