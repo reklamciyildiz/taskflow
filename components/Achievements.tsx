@@ -1,5 +1,7 @@
 'use client';
 
+import {completionCalendarDay,verifiedCompletionAt} from '@/lib/metrics/completions';
+
 import { useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -172,11 +174,8 @@ export function Achievements() {
 
     // Streak: consecutive days (backward from today) with at least 1 completion
     const byDay = new Set(
-      completedUserTasks.map(t => {
-        const d = new Date(t.updatedAt);
-        return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-      })
-    );
+      completedUserTasks.map(completionCalendarDay)
+    .filter((key): key is string => key !== null));
     let streak = 0;
     const today = new Date();
     for (let i = 0; i < 365; i++) {
@@ -190,7 +189,8 @@ export function Achievements() {
     // Speed Demon: max completions in a single calendar day
     const dayCounts = new Map<string, number>();
     for (const t of completedUserTasks) {
-      const d = new Date(t.updatedAt);
+      const d = verifiedCompletionAt(t);
+      if (!d) continue;
       const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
       dayCounts.set(key, (dayCounts.get(key) ?? 0) + 1);
     }

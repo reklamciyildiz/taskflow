@@ -1,0 +1,80 @@
+name: P0 security and completion metrics
+on:
+  pull_request:
+    paths:
+      - 'components/Settings.tsx'
+      - 'components/Analytics.tsx'
+      - 'components/Achievements.tsx'
+      - 'components/TaskContext.tsx'
+      - 'components/TwoFactorModal.tsx'
+      - 'components/ActiveSessionsModal.tsx'
+      - 'app/(shell)/settings/account/**'
+      - 'app/(shell)/error.tsx'
+      - 'app/api/monitoring/**'
+      - 'lib/monitoring/**'
+      - 'lib/metrics/**'
+      - 'lib/db.ts'
+      - 'lib/database.types.ts'
+      - 'lib/types.ts'
+      - 'supabase/migrations/20261114120000_p0_task_completion_timestamp.sql'
+      - 'scripts/test-p0-*'
+      - '.github/workflows/p0-security-metrics-quality.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'app/api/monitoring/**'
+      - 'components/Analytics.tsx'
+      - 'components/Achievements.tsx'
+      - 'lib/metrics/**'
+      - 'scripts/test-p0-*'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: P0 security + timestamps + telemetry contract
+        run: npx tsx scripts/test-p0-security-metrics.ts
+      - name: Completion migration and PostgreSQL transition checks
+        env:
+          PGHOST: localhost
+          PGPORT: '5432'
+          PGUSER: postgres
+          PGPASSWORD: postgres
+          PGDATABASE: postgres
+        run: |
+          command -v psql >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y postgresql-client)
+          bash scripts/test-p0-completion-sql.sh
+      - name: TypeScript
+        run: npx tsc --noEmit
+      - name: Next production build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-not-a-real-key
+          SUPABASE_SERVICE_ROLE_KEY: ci-not-a-real-service-role-key
+          NEXTAUTH_SECRET: ci-only-build-secret
+          NEXTAUTH_URL: http://localhost:3000
+          RESEND_API_KEY: re_ci_build_placeholder_never_valid
+          RESEND_FROM_EMAIL: ci@example.invalid
+        run: npm run build

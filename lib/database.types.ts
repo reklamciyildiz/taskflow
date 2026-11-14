@@ -188,6 +188,7 @@ export interface Database {
           organization_id: string
           created_by: string
           created_at: string
+          completed_at: string | null
           updated_at: string
         }
         Insert: {
@@ -207,6 +208,7 @@ export interface Database {
           organization_id: string
           created_by: string
           created_at?: string
+          completed_at?: string | null
           updated_at?: string
         }
         Update: {
@@ -226,6 +228,7 @@ export interface Database {
           organization_id?: string
           created_by?: string
           created_at?: string
+          completed_at?: string | null
           updated_at?: string
         }
       }

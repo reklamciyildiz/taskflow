@@ -270,6 +270,7 @@ function transformTask(apiTask: any): Task {
     createdBy: apiTask.created_by || apiTask.createdBy || apiTask.user_id,
     createdAt: new Date(apiTask.created_at),
     updatedAt: new Date(apiTask.updated_at),
+    completedAt: apiTask.completed_at ? new Date(apiTask.completed_at) : null,
     attachments: [],
     comments: (apiTask.comments || []).map((c: any) => ({
       id: c.id,
@@ -1142,6 +1143,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     const { dueDate, ...rest } = updates;
     const patch: Partial<Task> = {
       ...rest, updatedAt: new Date(),
+      ...(updates.status !== undefined || updates.projectId !== undefined ? { completedAt: null } : {}),
       ...(Object.prototype.hasOwnProperty.call(updates, 'dueDate') ? { dueDate: dueDate ?? undefined } : {}),
     };
     return taskWrites.current.enqueue(id, base, patch, changes => {
@@ -1149,6 +1151,12 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       setTasks(current => current.map(task => task.id === id ? { ...task, ...changes } : task));
     }, async () => {
       const response = await taskApi.update(id, partialTaskToUpdateRequest(updates));
+      if (response.success && response.data) {
+        const persisted = transformTask(response.data);
+        // Concurrent optimistic changes may be queued; only replace the timestamp here.
+        tasksRef.current = tasksRef.current.map(task => task.id === id ? { ...task, completedAt: persisted.completedAt } : task);
+        setTasks(current => current.map(task => task.id === id ? { ...task, completedAt: persisted.completedAt } : task));
+      }
       return response.success;
     }).then(ok => {
       // Consumers such as Planner must also revalidate AFTER persistence, not just
