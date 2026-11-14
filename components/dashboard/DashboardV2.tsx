@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import {FirstSuccessJourney,useFirstSuccessProgress} from '@/components/onboarding/FirstSuccessJourney';
 import { Activity, ArrowUpRight, CalendarDays, CheckCircle2, FolderKanban, Plus, WandSparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CreateTaskModal } from '@/components/CreateTaskModal';
@@ -23,10 +25,16 @@ function headingDate(): string {
 }
 
 export function DashboardV2() {
-  const { currentTeam, projects, tasks, generalBoardColumns, loading } = useTaskContext();
+  const { currentTeam, currentUser, projects, tasks, generalBoardColumns, loading } = useTaskContext();
   const [captureOpen, setCaptureOpen] = useState(false);
   const [createActionOpen, setCreateActionOpen] = useState(false);
   const [dateLabel, setDateLabel] = useState('Today');
+  const firstSuccess=useFirstSuccessProgress();
+  const [journeyDismissed,setJourneyDismissed]=useState(false);
+  const dismissKey=currentUser&&currentTeam?`actiproc:getting-started:dismissed:${currentUser.id}:${currentTeam.id}`:null;
+  useEffect(()=>{
+    setJourneyDismissed(dismissKey?localStorage.getItem(dismissKey)==='1':false);
+  },[dismissKey]);
 
   useEffect(() => setDateLabel(headingDate()), []);
 
@@ -69,6 +77,7 @@ export function DashboardV2() {
               Plan today, keep focus, and return to the work that matters.
             </p>
             <div className="dashboard-v2-hero-actions">
+              <Button asChild variant="outline" className="dashboard-v2-action-secondary"><Link href="/get-started"><WandSparkles className="h-4 w-4" aria-hidden="true"/> Start here <ArrowUpRight className="ml-1 h-3.5 w-3.5"/></Link></Button>
               <Button variant="outline" className="dashboard-v2-action-secondary" onClick={() => setCaptureOpen(true)}>
                 <WandSparkles className="h-4 w-4" aria-hidden="true" />
                 Capture
@@ -95,6 +104,8 @@ export function DashboardV2() {
           </div>
         </div>
       </header>
+
+      {!firstSuccess.loading && !firstSuccess.complete && !journeyDismissed && <div className="mb-5"><FirstSuccessJourney compact onDismiss={()=>{setJourneyDismissed(true);if(dismissKey)localStorage.setItem(dismissKey,'1');}}/></div>}
 
       <div className="dashboard-v2-grid grid items-start gap-4 lg:gap-5 xl:grid-cols-12">
         <div className="min-w-0 xl:col-span-8"><DashboardMyDay /></div>

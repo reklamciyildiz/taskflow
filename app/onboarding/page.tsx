@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { Building2, Users, ArrowRight, Loader2, CheckCircle2 } from 'lucide-react';
@@ -11,6 +11,7 @@ export default function OnboardingPage() {
   const { data: session, status, update } = useSession();
   const router = useRouter();
   const [step, setStep] = useState<OnboardingStep>('choice');
+  const completingSetup=useRef(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,7 +23,7 @@ export default function OnboardingPage() {
   useEffect(() => {
     if (status === 'authenticated' && session?.user) {
       const user = session.user as any;
-      if (user.organizationId && !user.needsOnboarding) {
+      if (user.organizationId && !user.needsOnboarding && !completingSetup.current) {
         router.push('/');
       }
     }
@@ -57,12 +58,13 @@ export default function OnboardingPage() {
         throw new Error(data.error || 'Failed to create organization');
       }
 
+      completingSetup.current=true;
       await update();
       router.refresh();
       setStep('complete');
 
       setTimeout(() => {
-        router.push('/');
+        router.push('/get-started');
       }, 1200);
     } catch (err: any) {
       setError(err.message);
@@ -93,6 +95,7 @@ export default function OnboardingPage() {
         throw new Error(data.error || 'Failed to join organization');
       }
 
+      completingSetup.current=true;
       await update();
       router.refresh();
       setStep('complete');

@@ -17,32 +17,15 @@ import { Layers, CheckCircle2, Trash2, GripVertical } from 'lucide-react';
 import { UpgradePlanModal } from '@/components/billing/UpgradePlanModal';
 import type { CurrentPlan, UpgradePlan } from '@/lib/upgrade-recommendations';
 import { ProcessPropertiesManager } from '@/components/ProcessPropertiesManager';
+import { PROCESS_TEMPLATES, getProcessTemplate, instantiateProcessTemplate, type ProcessTemplateId } from '@/lib/process-template-catalog';
 
 interface CreateProjectModalProps {
   open: boolean;
   onClose: () => void;
   mode?: 'create' | 'edit';
   projectId?: string | null;
+  initialTemplateId?: ProcessTemplateId;
 }
-
-const PRESETS: { id: string; name: string; columns: ProjectColumnConfig[] }[] = [
-  { id: 'default', name: 'Simple (To Do → In Progress → Done)', columns: FALLBACK_BOARD_COLUMNS },
-  {
-    id: 'blank',
-    name: 'Start from scratch (blank)',
-    columns: [],
-  },
-  {
-    id: 'job-search',
-    name: 'Job search (Applied → Interview → Offer → Hired)',
-    columns: [
-      { id: 'applied', title: 'Applied', color: 'bg-slate-100 dark:bg-slate-800' },
-      { id: 'interview', title: 'Interview', color: 'bg-blue-50 dark:bg-blue-500/10' },
-      { id: 'offer', title: 'Offer', color: 'bg-amber-50 dark:bg-amber-500/10' },
-      { id: 'hired', title: 'Hired', color: 'bg-emerald-50 dark:bg-emerald-500/10', isTerminal: true },
-    ],
-  },
-];
 
 const COLUMN_COLOR_OPTIONS: { id: string; label: string; className: string }[] = [
   { id: 'slate', label: 'Slate', className: 'bg-slate-50 dark:bg-slate-900/40' },
@@ -52,7 +35,7 @@ const COLUMN_COLOR_OPTIONS: { id: string; label: string; className: string }[] =
   { id: 'rose', label: 'Rose', className: 'bg-rose-50 dark:bg-rose-500/10' },
 ];
 
-export function CreateProjectModal({ open, onClose, mode = 'create', projectId }: CreateProjectModalProps) {
+export function CreateProjectModal({ open, onClose, mode = 'create', projectId, initialTemplateId }: CreateProjectModalProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { organizationId, teams, currentTeam, refreshData, projects, tasks } = useTaskContext();
@@ -65,7 +48,7 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId }
     if (editingProject?.teamId) return editingProject.teamId;
     return '__current__';
   });
-  const [presetId, setPresetId] = useState<string>(editingProject ? 'custom' : 'default');
+  const [presetId, setPresetId] = useState<string>(editingProject ? 'custom' : 'simple');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [upgradePlan, setUpgradePlan] = useState<UpgradePlan | null>(null);
@@ -85,6 +68,15 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId }
     return 'team';
   });
   const [restrictedUserIds, setRestrictedUserIds] = useState<string[]>([]);
+
+  // Gallery choices are drafts only. Each open creates fresh stage identities and does not write data.
+  useEffect(() => {
+    if (!open || mode !== 'create') return;
+    const chosen = initialTemplateId ?? 'simple';
+    setPresetId(chosen);
+    setColumnsDraft(instantiateProcessTemplate(chosen));
+    setName(initialTemplateId ? (getProcessTemplate(chosen)?.title ?? '') : '');
+  }, [open, mode, initialTemplateId]);
 
   // Load members for restricted/private projects when editing.
   useEffect(() => {
@@ -129,10 +121,14 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId }
       return;
     }
     setPresetId(value);
-    const preset = PRESETS.find((p) => p.id === value);
-    const base = preset ? preset.columns : FALLBACK_BOARD_COLUMNS;
-    // Copy so edits do not mutate preset definitions
-    setColumnsDraft(base.map((c) => ({ ...c, id: newStageId() })));
+    if (value === 'blank') {
+      setColumnsDraft([]);
+      return;
+    }
+    const template = getProcessTemplate(value);
+    if (!template) return;
+    setColumnsDraft(instantiateProcessTemplate(template.id));
+    if (!name.trim()) setName(template.title);
   };
 
   const handleColumnTitleChange = (index: number, title: string) => {
@@ -253,7 +249,7 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId }
 
       if (mode === 'create') {
         setName('');
-        setPresetId('default');
+        setPresetId('simple');
         setColumnsDraft(
           FALLBACK_BOARD_COLUMNS.map((c) => ({ ...c, id: newStageId() }))
         );
@@ -266,6 +262,7 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId }
       // TaskContext already syncs currentProject from the URL once projects load.
       if (createdId && typeof window !== 'undefined') {
         const params = new URLSearchParams(window.location.search);
+        params.delete('template');
         params.set('project', createdId);
         const q = params.toString();
         const target = q ? `${pathname}?${q}` : pathname;
@@ -377,21 +374,21 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId }
           <div className="space-y-3">
             <div className="space-y-2">
               <Label>{mode === 'edit' ? 'Template' : 'Starter template'}</Label>
-              <Select value={presetId} onValueChange={handlePresetChange}>
+              <Select value={presetId} onValueChange={handlePresetChange} disabled={mode === "edit"}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select a template" />
                 </SelectTrigger>
                 <SelectContent>
-                  {PRESETS.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.name}
-                    </SelectItem>
+                  {mode === "edit" && <SelectItem value="custom">Existing stage configuration</SelectItem>}
+                  <SelectItem value="blank">Start from scratch (blank)</SelectItem>
+                  {PROCESS_TEMPLATES.map(p => (
+                    <SelectItem key={p.id} value={p.id}>{p.title} · {p.category}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
                 {mode === 'edit'
-                  ? 'You can edit the current columns below; choosing a template only affects the initial structure.'
+                  ? 'Edit the current stages below. Templates are used when creating a new Process.'
                   : 'After choosing a template, you can rename columns, add new columns, or remove them. Mark a column terminal only when Actions there are closed. Terminal does not imply success.'}
               </p>
             </div>

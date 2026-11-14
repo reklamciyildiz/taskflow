@@ -1,6 +1,9 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { ProcessTemplateGallery } from '@/components/onboarding/ProcessTemplateGallery';
+import { getProcessTemplate, type ProcessTemplateId } from '@/lib/process-template-catalog';
 import { useTaskContext } from '@/components/TaskContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,10 +15,30 @@ import { Layers, Plus, Search, Settings2, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function ProcessesClient() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { projects, currentTeam, refreshData, currentProject, setCurrentProjectId, setBoardScope, currentUserRole, loading } =
     useTaskContext();
   const [query, setQuery] = useState('');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<ProcessTemplateId | undefined>();
+  const selectTemplate = (id:ProcessTemplateId) => {
+    setSelectedTemplateId(id);
+    setIsCreateOpen(true);
+  };
+  const closeCreate = () => {
+    setIsCreateOpen(false);
+    setSelectedTemplateId(undefined);
+    if (searchParams?.has('template')) router.replace('/dashboard/processes', {scroll:false});
+  };
+  const requestedTemplate = searchParams?.get('template');
+  useEffect(() => {
+    const id = requestedTemplate;
+    const template = id && getProcessTemplate(id);
+    if (template) selectTemplate(template.id);
+    // Controlled by the single template URL parameter, not modal state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requestedTemplate]);
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
 
@@ -47,7 +70,7 @@ export default function ProcessesClient() {
           </p>
         </div>
         {currentUserRole === 'admin' ? (
-          <Button onClick={() => setIsCreateOpen(true)} className="gap-2">
+          <Button onClick={() => {setSelectedTemplateId(undefined);setIsCreateOpen(true);}} className="gap-2">
             <Plus className="h-4 w-4" />
             New process
           </Button>
@@ -57,6 +80,8 @@ export default function ProcessesClient() {
           </Badge>
         )}
       </div>
+
+      <ProcessTemplateGallery onChoose={selectTemplate} disabled={currentUserRole !== 'admin'} />
 
       <Card className="border-border/70">
         <CardHeader className="pb-3">
@@ -86,7 +111,7 @@ export default function ProcessesClient() {
                   <p className="text-sm text-muted-foreground">
                     Create a process and define its columns, then select it on the board to link actions to that flow.
                   </p>
-                  <Button variant="outline" onClick={() => setIsCreateOpen(true)} className="gap-2">
+                  <Button variant="outline" disabled={currentUserRole !== 'admin'} onClick={() => {setSelectedTemplateId(undefined);setIsCreateOpen(true);}} className="gap-2">
                     <Plus className="h-4 w-4" />
                     Create process
                   </Button>
@@ -170,7 +195,7 @@ export default function ProcessesClient() {
       </Card>
 
       {currentUserRole === 'admin' ? (
-        <CreateProjectModal open={isCreateOpen} onClose={() => setIsCreateOpen(false)} />
+        <CreateProjectModal open={isCreateOpen} onClose={closeCreate} initialTemplateId={selectedTemplateId} />
       ) : null}
       {editingProjectId && (
         <CreateProjectModal
