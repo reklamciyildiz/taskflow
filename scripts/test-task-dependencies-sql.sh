@@ -128,6 +128,7 @@ SELECT pg_temp.expect_failure($q$UPDATE tasks SET team_id='44444444-4444-4444-84
 SELECT pg_temp.expect_failure($q$UPDATE projects SET column_config=jsonb_set(column_config,'{2,isTerminal}','false'::jsonb) WHERE id='99999999-9999-4999-8999-999999999999'$q$, 'P23_DEPENDENCY_STAGE_CHANGE');
 SELECT pg_temp.expect_failure($q$UPDATE team_inbox_boards SET stages=jsonb_set(stages,'{1,isTerminal}','false'::jsonb) WHERE team_id='33333333-3333-4333-8333-333333333333'$q$, 'P23_DEPENDENCY_STAGE_CHANGE');
 SELECT pg_temp.expect_failure($q$DELETE FROM team_inbox_boards WHERE team_id='33333333-3333-4333-8333-333333333333'$q$, 'P23_DEPENDENCY_INBOX_REQUIRED');
+SELECT pg_temp.expect_failure($q$DELETE FROM projects WHERE id='99999999-9999-4999-8999-999999999999'$q$, 'P23_DEPENDENCY_PROCESS_REQUIRED');
 -- The custom General 'verified' terminal stage is recognized by the DAG guard.
 UPDATE tasks SET status='todo' WHERE id='00000000-0000-4000-8000-000000000002';
 SELECT pg_temp.expect_failure($q$UPDATE tasks SET status='verified' WHERE id='00000000-0000-4000-8000-000000000002'$q$, 'P23_BLOCKED_COMPLETION');
