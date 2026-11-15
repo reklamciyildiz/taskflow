@@ -212,7 +212,7 @@ export function ActionDependencies({
             <ChevronDown className={cn('h-4 w-4 shrink-0 text-muted-foreground transition-transform', expanded && 'rotate-180')} aria-hidden />
           </button>
         </CollapsibleTrigger>
-        <CollapsibleContent>
+        <CollapsibleContent className="max-h-[min(40dvh,360px)] overflow-y-auto overscroll-contain [scrollbar-width:thin]">
           <div className="grid min-w-0 gap-3 px-4 pb-4 md:grid-cols-2 md:px-6" aria-busy={loading}>
             {loadError ? (
               <div className="col-span-full flex items-center justify-between gap-3 rounded-xl border border-destructive/25 bg-destructive/5 p-3">
