@@ -4,13 +4,15 @@ import { Layers3, ListChecks, SlidersHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { groupActionsByProperty, PROPERTY_COLOR_CLASSES, selectedPropertyOptionsForTask, type ProcessProperty, type ProcessPropertyData } from '@/lib/process-properties';
 import type { Task } from '@/lib/types';
+import type { TeamDependencySummary } from '@/lib/task-dependency-ui';
 
-export function PropertyBoard({ tasks, property, data, onOpen, cardPropertyIds = [] }: {
+export function PropertyBoard({ tasks, property, data, onOpen, cardPropertyIds = [], dependencySummary = {} }: {
   tasks: Task[];
   property: ProcessProperty;
   data: ProcessPropertyData;
   onOpen: (id: string) => void;
   cardPropertyIds?: string[];
+  dependencySummary?: TeamDependencySummary;
 }) {
   const groups = groupActionsByProperty(tasks, property, data.options, data.values);
   return (
@@ -53,6 +55,7 @@ export function PropertyBoard({ tasks, property, data, onOpen, cardPropertyIds =
               <div className="flex min-h-[208px] flex-1 flex-col gap-2.5 p-2.5 md:p-3">
                 {group.tasks.map(task => (
                   <TaskCard key={task.id} task={task} onTaskClick={item => onOpen(item.id)}
+                    dependency={dependencySummary[task.id]}
                     propertyBadges={selectedPropertyOptionsForTask(task.id, cardPropertyIds.filter(id => id !== property.id), data)
                       .map(({ property: selectedProperty, option }) => ({
                         id: selectedProperty.id,
