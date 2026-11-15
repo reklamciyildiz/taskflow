@@ -38,7 +38,7 @@ export default function TeamPage() {
   if (!currentTeam) {
     return (
       <div className="flex h-64 items-center justify-center text-muted-foreground">
-        No team selected.
+        <T text="No team selected."/>
       </div>
     );
   }
@@ -56,7 +56,7 @@ export default function TeamPage() {
         <Button variant="outline" size="sm" asChild>
           <Link href="/settings/members">
             <Settings className="mr-2 h-4 w-4" />
-            Manage members
+            <T text="Manage members"/>
           </Link>
         </Button>
       </div>
@@ -90,7 +90,7 @@ export default function TeamPage() {
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
             <Users className="h-4 w-4" />
-            Members
+            <T text="Members"/>
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
@@ -150,7 +150,7 @@ export default function TeamPage() {
         </p>
         <Button variant="ghost" size="sm" asChild>
           <Link href="/settings/members" className="flex items-center gap-1">
-            Go to Settings <ArrowRight className="h-3.5 w-3.5" />
+            <T text="Manage members"/> <ArrowRight className="h-3.5 w-3.5" />
           </Link>
         </Button>
       </div>
