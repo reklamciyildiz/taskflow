@@ -9,6 +9,7 @@ on:
       - 'lib/task-dependencies.ts'
       - 'lib/api.ts'
       - 'scripts/test-task-dependencies*'
+      - 'docs/P23_SMART_DEPENDENCIES_FOUNDATION.md'
   workflow_dispatch:
 
 permissions:
@@ -41,6 +42,8 @@ jobs:
         run: npm ci --no-audit --no-fund
       - name: Domain and security contracts
         run: npx tsx scripts/test-task-dependencies.ts
+      - name: Real API route — ACL, private Process redaction and idempotency
+        run: node scripts/test-task-dependencies-api.cjs
       - name: PostgreSQL schema, lifecycle and authorization integrity
         env:
           PGHOST: localhost
