@@ -16,6 +16,10 @@ async function main() {
     define: { 'process.env.NODE_ENV': '"development"' },
     plugins: [{ name: 'workspace-fixture', setup(build) {
       build.onResolve({ filter: /components\/(TaskContext|CreateProjectModal|CreateTaskModal|EditGeneralBoardModal)$/ }, () => ({ path: fixture }));
+      // The standalone fixture uses the app's locale context but never authenticates.
+      // Isolate NextAuth instead of bundling its Node process dependencies into Chromium.
+      build.onResolve({ filter: /^next-auth\/react$/ }, () => ({ path: 'next-auth-react', namespace: 'fixture-auth' }));
+      build.onLoad({ filter: /.*/, namespace: 'fixture-auth' }, () => ({ contents: "export function useSession(){ return { data:null, status:'unauthenticated' }; } export async function signIn(){ return undefined; } export async function signOut(){ return undefined; } export function SessionProvider({children}){ return children; }", loader: 'js' }));
     } }],
   });
   const css = await postcss([tailwind('./tailwind.config.ts')]).process(fs.readFileSync('app/globals.css', 'utf8'), { from: 'app/globals.css' });

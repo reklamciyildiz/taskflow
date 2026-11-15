@@ -23,10 +23,15 @@ async function main() {
           () => ({ path: 'task-context', namespace: 'fixture-stubs' }));
         build.onResolve({ filter: /^next\/navigation$/ },
           () => ({ path: 'next-navigation', namespace: 'fixture-stubs' }));
+        // The isolated AI browser fixture only exercises presentation; no session is used.
+        build.onResolve({ filter: /^next-auth\/react$/ },
+          () => ({ path: 'next-auth-react', namespace: 'fixture-stubs' }));
         build.onLoad({ filter: /.*/, namespace: 'fixture-stubs' }, (args) => ({
           contents: args.path === 'task-context'
             ? 'export function useTaskContext(){ return { openTaskEditor() {}, refreshData: async()=>{} }; }'
-            : 'export function useSearchParams(){ return new URLSearchParams(); }',
+            : args.path === 'next-auth-react'
+              ? "export function useSession(){ return { data:null, status:'unauthenticated' }; } export async function signIn(){ return undefined; } export async function signOut(){ return undefined; } export function SessionProvider({children}){ return children; }"
+              : 'export function useSearchParams(){ return new URLSearchParams(); }',
           loader: 'js',
         }));
       },
