@@ -168,7 +168,7 @@ function ProcessCard({
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function Analytics() {
-  const {date,t}=useAppLocale();
+  const {date,t,number}=useAppLocale();
   const { tasks, projects, currentTeam, generalBoardColumns } = useTaskContext();
   const [showExport, setShowExport] = useState(false);
   const [selectedProcessId, setSelectedProcessId] = useState<string>('all');
@@ -327,42 +327,42 @@ export function Analytics() {
     const list: Insight[] = [];
 
     if (completionRate >= 80) {
-      list.push({ type: 'success', icon: '🚀', title: 'Excellent progress', body: `${completionRate}% of all actions complete — team is firing on all cylinders.` });
+      list.push({ type: 'success', icon: '🚀', title: t('Excellent progress'), body: t('{percent}% of all actions complete — team is firing on all cylinders.',{percent:completionRate}) });
     } else if (completionRate < 40 && filteredTasks.length > 5) {
-      list.push({ type: 'warning', icon: '⚠️', title: 'Low completion rate', body: `Only ${completionRate}% done. Review priorities and unblock stuck items.` });
+      list.push({ type: 'warning', icon: '⚠️', title: t('Low completion rate'), body: t('Only {percent}% done. Review priorities and unblock stuck items.',{percent:completionRate}) });
     }
 
     if (overdueTasks.length > 0) {
-      list.push({ type: 'warning', icon: '⏰', title: `${overdueTasks.length} overdue action${overdueTasks.length > 1 ? 's' : ''}`, body: 'These are past their due date and still open — address them first.' });
+      list.push({ type: 'warning', icon: '⏰', title: t('{count} overdue actions',{count:overdueTasks.length}), body: t('These are past their due date and still open — address them first.') });
     }
 
     const stalledProcesses = visibleBreakdowns.filter(pb => pb.bottleneck && pb.bottleneck.count >= 3);
     if (stalledProcesses.length > 0) {
       const names = stalledProcesses.map(pb => `"${pb.project.name}"`).join(', ');
-      list.push({ type: 'warning', icon: '🔴', title: 'Process bottleneck', body: `${names} — items piling up in one stage. Consider WIP limits or unblocking.` });
+      list.push({ type: 'warning', icon: '🔴', title: t('Process bottleneck'), body: t('{name} — items piling up in one stage. Consider WIP limits or unblocking.',{name:names}) });
     }
 
     if (velocityThisWeek >= 5) {
-      list.push({ type: 'success', icon: '⚡', title: 'High-velocity week', body: `${velocityThisWeek} actions closed this week. Momentum is strong.` });
+      list.push({ type: 'success', icon: '⚡', title: t('High-velocity week'), body: t('{count} actions closed this week. Momentum is strong.',{count:velocityThisWeek}) });
     }
 
     const unassigned = pendingTasks.filter(t => !t.assigneeId).length;
     if (unassigned > 0) {
-      list.push({ type: 'info', icon: '👥', title: `${unassigned} unassigned action${unassigned > 1 ? 's' : ''}`, body: 'Assign owners to improve accountability and velocity tracking.' });
+      list.push({ type: 'info', icon: '👥', title: t('{count} unassigned actions',{count:unassigned}), body: t('Assign owners to improve accountability and velocity tracking.') });
     }
 
     if (avgCompletionDays !== null && avgCompletionDays <= 2) {
-      list.push({ type: 'success', icon: '🎯', title: 'Fast turnaround', body: `Average ${avgCompletionDays.toFixed(1)} days per action — excellent execution speed.` });
+      list.push({ type: 'success', icon: '🎯', title: t('Fast turnaround'), body: t('Average {days} days per action — excellent execution speed.',{days:number(avgCompletionDays,{minimumFractionDigits:1,maximumFractionDigits:1})}) });
     } else if (avgCompletionDays !== null && avgCompletionDays > 10) {
-      list.push({ type: 'info', icon: '📊', title: 'Long completion cycles', body: `Actions take ~${Math.round(avgCompletionDays)} days on average. Break them into smaller steps.` });
+      list.push({ type: 'info', icon: '📊', title: t('Long completion cycles'), body: t('Actions take ~{days} days on average. Break them into smaller steps.',{days:Math.round(avgCompletionDays)}) });
     }
 
     if (list.length === 0) {
-      list.push({ type: 'info', icon: '💡', title: 'Getting started', body: 'Complete actions to unlock personalised insights about your team\'s performance.' });
+      list.push({ type: 'info', icon: '💡', title: t('Getting started'), body: t('Complete actions to unlock personalised insights about your team\'s performance.') });
     }
 
     return list.slice(0, 4);
-  }, [completionRate, overdueTasks.length, visibleBreakdowns, velocityThisWeek, pendingTasks, avgCompletionDays, filteredTasks.length]);
+  }, [completionRate, overdueTasks.length, visibleBreakdowns, velocityThisWeek, pendingTasks, avgCompletionDays, filteredTasks.length,t,number]);
 
   const showGeneralCard =
     (selectedProcessId === 'all' || selectedProcessId === 'general') && generalBreakdown.total > 0;
@@ -613,8 +613,8 @@ export function Analytics() {
                   ins.type === 'info'    && 'bg-blue-500',
                 )} />
                 <div>
-                  <p className="text-sm font-medium">{ins.icon} {t(ins.title)}</p>
-                  <p className="text-xs text-muted-foreground">{t(ins.body)}</p>
+                  <p className="text-sm font-medium">{ins.icon} {ins.title}</p>
+                  <p className="text-xs text-muted-foreground">{ins.body}</p>
                 </div>
               </div>
             ))}
