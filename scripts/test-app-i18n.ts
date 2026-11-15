@@ -59,7 +59,7 @@ assert.ok(checkedUiMessages>=70,'Localization audit did not cover enough literal
 // prove every visible entry has a Turkish translation.
 for(const path of ['mobile/src/MobileMoreView.tsx','mobile/src/MobileSettingsView.tsx']){
   const source=read(path);
-  for(const match of source.matchAll(/(?:title|detail):\\s*'([^']+)'/g)){
+  for(const match of source.matchAll(/(?:title|detail):\s*'([^']+)'/g)){
     assert.ok(hasTurkishAppTranslation(match[1]),path+': missing native menu localization: '+match[1]);
   }
 }
