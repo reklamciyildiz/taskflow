@@ -94,10 +94,15 @@ export function ActionDependencies({
   const reload = useCallback(async (isActive: () => boolean) => {
     const revision = ++requestRevisionRef.current;
     setLoading(true);
-    const result = await taskDependencyApi.get(taskId);
+    let result: Awaited<ReturnType<typeof taskDependencyApi.get>> | null = null;
+    try {
+      result = await taskDependencyApi.get(taskId);
+    } catch {
+      // Treat a thrown request as unavailable, not an empty dependency graph.
+    }
     // Ignore late responses after an Action switch, unmount or newer refresh.
     if (!isActive() || revision !== requestRevisionRef.current) return;
-    if (result.success && result.data) {
+    if (result?.success && result.data) {
       setOverview(result.data);
       setLoadError(false);
     } else {
@@ -164,6 +169,8 @@ export function ActionDependencies({
       toast.success(t(remove ? 'Dependency removed' : 'Dependency connected'));
       if (!remove) { setPicker(null); setQuery(''); }
       notifyTaskDependenciesChanged(teamId);
+    } catch {
+      toast.error(t('Could not update dependency'));
     } finally {
       setPending(null);
     }
