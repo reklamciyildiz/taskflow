@@ -77,7 +77,7 @@ export function DashboardV2() {
             </div>
             <h1 className="dashboard-v2-hero-title"><AppT text="Dashboard"/></h1>
             <p className="dashboard-v2-hero-description">
-              Plan today, keep focus, and return to the work that matters.
+              <AppT text="Plan today, keep focus, and return to the work that matters."/>
             </p>
             <div className="dashboard-v2-hero-actions">
               <Button asChild variant="outline" className="dashboard-v2-action-secondary"><Link href="/get-started"><WandSparkles className="h-4 w-4" aria-hidden="true"/><AppT text="Start here"/><ArrowUpRight className="ml-1 h-3.5 w-3.5"/></Link></Button>
@@ -90,7 +90,7 @@ export function DashboardV2() {
                 <Plus className="h-4 w-4" aria-hidden="true" /><AppT text="Add Action"/></Button>
             </div>
           </div>
-          <div className="dashboard-v2-hero-stats" aria-label="Current workspace overview">
+          <div className="dashboard-v2-hero-stats" aria-label={t("Current workspace overview")}>
             <div className="dashboard-v2-hero-stat dashboard-v2-hero-stat--lime">
               <span className="dashboard-v2-hero-stat-icon"><Activity className="h-[19px] w-[19px]" aria-hidden="true" /></span>
               <span className="dashboard-v2-hero-stat-copy"><strong>{loading ? '—' : overview.active}</strong><span><AppT text="Active Actions"/></span></span>
