@@ -14,8 +14,11 @@ const env = {
 };
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
+// Attach rejection handlers immediately, before the other transaction commits.
+// Node 22 otherwise treats an expected concurrent SQL rejection as unhandled.
+const captureConflict = promise => promise.then(() => null, error => error);
 async function expectConflict(promise, message) {
-  const error = await promise.then(() => null, err => err);
+  const error = await promise;
   assert.ok(error, 'Concurrent write unexpectedly succeeded');
   assert.equal(error.code, '23514', 'Must reject as a DB integrity violation');
   assert.equal(error.message, message);
@@ -38,8 +41,8 @@ async function main() {
     await first.query('BEGIN');
     await first.query('INSERT INTO task_dependencies(blocker_task_id,blocked_task_id,organization_id,team_id) VALUES($1,$2,$3,$4)',
       [ids[0], ids[1], org, team]);
-    const opposite = second.query('INSERT INTO task_dependencies(blocker_task_id,blocked_task_id,organization_id,team_id) VALUES($1,$2,$3,$4)',
-      [ids[1], ids[0], org, team]);
+    const opposite = captureConflict(second.query('INSERT INTO task_dependencies(blocker_task_id,blocked_task_id,organization_id,team_id) VALUES($1,$2,$3,$4)',
+      [ids[1], ids[0], org, team]));
     await sleep(120);
     await first.query('COMMIT');
     await expectConflict(opposite, 'P23_DEPENDENCY_CYCLE');
@@ -49,7 +52,7 @@ async function main() {
     await first.query('BEGIN');
     await first.query('INSERT INTO task_dependencies(blocker_task_id,blocked_task_id,organization_id,team_id) VALUES($1,$2,$3,$4)',
       [ids[2], ids[3], org, team]);
-    const finish = second.query("UPDATE tasks SET status='done' WHERE id=$1", [ids[3]]);
+    const finish = captureConflict(second.query("UPDATE tasks SET status='done' WHERE id=$1", [ids[3]]));
     await sleep(120);
     await first.query('COMMIT');
     await expectConflict(finish, 'P23_BLOCKED_COMPLETION');
@@ -61,8 +64,8 @@ async function main() {
     // attached after the target is already marked terminal.
     await first.query('BEGIN');
     await first.query("UPDATE tasks SET status='done' WHERE id=$1", [ids[5]]);
-    const link = second.query('INSERT INTO task_dependencies(blocker_task_id,blocked_task_id,organization_id,team_id) VALUES($1,$2,$3,$4)',
-      [ids[4], ids[5], org, team]);
+    const link = captureConflict(second.query('INSERT INTO task_dependencies(blocker_task_id,blocked_task_id,organization_id,team_id) VALUES($1,$2,$3,$4)',
+      [ids[4], ids[5], org, team]));
     await sleep(120);
     await first.query('COMMIT');
     await expectConflict(link, 'P23_DEPENDENCY_TERMINAL_TARGET');
