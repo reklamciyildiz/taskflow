@@ -1,5 +1,5 @@
 'use client';
-import {T as AppT} from '@/components/i18n/AppLocaleProvider';
+import {T as AppT,useAppLocale} from '@/components/i18n/AppLocaleProvider';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
@@ -43,9 +43,9 @@ function itemTitle(item: PlannerProjectionItem): string {
     : item.taskTitle;
 }
 
-function dateLabel(value: string): string {
+function dateLabel(value: string, locale: 'en'|'tr'): string {
   const [year, month, day] = value.split('-').map(Number);
-  return new Intl.DateTimeFormat('en-US', {
+  return new Intl.DateTimeFormat(locale==='tr'?'tr-TR':'en-US', {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
@@ -63,6 +63,7 @@ function MyDayRow({
   date?: string;
   onOpen: () => void;
 }) {
+  const {t,locale}=useAppLocale();
   const time = item.scheduleTime?.slice(0, 5) ?? null;
   const title = itemTitle(item);
   return (
@@ -105,7 +106,7 @@ function MyDayRow({
         </span>
       </span>
       <span className="flex shrink-0 flex-col items-end gap-0.5 text-[0.68rem] tabular-nums text-muted-foreground sm:flex-row sm:items-center sm:gap-1.5">
-        {date ? <span>{dateLabel(date)}</span> : null}
+        {date ? <span>{dateLabel(date,locale)}</span> : null}
         {time ? (
           <span className="inline-flex items-center gap-1 rounded-md bg-muted/35 px-1.5 py-0.5">
             <Clock3 className="h-3 w-3" /> {time}
@@ -118,6 +119,7 @@ function MyDayRow({
 }
 
 export function DashboardMyDay() {
+  const {t,locale}=useAppLocale();
   const { currentTeam, openTaskEditor } = useTaskContext();
   const [day, setDay] = useState<{ date: string; timeZone: string } | null>(null);
   const [today, setToday] = useState<PlannerTodayProjection | null>(null);
@@ -195,7 +197,7 @@ export function DashboardMyDay() {
           <span className="dashboard-v2-icon dashboard-v2-icon--sun"><SunMedium className="h-4 w-4" /></span>
           <div className="min-w-0 pt-0.5">
             <h2 id="dashboard-my-day-title" className="dashboard-v2-section-title"><AppT text="My Day"/></h2>
-            <p className="mt-0.5 text-[0.7rem] text-muted-foreground">{day ? dateLabel(day.date) : 'Your scheduled work'}</p>
+            <p className="mt-0.5 text-[0.7rem] text-muted-foreground">{day ? dateLabel(day.date,locale) : t('Your scheduled work')}</p>
           </div>
         </div>
         <Button asChild variant="ghost" size="sm" className="dashboard-v2-link">
@@ -204,7 +206,7 @@ export function DashboardMyDay() {
       </header>
 
       {today && !error ? (
-        <div className="dashboard-v2-day-stats" aria-label="Today's activity summary">
+        <div className="dashboard-v2-day-stats" aria-label={t("Today's activity summary")}>
           <div className="dashboard-v2-day-stat">
             <ListTodo className="h-4 w-4 text-lime-500 dark:text-lime-300" aria-hidden="true" />
             <span><strong>{actionable.length}</strong><small><AppT text="To do"/></small></span>
@@ -224,7 +226,7 @@ export function DashboardMyDay() {
             <div
               className="dashboard-v2-progress-track"
               role="progressbar"
-              aria-label="Today's completed work"
+              aria-label={t("Today's completed work")}
               aria-valuenow={dailyProgress}
               aria-valuemin={0}
               aria-valuemax={100}
@@ -252,7 +254,7 @@ export function DashboardMyDay() {
         <div className="px-2 pb-3 sm:px-3">
           {today?.overdue.length ? (
             <div className="mb-3">
-              <div className="flex items-center gap-2 px-3 pb-1.5"><p className="dashboard-v2-kicker text-destructive">Overdue · {today.overdue.length}</p><span className="h-px flex-1 bg-destructive/10" /></div>
+              <div className="flex items-center gap-2 px-3 pb-1.5"><p className="dashboard-v2-kicker text-destructive">{t('Overdue')} · {today.overdue.length}</p><span className="h-px flex-1 bg-destructive/10" /></div>
               <div className="dashboard-v2-list">
                 {visibleActionable.filter((item) => today.overdue.some((overdue) => overdue.id === item.id)).map((item) => (
                   <MyDayRow key={item.id} item={item} tone="overdue" onOpen={() => openTaskEditor(item.taskId)} />
@@ -262,7 +264,7 @@ export function DashboardMyDay() {
           ) : null}
           {visibleActionable.some((item) => today?.today.some((todayItem) => todayItem.id === item.id)) ? (
             <div className="mb-3">
-              <div className="flex items-center gap-2 px-3 pb-1.5"><p className="dashboard-v2-kicker">Today · {today?.today.length ?? 0}</p><span className="h-px flex-1 bg-border/35" /></div>
+              <div className="flex items-center gap-2 px-3 pb-1.5"><p className="dashboard-v2-kicker">{t('Today')} · {today?.today.length ?? 0}</p><span className="h-px flex-1 bg-border/35" /></div>
               <div className="dashboard-v2-list">
                 {visibleActionable.filter((item) => today?.today.some((todayItem) => todayItem.id === item.id)).map((item) => (
                   <MyDayRow key={item.id} item={item} onOpen={() => openTaskEditor(item.taskId)} />
@@ -280,7 +282,7 @@ export function DashboardMyDay() {
 
           {hiddenCount > 0 ? (
             <Button asChild variant="ghost" size="sm" className="mb-2 ml-2 h-11 rounded-lg text-xs text-muted-foreground">
-              <Link href="/planner">View {hiddenCount} more in Planner <ChevronRight className="ml-1 h-3.5 w-3.5" /></Link>
+              <Link href="/planner">{t('View {count} more in Planner',{count:hiddenCount})} <ChevronRight className="ml-1 h-3.5 w-3.5" /></Link>
             </Button>
           ) : null}
 
