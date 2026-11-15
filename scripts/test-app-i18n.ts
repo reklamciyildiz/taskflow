@@ -29,16 +29,26 @@ const keyPaths=[
 'components/NotificationBell.tsx','components/search/GlobalCommandPalette.tsx',
 'components/settings/CalendarSettings.tsx','components/settings/NotificationsSettings.tsx',
 'components/onboarding/FirstSuccessJourney.tsx','components/billing/BillingClient.tsx',
+'app/(shell)/team/page.tsx','app/(shell)/settings/account/page.tsx',
+'app/(shell)/settings/workspace/page.tsx','components/ActionPanel.tsx',
 ];
+let checkedUiMessages=0;
 for(const path of keyPaths){
   const code=read(path);
   assert.match(code,/AppLocaleProvider|useAppLocale|AppLanguageSwitcher/,path+' must use centralized localization');
-  for(const match of code.matchAll(/<AppT text="([^"]+)"\s*\/>/g)){
-    assert.equal(hasTurkishAppTranslation(match[1]),true,path+': missing translation: '+match[1]);
+  // Both aliases exist: <T/> and <AppT/>. Audit t('literal') as well.
+  const literalUiMessages=[
+    ...Array.from(code.matchAll(/<(?:AppT|T)\b[^>]*?\btext=(["'])(.*?)\1/g),match=>match[2]),
+    ...Array.from(code.matchAll(/\bt\(\s*(["'])(.*?)\1/g),match=>match[2]),
+  ];
+  for(const message of literalUiMessages){
+    assert.equal(hasTurkishAppTranslation(message),true,path+': missing Turkish UI translation: '+message);
+    checkedUiMessages++;
   }
   if(code.includes("'use client';"))assert.ok(code.indexOf("'use client';")<code.indexOf("import "),
     path+' client directive must precede imports');
 }
+assert.ok(checkedUiMessages>=70,'Localization audit did not cover enough literal UI messages');
 const provider=read('components/i18n/AppLocaleProvider.tsx');
 assert.match(provider,/fetch\('\/api\/users\/settings'/);
 assert.match(provider,/method:'PATCH'/);
