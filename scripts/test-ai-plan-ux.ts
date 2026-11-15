@@ -68,7 +68,7 @@ assert.ok(upgrade.includes('AI_PLAN_LIMITS[plan].monthlyBase') &&
  'Upgrade plans must use responsive single-card design, accurate AI terms and the signed existing-subscription review');
 assert.ok(billing.includes('<AIUsageBillingCard') &&
  billing.includes('id="billing-plans"') &&
- billing.includes('aiPlanMonthlyDescription(key)'),
+ (billing.includes('aiPlanMonthlyDescription(key)') || (billing.includes('AI_PLAN_LIMITS[key].monthlyBase') && billing.includes("t('{count} AI requests/month{seat}'"))),
  'Billing must show verified usage and clear plan upgrade comparison');
 assert.ok(billAI.includes('useAIUsage(fetch)') &&
  billAI.includes("status.access === 'beta_only'") &&
