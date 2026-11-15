@@ -1,5 +1,5 @@
 'use client';
-import {T as AppT} from '@/components/i18n/AppLocaleProvider';
+import {T as AppT,useAppLocale} from '@/components/i18n/AppLocaleProvider';
 
 import {useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {useRouter} from 'next/navigation';
@@ -38,6 +38,7 @@ const QUICK_ACTIONS:readonly QuickAction[]=[
 export function GlobalCommandPalette({open,onOpenChange,onCreateAction}:{
   open:boolean;onOpenChange:(next:boolean)=>void;onCreateAction:()=>void;
 }){
+  const {t}=useAppLocale();
   const router=useRouter();
   const {currentTeam,setCurrentTeam,currentUserRole}=useTaskContext();
   const [query,setQuery]=useState('');
@@ -66,16 +67,16 @@ export function GlobalCommandPalette({open,onOpenChange,onCreateAction}:{
         const response=await fetch('/api/search?'+qs.toString(),{
           signal:controller.signal,credentials:'same-origin',cache:'no-store'
         });
-        if(!response.ok)throw new Error(response.status===403?'Search is not permitted for this team.':'Search is temporarily unavailable.');
+        if(!response.ok)throw new Error(t(response.status===403?'Search is not permitted for this team.':'Search is temporarily unavailable.'));
         const payload=await response.json() as {
           success?:boolean;data?:GlobalSearchResult[];partial?:boolean;
         };
         if(number!==requestRef.current||controller.signal.aborted)return;
-        if(!payload.success||!Array.isArray(payload.data))throw new Error('Search is temporarily unavailable.');
+        if(!payload.success||!Array.isArray(payload.data))throw new Error(t('Search is temporarily unavailable.'));
         setResults(payload.data);setPartial(Boolean(payload.partial));
       }catch(err){
         if(controller.signal.aborted||number!==requestRef.current)return;
-        setResults([]);setError(err instanceof Error?err.message:'Search failed');
+        setResults([]);setError(err instanceof Error?err.message:t('Search failed'));
       }finally{
         if(number===requestRef.current&&!controller.signal.aborted)setLoading(false);
       }
@@ -123,21 +124,21 @@ export function GlobalCommandPalette({open,onOpenChange,onCreateAction}:{
       <Command shouldFilter={false} loop className="rounded-[22px] bg-transparent">
         <div className="flex items-center gap-2 border-b px-4 pr-12">
           <CommandInput autoFocus value={query} onValueChange={setQuery}
-            placeholder="Search Actions, notes, checklists, Processes..."
+            placeholder={t("Search Actions, notes, checklists, Processes...")}
             className="h-14 flex-1 text-[15px] [&>input]:h-14 [&>input]:text-[15px]"/>
           {loading?<Loader2 className="h-4 w-4 animate-spin text-primary" aria-label="Searching"/>:null}
         </div>
         <div className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-2">
-          <div className="flex items-center gap-1 rounded-full border bg-muted/50 p-1" role="group" aria-label="Search team scope">
+          <div className="flex items-center gap-1 rounded-full border bg-muted/50 p-1" role="group" aria-label={t("Search team scope")}>
             {(['all','team'] as const).map(value=>
               <button key={value} type="button" aria-pressed={scope===value} onClick={()=>setScope(value)}
                 disabled={value==='team'&&!currentTeam}
                 className={'rounded-full px-3 py-1.5 text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40 '+
                   (scope===value?'bg-background text-foreground shadow-sm':'text-muted-foreground hover:text-foreground')}>
-                {value==='all'?'All accessible teams':'Current team'}
+                {t(value==='all'?'All accessible teams':'Current team')}
               </button>)}
           </div>
-          <span className="text-[11px] text-muted-foreground">{query.trim().length>=2?results.length+' matches':'Type at least 2 characters to search'}</span>
+          <span className="text-[11px] text-muted-foreground">{query.trim().length>=2?results.length+' '+t('matches') :t('Type at least 2 characters to search')}</span>
         </div>
         <CommandList className="max-h-[min(55dvh,460px)] min-h-[190px] overscroll-contain p-2">
           {error?<div role="alert" className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</div>:null}
@@ -148,7 +149,7 @@ export function GlobalCommandPalette({open,onOpenChange,onCreateAction}:{
             const matches=results.filter(item=>item.kind===group.kind);
             if(matches.length===0)return null;
             const Icon=group.icon;
-            return <CommandGroup key={group.kind} heading={group.label}>
+            return <CommandGroup key={group.kind} heading={t(group.label)}>
               {matches.map(item=><CommandItem key={item.kind+':'+item.id}
                 value={item.kind+':'+item.id} onSelect={()=>go(item)}
                 className="my-0.5 flex min-h-[51px] cursor-pointer gap-3 rounded-xl px-3 py-2.5 data-[selected=true]:bg-accent">
@@ -157,19 +158,19 @@ export function GlobalCommandPalette({open,onOpenChange,onCreateAction}:{
                 </span>
                 <span className="flex min-w-0 flex-1 flex-col gap-1">
                   <span className="truncate text-[13px] font-semibold">{item.title}</span>
-                  {item.subtitle?<span className="truncate text-xs text-muted-foreground">{item.subtitle}</span>:null}
+                  {item.subtitle?<span className="truncate text-xs text-muted-foreground"{item.subtitle}</span>:null}
                 </span>
                 <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" aria-hidden="true"/>
               </CommandItem>)}
             </CommandGroup>;
           })}
-          {filteredQuick.length>0&&<><CommandSeparator/><CommandGroup heading={query?'Quick commands':'Quick navigation'}>
+          {filteredQuick.length>0&&<><CommandSeparator/><CommandGroup heading={t(query?'Quick commands':'Quick navigation')}>
             {filteredQuick.map(action=>{
               const Icon=action.icon;
               return <CommandItem key={action.id} value={'quick:'+action.id} onSelect={()=>selectQuick(action)}
                 className="my-0.5 flex min-h-10 cursor-pointer gap-3 rounded-xl px-3">
                 <Icon className="h-4 w-4 text-primary" aria-hidden="true"/>
-                <span className="min-w-0 flex-1 truncate text-sm">{action.title}</span>
+                <span className="min-w-0 flex-1 truncate text-sm">{t(action.title)}</span>
                 {action.shortcut?<CommandShortcut>{action.shortcut}</CommandShortcut>:null}
               </CommandItem>;
             })}
