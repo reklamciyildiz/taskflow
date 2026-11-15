@@ -8,6 +8,7 @@ on:
       - 'app/api/tasks/**'
       - 'app/api/projects/[id]/route.ts'
       - 'app/api/inbox/board/route.ts'
+      - 'app/api/schedules/route.ts'
       - 'lib/task-dependencies.ts'
       - 'lib/api.ts'
       - 'scripts/test-task-dependencies*'
