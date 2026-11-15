@@ -104,12 +104,30 @@ SELECT pg_temp.expect_failure($q$INSERT INTO task_dependencies(blocker_task_id,b
 SELECT pg_temp.expect_failure($q$INSERT INTO task_dependencies(blocker_task_id,blocked_task_id,organization_id,team_id) VALUES('00000000-0000-4000-8000-000000000004','00000000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','33333333-3333-4333-8333-333333333333')$q$, 'P23_DEPENDENCY_SCOPE');
 SELECT pg_temp.expect_failure($q$INSERT INTO task_dependencies(blocker_task_id,blocked_task_id,organization_id,team_id) VALUES('00000000-0000-4000-8000-000000000005','00000000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','33333333-3333-4333-8333-333333333333')$q$, 'P23_DEPENDENCY_SCOPE');
 
+-- Read-only API preflight catches an existing blocker before the action route
+-- applies schedule/reminder writes. Task trigger remains the race authority.
+DO $$ BEGIN
+  IF NOT public.p23_preflight_blocked_transition(
+    '00000000-0000-4000-8000-000000000002'::uuid,NULL::uuid,'done')
+    OR NOT public.p23_preflight_blocked_transition(
+    '00000000-0000-4000-8000-000000000003'::uuid,
+    '99999999-9999-4999-8999-999999999999'::uuid,'accepted')
+    OR public.p23_preflight_blocked_transition(
+    '00000000-0000-4000-8000-000000000002'::uuid,NULL::uuid,'todo')
+  THEN RAISE EXCEPTION 'P23_PRECHECK_MISMATCH'; END IF;
+END $$;
+
 -- Editing metadata is allowed; entering a terminal stage is blocked until all
 -- predecessors finish. A custom Process terminal stage counts as completion.
 UPDATE tasks SET status='todo' WHERE id='00000000-0000-4000-8000-000000000002';
 SELECT pg_temp.expect_failure($q$UPDATE tasks SET status='done' WHERE id='00000000-0000-4000-8000-000000000002'$q$, 'P23_BLOCKED_COMPLETION');
 SELECT pg_temp.expect_failure($q$UPDATE tasks SET status='accepted' WHERE id='00000000-0000-4000-8000-000000000003'$q$, 'P23_BLOCKED_COMPLETION');
 UPDATE tasks SET status='done' WHERE id='00000000-0000-4000-8000-000000000001';
+DO $$ BEGIN
+  IF public.p23_preflight_blocked_transition(
+    '00000000-0000-4000-8000-000000000002'::uuid,NULL::uuid,'done')
+  THEN RAISE EXCEPTION 'P23_PRECHECK_FAILED_TO_CLEAR'; END IF;
+END $$;
 UPDATE tasks SET status='done' WHERE id='00000000-0000-4000-8000-000000000002';
 UPDATE tasks SET status='accepted' WHERE id='00000000-0000-4000-8000-000000000003';
 DO $$ BEGIN
