@@ -1,0 +1,77 @@
+name: P2.3.1 Smart Dependencies foundation
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/p23-dependencies-foundation.yml'
+      - 'supabase/migrations/20261115220000_task_dependencies_foundation.sql'
+      - 'app/api/tasks/**'
+      - 'lib/task-dependencies.ts'
+      - 'lib/api.ts'
+      - 'scripts/test-task-dependencies*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  foundation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Domain and security contracts
+        run: npx tsx scripts/test-task-dependencies.ts
+      - name: PostgreSQL schema, lifecycle and authorization integrity
+        env:
+          PGHOST: localhost
+          PGPORT: '5432'
+          PGUSER: postgres
+          PGPASSWORD: postgres
+          PGDATABASE: postgres
+        run: |
+          command -v psql >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y postgresql-client)
+          bash scripts/test-task-dependencies-sql.sh
+      - name: Concurrent cycle and completion race tests (two PostgreSQL clients)
+        env:
+          PGHOST: localhost
+          PGPORT: '5432'
+          PGUSER: postgres
+          PGPASSWORD: postgres
+          PGDATABASE: postgres
+        run: node scripts/test-task-dependencies-concurrency.cjs
+      - name: Existing Board lifecycle regressions
+        run: npm run test:board:premium
+      - name: Existing scheduling regressions
+        run: npm run test:scheduling
+      - name: TypeScript
+        run: npx tsc --noEmit
+      - name: Production build (inert CI credentials)
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-not-a-real-key
+          SUPABASE_SERVICE_ROLE_KEY: ci-not-a-real-service-role-key
+          NEXTAUTH_SECRET: ci-only-build-secret
+          NEXTAUTH_URL: http://localhost:3000
+          RESEND_API_KEY: re_ci_build_placeholder_never_valid
+          RESEND_FROM_EMAIL: ci@example.invalid
+        run: npm run build
