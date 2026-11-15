@@ -1,5 +1,5 @@
 'use client';
-import {T as AppT} from '@/components/i18n/AppLocaleProvider';
+import {T as AppT,useAppLocale} from '@/components/i18n/AppLocaleProvider';
 
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -154,6 +154,7 @@ function ScheduleCell({ task, disabled }: { task: Task; disabled: boolean }) {
 }
 
 export function TaskList({ allowProcessAdministration = true, mobileCompact = false }: { allowProcessAdministration?: boolean; mobileCompact?: boolean } = {}) {
+  const {t}=useAppLocale();
   const {
     tasks,
     currentTeam,
@@ -319,14 +320,14 @@ export function TaskList({ allowProcessAdministration = true, mobileCompact = fa
         <div className="flex flex-wrap items-center gap-2">
           {projectsForTeam.length > 0 && (
             <Select value={processId ?? '__inbox__'} onValueChange={(value) => setBoardScope(value === '__inbox__' ? { type: 'general' } : { type: 'project', projectId: value })}>
-              <SelectTrigger aria-label="Table process" className="h-11 w-full min-w-0 sm:w-auto sm:min-w-[210px]"><SelectValue placeholder="Choose process" /></SelectTrigger>
+              <SelectTrigger aria-label={t("Table process")} className="h-11 w-full min-w-0 sm:w-auto sm:min-w-[210px]"><SelectValue placeholder={t("Choose process")} /></SelectTrigger>
               <SelectContent><SelectItem value="__inbox__"><AppT text="Inbox"/></SelectItem>{projectsForTeam.map((project) => <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>)}</SelectContent>
             </Select>
           )}
           {allowProcessAdministration && currentUserRole === 'admin' && (
             <>
               <Button variant="outline" size="sm" className="h-9 gap-2" onClick={() => setIsCreateProjectOpen(true)}><Layers className="h-4 w-4" /><AppT text="New process"/></Button>
-              <Button variant="outline" size="icon" className="h-9 w-9" disabled={!boardProject} onClick={() => setEditingProjectId(boardProject?.id ?? null)} aria-label="Edit selected process"><Settings2 className="h-4 w-4" /></Button>
+              <Button variant="outline" size="icon" className="h-9 w-9" disabled={!boardProject} onClick={() => setEditingProjectId(boardProject?.id ?? null)} aria-label={t("Edit selected process")}><Settings2 className="h-4 w-4" /></Button>
             </>
           )}
         </div>
@@ -336,21 +337,21 @@ export function TaskList({ allowProcessAdministration = true, mobileCompact = fa
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
           <div className="relative min-w-0 flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input aria-label="Search actions and property values" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search actions and property values…" className="h-11 md:h-9 pl-9" />
+            <Input aria-label={t("Search actions and property values")} value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder={t("Search actions and property values…")} className="h-11 md:h-9 pl-9" />
           </div>
           <Button variant="ghost" className="h-11 md:hidden" aria-expanded={showFilters} aria-controls="table-filters" onClick={() => setShowFilters(value => !value)}><Filter className="mr-2 h-4 w-4" />Filters{hasOperationalFilters(filters) ? ' (active)' : ''}</Button>
           <div id="table-filters" className={cn('flex-wrap items-center gap-2 md:flex max-md:[&_button]:min-h-[44px]', showFilters ? 'flex' : 'hidden')}>
             <span className="inline-flex h-8 items-center gap-1.5 text-xs font-medium text-muted-foreground"><Filter className="h-3.5 w-3.5" /><AppT text="Filters"/></span>
             <Select value={filters.stage ?? ALL} onValueChange={(value) => setFilters((current) => ({ ...current, stage: value === ALL ? null : value }))}>
-              <SelectTrigger aria-label="Filter by stage" className="h-8 w-[150px] text-xs"><SelectValue /></SelectTrigger>
+              <SelectTrigger aria-label={t("Filter by stage")} className="h-8 w-[150px] text-xs"><SelectValue /></SelectTrigger>
               <SelectContent><SelectItem value={ALL}><AppT text="All stages"/></SelectItem>{boardColumns.map((column) => <SelectItem key={column.id} value={column.id}>{column.title}</SelectItem>)}</SelectContent>
             </Select>
             <Select value={filters.priority ?? ALL} onValueChange={(value) => setFilters((current) => ({ ...current, priority: value === ALL ? null : value as TaskPriority }))}>
-              <SelectTrigger aria-label="Filter by priority" className="h-8 w-[138px] text-xs"><SelectValue /></SelectTrigger>
+              <SelectTrigger aria-label={t("Filter by priority")} className="h-8 w-[138px] text-xs"><SelectValue /></SelectTrigger>
               <SelectContent><SelectItem value={ALL}><AppT text="All priorities"/></SelectItem>{Object.entries(priorityConfig).map(([value, config]) => <SelectItem key={value} value={value}>{config.label}</SelectItem>)}</SelectContent>
             </Select>
             <Select value={filters.assignee ?? ALL} onValueChange={(value) => setFilters((current) => ({ ...current, assignee: value === ALL ? null : value }))}>
-              <SelectTrigger aria-label="Filter by assignee" className="h-8 w-[150px] text-xs"><SelectValue /></SelectTrigger>
+              <SelectTrigger aria-label={t("Filter by assignee")} className="h-8 w-[150px] text-xs"><SelectValue /></SelectTrigger>
               <SelectContent><SelectItem value={ALL}><AppT text="All assignees"/></SelectItem><SelectItem value={UNASSIGNED_FILTER}><AppT text="Unassigned"/></SelectItem>{currentTeam?.members.map((member) => <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>)}</SelectContent>
             </Select>
             {activeProperties.map((property) => (
@@ -370,7 +371,7 @@ export function TaskList({ allowProcessAdministration = true, mobileCompact = fa
           <p className="text-xs text-muted-foreground">{filteredTasks.length} of {scopedTasks.length} Actions</p>
           <div className="flex min-w-0 flex-wrap items-center gap-2 max-md:[&_button]:min-h-[44px]">
             <Select value={sort.field} onValueChange={setSortField}>
-              <SelectTrigger aria-label="Sort table" className="h-8 w-[150px] text-xs"><SelectValue /></SelectTrigger>
+              <SelectTrigger aria-label={t("Sort table")} className="h-8 w-[150px] text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="title"><AppT text="Sort by title"/></SelectItem><SelectItem value="stage"><AppT text="Sort by stage"/></SelectItem><SelectItem value="priority"><AppT text="Sort by priority"/></SelectItem><SelectItem value="assignee"><AppT text="Sort by assignee"/></SelectItem><SelectItem value="schedule"><AppT text="Sort by schedule"/></SelectItem><SelectItem value="client"><AppT text="Sort by client"/></SelectItem><SelectItem value="created"><AppT text="Sort by created"/></SelectItem>
                 {activeProperties.map((property) => <SelectItem key={property.id} value={`property:${property.id}`}>Sort by {property.name}</SelectItem>)}

@@ -1,5 +1,5 @@
 'use client';
-import {T as AppT} from '@/components/i18n/AppLocaleProvider';
+import {T as AppT,useAppLocale} from '@/components/i18n/AppLocaleProvider';
 
 
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
@@ -38,6 +38,7 @@ const COLUMN_COLOR_OPTIONS: { id: string; label: string; className: string }[] =
 ];
 
 export function CreateProjectModal({ open, onClose, mode = 'create', projectId, initialTemplateId }: CreateProjectModalProps) {
+  const {t,locale}=useAppLocale();
   const router = useRouter();
   const pathname = usePathname();
   const { organizationId, teams, currentTeam, refreshData, projects, tasks } = useTaskContext();
@@ -76,7 +77,7 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId, 
     if (!open || mode !== 'create') return;
     const chosen = initialTemplateId ?? 'simple';
     setPresetId(chosen);
-    setColumnsDraft(instantiateProcessTemplate(chosen));
+    setColumnsDraft(instantiateProcessTemplate(chosen,locale));
     setName(initialTemplateId ? (getProcessTemplate(chosen)?.title ?? '') : '');
   }, [open, mode, initialTemplateId]);
 
@@ -129,7 +130,7 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId, 
     }
     const template = getProcessTemplate(value);
     if (!template) return;
-    setColumnsDraft(instantiateProcessTemplate(template.id));
+    setColumnsDraft(instantiateProcessTemplate(template.id,locale));
     if (!name.trim()) setName(template.title);
   };
 
@@ -303,7 +304,7 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId, 
               id="project-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Job search, Actiproc development…"
+              placeholder={t("e.g. Job search, Actiproc development…")}
               required
             />
           </div>
@@ -330,7 +331,7 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId, 
             <Label><AppT text="Visibility"/></Label>
             <Select value={visibility} onValueChange={(v) => setVisibility(v as any)}>
               <SelectTrigger>
-                <SelectValue placeholder="Choose visibility" />
+                <SelectValue placeholder={t("Choose visibility")} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="team"><AppT text="Team — everyone in the team can see it"/></SelectItem>
@@ -378,7 +379,7 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId, 
               <Label>{mode === 'edit' ? 'Template' : 'Starter template'}</Label>
               <Select value={presetId} onValueChange={handlePresetChange} disabled={mode === "edit"}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select a template" />
+                  <SelectValue placeholder={t("Select a template")} />
                 </SelectTrigger>
                 <SelectContent>
                   {mode === "edit" && <SelectItem value="custom"><AppT text="Existing stage configuration"/></SelectItem>}
@@ -489,7 +490,7 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId, 
                                       className="h-8 w-8 text-muted-foreground hover:text-destructive"
                                       onClick={() => handleToggleInclude(index, false)}
                                       disabled={columnsDraft.length <= 1}
-                                      aria-label="Delete column"
+                                      aria-label={t("Delete column")}
                                     >
                                       <Trash2 className="h-4 w-4" />
                                     </Button>

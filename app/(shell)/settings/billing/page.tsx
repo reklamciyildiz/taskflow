@@ -1,4 +1,5 @@
 'use client';
+import {T as AppT} from '@/components/i18n/AppLocaleProvider';
 
 import Link from 'next/link';
 import { useTaskContext } from '@/components/TaskContext';
@@ -26,11 +27,11 @@ export default function BillingPage() {
               <ShieldAlert className="h-5 w-5 text-amber-500" aria-hidden />
               Billing restricted
             </CardTitle>
-            <CardDescription>Only organization owners and admins can manage billing.</CardDescription>
+            <CardDescription><AppT text="Only organization owners and admins can manage billing."/></CardDescription>
           </CardHeader>
           <CardContent>
             <Button asChild variant="outline">
-              <Link href="/settings">Return to settings</Link>
+              <Link href="/settings"><AppT text="Return to settings"/></Link>
             </Button>
           </CardContent>
         </Card>

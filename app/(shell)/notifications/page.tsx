@@ -1,4 +1,5 @@
 'use client';
+import {T as AppT} from '@/components/i18n/AppLocaleProvider';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -160,7 +161,7 @@ export default function NotificationsPage() {
                 No notifications yet.
               </p>
               <Button variant="link" asChild className="mt-2">
-                <Link href="/board">Go to board</Link>
+                <Link href="/board"><AppT text="Go to board"/></Link>
               </Button>
             </div>
           ) : (

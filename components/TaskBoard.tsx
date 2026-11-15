@@ -1,5 +1,5 @@
 'use client';
-import {T as AppT} from '@/components/i18n/AppLocaleProvider';
+import {T as AppT,useAppLocale} from '@/components/i18n/AppLocaleProvider';
 
 
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
@@ -48,6 +48,7 @@ const STAGE_SKINS = [
 ] as const;
 
 export function TaskBoard() {
+  const {t}=useAppLocale();
   const preferences = useUserPreferences();
   const processOrderSyncAttemptRef = useRef('');
   const [isMobileBoard, setIsMobileBoard] = useState(false);
@@ -342,12 +343,12 @@ export function TaskBoard() {
                   <>
                     <Button type="button" variant="outline" size="sm"
                       className="h-10 gap-2 rounded-xl border-border/70 bg-background/70 px-3 text-xs font-semibold text-foreground shadow-sm hover:border-primary/35 hover:bg-muted/60 hover:text-foreground focus-visible:text-foreground"
-                      onClick={() => setIsCreateProjectOpen(true)} title="Create a new process (project)" aria-label="Create a new process">
+                      onClick={() => setIsCreateProjectOpen(true)} title={t("Create a new process (project)")} aria-label={t("Create a new process")}>
                       <Layers className="h-4 w-4" aria-hidden /> <span className="hidden sm:inline"><AppT text="New process"/></span>
                     </Button>
                     <Button type="button" variant="outline" size="icon" className="h-10 w-10 rounded-xl border-border/70 bg-background/70 text-foreground shadow-sm hover:border-primary/35 hover:bg-muted/60 hover:text-foreground focus-visible:text-foreground"
                       onClick={() => setEditingProjectId(boardProject?.id ?? null)} disabled={!boardProject}
-                      title="Edit selected process" aria-label="Edit selected process">
+                      title={t("Edit selected process")} aria-label={t("Edit selected process")}>
                       <Settings2 className="h-4 w-4" aria-hidden />
                     </Button>
                   </>
@@ -383,7 +384,7 @@ export function TaskBoard() {
               {filter && (
                 <Badge variant="secondary" className="flex items-center gap-1.5 rounded-full border border-primary/15 bg-primary/[0.07] px-2.5 py-1 text-[11px]">
                   {getFilterLabel()}
-                  <button type="button" aria-label="Clear quick filter" onClick={() => setFilter(null)}
+                  <button type="button" aria-label={t("Clear quick filter")} onClick={() => setFilter(null)}
                     className="rounded-full p-0.5 hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                     <X className="h-3 w-3" aria-hidden />
                   </button>
@@ -392,7 +393,7 @@ export function TaskBoard() {
               {customerFilter && (
                 <Badge variant="outline" className="flex items-center gap-1.5 rounded-full border border-violet-500/20 bg-violet-500/[0.055] px-2.5 py-1 text-[11px] text-foreground">
                   {customers.find(c => c.id === customerFilter)?.name || 'Customer'}
-                  <button type="button" aria-label="Clear client filter" onClick={() => setCustomerFilter(null)}
+                  <button type="button" aria-label={t("Clear client filter")} onClick={() => setCustomerFilter(null)}
                     className="rounded-full p-0.5 hover:bg-violet-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                     <X className="h-3 w-3" aria-hidden />
                   </button>
@@ -431,7 +432,7 @@ export function TaskBoard() {
               <div className="flex min-w-0 shrink-0 flex-wrap items-center gap-2">
                 <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.13em] text-muted-foreground"><SlidersHorizontal className="h-3.5 w-3.5" aria-hidden /><AppT text="Group by"/></span>
                 <Select value={groupedProperty ? groupBy : 'stage'} onValueChange={setGroupBy} disabled={!processId || properties.loading || !!properties.error}>
-                  <SelectTrigger aria-label="Group board by" className="h-9 w-36 rounded-xl border-border/70 bg-background/70 text-xs shadow-sm sm:w-40"><SelectValue /></SelectTrigger>
+                  <SelectTrigger aria-label={t("Group board by")} className="h-9 w-36 rounded-xl border-border/70 bg-background/70 text-xs shadow-sm sm:w-40"><SelectValue /></SelectTrigger>
                   <SelectContent><SelectItem value="stage"><AppT text="Stage"/></SelectItem>
                     {activeProperties.map(property => <SelectItem key={property.id} value={property.id}>{property.name}</SelectItem>)}
                   </SelectContent>
@@ -451,7 +452,7 @@ export function TaskBoard() {
                 {properties.error && <button type="button" className="text-xs text-destructive underline" onClick={() => void properties.reload()}><AppT text="Properties unavailable · Retry"/></button>}
               </div>
               {isMobileBoard ? <Select value={statusFilter ?? '__all__'} onValueChange={value => setStatusFilter(value === '__all__' ? null : value)}>
-                <SelectTrigger aria-label="Filter by stage" className="h-11 rounded-xl border-border/70 bg-background/70"><SelectValue /></SelectTrigger>
+                <SelectTrigger aria-label={t("Filter by stage")} className="h-11 rounded-xl border-border/70 bg-background/70"><SelectValue /></SelectTrigger>
                 <SelectContent><SelectItem value="__all__"><AppT text="All stages"/></SelectItem>{boardColumns.map(column => <SelectItem key={column.id} value={column.id}>{column.title}</SelectItem>)}</SelectContent>
               </Select> : <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:thin] md:justify-end">
                 <span className="mr-1 shrink-0 text-[10px] font-semibold uppercase tracking-[0.13em] text-muted-foreground"><AppT text="Stages"/></span>
@@ -462,7 +463,7 @@ export function TaskBoard() {
           </div>
       
           {boardScope.type === 'general' && inboxBoardStatus === 'unconfigured' && (
-            <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 bg-card/40 p-3 text-sm" aria-label="Inbox synchronization">
+            <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 bg-card/40 p-3 text-sm" aria-label={t("Inbox synchronization")}>
               <div className="min-w-0 flex-1">
                 <p className="font-medium"><AppT text="Inbox stages are not yet synchronized"/></p>
                 <p className="mt-1 text-xs leading-5 text-muted-foreground">
@@ -477,7 +478,7 @@ export function TaskBoard() {
             </section>
           )}
           {boardScope.type === 'general' && inboxBoardStatus !== 'unconfigured' && unresolvedTasks.length > 0 && (
-            <details className="rounded-lg border border-amber-500/35 p-3 text-sm" aria-label="Actions with unmatched stage IDs">
+            <details className="rounded-lg border border-amber-500/35 p-3 text-sm" aria-label={t("Actions with unmatched stage IDs")}>
               <summary className="cursor-pointer font-medium">{unresolvedTasks.length} Inbox Actions have unrecognized stage IDs</summary>
               <p className="my-2 text-xs leading-5 text-muted-foreground">
                 No Actions were moved or deleted. Review the saved stage IDs on the original browser before making changes.
@@ -488,7 +489,7 @@ export function TaskBoard() {
             </details>
           )}
           {boardScope.type === 'project' && unresolvedTasks.length > 0 && (
-            <section className="mb-4 space-y-3 rounded-lg border border-amber-500/30 p-3 text-sm" aria-label="Process Actions needing stage assignment">
+            <section className="mb-4 space-y-3 rounded-lg border border-amber-500/30 p-3 text-sm" aria-label={t("Process Actions needing stage assignment")}>
               <h3 className="font-medium">Needs stage assignment ({unresolvedTasks.length})</h3>
               <p className="text-xs text-muted-foreground"><AppT text="These Actions reference a missing Process stage. Saved Actions have not been moved."/></p>
               <div className="space-y-2">
@@ -500,7 +501,7 @@ export function TaskBoard() {
                       <Select value={undefined} disabled={!editable || assigningStageFor !== null}
                         onValueChange={stageId => void assignUnresolvedStage(task.id, stageId)}>
                         <SelectTrigger aria-label={`Assign a stage to ${task.title}`} className="h-11 w-full shrink-0 sm:w-44">
-                          <SelectValue placeholder={assigningStageFor === task.id ? 'Saving...' : editable ? 'Assign stage' : 'Read-only'} />
+                          <SelectValue placeholder={t(assigningStageFor === task.id ? 'Saving...' : editable ? 'Assign stage' : 'Read-only')} />
                         </SelectTrigger>
                         <SelectContent>
                           {boardColumns.filter(stage => !stage.isTerminal || canCompleteTask(task.assigneeId))
@@ -514,14 +515,14 @@ export function TaskBoard() {
             </section>
           )}
           {isMobileBoard ? (
-            <section className="min-w-0 space-y-3" aria-label="Board actions">
+            <section className="min-w-0 space-y-3" aria-label={t("Board actions")}>
               {mobileGroup && (
                 <>
                   <div className="flex items-center justify-between gap-3 rounded-2xl border border-border/65 bg-card/85 p-3 shadow-sm">
                     <div className="min-w-0 flex-1 space-y-1.5">
                       <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground"><AppT text="Viewing group"/></p>
                       <Select value={mobileGroup.id} onValueChange={setMobileGroupId}>
-                        <SelectTrigger aria-label="Active board group" className="h-11 w-full rounded-xl border-border/70 bg-background/80 font-semibold shadow-sm">
+                        <SelectTrigger aria-label={t("Active board group")} className="h-11 w-full rounded-xl border-border/70 bg-background/80 font-semibold shadow-sm">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>{mobileGroups.map(group =>
@@ -553,7 +554,7 @@ export function TaskBoard() {
           ) : (
             <DragDropContext onDragEnd={onDragEnd}>
               <div className="-mx-1 flex snap-x snap-proximity items-stretch gap-3 overflow-x-auto px-1 pb-5 pt-1 overscroll-x-contain [scrollbar-width:thin] [-webkit-overflow-scrolling:touch] lg:gap-4"
-                aria-label="Process stages — drag Actions between columns">
+                aria-label={t("Process stages — drag Actions between columns")}>
                 {boardColumns.map((column, columnIndex) => {
                   const columnTasks = orderedColumnTasks(filteredTasks, column.id, boardColumns);
                   const shouldScroll = columnTasks.length >= DESKTOP_SCROLL_THRESHOLD;

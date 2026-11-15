@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {APP_LOCALES,APP_INTL_LOCALE,isAppLocale,formatAppDate,formatAppNumber,formatAppCurrency} from '../lib/i18n/app-locale';
 import {translateApp,trCatalog,hasTurkishAppTranslation} from '../lib/i18n/catalog';
+import {instantiateProcessTemplate} from '../lib/process-template-catalog';
 
 const read=(path:string)=>readFileSync(path,'utf8');
 assert.deepEqual(APP_LOCALES,['en','tr']);
@@ -13,6 +14,9 @@ assert.equal(translateApp('en','Dashboard'),'Dashboard');
 assert.equal(translateApp('tr','unknown customer document'),'unknown customer document');
 assert.equal(translateApp('tr','Total: {count}',{count:42}),'Total: 42');
 assert.equal(formatAppNumber('tr',1234.56),'1.234,56');
+assert.equal(instantiateProcessTemplate('simple','tr')[0].title,'Yapılacak');
+assert.equal(instantiateProcessTemplate('simple','en')[0].title,'To Do');
+assert.equal(instantiateProcessTemplate('product-launch','tr').at(-1)?.title,'Yayınlandı');
 assert.match(formatAppCurrency('tr',12,'USD'),/12/);
 assert.match(formatAppDate('tr',new Date('2026-11-15T00:00:00Z'),{year:'numeric',month:'long',day:'numeric',timeZone:'UTC'}),/Kasım/i);
 assert.ok(Object.keys(trCatalog).length>=700);
