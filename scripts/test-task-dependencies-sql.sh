@@ -7,7 +7,10 @@ CREATE ROLE service_role BYPASSRLS;
 CREATE TABLE public.organizations (id uuid PRIMARY KEY);
 CREATE TABLE public.teams (id uuid PRIMARY KEY);
 CREATE TABLE public.users (id uuid PRIMARY KEY);
-CREATE TABLE public.projects (id uuid PRIMARY KEY, column_config jsonb NOT NULL);
+CREATE TABLE public.projects (id uuid PRIMARY KEY, organization_id uuid, team_id uuid, column_config jsonb NOT NULL);
+CREATE TABLE public.team_inbox_boards (
+  team_id uuid PRIMARY KEY, organization_id uuid NOT NULL, stages jsonb NOT NULL
+);
 CREATE TABLE public.tasks (
   id uuid PRIMARY KEY,
   organization_id uuid NOT NULL,
@@ -50,8 +53,15 @@ INSERT INTO teams VALUES
  ('44444444-4444-4444-8444-444444444444'),
  ('55555555-5555-4555-8555-555555555555');
 INSERT INTO users VALUES ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
+INSERT INTO team_inbox_boards(team_id,organization_id,stages) VALUES (
+ '33333333-3333-4333-8333-333333333333',
+ '11111111-1111-4111-8111-111111111111',
+ '[{"id":"todo","isTerminal":false},{"id":"done","isTerminal":true},{"id":"verified","isTerminal":true}]'
+);
 INSERT INTO projects VALUES (
  '99999999-9999-4999-8999-999999999999',
+ '11111111-1111-4111-8111-111111111111',
+ '33333333-3333-4333-8333-333333333333',
  '[{"id":"todo","title":"Todo","isTerminal":false},{"id":"accepted","title":"Accepted","isTerminal":true},{"id":"rejected","title":"Rejected","isTerminal":true}]'
 );
 INSERT INTO tasks(id,organization_id,team_id,project_id,status) VALUES
@@ -62,6 +72,10 @@ INSERT INTO tasks(id,organization_id,team_id,project_id,status) VALUES
  ('00000000-0000-4000-8000-000000000005','22222222-2222-4222-8222-222222222222','55555555-5555-4555-8555-555555555555',NULL,'todo'),
  ('00000000-0000-4000-8000-000000000006','11111111-1111-4111-8111-111111111111','33333333-3333-4333-8333-333333333333',NULL,'todo');
 
+-- A General Action without a canonical Inbox board cannot be linked.
+INSERT INTO tasks(id,organization_id,team_id,project_id,status) VALUES
+ ('00000000-0000-4000-8000-000000000007','11111111-1111-4111-8111-111111111111','44444444-4444-4444-8444-444444444444',NULL,'todo');
+SELECT pg_temp.expect_failure($q$INSERT INTO task_dependencies(blocker_task_id,blocked_task_id,organization_id,team_id) VALUES('00000000-0000-4000-8000-000000000004','00000000-0000-4000-8000-000000000007','11111111-1111-4111-8111-111111111111','44444444-4444-4444-8444-444444444444')$q$, 'P23_DEPENDENCY_INBOX_UNSYNCED');
 -- Forged tenant fields must be overwritten from canonical Action rows.
 INSERT INTO task_dependencies(organization_id,team_id,blocker_task_id,blocked_task_id,created_by)
 VALUES ('22222222-2222-4222-8222-222222222222','55555555-5555-4555-8555-555555555555',
@@ -110,6 +124,16 @@ UPDATE tasks SET status='rejected' WHERE id='00000000-0000-4000-8000-00000000000
 SELECT pg_temp.expect_failure($q$INSERT INTO task_dependencies(blocker_task_id,blocked_task_id,organization_id,team_id) VALUES('00000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000003','11111111-1111-4111-8111-111111111111','33333333-3333-4333-8333-333333333333')$q$, 'P23_DEPENDENCY_TERMINAL_TARGET');
 SELECT pg_temp.expect_failure($q$UPDATE tasks SET team_id='44444444-4444-4444-8444-444444444444' WHERE id='00000000-0000-4000-8000-000000000002'$q$, 'P23_DEPENDENCY_SCOPE_CHANGE');
 
+-- Stage flags cannot be changed behind active links in a Process or General Inbox.
+SELECT pg_temp.expect_failure($q$UPDATE projects SET column_config=jsonb_set(column_config,'{1,isTerminal}','false'::jsonb) WHERE id='99999999-9999-4999-8999-999999999999'$q$, 'P23_DEPENDENCY_STAGE_CHANGE');
+SELECT pg_temp.expect_failure($q$UPDATE team_inbox_boards SET stages=jsonb_set(stages,'{1,isTerminal}','false'::jsonb) WHERE team_id='33333333-3333-4333-8333-333333333333'$q$, 'P23_DEPENDENCY_STAGE_CHANGE');
+SELECT pg_temp.expect_failure($q$DELETE FROM team_inbox_boards WHERE team_id='33333333-3333-4333-8333-333333333333'$q$, 'P23_DEPENDENCY_INBOX_REQUIRED');
+-- The custom General 'verified' terminal stage is recognized by the DAG guard.
+UPDATE tasks SET status='todo' WHERE id='00000000-0000-4000-8000-000000000002';
+SELECT pg_temp.expect_failure($q$UPDATE tasks SET status='verified' WHERE id='00000000-0000-4000-8000-000000000002'$q$, 'P23_BLOCKED_COMPLETION');
+UPDATE tasks SET status='done' WHERE id='00000000-0000-4000-8000-000000000001';
+UPDATE tasks SET status='verified' WHERE id='00000000-0000-4000-8000-000000000002';
+
 -- Active recurring Action schedules cannot be joined to Action-level edges.
 INSERT INTO work_schedules(task_id,schedule_type) VALUES('00000000-0000-4000-8000-000000000006','recurring');
 SELECT pg_temp.expect_failure($q$INSERT INTO task_dependencies(blocker_task_id,blocked_task_id,organization_id,team_id) VALUES('00000000-0000-4000-8000-000000000006','00000000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','33333333-3333-4333-8333-333333333333')$q$, 'P23_DEPENDENCY_RECURRING');
@@ -124,7 +148,7 @@ DO $$ BEGIN
   IF (SELECT count(*) FROM task_dependencies)<>1 THEN
     RAISE EXCEPTION 'Cascading Action deletion left orphan dependency edges';
   END IF;
-  IF (SELECT count(*) FROM tasks)<>5 THEN
+  IF (SELECT count(*) FROM tasks)<>6 THEN
     RAISE EXCEPTION 'Unlinking unexpectedly deleted a related Action';
   END IF;
 END $$;
