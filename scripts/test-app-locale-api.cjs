@@ -9,6 +9,7 @@ async function main(){
   const file=path.join(fs.mkdtempSync(path.join(os.tmpdir(),'actiproc-locale-')),'settings.cjs');
   const records=new Map();
   let actor={id:'user-A'};
+  let failRead=false;
   const db={from(table){
     assert.equal(table,'user_settings');
     let filter=null,change=null;
@@ -24,6 +25,7 @@ async function main(){
         const row={...(records.get(change.user_id)||{}),...change};
         records.set(change.user_id,row);return {data:row,error:null};
       }
+      if(failRead)return {data:null,error:{code:'42501'}};
       return {data:records.get(filter)||null,error:records.has(filter)?null:{code:'PGRST116'}};
     };
     return query;
@@ -61,6 +63,10 @@ async function main(){
   let other=await route.GET(new NextRequest('http://localhost/api/users/settings'));
   assert.equal((await other.json()).data.locale,'en');
   assert.equal(records.get('user-A').locale,'tr');
+  failRead=true;
+  const unavailable=await route.GET(new NextRequest('http://localhost/api/users/settings'));
+  assert.equal(unavailable.status,503,'Database failures must not return false English defaults');
+  failRead=false;
   const switched=await route.PATCH(make({locale:'en'}));
   assert.equal((await switched.json()).data.locale,'en');
   console.log('Settings API locale isolation, validation, and persistence passed');
