@@ -1,8 +1,8 @@
 'use client';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  AlertCircle, ArrowRight, CheckCircle2, ChevronDown, GitBranch2, Link2,
-  Loader2, LockKeyhole, Plus, Search, Trash2, X,
+  AlertCircle, ArrowRight, CheckCircle2, ChevronDown, GitBranch, Link2,
+  Loader2, LockKeyhole, Plus, Search, X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTaskContext } from '@/components/TaskContext';
@@ -185,7 +185,7 @@ export function ActionDependencies({
             className="flex min-h-[48px] w-full items-center gap-2.5 px-4 py-2 text-left transition-colors hover:bg-muted/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 md:px-6">
             <span className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-xl',
               overview?.blocked ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300' : 'bg-primary/10 text-primary')}>
-              {overview?.blocked ? <LockKeyhole className="h-4 w-4" aria-hidden /> : <GitBranch2 className="h-4 w-4" aria-hidden />}
+              {overview?.blocked ? <LockKeyhole className="h-4 w-4" aria-hidden /> : <GitBranch className="h-4 w-4" aria-hidden />}
             </span>
             <span className="min-w-0 flex-1">
               <span className="block text-xs font-semibold text-foreground">{t('Dependencies')}</span>
@@ -280,7 +280,7 @@ export function ActionDependencies({
                   className="group flex min-h-12 w-full min-w-0 items-center gap-3 rounded-lg px-3 py-2 text-left hover:bg-background/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50"
                   onClick={() => picker && void mutate(picker, candidate.id)}>
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/8 text-primary">
-                    {pending === candidate.id ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <GitBranch2 className="h-4 w-4" aria-hidden />}
+                    {pending === candidate.id ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <GitBranch className="h-4 w-4" aria-hidden />}
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-xs font-semibold">{candidate.title}</span>
