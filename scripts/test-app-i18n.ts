@@ -34,6 +34,7 @@ const keyPaths=[
 'components/settings/CalendarSettings.tsx','components/settings/NotificationsSettings.tsx',
 'components/onboarding/FirstSuccessJourney.tsx','components/billing/BillingClient.tsx',
 'mobile/src/App.tsx','mobile/src/MobileMoreView.tsx','mobile/src/MobileSettingsView.tsx',
+'mobile/src/MobileKnowledgeHub.tsx','mobile/src/MobileListView.tsx',
 'app/(shell)/team/page.tsx','app/(shell)/settings/account/page.tsx',
 'app/(shell)/settings/workspace/page.tsx','components/ActionPanel.tsx',
 ];
@@ -54,6 +55,14 @@ for(const path of keyPaths){
     path+' client directive must precede imports');
 }
 assert.ok(checkedUiMessages>=70,'Localization audit did not cover enough literal UI messages');
+// The two native menus store labels as data, so t(title) alone cannot
+// prove every visible entry has a Turkish translation.
+for(const path of ['mobile/src/MobileMoreView.tsx','mobile/src/MobileSettingsView.tsx']){
+  const source=read(path);
+  for(const match of source.matchAll(/(?:title|detail):\\s*'([^']+)'/g)){
+    assert.ok(hasTurkishAppTranslation(match[1]),path+': missing native menu localization: '+match[1]);
+  }
+}
 const provider=read('components/i18n/AppLocaleProvider.tsx');
 assert.match(provider,/fetch\('\/api\/users\/settings'/);
 assert.match(provider,/method:'PATCH'/);
