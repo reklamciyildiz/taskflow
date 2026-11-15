@@ -39,7 +39,7 @@ CREATE FUNCTION public.p23_is_terminal(
   p_org uuid, p_team uuid, p_project uuid, p_status text,
   p_require_inbox boolean DEFAULT false
 ) RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER
-SET search_path=pg_catalog,public AS $
+SET search_path=pg_catalog,public AS $$
 DECLARE v_stages jsonb;
 BEGIN
   IF p_project IS NOT NULL THEN
@@ -57,7 +57,7 @@ BEGIN
   END IF;
   RETURN EXISTS (SELECT 1 FROM jsonb_array_elements(v_stages) stage
     WHERE stage->>'id'=p_status AND stage->>'isTerminal'='true');
-END; $;
+END; $$;
 
 CREATE FUNCTION public.p23_guard_dependency() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public AS $$
@@ -159,7 +159,7 @@ BEGIN
       AND NOT public.p23_is_terminal(blocker.organization_id,blocker.team_id,blocker.project_id,blocker.status)
   ) THEN RAISE EXCEPTION 'P23_BLOCKED_COMPLETION' USING ERRCODE='23514'; END IF;
   RETURN NEW;
-END; $;
+END; $$;
 CREATE TRIGGER p23_tasks_completion_integrity
   BEFORE INSERT OR UPDATE OF status,project_id,team_id,organization_id ON public.tasks
   FOR EACH ROW EXECUTE FUNCTION public.p23_guard_task_completion();
@@ -187,7 +187,7 @@ CREATE TRIGGER p23_work_schedule_integrity
 -- Stage metadata is part of dependency integrity: toggling a referenced
 -- isTerminal flag would silently change completion without touching the Action.
 CREATE FUNCTION public.p23_guard_project_stages() RETURNS trigger
-LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public AS $
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public AS $$
 BEGIN
   IF NEW.column_config IS NOT DISTINCT FROM OLD.column_config THEN RETURN NEW; END IF;
   PERFORM public.p23_lock_graph(OLD.organization_id);
@@ -207,12 +207,12 @@ BEGIN
     RAISE EXCEPTION 'P23_DEPENDENCY_STAGE_CHANGE' USING ERRCODE='23514';
   END IF;
   RETURN NEW;
-END; $;
+END; $$;
 CREATE TRIGGER p23_project_terminal_integrity BEFORE UPDATE OF column_config
   ON public.projects FOR EACH ROW EXECUTE FUNCTION public.p23_guard_project_stages();
 
 CREATE FUNCTION public.p23_guard_inbox_stages() RETURNS trigger
-LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public AS $
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public AS $$
 BEGIN
   PERFORM public.p23_lock_graph(OLD.organization_id);
   IF TG_OP='DELETE' THEN
@@ -239,7 +239,7 @@ BEGIN
       )
   ) THEN RAISE EXCEPTION 'P23_DEPENDENCY_STAGE_CHANGE' USING ERRCODE='23514'; END IF;
   RETURN NEW;
-END; $;
+END; $$;
 CREATE TRIGGER p23_inbox_terminal_integrity BEFORE UPDATE OF stages OR DELETE
   ON public.team_inbox_boards FOR EACH ROW EXECUTE FUNCTION public.p23_guard_inbox_stages();
 REVOKE ALL ON FUNCTION public.p23_is_terminal(uuid,uuid,uuid,text,boolean) FROM PUBLIC,anon,authenticated;
