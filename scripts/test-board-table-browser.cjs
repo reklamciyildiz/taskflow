@@ -39,7 +39,13 @@ async function main() {
     for (const width of [320, 375, 430, 768, 1440]) {
       const page = await browser.newPage({ viewport: { width, height: 900 }, hasTouch: width < 768 });
       page.on('pageerror', error => errors.push(error.stack || error.message));
-      page.on('console', message => { if(message.type()==='error') errors.push(message.text()); });
+      // The fixture intentionally returns HTTP 500 during rollback tests: those network
+      // console messages are expected; retain unexpected console and React errors.
+      page.on('console', message => {
+        if (message.type() !== 'error') return;
+        const detail = message.text();
+        if (!/^Failed to load resource: the server responded with a status of 500 \(Internal Server Error\)$/.test(detail)) errors.push(detail);
+      });
       let failNext = false;
       let failProperty = false;
       let readDelay = 0;

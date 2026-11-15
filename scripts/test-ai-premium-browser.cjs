@@ -73,6 +73,7 @@ async function main() {
         'old-1': [{ id: 'old-message', role: 'assistant', content: 'Existing conversation content', status: 'completed', model: null, createdAt: now, sources: [] }],
       };
       let incomingMessages = 0;
+      let mockReplyCounter = 0; // Real SSE events use unique IDs, including across retries.
       await page.route('**/api/ai/**', async (route) => {
         const request = route.request();
         const url = new URL(request.url());
@@ -116,9 +117,10 @@ async function main() {
           assert.equal(typeof requestBody.message, 'string');
           assert.ok(requestBody.clientRequestId);
           const cited = 'a'.repeat(64);
+          const replyId = ++mockReplyCounter;
           const body = [
             sse({ type: 'meta', conversationId: requestBody.conversationId,
-              userMessageId: 'user-real', assistantMessageId: 'assistant-real' }),
+              userMessageId: `user-real-${replyId}`, assistantMessageId: `assistant-real-${replyId}` }),
             sse({ type: 'tool_status', label: 'Checking accessible workspace records' }),
             sse({ type: 'delta', text: '## Summary\n\n- Action A is in progress.\n- Action B is done.\n\n' }),
             sse({ type: 'delta', text: '| # | Action | Priority | Stage | Status |\n| --- | --- | :---: | --- | --- |\n| 1 | Implementation | High | In Progress | Open |\n| 2 | UI redesign | Medium | Done | Completed |\n\n~~~ts\nconst safe = true;\n~~~\n\n' }),
