@@ -14,7 +14,7 @@ for (const [file, source, required] of [
   ['TaskBoard', board, ['Workspace', 'Projects &amp; Board', 'filteredTasks.length',
     'progressPercent', 'DragDropContext onDragEnd={onDragEnd}', 'Droppable droppableId={column.id}',
     'provided.innerRef', 'drag.innerRef', 'provided.placeholder', 'onDragEnd',
-    'isDragDisabled={isMobileBoard}', 'snapshot.isDraggingOver', 'aria-label="Board actions"',
+    'isDragDisabled={isMobileBoard}', 'snapshot.isDraggingOver', 'aria-label={t("Board actions")}',
     'canCompleteTask', 'canEditTask', 'permissions.canCreateTask',
     'statusFilter', 'customerFilter', 'onOpen={openTaskEditor}', 'isMobileBoard ?']],
   ['TaskCard', card, ['data-board-action-card={task.id}', 'aria-busy={movePending}',
@@ -26,7 +26,7 @@ for (const [file, source, required] of [
   ['PropertyBoard', grouped, ['groupActionsByProperty', 'selectedPropertyOptionsForTask',
     'onTaskClick={item => onOpen(item.id)}', 'overflow-x-auto', 'group.tasks.map',
     'No Actions in this group']],
-  ['ProcessSwitcher', process, ['aria-label="Active process / project"', 'onReorder(',
+  ['ProcessSwitcher', process, ['aria-label={t("Active process / project")}', 'onReorder(',
     'onDragEnd', 'moveItem(projects, from, to)', 'disableInteractiveElementBlocking',
     'onValueChange(project.id)', 'getContainerForClone={() => document.body}']],
 ] as const) {
@@ -40,7 +40,7 @@ assert.match(board, /rounded-\[23px\]/);
 assert.match(card, /rounded-\[18px\]/);
 assert.ok(board.includes('md:px-2.5 md:py-2') && board.includes('lg:flex-row lg:items-center lg:justify-between'),
  'Compact toolbar must stack at tablet widths and align horizontally only when enough space exists');
-assert.ok(board.includes('aria-label="Create a new process"') &&
+assert.ok(board.includes('aria-label={t("Create a new process")}') &&
  board.includes('hover:bg-muted/60 hover:text-foreground'),
  'Process creation must keep a visible label on dark hover');
 assert.ok(process.includes('hover:text-foreground') && process.includes('focus-visible:text-foreground'),
