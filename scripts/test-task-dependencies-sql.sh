@@ -153,5 +153,19 @@ DO $$ BEGIN
     RAISE EXCEPTION 'Unlinking unexpectedly deleted a related Action';
   END IF;
 END $$;
+-- Full tenant deletion must remain possible even when its Actions had edges.
+-- In production org_id FKs cascade both projects and Actions.
+ALTER TABLE public.tasks ADD CONSTRAINT p23_test_task_org_fk
+  FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
+ALTER TABLE public.projects ADD CONSTRAINT p23_test_project_org_fk
+  FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
+DELETE FROM organizations WHERE id='11111111-1111-4111-8111-111111111111';
+DO $$ BEGIN
+  IF (SELECT COUNT(*) FROM task_dependencies)<>0
+    OR (SELECT COUNT(*) FROM tasks WHERE organization_id='11111111-1111-4111-8111-111111111111')<>0
+    OR (SELECT COUNT(*) FROM projects)<>0
+    OR (SELECT COUNT(*) FROM tasks WHERE organization_id='22222222-2222-4222-8222-222222222222')<>1
+  THEN RAISE EXCEPTION 'Tenant deletion did not cascade safely'; END IF;
+END $$;
 SELECT 'P2.3.1 PostgreSQL integrity passed' AS result;
 SQL
