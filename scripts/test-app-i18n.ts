@@ -33,6 +33,7 @@ const keyPaths=[
 'components/NotificationBell.tsx','components/search/GlobalCommandPalette.tsx',
 'components/settings/CalendarSettings.tsx','components/settings/NotificationsSettings.tsx',
 'components/onboarding/FirstSuccessJourney.tsx','components/billing/BillingClient.tsx',
+'mobile/src/App.tsx','mobile/src/MobileMoreView.tsx','mobile/src/MobileSettingsView.tsx',
 'app/(shell)/team/page.tsx','app/(shell)/settings/account/page.tsx',
 'app/(shell)/settings/workspace/page.tsx','components/ActionPanel.tsx',
 ];
@@ -60,6 +61,8 @@ assert.match(provider,/localStorage\.setItem/);
 assert.match(provider,/document\.documentElement\.lang=locale/);
 assert.doesNotMatch(provider,/MutationObserver|innerHTML|textContent\s*=/);
 assert.match(read('components/ShellProviders.tsx'),/<AppLocaleProvider>/);
+assert.match(read('mobile/src/main.tsx'),/<SessionProvider><AppLocaleProvider><App/);
+assert.match(read('mobile/src/MobileSettingsView.tsx'),/<AppLanguageSwitcher\s*\/>/);
 const api=read('app/api/users/settings/route.ts');
 assert.match(api,/key === 'locale'/);
 assert.match(api,/value === 'en' \|\| value === 'tr'/);
