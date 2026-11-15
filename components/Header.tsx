@@ -9,6 +9,8 @@ import {NotificationBell} from '@/components/NotificationBell';
 import {CreateTaskModal} from '@/components/CreateTaskModal';
 import {GlobalCommandPalette} from '@/components/search/GlobalCommandPalette';
 import {useTaskContext} from '@/components/TaskContext';
+import {useAppLocale} from '@/components/i18n/AppLocaleProvider';
+import {AppLanguageSwitcher} from '@/components/i18n/AppLanguageSwitcher';
 
 interface HeaderProps {
   onSidebarToggle:()=>void;
@@ -17,6 +19,7 @@ interface HeaderProps {
 }
 
 export function Header({onSidebarToggle,desktopSidebarExpanded=true}:HeaderProps) {
+  const {t}=useAppLocale();
   const [showCreateTask,setShowCreateTask]=useState(false);
   const [searchOpen,setSearchOpen]=useState(false);
   const {currentUserRole}=useTaskContext();
@@ -48,23 +51,23 @@ export function Header({onSidebarToggle,desktopSidebarExpanded=true}:HeaderProps
     <header className="actiproc-app-header sticky top-0 z-40 border-b bg-card/95 backdrop-blur-xl supports-[backdrop-filter]:bg-card/80">
       <div className="flex h-16 items-center gap-3 px-4 sm:gap-4 sm:px-6">
         <Button type="button" variant="ghost" size="sm" className="shrink-0 lg:hidden"
-          onClick={onSidebarToggle} aria-label="Toggle navigation">
+          onClick={onSidebarToggle} aria-label={t("Toggle navigation")}>
           <Menu className="h-5 w-5"/>
         </Button>
         <Button type="button" variant="ghost" size="sm"
           className="hidden shrink-0 text-muted-foreground hover:text-foreground lg:inline-flex"
           onClick={onSidebarToggle}
-          aria-label={desktopSidebarExpanded?'Collapse sidebar':'Expand sidebar'}
-          title={desktopSidebarExpanded?'Collapse sidebar':'Expand sidebar'}>
+          aria-label={t(desktopSidebarExpanded?'Collapse sidebar':'Expand sidebar')}
+          title={t(desktopSidebarExpanded?'Collapse sidebar':'Expand sidebar')}>
           {desktopSidebarExpanded?<PanelLeftClose className="h-5 w-5"/>:<PanelLeftOpen className="h-5 w-5"/>}
         </Button>
 
         <div className="max-w-md flex-1">
-          <button type="button" aria-label="Search everything. Shortcut Control K or Command K"
+          <button type="button" aria-label={t("Search everything. Shortcut Control K or Command K")}
             aria-keyshortcuts="Control+K Meta+K" onClick={()=>setSearchOpen(true)}
             className="actiproc-header-search group flex h-10 w-full items-center gap-3 rounded-xl border border-input bg-background/70 px-3 text-left text-sm text-muted-foreground transition-colors hover:border-primary/40 hover:bg-accent/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
             <Search className="h-4 w-4 shrink-0" aria-hidden="true"/>
-            <span className="min-w-0 flex-1 truncate text-[13px]">Search everything...</span>
+            <span className="min-w-0 flex-1 truncate text-[13px]">{t("Search everything...")}</span>
             <span className="hidden items-center gap-1 rounded-md border bg-muted/40 px-1.5 py-1 text-[10px] font-semibold text-muted-foreground sm:inline-flex">
               <CommandIcon className="h-3 w-3" aria-hidden="true"/> K
             </span>
@@ -75,13 +78,14 @@ export function Header({onSidebarToggle,desktopSidebarExpanded=true}:HeaderProps
           {canCreateAction&&<>
             <Button type="button" size="sm" onClick={()=>setShowCreateTask(true)}
               className="hidden rounded-xl bg-primary font-semibold text-primary-foreground shadow-[0_8px_20px_-14px_hsl(var(--primary)/0.65)] hover:bg-primary/90 sm:flex">
-              <Plus className="mr-2 h-4 w-4"/> Add Action
+              <Plus className="mr-2 h-4 w-4"/> {t("Add Action")}
             </Button>
-            <Button type="button" size="sm" aria-label="Add Action" onClick={()=>setShowCreateTask(true)}
+            <Button type="button" size="sm" aria-label={t("Add Action")} onClick={()=>setShowCreateTask(true)}
               className="rounded-xl bg-primary p-2 font-semibold text-primary-foreground hover:bg-primary/90 sm:hidden">
               <Plus className="h-4 w-4"/>
             </Button>
           </>}
+          <div className="hidden md:block"><AppLanguageSwitcher compact/></div>
           <NotificationBell/>
           <ThemeToggle/>
           <UserMenu/>

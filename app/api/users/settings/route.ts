@@ -26,6 +26,7 @@ export async function GET(request: NextRequest) {
       recurrence_missed_alerts_enabled: false,
       recurrence_missed_alert_threshold: 3,
       time_zone: null as string | null,
+      locale: 'en',
     };
 
     return NextResponse.json({
@@ -59,6 +60,9 @@ export async function PATCH(request: NextRequest) {
       if (allowedBooleanFields.includes(key) && typeof value === 'boolean') updates[key] = value;
       else if (key === 'recurrence_missed_alert_threshold' && (value === 2 || value === 3 || value === 5)) {
         updates[key] = value;
+      }
+      else if (key === 'locale' && (value === 'en' || value === 'tr')) {
+        updates.locale = value;
       }
       else if (key === 'time_zone' && (value === null || (typeof value === 'string' && value.length <= 100))) {
         if (value !== null) {

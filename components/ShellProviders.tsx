@@ -5,6 +5,7 @@ import { TaskProvider } from '@/components/TaskContext';
 import { ViewProvider } from '@/components/ViewContext';
 import { SidebarShellProvider } from '@/components/shell';
 import { UserPreferencesProvider } from '@/components/UserPreferencesContext';
+import { AppLocaleProvider } from '@/components/i18n/AppLocaleProvider';
 
 /**
  * Providers required only inside the authenticated app shell.
@@ -13,6 +14,7 @@ import { UserPreferencesProvider } from '@/components/UserPreferencesContext';
 export function ShellProviders({ children }: { children: React.ReactNode }) {
   return (
     <Suspense fallback={null}>
+      <AppLocaleProvider>
       <UserPreferencesProvider>
         <TaskProvider>
           <ViewProvider>
@@ -22,6 +24,7 @@ export function ShellProviders({ children }: { children: React.ReactNode }) {
           </ViewProvider>
         </TaskProvider>
       </UserPreferencesProvider>
+      </AppLocaleProvider>
     </Suspense>
   );
 }

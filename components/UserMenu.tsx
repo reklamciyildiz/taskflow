@@ -16,8 +16,11 @@ import { useView } from '@/components/ViewContext';
 import { useSession, signOut } from 'next-auth/react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import {useAppLocale} from '@/components/i18n/AppLocaleProvider';
+import {AppLanguageSwitcher} from '@/components/i18n/AppLanguageSwitcher';
 
 export function UserMenu() {
+  const {t}=useAppLocale();
   const { currentUser } = useTaskContext();
   const { setCurrentView } = useView();
   const { data: session, status } = useSession();
@@ -80,7 +83,7 @@ export function UserMenu() {
           className="cursor-pointer"
         >
           <User className="mr-2 h-4 w-4" />
-          <span>Profile</span>
+          <span>{t("Profile")}</span>
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => {
@@ -90,19 +93,20 @@ export function UserMenu() {
           className="cursor-pointer"
         >
           <Settings className="mr-2 h-4 w-4" />
-          <span>Settings</span>
+          <span>{t("Settings")}</span>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
+        <div className="flex items-center justify-between gap-2 px-2 py-2 md:hidden"><span className="text-xs text-muted-foreground">{t("Language")}</span><AppLanguageSwitcher compact/></div>
         {isAuthenticated ? (
           <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer text-red-600 focus:text-red-600">
             <LogOut className="mr-2 h-4 w-4" />
-            <span>Log out</span>
+            <span>{t("Log out")}</span>
           </DropdownMenuItem>
         ) : (
           <DropdownMenuItem asChild className="cursor-pointer">
             <Link href="/auth/signin" className="flex items-center">
               <LogIn className="mr-2 h-4 w-4" />
-              <span>Sign in</span>
+              <span>{t("Sign in")}</span>
             </Link>
           </DropdownMenuItem>
         )}
