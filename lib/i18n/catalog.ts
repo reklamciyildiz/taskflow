@@ -1407,6 +1407,14 @@ export const trCatalog:Readonly<Record<string,string>> = {
   "{active} active Actions · {processes} Processes": "{active} etkin görev · {processes} süreç",
   "Across {count}": "Toplam {count}",
   "Workspace completion": "Çalışma alanı tamamlanma oranı",
+  "Workspace subscription": "Çalışma alanı aboneliği",
+  "Immediate charged changes start a new billing cycle. Refresh to view the next verified charge date after a change.": "Anında ücretlendirilen değişiklikler yeni bir fatura dönemi başlatır. Değişiklikten sonra doğrulanmış yeni ödeme tarihini görmek için yenile.",
+  "Clear selection": "Seçimi temizle",
+  "Your verified subscription details and available account actions.": "Doğrulanmış abonelik bilgilerin ve kullanabileceğin hesap işlemleri.",
+  "Billing cycle details": "Fatura dönemi bilgileri",
+  "Refreshing…": "Yenileniyor…",
+  "Subscribe first": "Önce abone ol",
+  "Invoices & payment method": "Faturalar ve ödeme yöntemi",
 };
 const dictionaries:Record<AppLocale,Readonly<Record<string,string>>>={en:{},tr:trCatalog};
 export function hasTurkishAppTranslation(text:string):boolean{
