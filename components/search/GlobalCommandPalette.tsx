@@ -116,7 +116,7 @@ export function GlobalCommandPalette({open,onOpenChange,onCreateAction}:{
     else if(action.path)router.push(action.path);
   };
   return <Dialog open={open} onOpenChange={onOpenChange}>
-    <DialogContent className="w-[calc(100vw-1rem)] max-w-2xl overflow-hidden rounded-[22px] border bg-popover p-0 shadow-2xl sm:w-full">
+    <DialogContent className="w-[calc(100vw-1rem)] max-w-2xl overflow-hidden rounded-[22px] border bg-popover text-popover-foreground p-0 shadow-2xl sm:w-full">
       <DialogTitle className="sr-only">Search and commands</DialogTitle>
       <DialogDescription className="sr-only">Search your authorized workspace. Use arrow keys to select, Enter to open, Escape to close.</DialogDescription>
       <Command shouldFilter={false} loop className="rounded-[22px] bg-transparent">
