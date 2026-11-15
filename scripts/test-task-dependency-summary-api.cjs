@@ -9,6 +9,7 @@ const { build } = require('esbuild');
 const ids = {
   visible: '00000000-0000-4000-8000-000000000051',
   target: '00000000-0000-4000-8000-000000000052',
+  downstream: '00000000-0000-4000-8000-000000000054',
   private: '00000000-0000-4000-8000-000000000053',
 };
 const org = '11111111-1111-4111-8111-111111111111';
@@ -23,11 +24,12 @@ const state = {
   edges: [
     { id: '1', organization_id: org, team_id: team, blocker_task_id: ids.private, blocked_task_id: ids.target },
     { id: '2', organization_id: org, team_id: team, blocker_task_id: ids.visible, blocked_task_id: ids.target },
-    { id: '3', organization_id: org, team_id: team, blocker_task_id: ids.visible, blocked_task_id: ids.visible },
+    { id: '3', organization_id: org, team_id: team, blocker_task_id: ids.visible, blocked_task_id: ids.downstream },
   ],
   tasks: [
     { id: ids.visible, organization_id: org, team_id: team, project_id: publicProcess, status: 'accepted' },
     { id: ids.target, organization_id: org, team_id: team, project_id: null, status: 'todo' },
+    { id: ids.downstream, organization_id: org, team_id: team, project_id: null, status: 'todo' },
     { id: ids.private, organization_id: org, team_id: team, project_id: privateProcess, status: 'todo' },
   ],
   projects: [
@@ -128,6 +130,7 @@ async function main() {
   assert.equal(flags[ids.target].ready, false);
   assert.equal(flags[ids.visible].blocking, true);
   assert.equal(flags[ids.visible].ready, false, 'Already completed Action is not ready-to-start');
+  assert.equal(flags[ids.downstream].ready, true, 'A dependent Action with all prerequisites done is ready');
   assert.equal(Object.hasOwn(flags, ids.private), false, 'Private Process Action ID leaked');
   assert.equal(JSON.stringify(response.body).includes(ids.private), false);
   assert.ok(!Object.values(flags).some(value => 'title' in value));
@@ -149,6 +152,6 @@ async function main() {
   const empty = await route.GET(request(team));
   assert.equal(empty.status, 200);
   assert.deepEqual(empty.body.data, {});
-  console.log(JSON.stringify({ suite: 'P2.3.2 team dependency read model', checks: 15, passed: true }));
+  console.log(JSON.stringify({ suite: 'P2.3.2 team dependency read model', checks: 16, passed: true }));
 }
 main().catch(err => { console.error(err); process.exitCode = 1; });
