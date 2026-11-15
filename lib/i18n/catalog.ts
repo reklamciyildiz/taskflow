@@ -1397,6 +1397,16 @@ export const trCatalog:Readonly<Record<string,string>> = {
   "Team webhooks": "Ekip webhook'ları",
   "Collaborative roles & assignments": "İş birliğine uygun roller ve atamalar",
   "Tax, chargebacks, and receipts are handled by Creem.": "Vergiler, ters ibrazlar ve makbuzlar Creem tarafından yönetilir.",
+  "Your scheduled work": "Planlanmış işlerin",
+  "Today's activity summary": "Bugünkü etkinlik özeti",
+  "Today's completed work": "Bugün tamamlanan işler",
+  "View {count} more in Planner": "Planlayıcı'da {count} öğe daha görüntüle",
+  "Visible process completion": "Görünür süreç tamamlanma oranı",
+  "{percent}% of process Actions completed": "Süreç görevlerinin %{percent} kadarı tamamlandı",
+  "{done} of {total} Actions completed": "{total} görevden {done} tanesi tamamlandı",
+  "{active} active Actions · {processes} Processes": "{active} etkin görev · {processes} süreç",
+  "Across {count}": "Toplam {count}",
+  "Workspace completion": "Çalışma alanı tamamlanma oranı",
 };
 const dictionaries:Record<AppLocale,Readonly<Record<string,string>>>={en:{},tr:trCatalog};
 export function hasTurkishAppTranslation(text:string):boolean{
