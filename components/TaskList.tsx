@@ -340,7 +340,7 @@ export function TaskList({ allowProcessAdministration = true, mobileCompact = fa
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input aria-label={t("Search actions and property values")} value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder={t("Search actions and property values…")} className="h-11 md:h-9 pl-9" />
           </div>
-          <Button variant="ghost" className="h-11 md:hidden" aria-expanded={showFilters} aria-controls="table-filters" onClick={() => setShowFilters(value => !value)}><Filter className="mr-2 h-4 w-4" />Filters{hasOperationalFilters(filters) ? ' (active)' : ''}</Button>
+          <Button variant="ghost" className="h-11 md:hidden" aria-expanded={showFilters} aria-controls="table-filters" onClick={() => setShowFilters(value => !value)}><Filter className="mr-2 h-4 w-4" />{t('Filters')}{hasOperationalFilters(filters) ? t(' (active)') : ''}</Button>
           <div id="table-filters" className={cn('flex-wrap items-center gap-2 md:flex max-md:[&_button]:min-h-[44px]', showFilters ? 'flex' : 'hidden')}>
             <span className="inline-flex h-8 items-center gap-1.5 text-xs font-medium text-muted-foreground"><Filter className="h-3.5 w-3.5" /><AppT text="Filters"/></span>
             <Select value={filters.stage ?? ALL} onValueChange={(value) => setFilters((current) => ({ ...current, stage: value === ALL ? null : value }))}>
@@ -357,9 +357,9 @@ export function TaskList({ allowProcessAdministration = true, mobileCompact = fa
             </Select>
             {activeProperties.map((property) => (
               <Select key={property.id} value={filters.properties[property.id] ?? ALL} onValueChange={(value) => setPropertyFilter(property.id, value)}>
-                <SelectTrigger aria-label={`Filter by ${property.name}`} className="h-8 w-[150px] text-xs"><SelectValue placeholder={property.name} /></SelectTrigger>
+                <SelectTrigger aria-label={t('Filter by {name}',{name:property.name})} className="h-8 w-[150px] text-xs"><SelectValue placeholder={property.name} /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={ALL}>All {property.name}</SelectItem>
+                  <SelectItem value={ALL}>{t('All {name}',{name:property.name})}</SelectItem>
                   <SelectItem value={UNASSIGNED_FILTER}><AppT text="Unassigned"/></SelectItem>
                   {properties.data?.options.filter((option) => option.property_id === property.id && !option.archived_at).map((option) => <SelectItem key={option.id} value={option.id}>{option.label}</SelectItem>)}
                 </SelectContent>

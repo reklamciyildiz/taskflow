@@ -540,7 +540,7 @@ export function Analytics() {
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {showGeneralCard && (
               <ProcessCard
-                name="General board"
+                name={t('General board')}
                 colStats={generalBreakdown.colStats}
                 total={generalBreakdown.total}
                 terminalCount={generalBreakdown.terminalCount}
@@ -613,8 +613,8 @@ export function Analytics() {
                   ins.type === 'info'    && 'bg-blue-500',
                 )} />
                 <div>
-                  <p className="text-sm font-medium">{ins.icon} {ins.title}</p>
-                  <p className="text-xs text-muted-foreground">{ins.body}</p>
+                  <p className="text-sm font-medium">{ins.icon} {t(ins.title)}</p>
+                  <p className="text-xs text-muted-foreground">{t(ins.body)}</p>
                 </div>
               </div>
             ))}

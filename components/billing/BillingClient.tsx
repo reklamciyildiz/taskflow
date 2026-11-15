@@ -368,13 +368,13 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
         <div className="relative">
           {showBackLink ? (
             <Link href="/settings" className="mb-6 inline-flex items-center gap-1.5 rounded-lg text-xs text-slate-300 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60">
-              <ArrowLeft className="h-3.5 w-3.5" aria-hidden /> Back to settings
+              <ArrowLeft className="h-3.5 w-3.5" aria-hidden /> <AppT text="Back to settings"/>
             </Link>
           ) : null}
           <div className="flex flex-wrap items-start justify-between gap-5">
             <div className="min-w-0">
               <div className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#C8FF93]">
-                <span className="h-1.5 w-1.5 rounded-full bg-[#C8FF93]" aria-hidden /> Workspace subscription
+                <span className="h-1.5 w-1.5 rounded-full bg-[#C8FF93]" aria-hidden /> <AppT text="Workspace subscription"/>
               </div>
               <h1 className="mt-2.5 text-[26px] font-semibold tracking-tight sm:text-[32px]"><AppT text="Billing & plans"/></h1>
               <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-300"><AppT text="One clear view of your subscription, seats, and upcoming billing dates."/></p>
@@ -384,14 +384,14 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                 <ShieldCheck className="h-3.5 w-3.5" aria-hidden /><AppT text="Secured by Creem"/></span>
               <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-2 text-[11px] font-medium capitalize text-white">
                 <span className={cn('h-1.5 w-1.5 rounded-full', billingStatus==='active'?'bg-emerald-400':billingStatus==='past_due'?'bg-amber-400':'bg-slate-300')} aria-hidden />
-                {statusLabel}
+                {t(statusLabel)}
               </span>
             </div>
           </div>
           <div className="mt-7 grid grid-cols-2 gap-2.5 border-t border-white/10 pt-5 lg:grid-cols-4">
             <div className="min-w-0 rounded-[18px] border border-white/10 bg-white/[0.055] p-4 backdrop-blur-sm">
               <div className="flex items-center gap-2 text-[11px] font-medium text-slate-300"><CreditCard className="h-3.5 w-3.5 text-[#C8FF93]" aria-hidden /><AppT text="Current plan"/></div>
-              <p className="mt-2 truncate text-xl font-semibold tracking-tight">{planTitle}</p>
+              <p className="mt-2 truncate text-xl font-semibold tracking-tight">{t(planTitle)}</p>
             </div>
             <div className="min-w-0 rounded-[18px] border border-white/10 bg-white/[0.055] p-4 backdrop-blur-sm">
               <div className="flex items-center gap-2 text-[11px] font-medium text-slate-300"><Users className="h-3.5 w-3.5 text-[#C8FF93]" aria-hidden /><AppT text="Seat capacity"/></div>
@@ -413,7 +413,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
       <AIUsageBillingCard key={`${billingPlan}:${seatLimit}:${billingStatus}`} />
 
       {hasPaidSubscription ? (
-        <section aria-label="Billing cycle details" className="grid gap-3 rounded-[22px] border border-border/70 bg-card p-4 shadow-sm sm:grid-cols-[1fr_1fr_1.5fr] sm:items-center sm:p-5">
+        <section aria-label={t("Billing cycle details")} className="grid gap-3 rounded-[22px] border border-border/70 bg-card p-4 shadow-sm sm:grid-cols-[1fr_1fr_1.5fr] sm:items-center sm:p-5">
           <div className="flex items-start gap-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/[0.08] text-primary"><CalendarDays className="h-4 w-4" aria-hidden /></span>
             <div className="min-w-0">
@@ -431,7 +431,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
           </div>
           <p className="flex items-start gap-2 rounded-xl bg-muted/40 p-3 text-xs leading-relaxed text-muted-foreground">
             <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
-            Immediate charged changes start a new billing cycle. Refresh to view the next verified charge date after a change.
+            <AppT text="Immediate charged changes start a new billing cycle. Refresh to view the next verified charge date after a change."/>
           </p>
         </section>
       ) : null}
@@ -529,7 +529,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                     : void requestPlanReview(selectedPlan)}
               ><AppT text="Continue to checkout"/></Button>
               <Button type="button" variant="outline" className={actionSecondary} disabled={busy} onClick={() => setSelectedPlan(null)}>
-                Clear selection
+                <AppT text="Clear selection"/>
               </Button>
             </div>
           </CardContent>
@@ -551,13 +551,13 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                 </div>
               </div>
               <CardDescription className="max-w-lg text-xs leading-relaxed">
-                Your verified subscription details and available account actions.
+                <AppT text="Your verified subscription details and available account actions."/>
               </CardDescription>
             </div>
             <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
               <Button type="button" variant="outline" size="sm" className={actionSecondary} disabled={busy} onClick={() => void refreshBilling()}>
                 <RefreshCw className={cn('mr-1.5 h-3.5 w-3.5', billingLoading && 'animate-spin')} aria-hidden />
-                {billingLoading ? 'Refreshing…' : 'Refresh'}
+                {t(billingLoading ? 'Refreshing…' : 'Refresh')}
               </Button>
               <Button
                 type="button"
@@ -566,10 +566,10 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                 className={actionSecondary}
                 disabled={busy || !hasPaidSubscription}
                 onClick={() => void openCustomerPortal()}
-                title={billingPlan === 'free' ? 'Subscribe first' : 'Invoices & payment method'}
+                title={t(billingPlan === 'free' ? 'Subscribe first' : 'Invoices & payment method')}
               >
                 <Receipt className="mr-1.5 h-3.5 w-3.5" aria-hidden />
-                Invoices &amp; portal
+                <AppT text="Invoices & portal"/>
               </Button>
               {(billingPlan === 'team' || billingPlan === 'pro' || billingPlan === 'individual') && subscriptionId && Number.isFinite(seatLimit) ? (
                 <Button
