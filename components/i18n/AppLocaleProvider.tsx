@@ -53,6 +53,10 @@ export function AppLocaleProvider({children}:{children:ReactNode}){
     const requestRevision=++revision.current;
     setReady(false);
     setCurrentLocale(DEFAULT_APP_LOCALE);
+    if(sessionStatus==='unauthenticated'){
+      setReady(true);
+      return;
+    }
     const cached=readCachedLocale(cacheKey);
     if(cached)setCurrentLocale(cached);
     const controller=new AbortController();
@@ -69,7 +73,7 @@ export function AppLocaleProvider({children}:{children:ReactNode}){
           cacheLocale(cacheKey,value);
         }
       }).catch(()=>undefined).finally(()=>{
-        if(!controller.signal.aborted&&revision.current===requestRevision)setReady(true);
+        if(!controller.signal.aborted)setReady(true);
       });
     return ()=>controller.abort();
   },[cacheKey,sessionStatus]);
