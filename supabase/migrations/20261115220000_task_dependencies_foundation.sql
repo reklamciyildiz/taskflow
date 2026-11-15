@@ -264,6 +264,20 @@ REVOKE ALL ON FUNCTION public.p23_guard_project_stages() FROM PUBLIC,anon,authen
 REVOKE ALL ON FUNCTION public.p23_guard_inbox_stages() FROM PUBLIC,anon,authenticated;
 REVOKE ALL ON FUNCTION public.p23_guard_project_delete() FROM PUBLIC,anon,authenticated;
 
+-- Deleting an entire organization is different from deleting one Process:
+-- remove its edges first so later FK cascades can delete projects/tasks without
+-- a false Process-deletion conflict. The entire deletion remains transactional.
+CREATE FUNCTION public.p23_cleanup_organization_dependencies() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public AS $$
+BEGIN
+  PERFORM public.p23_lock_graph(OLD.id);
+  DELETE FROM public.task_dependencies WHERE organization_id=OLD.id;
+  RETURN OLD;
+END; $$;
+CREATE TRIGGER p23_org_delete_cleanup BEFORE DELETE ON public.organizations
+  FOR EACH ROW EXECUTE FUNCTION public.p23_cleanup_organization_dependencies();
+REVOKE ALL ON FUNCTION public.p23_cleanup_organization_dependencies() FROM PUBLIC,anon,authenticated;
+
 REVOKE ALL ON FUNCTION public.p23_guard_dependency() FROM PUBLIC,anon,authenticated;
 REVOKE ALL ON FUNCTION public.p23_guard_task_completion() FROM PUBLIC,anon,authenticated;
 REVOKE ALL ON FUNCTION public.p23_guard_recurring_schedule() FROM PUBLIC,anon,authenticated;
