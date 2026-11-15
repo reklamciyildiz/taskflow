@@ -1,3 +1,4 @@
+import { taskDependencyDbError } from '@/lib/task-dependencies';
 import { stageErrorMessage, validateTaskStage } from '@/lib/stage-server';
 import { resolveStageLifecycle } from '@/lib/stage-lifecycle';
 import { FALLBACK_BOARD_COLUMNS, parseColumnConfigFromJson } from '@/lib/types';
@@ -774,6 +775,8 @@ export async function PATCH(
   } catch (error) {
     const stageError = stageErrorMessage(error);
     if (stageError) return NextResponse.json({ success: false, error: stageError }, { status: 400 });
+    const dependencyError = taskDependencyDbError(error);
+    if (dependencyError) return NextResponse.json({ success: false, error: dependencyError.message, code: dependencyError.code }, { status: dependencyError.status });
     console.error("Error updating task:", error);
     if (error instanceof SchedulingValidationError) {
       return NextResponse.json<ApiResponse<null>>(
