@@ -1,4 +1,5 @@
 'use client';
+import {T as AppT} from '@/components/i18n/AppLocaleProvider';
 
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -58,7 +59,7 @@ export function Profile() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold">Profile</h1>
+        <h1 className="text-xl font-semibold"><AppT text="Profile"/></h1>
         <p className="mt-1 text-sm text-muted-foreground">
           View and update your profile information.
         </p>
@@ -90,7 +91,7 @@ export function Profile() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email"><AppT text="Email"/></Label>
               <Input id="email" defaultValue={currentUser.email} disabled />
             </div>
           </div>
@@ -119,11 +120,11 @@ export function Profile() {
             </div>
             <div className="rounded-lg border p-4 text-center">
               <p className="text-2xl font-bold tabular-nums text-amber-600">{inProgressTasks.length}</p>
-              <p className="mt-1 text-xs text-muted-foreground">In Progress</p>
+              <p className="mt-1 text-xs text-muted-foreground"><AppT text="In Progress"/></p>
             </div>
             <div className="rounded-lg border p-4 text-center">
               <p className="text-2xl font-bold tabular-nums text-emerald-600">{completedTasks.length}</p>
-              <p className="mt-1 text-xs text-muted-foreground">Completed</p>
+              <p className="mt-1 text-xs text-muted-foreground"><AppT text="Completed"/></p>
             </div>
           </div>
         </CardContent>

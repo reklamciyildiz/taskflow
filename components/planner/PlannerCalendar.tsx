@@ -1,4 +1,5 @@
 'use client';
+import {T as AppT} from '@/components/i18n/AppLocaleProvider';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CalendarClock, ChevronLeft, ChevronRight, Clock3, FolderKanban, Plus } from 'lucide-react';
@@ -194,18 +195,18 @@ export function PlannerCalendar() {
       <header className="planner-v2-section-header">
         <div>
           <div className="planner-v2-eyebrow"><CalendarClock aria-hidden="true" /> Time blocks</div>
-          <h2 id="planner-calendar-title">Calendar</h2>
+          <h2 id="planner-calendar-title"><AppT text="Calendar"/></h2>
           <p>Drag a block to another time in 15-minute steps, or click to edit. Checklist items remain linked to their Action.</p>
         </div>
         <div className="planner-v2-calendar-controls">
           <div className="flex items-center gap-1">
             <Button variant="ghost" size="icon" onClick={() => setSelectedDate(addCalendarDays(selectedDate, -7))} aria-label="Previous week"><ChevronLeft className="h-4 w-4" /></Button>
-            <Button variant="ghost" className="h-10" onClick={goToToday}>Today</Button>
+            <Button variant="ghost" className="h-10" onClick={goToToday}><AppT text="Today"/></Button>
             <Button variant="ghost" size="icon" onClick={() => setSelectedDate(addCalendarDays(selectedDate, 7))} aria-label="Next week"><ChevronRight className="h-4 w-4" /></Button>
           </div>
           <div className="rounded-lg bg-muted/35 p-1">
             <Button size="sm" variant={mode === 'day' ? 'secondary' : 'ghost'} onClick={() => setMode('day')}>Day</Button>
-            <Button size="sm" variant={mode === 'week' ? 'secondary' : 'ghost'} onClick={() => setMode('week')}>Week</Button>
+            <Button size="sm" variant={mode === 'week' ? 'secondary' : 'ghost'} onClick={() => setMode('week')}><AppT text="Week"/></Button>
           </div>
         </div>
       </header>
@@ -256,7 +257,7 @@ export function PlannerCalendar() {
           <CalendarClock aria-hidden="true" />
           <h3>Calendar could not be loaded</h3>
           <p>{error}</p>
-          <button type="button" onClick={() => void load()}>Try again</button>
+          <button type="button" onClick={() => void load()}><AppT text="Try again"/></button>
         </div>
       ) : (
         <>
@@ -355,7 +356,7 @@ export function PlannerCalendar() {
               </div>
               <p className="text-xs leading-relaxed text-muted-foreground">Only this one-time block moves. Duration, reminders and the original Action/Checklist link remain intact. Recurring series must be edited separately.</p>
               <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-                <Button variant="outline" type="button" disabled={moveBusy} className="h-11 rounded-xl" onClick={() => setMoveReview(null)}>Cancel</Button>
+                <Button variant="outline" type="button" disabled={moveBusy} className="h-11 rounded-xl" onClick={() => setMoveReview(null)}><AppT text="Cancel"/></Button>
                 <Button type="button" disabled={moveBusy} className="h-11 rounded-xl px-5 font-semibold" onClick={() => void applyMove()}>
                   {moveBusy ? 'Saving…' : 'Confirm new time'}
                 </Button>

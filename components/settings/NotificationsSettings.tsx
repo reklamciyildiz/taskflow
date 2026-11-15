@@ -1,4 +1,5 @@
 'use client';
+import {T as AppT} from '@/components/i18n/AppLocaleProvider';
 
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -168,7 +169,7 @@ export function NotificationsSettings() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold">Notifications</h1>
+        <h1 className="text-xl font-semibold"><AppT text="Notifications"/></h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Control how and when you get notified.
         </p>
@@ -184,16 +185,16 @@ export function NotificationsSettings() {
         <CardContent className="space-y-5">
           <div className="flex items-center justify-between">
             <div>
-              <Label className="text-sm font-medium">Email Notifications</Label>
-              <p className="text-xs text-muted-foreground">Receive email updates for action assignments</p>
+              <Label className="text-sm font-medium"><AppT text="Email Notifications"/></Label>
+              <p className="text-xs text-muted-foreground"><AppT text="Receive email updates for action assignments"/></p>
             </div>
             <Switch checked={emailNotifications} onCheckedChange={handleEmail} />
           </div>
 
           <div className="flex items-center justify-between">
             <div>
-              <Label className="text-sm font-medium">Push Notifications</Label>
-              <p className="text-xs text-muted-foreground">Reminders, due dates, assignments, and updates in your browser</p>
+              <Label className="text-sm font-medium"><AppT text="Push Notifications"/></Label>
+              <p className="text-xs text-muted-foreground"><AppT text="Reminders, due dates, assignments, and updates in your browser"/></p>
             </div>
             <Switch checked={pushNotifications} onCheckedChange={handlePush} />
           </div>
@@ -216,8 +217,8 @@ export function NotificationsSettings() {
 
           <div className="flex items-center justify-between">
             <div>
-              <Label className="text-sm font-medium">Team Activity</Label>
-              <p className="text-xs text-muted-foreground">Notifications when team members complete actions</p>
+              <Label className="text-sm font-medium"><AppT text="Team Activity"/></Label>
+              <p className="text-xs text-muted-foreground"><AppT text="Notifications when team members complete actions"/></p>
             </div>
             <Switch checked={teamActivity} onCheckedChange={handleTeamActivity} />
           </div>
@@ -232,7 +233,7 @@ export function NotificationsSettings() {
         <CardContent className="space-y-4">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0 space-y-1">
-              <Label htmlFor="recurrence-alerts-toggle" className="text-sm font-medium">Alert me when recurring work is missed</Label>
+              <Label htmlFor="recurrence-alerts-toggle" className="text-sm font-medium"><AppT text="Alert me when recurring work is missed"/></Label>
               <p className="text-xs leading-relaxed text-muted-foreground">
                 Covers daily and weekly Actions and checklist items. Off by default.
                 One reminder per calendar week at most, even if several days are missed.
@@ -243,8 +244,8 @@ export function NotificationsSettings() {
           </div>
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 bg-muted/20 px-3 py-3">
             <div className="space-y-0.5">
-              <Label className="text-xs font-medium">Notify after</Label>
-              <p className="text-[11px] text-muted-foreground">Consecutive missed scheduled occurrences</p>
+              <Label className="text-xs font-medium"><AppT text="Notify after"/></Label>
+              <p className="text-[11px] text-muted-foreground"><AppT text="Consecutive missed scheduled occurrences"/></p>
             </div>
             <Select value={String(recurrenceAlertThreshold)} disabled={!recurrenceAlertsEnabled||recurrenceAlertsBusy}
               onValueChange={value=>void updateRecurrencePreference('recurrence_missed_alert_threshold',Number(value) as 2|3|5)}>
@@ -252,9 +253,9 @@ export function NotificationsSettings() {
                 <SelectValue/>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="2">2 misses</SelectItem>
-                <SelectItem value="3">3 misses</SelectItem>
-                <SelectItem value="5">5 misses</SelectItem>
+                <SelectItem value="2"><AppT text="2 misses"/></SelectItem>
+                <SelectItem value="3"><AppT text="3 misses"/></SelectItem>
+                <SelectItem value="5"><AppT text="5 misses"/></SelectItem>
               </SelectContent>
             </Select>
           </div>

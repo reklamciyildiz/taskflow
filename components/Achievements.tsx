@@ -1,4 +1,6 @@
 'use client';
+import {T as AppT} from '@/components/i18n/AppLocaleProvider';
+
 
 import {completionCalendarDay,verifiedCompletionAt} from '@/lib/metrics/completions';
 
@@ -94,7 +96,7 @@ function AchievementCard({ a }: { a: Achievement }) {
           {a.unlocked ? (
             <Badge variant="outline" className="text-xs capitalize">{a.tier}</Badge>
           ) : almostThere ? (
-            <Badge variant="secondary" className="text-xs">Almost!</Badge>
+            <Badge variant="secondary" className="text-xs"><AppT text="Almost!"/></Badge>
           ) : null}
           <span className="ml-auto shrink-0 text-xs font-medium text-muted-foreground">
             +{TIER_POINTS[a.tier]}pts
@@ -481,7 +483,7 @@ export function Achievements() {
               <Trophy className="h-6 w-6 text-white" />
             </div>
             <div>
-              <p className="text-sm text-purple-700 dark:text-purple-300">Achievements</p>
+              <p className="text-sm text-purple-700 dark:text-purple-300"><AppT text="Achievements"/></p>
               <p className="text-2xl font-bold text-purple-900 dark:text-purple-100">
                 {unlockedCount}/{achievements.length}
               </p>
@@ -496,11 +498,11 @@ export function Achievements() {
               <Flame className="h-6 w-6 text-white" />
             </div>
             <div>
-              <p className="text-sm text-orange-700 dark:text-orange-300">Current Streak</p>
+              <p className="text-sm text-orange-700 dark:text-orange-300"><AppT text="Current Streak"/></p>
               <p className="text-2xl font-bold text-orange-900 dark:text-orange-100">
                 {streak} {streak === 1 ? 'day' : 'days'}
               </p>
-              <p className="text-xs text-orange-600 dark:text-orange-400">consecutive days with completions</p>
+              <p className="text-xs text-orange-600 dark:text-orange-400"><AppT text="consecutive days with completions"/></p>
             </div>
           </CardContent>
         </Card>
@@ -511,7 +513,7 @@ export function Achievements() {
               <CheckCircle2 className="h-6 w-6 text-white" />
             </div>
             <div>
-              <p className="text-sm text-emerald-700 dark:text-emerald-300">Tasks Completed</p>
+              <p className="text-sm text-emerald-700 dark:text-emerald-300"><AppT text="Tasks Completed"/></p>
               <p className="text-2xl font-bold text-emerald-900 dark:text-emerald-100">
                 {completedUserTasks.length}
               </p>

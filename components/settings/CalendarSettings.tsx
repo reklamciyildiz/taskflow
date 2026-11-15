@@ -1,4 +1,5 @@
 'use client';
+import {T as AppT} from '@/components/i18n/AppLocaleProvider';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -196,7 +197,7 @@ export function CalendarSettings() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold">Calendar</h1>
+        <h1 className="text-xl font-semibold"><AppT text="Calendar"/></h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Time zone and calendar integrations.
         </p>
@@ -229,7 +230,7 @@ export function CalendarSettings() {
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Google Calendar</CardTitle>
+          <CardTitle className="text-base"><AppT text="Google Calendar"/></CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-xs text-muted-foreground">
@@ -239,12 +240,12 @@ export function CalendarSettings() {
           {!googleEligible && (
             <div role="status" className="rounded-xl border border-primary/20 bg-primary/[.06] p-3 text-sm">
               Google Calendar synchronization requires an active Pro or Team subscription.
-              <a href="/settings/billing" className="ml-2 font-semibold text-primary underline underline-offset-4">View plans</a>
+              <a href="/settings/billing" className="ml-2 font-semibold text-primary underline underline-offset-4"><AppT text="View plans"/></a>
             </div>
           )}
           {!googleConnected ? (
             <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
-              <p className="text-sm text-muted-foreground">Not connected</p>
+              <p className="text-sm text-muted-foreground"><AppT text="Not connected"/></p>
               <Button type="button" onClick={handleGoogleConnect} disabled={googleBusy || !googleEligible}>
                 Connect Google
               </Button>
@@ -252,14 +253,14 @@ export function CalendarSettings() {
           ) : (
             <div className="space-y-4">
               <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-sm">
-                <div className="text-xs text-muted-foreground">Connected as</div>
+                <div className="text-xs text-muted-foreground"><AppT text="Connected as"/></div>
                 <div className="font-medium">{googleEmail || 'Google account'}</div>
               </div>
 
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <Label className="text-sm font-medium">Sync due dates</Label>
-                  <p className="text-xs text-muted-foreground">Pause without disconnecting Google</p>
+                  <Label className="text-sm font-medium"><AppT text="Sync due dates"/></Label>
+                  <p className="text-xs text-muted-foreground"><AppT text="Pause without disconnecting Google"/></p>
                 </div>
                 <Switch
                   checked={googleSyncEnabled}
@@ -269,7 +270,7 @@ export function CalendarSettings() {
               </div>
 
               <div className="space-y-2">
-                <Label className="text-xs font-medium">Destination calendar</Label>
+                <Label className="text-xs font-medium"><AppT text="Destination calendar"/></Label>
                 <Select
                   value={googleSelectedCalendarId}
                   onValueChange={(v) => void handleCalendarChange(v)}
@@ -292,7 +293,7 @@ export function CalendarSettings() {
                   </SelectContent>
                 </Select>
                 {!googleSyncEnabled && (
-                  <p className="text-xs text-muted-foreground">Turn sync on to update Google Calendar events.</p>
+                  <p className="text-xs text-muted-foreground"><AppT text="Turn sync on to update Google Calendar events."/></p>
                 )}
               </div>
 
@@ -310,9 +311,7 @@ export function CalendarSettings() {
                   variant="destructive"
                   onClick={() => void handleGoogleDisconnect()}
                   disabled={googleBusy}
-                >
-                  Disconnect
-                </Button>
+                ><AppT text="Disconnect"/></Button>
               </div>
             </div>
           )}

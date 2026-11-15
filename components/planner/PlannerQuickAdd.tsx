@@ -1,4 +1,5 @@
 'use client';
+import {T as AppT} from '@/components/i18n/AppLocaleProvider';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, CalendarPlus, CheckSquare2, Clock3, FolderKanban, Loader2, Plus, RotateCw, Sparkles, Layers3 } from 'lucide-react';
@@ -229,8 +230,7 @@ export function PlannerQuickAdd() {
           <button type="button" aria-pressed={kind === 'action'} disabled={locked}
             onClick={() => { setKind('action'); setValue(''); setDate(null); setTime(''); }}
             className={`inline-flex min-h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition ${kind === 'action' ? 'bg-background text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
-            <Layers3 className="h-3.5 w-3.5" aria-hidden /> Action
-          </button>
+            <Layers3 className="h-3.5 w-3.5" aria-hidden /><AppT text="Action"/></button>
         </div>
       </div>
 

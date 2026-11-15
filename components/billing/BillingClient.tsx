@@ -1,4 +1,5 @@
 'use client';
+import {T as AppT} from '@/components/i18n/AppLocaleProvider';
 
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -272,7 +273,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                 ) : (
                   <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0 rounded-xl border border-border/70 bg-muted/40 px-4 py-3">
-                      <div className="text-[11px] text-muted-foreground">Current plan</div>
+                      <div className="text-[11px] text-muted-foreground"><AppT text="Current plan"/></div>
                       <div className="mt-1 text-base font-semibold capitalize">{billingReview.fromPlan}</div>
                     </div>
                     <ArrowRight className="h-5 w-5 shrink-0 text-primary" aria-hidden />
@@ -337,7 +338,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
             <div className="flex flex-col-reverse gap-2 border-t border-border/70 pt-4 sm:flex-row sm:justify-end">
               <Button type="button" variant="outline" disabled={reviewBusy}
                 className="h-11 rounded-xl px-5 transition-all hover:bg-muted"
-                onClick={()=>{setBillingReview(null);setReviewAcknowledged(false);setReviewError(null);}}>Cancel</Button>
+                onClick={()=>{setBillingReview(null);setReviewAcknowledged(false);setReviewError(null);}}><AppT text="Cancel"/></Button>
               <Button type="button" disabled={!reviewAcknowledged||reviewBusy||Boolean(reviewError)||busy}
                 className="h-11 rounded-xl bg-primary px-5 font-semibold text-primary-foreground shadow-[0_10px_24px_-12px_rgba(40,122,82,0.8)] transition-all hover:bg-primary/90 focus-visible:ring-ring"
                 onClick={()=>void applyReviewedChange()}>
@@ -372,8 +373,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
             </div>
             <div className="flex items-center gap-2">
               <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/25 bg-emerald-400/10 px-3 py-2 text-[11px] font-medium text-emerald-200">
-                <ShieldCheck className="h-3.5 w-3.5" aria-hidden /> Secured by Creem
-              </span>
+                <ShieldCheck className="h-3.5 w-3.5" aria-hidden /><AppT text="Secured by Creem"/></span>
               <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-2 text-[11px] font-medium capitalize text-white">
                 <span className={cn('h-1.5 w-1.5 rounded-full', billingStatus==='active'?'bg-emerald-400':billingStatus==='past_due'?'bg-amber-400':'bg-slate-300')} aria-hidden />
                 {statusLabel}
@@ -382,7 +382,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
           </div>
           <div className="mt-7 grid grid-cols-2 gap-2.5 border-t border-white/10 pt-5 lg:grid-cols-4">
             <div className="min-w-0 rounded-[18px] border border-white/10 bg-white/[0.055] p-4 backdrop-blur-sm">
-              <div className="flex items-center gap-2 text-[11px] font-medium text-slate-300"><CreditCard className="h-3.5 w-3.5 text-[#C8FF93]" aria-hidden /> Current plan</div>
+              <div className="flex items-center gap-2 text-[11px] font-medium text-slate-300"><CreditCard className="h-3.5 w-3.5 text-[#C8FF93]" aria-hidden /><AppT text="Current plan"/></div>
               <p className="mt-2 truncate text-xl font-semibold tracking-tight">{planTitle}</p>
             </div>
             <div className="min-w-0 rounded-[18px] border border-white/10 bg-white/[0.055] p-4 backdrop-blur-sm">
@@ -519,9 +519,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                   : billingPlan === 'free'
                     ? void openCheckout(selectedPlan, { billingInterval: selectedPlan === 'individual' ? 'yearly' : selectedBillingInterval, seats: checkoutSeats })
                     : void requestPlanReview(selectedPlan)}
-              >
-                Continue to checkout
-              </Button>
+              ><AppT text="Continue to checkout"/></Button>
               <Button type="button" variant="outline" className={actionSecondary} disabled={busy} onClick={() => setSelectedPlan(null)}>
                 Clear selection
               </Button>
@@ -635,7 +633,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
         </CardHeader>
         <CardContent className="space-y-6 pt-6 sm:px-7 sm:pb-7">
           <div className="flex flex-wrap items-center gap-2.5">
-            <span className="text-xs font-medium text-muted-foreground">Your plan</span>
+            <span className="text-xs font-medium text-muted-foreground"><AppT text="Your plan"/></span>
             <Badge variant={billingPlan === 'free' ? 'secondary' : 'default'} className="rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-wide">
               {billingPlan}
             </Badge>
@@ -743,9 +741,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                     type="button"
                     className="text-xs text-muted-foreground hover:text-foreground"
                     onClick={() => { setAddSeatsOpen(false); setAddSeatsError(null); }}
-                  >
-                    Cancel
-                  </button>
+                  ><AppT text="Cancel"/></button>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="rounded-xl border border-border/70 bg-background/75 px-4 py-3">
@@ -855,8 +851,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                   try { await navigator.clipboard.writeText(subscriptionId); toast.success('Subscription reference copied'); }
                   catch { toast.error('Unable to copy subscription reference'); }
                 }}>
-                <Copy className="mr-1.5 h-3.5 w-3.5" aria-hidden /> Copy
-              </Button>
+                <Copy className="mr-1.5 h-3.5 w-3.5" aria-hidden /><AppT text="Copy"/></Button>
             </div>
           ) : billingPlan !== 'free' ? (
             <p className="text-xs text-muted-foreground">Subscription id will appear here after the first webhook sync.</p>
@@ -923,9 +918,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
               >
                 {current ? (
                   <div className="absolute right-3 top-3">
-                    <Badge variant="outline" className="rounded-full border-primary/30 bg-primary/[0.055] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-primary">
-                      Current
-                    </Badge>
+                    <Badge variant="outline" className="rounded-full border-primary/30 bg-primary/[0.055] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-primary"><AppT text="Current"/></Badge>
                   </div>
                 ) : null}
                 <CardHeader className="space-y-3 pb-3 pt-7">

@@ -1,4 +1,5 @@
 'use client';
+import {T as AppT} from '@/components/i18n/AppLocaleProvider';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
@@ -98,7 +99,7 @@ function MyDayRow({
               <span className="truncate">{item.projectName}</span>
             </span>
           ) : (
-            <span>General</span>
+            <span><AppT text="General"/></span>
           )}
           {item.isRecurring ? <Repeat2 className="h-3 w-3 shrink-0" aria-label="Recurring" /> : null}
         </span>
@@ -193,12 +194,12 @@ export function DashboardMyDay() {
         <div className="flex min-w-0 items-start gap-2.5">
           <span className="dashboard-v2-icon dashboard-v2-icon--sun"><SunMedium className="h-4 w-4" /></span>
           <div className="min-w-0 pt-0.5">
-            <h2 id="dashboard-my-day-title" className="dashboard-v2-section-title">My Day</h2>
+            <h2 id="dashboard-my-day-title" className="dashboard-v2-section-title"><AppT text="My Day"/></h2>
             <p className="mt-0.5 text-[0.7rem] text-muted-foreground">{day ? dateLabel(day.date) : 'Your scheduled work'}</p>
           </div>
         </div>
         <Button asChild variant="ghost" size="sm" className="dashboard-v2-link">
-          <Link href="/planner">Open Planner <ArrowUpRight className="h-3.5 w-3.5" /></Link>
+          <Link href="/planner"><AppT text="Open Planner"/><ArrowUpRight className="h-3.5 w-3.5" /></Link>
         </Button>
       </header>
 
@@ -206,19 +207,19 @@ export function DashboardMyDay() {
         <div className="dashboard-v2-day-stats" aria-label="Today's activity summary">
           <div className="dashboard-v2-day-stat">
             <ListTodo className="h-4 w-4 text-lime-500 dark:text-lime-300" aria-hidden="true" />
-            <span><strong>{actionable.length}</strong><small>To do</small></span>
+            <span><strong>{actionable.length}</strong><small><AppT text="To do"/></small></span>
           </div>
           <div className="dashboard-v2-day-stat">
             <CalendarClock className="h-4 w-4 text-sky-600 dark:text-sky-300" aria-hidden="true" />
-            <span><strong>{comingUpCount}</strong><small>Coming up</small></span>
+            <span><strong>{comingUpCount}</strong><small><AppT text="Coming up"/></small></span>
           </div>
           <div className="dashboard-v2-day-stat">
             <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-300" aria-hidden="true" />
-            <span><strong>{doneToday}</strong><small>Done today</small></span>
+            <span><strong>{doneToday}</strong><small><AppT text="Done today"/></small></span>
           </div>
           <div className="dashboard-v2-day-progress">
             <div className="flex items-center justify-between gap-2">
-              <span>Today's progress</span><strong>{dailyProgress}%</strong>
+              <span><AppT text="Today's progress"/></span><strong>{dailyProgress}%</strong>
             </div>
             <div
               className="dashboard-v2-progress-track"
@@ -244,8 +245,8 @@ export function DashboardMyDay() {
       ) : error && !today ? (
         <div className="dashboard-v2-empty mx-4 mb-4 sm:mx-5">
           <AlertCircle className="h-5 w-5 text-destructive" />
-          <div className="min-w-0 flex-1"><p className="text-sm font-medium">My Day is unavailable</p><p className="text-xs text-muted-foreground">{error}</p></div>
-          <Button variant="ghost" size="sm" onClick={() => void load()}><RefreshCw className="mr-1 h-3.5 w-3.5" />Retry</Button>
+          <div className="min-w-0 flex-1"><p className="text-sm font-medium"><AppT text="My Day is unavailable"/></p><p className="text-xs text-muted-foreground">{error}</p></div>
+          <Button variant="ghost" size="sm" onClick={() => void load()}><RefreshCw className="mr-1 h-3.5 w-3.5" /><AppT text="Retry"/></Button>
         </div>
       ) : (
         <div className="px-2 pb-3 sm:px-3">
@@ -273,7 +274,7 @@ export function DashboardMyDay() {
           {actionable.length === 0 ? (
             <div className="dashboard-v2-empty mx-2 mb-3">
               <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"><Check className="h-4 w-4" /></span>
-              <div><p className="text-sm font-medium">Your day is clear</p><p className="text-xs text-muted-foreground">No overdue or scheduled work for today.</p></div>
+              <div><p className="text-sm font-medium"><AppT text="Your day is clear"/></p><p className="text-xs text-muted-foreground"><AppT text="No overdue or scheduled work for today."/></p></div>
             </div>
           ) : null}
 
@@ -285,7 +286,7 @@ export function DashboardMyDay() {
 
           {upcomingItems.length ? (
             <div className="border-t border-border/35 pt-3">
-              <div className="flex items-center gap-2 px-3 pb-1.5"><p className="dashboard-v2-kicker">Coming up</p><span className="h-px flex-1 bg-border/35" /></div>
+              <div className="flex items-center gap-2 px-3 pb-1.5"><p className="dashboard-v2-kicker"><AppT text="Coming up"/></p><span className="h-px flex-1 bg-border/35" /></div>
               <div className="dashboard-v2-list">
                 {upcomingItems.map(({ item, date }) => (
                   <MyDayRow key={item.id} item={item} date={date} tone="upcoming" onOpen={() => openTaskEditor(item.taskId)} />

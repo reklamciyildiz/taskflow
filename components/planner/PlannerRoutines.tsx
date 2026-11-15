@@ -1,3 +1,4 @@
+import {T as AppT} from '@/components/i18n/AppLocaleProvider';
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -173,7 +174,7 @@ export function PlannerRoutines() {
       ) : error ? (
         <div className="planner-v2-state planner-v2-state-error">
           <p>{error}</p>
-          <button type="button" onClick={() => void load(true)}>Try again</button>
+          <button type="button" onClick={() => void load(true)}><AppT text="Try again"/></button>
         </div>
       ) : items.length === 0 ? (
         <div className="planner-v2-state">
@@ -235,8 +236,7 @@ export function PlannerRoutines() {
                         onSelect={() => void mutateOccurrence(item, "skip")}
                         aria-busy={busyKey === skipKey}
                       >
-                        <SkipForward className="mr-2 h-4 w-4" /> Skip this occurrence
-                      </DropdownMenuItem>
+                        <SkipForward className="mr-2 h-4 w-4" /><AppT text="Skip this occurrence"/></DropdownMenuItem>
                       <DropdownMenuItem
                         disabled={busyKey !== null}
                         onSelect={() => void mutateOccurrence(item, "reschedule")}
@@ -253,8 +253,7 @@ export function PlannerRoutines() {
                           setHistoryTarget({item,canEdit});
                         }}
                       >
-                        <History className="mr-2 h-4 w-4" /> History & insights
-                      </DropdownMenuItem>
+                        <History className="mr-2 h-4 w-4" /><AppT text="History & insights"/></DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onSelect={() => setEditing(item)}>
                         <Repeat2 className="mr-2 h-4 w-4" /> Edit entire series

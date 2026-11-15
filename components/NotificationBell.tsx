@@ -1,4 +1,6 @@
 'use client';
+import {T as AppT} from '@/components/i18n/AppLocaleProvider';
+
 
 import { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
@@ -248,7 +250,7 @@ export function NotificationBell() {
           ].join(' ')}
         >
           <div className="flex items-center justify-between border-b border-border bg-muted/60 px-4 py-3">
-            <h3 className="font-semibold text-foreground">Notifications</h3>
+            <h3 className="font-semibold text-foreground"><AppT text="Notifications"/></h3>
             {unreadCount > 0 && (
               <button
                 type="button"
@@ -256,9 +258,7 @@ export function NotificationBell() {
                 disabled={loading}
                 className="flex items-center gap-1 text-xs text-primary hover:underline disabled:opacity-50"
               >
-                <CheckCheck className="h-3 w-3" />
-                Mark all as read
-              </button>
+                <CheckCheck className="h-3 w-3" /><AppT text="Mark all as read"/></button>
             )}
           </div>
 
@@ -266,7 +266,7 @@ export function NotificationBell() {
             {notifications.length === 0 ? (
               <div className="px-4 py-8 text-center">
                 <Bell className="mx-auto mb-3 h-12 w-12 text-muted-foreground/40" />
-                <p className="text-sm text-muted-foreground">No notifications yet</p>
+                <p className="text-sm text-muted-foreground"><AppT text="No notifications yet"/></p>
                 <p className="mt-2 text-xs text-muted-foreground/80">
                   Visit the notification center for history and settings.
                 </p>

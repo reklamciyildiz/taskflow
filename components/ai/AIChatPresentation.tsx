@@ -1,4 +1,5 @@
 'use client';
+import {T as AppT} from '@/components/i18n/AppLocaleProvider';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -189,8 +190,7 @@ export function AIHistoryPanel({
                             </DropdownMenuItem>
                             <DropdownMenuSeparator/>
                             <DropdownMenuItem className="gap-2 text-destructive focus:text-destructive" onSelect={() => setDeleteTarget(item)}>
-                              <Trash2 className="h-3.5 w-3.5"/> Delete
-                            </DropdownMenuItem>
+                              <Trash2 className="h-3.5 w-3.5"/><AppT text="Delete"/></DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </>
@@ -225,7 +225,7 @@ export function AIHistoryPanel({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={saving} className="rounded-lg">Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={saving} className="rounded-lg"><AppT text="Cancel"/></AlertDialogCancel>
             <AlertDialogAction disabled={saving}
               className="rounded-lg bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={(event) => {
@@ -397,8 +397,7 @@ export function AIMessageRow({ message, lastUser, proposalBusy, onProposal, onOp
         </div>
       )}
       <div className={cn('min-w-0', isAssistant ? 'w-full max-w-[820px]' : 'max-w-[88%] sm:max-w-[75%]')}>
-        {isAssistant && <div className="mb-1.5 flex items-center gap-2 text-[11px] font-semibold text-foreground/90">
-          Actiproc AI <span className="text-[10px] font-normal text-muted-foreground">· Workspace assistant</span>
+        {isAssistant && <div className="mb-1.5 flex items-center gap-2 text-[11px] font-semibold text-foreground/90"><AppT text="Actiproc AI"/><span className="text-[10px] font-normal text-muted-foreground">· Workspace assistant</span>
         </div>}
         <div className={cn(
           'min-w-0',
@@ -527,8 +526,7 @@ export function AIMessageRow({ message, lastUser, proposalBusy, onProposal, onOp
             {retryEligible && lastUser && (
               <Button type="button" variant="ghost" size="sm" className="h-8 gap-1.5 rounded-lg text-muted-foreground hover:text-foreground"
                 onClick={() => onRetry(lastUser.content,message.id)}>
-                <RotateCcw className="h-3.5 w-3.5" aria-hidden="true"/> Retry
-              </Button>
+                <RotateCcw className="h-3.5 w-3.5" aria-hidden="true"/><AppT text="Retry"/></Button>
             )}
           </div>
         )}

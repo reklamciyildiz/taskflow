@@ -1,4 +1,5 @@
 'use client';
+import {T as AppT} from '@/components/i18n/AppLocaleProvider';
 
 import {useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {useRouter} from 'next/navigation';
@@ -117,8 +118,8 @@ export function GlobalCommandPalette({open,onOpenChange,onCreateAction}:{
   };
   return <Dialog open={open} onOpenChange={onOpenChange}>
     <DialogContent className="w-[calc(100vw-1rem)] max-w-2xl overflow-hidden rounded-[22px] border bg-popover text-popover-foreground p-0 shadow-2xl sm:w-full">
-      <DialogTitle className="sr-only">Search and commands</DialogTitle>
-      <DialogDescription className="sr-only">Search your authorized workspace. Use arrow keys to select, Enter to open, Escape to close.</DialogDescription>
+      <DialogTitle className="sr-only"><AppT text="Search and commands"/></DialogTitle>
+      <DialogDescription className="sr-only"><AppT text="Search your authorized workspace. Use arrow keys to select, Enter to open, Escape to close."/></DialogDescription>
       <Command shouldFilter={false} loop className="rounded-[22px] bg-transparent">
         <div className="flex items-center gap-2 border-b px-4 pr-12">
           <CommandInput autoFocus value={query} onValueChange={setQuery}
@@ -140,9 +141,9 @@ export function GlobalCommandPalette({open,onOpenChange,onCreateAction}:{
         </div>
         <CommandList className="max-h-[min(55dvh,460px)] min-h-[190px] overscroll-contain p-2">
           {error?<div role="alert" className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</div>:null}
-          {!query.trim()&&<div className="px-3 py-3 text-xs text-muted-foreground">Navigate instantly or search across your authorized workspace.</div>}
+          {!query.trim()&&<div className="px-3 py-3 text-xs text-muted-foreground"><AppT text="Navigate instantly or search across your authorized workspace."/></div>}
           {query.trim().length>=2&&results.length===0&&!loading&&!error?
-            <div className="px-4 py-8 text-center text-sm text-muted-foreground">No matches found. Try another name or keyword.</div>:null}
+            <div className="px-4 py-8 text-center text-sm text-muted-foreground"><AppT text="No matches found. Try another name or keyword."/></div>:null}
           {GROUPS.map(group=>{
             const matches=results.filter(item=>item.kind===group.kind);
             if(matches.length===0)return null;
@@ -173,11 +174,11 @@ export function GlobalCommandPalette({open,onOpenChange,onCreateAction}:{
               </CommandItem>;
             })}
           </CommandGroup></>}
-          {partial?<p className="px-4 py-3 text-xs leading-5 text-muted-foreground">Large workspace: deep note and checklist content is searched within a recent-content window. Refine your search for more precise results.</p>:null}
+          {partial?<p className="px-4 py-3 text-xs leading-5 text-muted-foreground"><AppT text="Large workspace: deep note and checklist content is searched within a recent-content window. Refine your search for more precise results."/></p>:null}
         </CommandList>
         <div className="flex items-center justify-between gap-4 border-t bg-muted/25 px-4 py-3 text-[11px] text-muted-foreground">
-          <span className="flex items-center gap-2"><Keyboard className="h-3.5 w-3.5"/> <kbd>↑↓</kbd> navigate <kbd>↵</kbd> open</span>
-          <span><kbd>Esc</kbd> close <span className="mx-1.5 opacity-40">·</span> <kbd>⌘/Ctrl K</kbd></span>
+          <span className="flex items-center gap-2"><Keyboard className="h-3.5 w-3.5"/> <kbd>↑↓</kbd><AppT text="navigate"/><kbd>↵</kbd><AppT text="open"/></span>
+          <span><kbd>Esc</kbd><AppT text="close"/><span className="mx-1.5 opacity-40">·</span> <kbd>⌘/Ctrl K</kbd></span>
         </div>
       </Command>
     </DialogContent>

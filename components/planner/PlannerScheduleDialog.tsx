@@ -1,4 +1,5 @@
 'use client';
+import {T as AppT} from '@/components/i18n/AppLocaleProvider';
 
 import { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -64,8 +65,7 @@ export function PlannerScheduleDialog({ open, onOpenChange, source, title, occur
             <DialogDescription className="mt-0.5 text-[11px]">Edit this schedule{occurrence ? ' or its occurrence' : ''}.</DialogDescription>
           </div>
           {onOpenSource ? (
-            <Button type="button" variant="ghost" size="sm" className="h-9 shrink-0" onClick={onOpenSource}>
-              Open Action <ExternalLink className="ml-1.5 h-3.5 w-3.5" />
+            <Button type="button" variant="ghost" size="sm" className="h-9 shrink-0" onClick={onOpenSource}><AppT text="Open Action"/><ExternalLink className="ml-1.5 h-3.5 w-3.5" />
             </Button>
           ) : null}
         </DialogHeader>

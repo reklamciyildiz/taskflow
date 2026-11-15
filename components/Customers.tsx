@@ -1,4 +1,6 @@
 'use client';
+import {T as AppT} from '@/components/i18n/AppLocaleProvider';
+
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -69,8 +71,8 @@ export function Customers() {
       </div>
 
       {requestedCustomer&&<div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/25 bg-primary/5 p-3">
-        <p className="text-xs font-medium">Showing the selected customer from global search.</p>
-        <Button type="button" variant="outline" size="sm" onClick={()=>router.replace('/customers',{scroll:false})}>Show all customers</Button>
+        <p className="text-xs font-medium"><AppT text="Showing the selected customer from global search."/></p>
+        <Button type="button" variant="outline" size="sm" onClick={()=>router.replace('/customers',{scroll:false})}><AppT text="Show all customers"/></Button>
       </div>}
       {/* Search and Actions */}
       <div className="flex flex-col sm:flex-row gap-4 mb-6">
@@ -88,9 +90,7 @@ export function Customers() {
         </div>
         {canManageCustomers && (
           <Button onClick={() => setIsCreateModalOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Customer
-          </Button>
+            <Plus className="h-4 w-4 mr-2" /><AppT text="Add Customer"/></Button>
         )}
       </div>
 
@@ -151,15 +151,11 @@ export function Customers() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => setEditingCustomer(customer)}>
-                        Edit
-                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setEditingCustomer(customer)}><AppT text="Edit"/></DropdownMenuItem>
                       <DropdownMenuItem 
                         className="text-red-600 focus:text-red-600"
                         onClick={() => setDeletingCustomer(customer)}
-                      >
-                        Delete
-                      </DropdownMenuItem>
+                      ><AppT text="Delete"/></DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 )}

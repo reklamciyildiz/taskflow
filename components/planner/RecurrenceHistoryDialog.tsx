@@ -1,3 +1,4 @@
+import {T as AppT} from '@/components/i18n/AppLocaleProvider';
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -164,7 +165,7 @@ export function RecurrenceHistoryDialog({
 
           {error ? (
             <div role="alert" className="rounded-xl border border-destructive/25 bg-destructive/5 p-3 text-sm text-destructive">
-              {error} <Button variant="ghost" size="sm" onClick={() => void load()}>Retry</Button>
+              {error} <Button variant="ghost" size="sm" onClick={() => void load()}><AppT text="Retry"/></Button>
             </div>
           ) : loading && !visibleHistory ? (
             <div className="flex min-h-40 items-center justify-center gap-2 text-sm text-muted-foreground">

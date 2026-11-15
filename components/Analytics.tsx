@@ -1,4 +1,6 @@
 'use client';
+import {T as AppT} from '@/components/i18n/AppLocaleProvider';
+
 
 import {completedWithin,completionDurationDays,verifiedCompletionAt} from '@/lib/metrics/completions';
 
@@ -104,7 +106,7 @@ function ProcessCard({
         </div>
 
         {total === 0 ? (
-          <p className="text-xs text-muted-foreground">No actions in this process yet.</p>
+          <p className="text-xs text-muted-foreground"><AppT text="No actions in this process yet."/></p>
         ) : (
           <>
             {/* Segmented progress bar */}
@@ -379,7 +381,7 @@ export function Analytics() {
       {/* ── Header ── */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Analytics</h1>
+          <h1 className="text-2xl font-bold text-foreground"><AppT text="Analytics"/></h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {currentTeam?.name ?? 'Team'} · {filteredTasks.length} actions
             {selectedProcessId !== 'all' && (
@@ -395,9 +397,9 @@ export function Analytics() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All processes</SelectItem>
+              <SelectItem value="all"><AppT text="All processes"/></SelectItem>
               {hasGeneralTasks && (
-                <SelectItem value="general">General board</SelectItem>
+                <SelectItem value="general"><AppT text="General board"/></SelectItem>
               )}
               {teamProjects.map(p => (
                 <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
@@ -405,9 +407,7 @@ export function Analytics() {
             </SelectContent>
           </Select>
           <Button onClick={() => setShowExport(true)} variant="outline" size="sm">
-            <Download className="mr-2 h-4 w-4" />
-            Export
-          </Button>
+            <Download className="mr-2 h-4 w-4" /><AppT text="Export"/></Button>
         </div>
       </div>
 
@@ -524,7 +524,7 @@ export function Analytics() {
                 </div>
               </>
             ) : (
-              <div className="flex h-44 items-center justify-center text-sm text-muted-foreground">No data yet</div>
+              <div className="flex h-44 items-center justify-center text-sm text-muted-foreground"><AppT text="No data yet"/></div>
             )}
           </CardContent>
         </Card>
@@ -533,7 +533,7 @@ export function Analytics() {
       {/* ── Process breakdown ── */}
       {showProcessSection && (
         <section>
-          <h2 className="mb-3 text-base font-semibold text-foreground">Process breakdown</h2>
+          <h2 className="mb-3 text-base font-semibold text-foreground"><AppT text="Process breakdown"/></h2>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {showGeneralCard && (
               <ProcessCard
@@ -565,13 +565,11 @@ export function Analytics() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-              <Users className="h-4 w-4" />
-              Team performance
-            </CardTitle>
+              <Users className="h-4 w-4" /><AppT text="Team performance"/></CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {memberPerf.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No team members yet.</p>
+              <p className="text-sm text-muted-foreground"><AppT text="No team members yet."/></p>
             ) : (
               memberPerf.map(m => (
                 <div key={m.id} className="flex items-center gap-3">
@@ -600,9 +598,7 @@ export function Analytics() {
         <Card className="border-emerald-200 bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:border-emerald-800/40 dark:from-emerald-900/20 dark:to-emerald-900/5">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm font-semibold text-emerald-800 dark:text-emerald-200">
-              <Zap className="h-4 w-4" />
-              Insights
-            </CardTitle>
+              <Zap className="h-4 w-4" /><AppT text="Insights"/></CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {insights.map((ins, i) => (

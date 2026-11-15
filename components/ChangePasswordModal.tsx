@@ -1,4 +1,5 @@
 'use client';
+import {T as AppT} from '@/components/i18n/AppLocaleProvider';
 
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -72,9 +73,7 @@ export function ChangePasswordModal({ open, onClose }: ChangePasswordModalProps)
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Lock className="h-5 w-5" />
-            Change Password
-          </DialogTitle>
+            <Lock className="h-5 w-5" /><AppT text="Change Password"/></DialogTitle>
           <DialogDescription>
             Enter your current password and choose a new one.
           </DialogDescription>
@@ -141,9 +140,7 @@ export function ChangePasswordModal({ open, onClose }: ChangePasswordModalProps)
           )}
 
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={handleClose}>
-              Cancel
-            </Button>
+            <Button type="button" variant="outline" onClick={handleClose}><AppT text="Cancel"/></Button>
             <Button type="submit" disabled={loading}>
               {loading ? (
                 <>

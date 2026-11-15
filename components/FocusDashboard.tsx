@@ -1,4 +1,5 @@
 'use client';
+import {T as AppT} from '@/components/i18n/AppLocaleProvider';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -287,9 +288,7 @@ export function FocusDashboard() {
                     </Badge>
                     {saved && (
                       <span className="text-xs text-emerald-600 flex items-center gap-1">
-                        <Check className="h-3.5 w-3.5 shrink-0" />
-                        Saved
-                      </span>
+                        <Check className="h-3.5 w-3.5 shrink-0" /><AppT text="Saved"/></span>
                     )}
                   </div>
                 </div>
@@ -327,7 +326,7 @@ export function FocusDashboard() {
                         <Command>
                           <CommandInput placeholder="Search actions…" />
                           <CommandList>
-                            <CommandEmpty>No results.</CommandEmpty>
+                            <CommandEmpty><AppT text="No results."/></CommandEmpty>
                             <CommandGroup>
                               <CommandItem
                                 value="__auto__"

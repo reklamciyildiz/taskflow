@@ -1,4 +1,5 @@
 'use client';
+import {T as AppT} from '@/components/i18n/AppLocaleProvider';
 
 import {useMemo,useState} from 'react';
 import {ArrowUpRight, BriefcaseBusiness, CalendarDays, ChevronRight, Headphones, Layers3, Rocket, Search, Target, UsersRound} from 'lucide-react';
@@ -22,10 +23,9 @@ export function ProcessTemplateGallery({onChoose,disabled=false}:{
     <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div className="space-y-2">
         <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[.14em] text-primary">
-          <Layers3 className="h-3.5 w-3.5" aria-hidden="true"/> Starter library
-        </div>
-        <h2 id="p1-template-heading" className="text-xl font-semibold tracking-tight sm:text-2xl">Start with a proven structure</h2>
-        <p className="max-w-xl text-sm leading-6 text-muted-foreground">Choose a starting point, adjust every stage, and create your own Process. No sample tasks are added to your workspace.</p>
+          <Layers3 className="h-3.5 w-3.5" aria-hidden="true"/><AppT text="Starter library"/></div>
+        <h2 id="p1-template-heading" className="text-xl font-semibold tracking-tight sm:text-2xl"><AppT text="Start with a proven structure"/></h2>
+        <p className="max-w-xl text-sm leading-6 text-muted-foreground"><AppT text="Choose a starting point, adjust every stage, and create your own Process. No sample tasks are added to your workspace."/></p>
       </div>
       <div className="relative min-w-0 sm:w-60">
         <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" aria-hidden="true"/>
@@ -41,7 +41,7 @@ export function ProcessTemplateGallery({onChoose,disabled=false}:{
           {category}
         </button>)}
     </div>
-    {visible.length===0?<div className="rounded-2xl border border-dashed p-8 text-center text-sm text-muted-foreground">No matching templates. Try another category or search.</div>:
+    {visible.length===0?<div className="rounded-2xl border border-dashed p-8 text-center text-sm text-muted-foreground"><AppT text="No matching templates. Try another category or search."/></div>:
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       {visible.map(item=>{
         const Icon=icons[item.icon];

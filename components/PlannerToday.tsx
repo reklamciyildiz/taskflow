@@ -1,4 +1,5 @@
 'use client';
+import {T as AppT} from '@/components/i18n/AppLocaleProvider';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -206,12 +207,10 @@ function PlannerRow({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
-              <DropdownMenuItem onSelect={() => onReschedule(addCalendarDays(formatDueDateYmdLocal(new Date()), 1))}>
-                Tomorrow
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => setDateOpen(true)}>Pick another date</DropdownMenuItem>
-              {item.isRecurring ? <DropdownMenuItem onSelect={onSkip}>Skip this occurrence</DropdownMenuItem> : null}
-              {item.isRecurring ? <DropdownMenuItem onSelect={onHistory}><History className="mr-2 h-4 w-4" /> History & insights</DropdownMenuItem> : null}
+              <DropdownMenuItem onSelect={() => onReschedule(addCalendarDays(formatDueDateYmdLocal(new Date()), 1))}><AppT text="Tomorrow"/></DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setDateOpen(true)}><AppT text="Pick another date"/></DropdownMenuItem>
+              {item.isRecurring ? <DropdownMenuItem onSelect={onSkip}><AppT text="Skip this occurrence"/></DropdownMenuItem> : null}
+              {item.isRecurring ? <DropdownMenuItem onSelect={onHistory}><History className="mr-2 h-4 w-4" /><AppT text="History & insights"/></DropdownMenuItem> : null}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -245,7 +244,7 @@ function PlannerRow({
               </span>
             </>
           ) : null}
-          {item.isRecurring ? <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">Recurring</span> : null}
+          {item.isRecurring ? <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary"><AppT text="Recurring"/></span> : null}
           {item.missedCount > 0 ? (
             <span className="text-[11px] text-muted-foreground">
               {item.missedCount} previous {item.missedCount === 1 ? 'occurrence' : 'occurrences'} missed
@@ -259,8 +258,8 @@ function PlannerRow({
           onClick={(event) => event.stopPropagation()}
         >
           <DialogHeader className="sr-only">
-            <DialogTitle>Reschedule work</DialogTitle>
-            <DialogDescription>Choose the date this work should appear in Planner.</DialogDescription>
+            <DialogTitle><AppT text="Reschedule work"/></DialogTitle>
+            <DialogDescription><AppT text="Choose the date this work should appear in Planner."/></DialogDescription>
           </DialogHeader>
           <Calendar
             mode="single"
@@ -670,11 +669,10 @@ export function PlannerToday({ embedded = false }: { embedded?: boolean }) {
       <div className="mx-auto flex min-h-[45vh] w-full max-w-4xl items-center justify-center">
         <div className="rounded-xl border border-destructive/25 bg-card/30 px-6 py-8 text-center">
           <AlertCircle className="mx-auto mb-3 h-7 w-7 text-destructive" aria-hidden />
-          <p className="text-sm font-medium">Today could not be loaded</p>
-          <p className="mt-1 text-xs text-muted-foreground">Your source Actions and Checklist items were not changed.</p>
+          <p className="text-sm font-medium"><AppT text="Today could not be loaded"/></p>
+          <p className="mt-1 text-xs text-muted-foreground"><AppT text="Your source Actions and Checklist items were not changed."/></p>
           <Button variant="outline" size="sm" className="mt-4" onClick={() => void load()}>
-            <RefreshCw className="mr-2 h-3.5 w-3.5" /> Retry
-          </Button>
+            <RefreshCw className="mr-2 h-3.5 w-3.5" /><AppT text="Retry"/></Button>
         </div>
       </div>
     );
@@ -685,10 +683,9 @@ export function PlannerToday({ embedded = false }: { embedded?: boolean }) {
       <div className="mx-auto flex min-h-[45vh] w-full max-w-4xl items-center justify-center">
         <div className="rounded-xl border border-destructive/25 bg-card/30 px-6 py-8 text-center">
           <AlertCircle className="mx-auto mb-3 h-7 w-7 text-destructive" aria-hidden />
-          <p className="text-sm font-medium">Upcoming work could not be loaded</p>
+          <p className="text-sm font-medium"><AppT text="Upcoming work could not be loaded"/></p>
           <Button variant="outline" size="sm" className="mt-4" onClick={() => void loadUpcoming()}>
-            <RefreshCw className="mr-2 h-3.5 w-3.5" /> Retry
-          </Button>
+            <RefreshCw className="mr-2 h-3.5 w-3.5" /><AppT text="Retry"/></Button>
         </div>
       </div>
     );
@@ -735,11 +732,10 @@ export function PlannerToday({ embedded = false }: { embedded?: boolean }) {
       {!embedded ? <header className="mb-5 flex items-start justify-between gap-4">
         <div>
           <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-primary">
-            <CalendarDays className="h-4 w-4" aria-hidden /> Planner
-          </div>
+            <CalendarDays className="h-4 w-4" aria-hidden /><AppT text="Planner"/></div>
           <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
             {view === 'today' ? (
-              <>Today <span className="font-normal text-muted-foreground">· {todayHeading(date)}</span></>
+              <><AppT text="Today"/><span className="font-normal text-muted-foreground">· {todayHeading(date)}</span></>
             ) : 'Upcoming'}
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
@@ -750,8 +746,7 @@ export function PlannerToday({ embedded = false }: { embedded?: boolean }) {
         </div>
         {(view === 'today' ? error : upcomingError) ? (
           <Button variant="outline" size="sm" onClick={() => void (view === 'today' ? load() : loadUpcoming())}>
-            <RefreshCw className="mr-2 h-3.5 w-3.5" /> Retry
-          </Button>
+            <RefreshCw className="mr-2 h-3.5 w-3.5" /><AppT text="Retry"/></Button>
         ) : null}
       </header> : null}
 
@@ -789,20 +784,20 @@ export function PlannerToday({ embedded = false }: { embedded?: boolean }) {
       {view === 'today' ? (remaining === 0 && groups.completedToday.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border/70 bg-card/20 px-6 py-14 text-center">
           <CheckCircle2 className="mx-auto mb-3 h-8 w-8 text-muted-foreground/60" aria-hidden />
-          <h2 className="font-semibold">Nothing scheduled for today</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Use the existing Add Action flow when you want to schedule work.</p>
+          <h2 className="font-semibold"><AppT text="Nothing scheduled for today"/></h2>
+          <p className="mt-1 text-sm text-muted-foreground"><AppT text="Use the existing Add Action flow when you want to schedule work."/></p>
         </div>
       ) : (
         <div className="space-y-8">
           {groups.overdue.length ? (
             <section aria-labelledby="planner-overdue">
-              <h2 id="planner-overdue" className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-destructive/90">Overdue</h2>
+              <h2 id="planner-overdue" className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-destructive/90"><AppT text="Overdue"/></h2>
               {renderRows(groups.overdue, false, true)}
             </section>
           ) : null}
           {groups.today.length ? (
             <section aria-labelledby="planner-today">
-              <h2 id="planner-today" className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Today</h2>
+              <h2 id="planner-today" className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground"><AppT text="Today"/></h2>
               {renderRows(groups.today)}
             </section>
           ) : null}
@@ -823,7 +818,7 @@ export function PlannerToday({ embedded = false }: { embedded?: boolean }) {
       )) : visibleUpcoming?.groups.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border/70 bg-card/20 px-6 py-14 text-center">
           <CalendarDays className="mx-auto mb-3 h-8 w-8 text-muted-foreground/60" aria-hidden />
-          <h2 className="font-semibold">Nothing scheduled for the next 14 days</h2>
+          <h2 className="font-semibold"><AppT text="Nothing scheduled for the next 14 days"/></h2>
         </div>
       ) : (
         <div className="space-y-7">

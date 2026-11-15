@@ -1,4 +1,5 @@
 'use client';
+import {T as AppT} from '@/components/i18n/AppLocaleProvider';
 
 import { useCallback,useEffect,useMemo,useRef,useState } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -247,7 +248,7 @@ export function AxiomAIChatView({
             <Sparkles className="h-5 w-5" strokeWidth={1.75} aria-hidden="true"/>
           </div>
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-[13.5px] font-semibold tracking-[-0.02em] text-foreground sm:text-[15px]">Actiproc AI</h1>
+            <h1 className="truncate text-[13.5px] font-semibold tracking-[-0.02em] text-foreground sm:text-[15px]"><AppT text="Actiproc AI"/></h1>
             <p className="truncate text-[10px] leading-4 text-muted-foreground sm:text-[11px]">
               {activeConversation?.title ?? 'Your workspace intelligence'}
             </p>
@@ -266,7 +267,7 @@ export function AxiomAIChatView({
           <div role="status" className="flex shrink-0 items-center justify-between gap-3 border-b border-amber-500/25 bg-amber-500/[0.075] px-4 py-2.5 text-xs text-foreground">
             <span>{historyError}</span>
             <Button type="button" variant="outline" size="sm" onClick={()=>void refreshConversations()}
-              disabled={historyLoading} className="shrink-0">Retry</Button>
+              disabled={historyLoading} className="shrink-0"><AppT text="Retry"/></Button>
           </div>
         )}
         <div ref={scrollRef} className="actiproc-ai-scrollbar relative min-h-0 flex-1 overflow-y-auto overscroll-contain bg-gradient-to-b from-primary/[0.018] via-transparent to-transparent px-3 py-2 sm:px-6 sm:py-5">

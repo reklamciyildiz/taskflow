@@ -1,4 +1,5 @@
 'use client';
+import {T as AppT} from '@/components/i18n/AppLocaleProvider';
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -72,34 +73,33 @@ export function DashboardV2() {
               <span>{dateLabel}</span>
               {currentTeam ? <><span aria-hidden="true" className="opacity-45">·</span><span className="truncate">{currentTeam.name}</span></> : null}
             </div>
-            <h1 className="dashboard-v2-hero-title">Dashboard</h1>
+            <h1 className="dashboard-v2-hero-title"><AppT text="Dashboard"/></h1>
             <p className="dashboard-v2-hero-description">
               Plan today, keep focus, and return to the work that matters.
             </p>
             <div className="dashboard-v2-hero-actions">
-              <Button asChild variant="outline" className="dashboard-v2-action-secondary"><Link href="/get-started"><WandSparkles className="h-4 w-4" aria-hidden="true"/> Start here <ArrowUpRight className="ml-1 h-3.5 w-3.5"/></Link></Button>
+              <Button asChild variant="outline" className="dashboard-v2-action-secondary"><Link href="/get-started"><WandSparkles className="h-4 w-4" aria-hidden="true"/><AppT text="Start here"/><ArrowUpRight className="ml-1 h-3.5 w-3.5"/></Link></Button>
               <Button variant="outline" className="dashboard-v2-action-secondary" onClick={() => setCaptureOpen(true)}>
                 <WandSparkles className="h-4 w-4" aria-hidden="true" />
                 Capture
                 <ArrowUpRight className="ml-1 h-3.5 w-3.5 opacity-60" aria-hidden="true" />
               </Button>
               <Button className="dashboard-v2-action-primary" onClick={() => setCreateActionOpen(true)}>
-                <Plus className="h-4 w-4" aria-hidden="true" />Add Action
-              </Button>
+                <Plus className="h-4 w-4" aria-hidden="true" /><AppT text="Add Action"/></Button>
             </div>
           </div>
           <div className="dashboard-v2-hero-stats" aria-label="Current workspace overview">
             <div className="dashboard-v2-hero-stat dashboard-v2-hero-stat--lime">
               <span className="dashboard-v2-hero-stat-icon"><Activity className="h-[19px] w-[19px]" aria-hidden="true" /></span>
-              <span className="dashboard-v2-hero-stat-copy"><strong>{loading ? '—' : overview.active}</strong><span>Active Actions</span></span>
+              <span className="dashboard-v2-hero-stat-copy"><strong>{loading ? '—' : overview.active}</strong><span><AppT text="Active Actions"/></span></span>
             </div>
             <div className="dashboard-v2-hero-stat dashboard-v2-hero-stat--blue">
               <span className="dashboard-v2-hero-stat-icon"><FolderKanban className="h-[19px] w-[19px]" aria-hidden="true" /></span>
-              <span className="dashboard-v2-hero-stat-copy"><strong>{loading ? '—' : overview.processes}</strong><span>Processes</span></span>
+              <span className="dashboard-v2-hero-stat-copy"><strong>{loading ? '—' : overview.processes}</strong><span><AppT text="Processes"/></span></span>
             </div>
             <div className="dashboard-v2-hero-stat dashboard-v2-hero-stat--teal">
               <span className="dashboard-v2-hero-stat-icon"><CheckCircle2 className="h-[19px] w-[19px]" aria-hidden="true" /></span>
-              <span className="dashboard-v2-hero-stat-copy"><strong>{loading ? '—' : `${overview.complete}%`}</strong><span>Complete</span></span>
+              <span className="dashboard-v2-hero-stat-copy"><strong>{loading ? '—' : `${overview.complete}%`}</strong><span><AppT text="Complete"/></span></span>
             </div>
           </div>
         </div>

@@ -1,4 +1,5 @@
 'use client';
+import {T as AppT} from '@/components/i18n/AppLocaleProvider';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -543,7 +544,7 @@ export function Settings() {
   return (
     <div className="space-y-6">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Settings</h1>
+        <h1 className="text-2xl font-bold text-foreground"><AppT text="Settings"/></h1>
         <p className="text-muted-foreground mt-1">
           Manage your team, preferences, and account settings
         </p>
@@ -557,9 +558,7 @@ export function Settings() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Globe className="h-5 w-5" />
-                  Organization
-                </CardTitle>
+                  <Globe className="h-5 w-5" /><AppT text="Organization"/></CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
@@ -578,16 +577,12 @@ export function Settings() {
                       <Button 
                         onClick={handleOrgNameSave}
                         disabled={orgUpdateLoading || !newOrgName.trim()}
-                      >
-                        Save
-                      </Button>
+                      ><AppT text="Save"/></Button>
                       <Button 
                         variant="outline"
                         onClick={handleOrgNameCancel}
                         disabled={orgUpdateLoading}
-                      >
-                        Cancel
-                      </Button>
+                      ><AppT text="Cancel"/></Button>
                     </div>
                   ) : (
                     <div className="flex items-center gap-2">
@@ -597,9 +592,7 @@ export function Settings() {
                         size="sm"
                         onClick={handleOrgNameEdit}
                       >
-                        <Edit className="h-4 w-4 mr-2" />
-                        Edit
-                      </Button>
+                        <Edit className="h-4 w-4 mr-2" /><AppT text="Edit"/></Button>
                     </div>
                   )}
                 </div>
@@ -607,7 +600,7 @@ export function Settings() {
                 <Separator />
 
                 <div>
-                  <Label className="text-sm font-medium">Customer directory labels</Label>
+                  <Label className="text-sm font-medium"><AppT text="Customer directory labels"/></Label>
                   <p className="text-xs text-muted-foreground mt-1 mb-3">
                     Rename the sidebar entry and the /customers page without changing routes or data. Stored on this
                     device for the workspace (per organization).
@@ -627,9 +620,7 @@ export function Settings() {
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <Label htmlFor="cust-sing" className="text-xs text-muted-foreground">
-                        Singular (buttons & forms)
-                      </Label>
+                      <Label htmlFor="cust-sing" className="text-xs text-muted-foreground"><AppT text="Singular (buttons & forms)"/></Label>
                       <Input
                         id="cust-sing"
                         value={customerSingDraft}
@@ -683,14 +674,12 @@ export function Settings() {
               <CardContent className="space-y-6">
                 {/* Create New Team */}
                 <div>
-                  <Label className="text-sm font-medium">Create New Team</Label>
+                  <Label className="text-sm font-medium"><AppT text="Create New Team"/></Label>
                   <p className="text-xs text-muted-foreground mt-1 mb-3">
                     Create a new team for your organization
                   </p>
                   <Button onClick={() => setShowCreateTeam(true)}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create Team
-                  </Button>
+                    <Plus className="h-4 w-4 mr-2" /><AppT text="Create Team"/></Button>
                 </div>
 
                 <Separator />
@@ -705,7 +694,7 @@ export function Settings() {
                           <div className="flex items-center gap-2">
                             <p className="font-medium text-sm">{team.name}</p>
                             {team.id === currentTeam?.id && (
-                              <Badge variant="outline" className="text-xs">Current</Badge>
+                              <Badge variant="outline" className="text-xs"><AppT text="Current"/></Badge>
                             )}
                           </div>
                           <p className="text-xs text-muted-foreground">
@@ -747,9 +736,7 @@ export function Settings() {
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <CardTitle className="flex flex-wrap items-center gap-2 text-lg">
-                      <CreditCard className="h-5 w-5" aria-hidden />
-                      Billing
-                      <Badge variant={billingPlan === 'free' ? 'secondary' : 'default'} className="uppercase">
+                      <CreditCard className="h-5 w-5" aria-hidden /><AppT text="Billing"/><Badge variant={billingPlan === 'free' ? 'secondary' : 'default'} className="uppercase">
                         {billingPlan}
                       </Badge>
                     </CardTitle>
@@ -773,7 +760,7 @@ export function Settings() {
                 <div className="flex flex-col gap-3 rounded-xl border bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between">
                   <div className="space-y-1 text-sm">
                     <p>
-                      <span className="text-muted-foreground">Status</span>{' '}
+                      <span className="text-muted-foreground"><AppT text="Status"/></span>{' '}
                       <span className="font-medium capitalize">
                         {billingLoading ? '…' : billingStatus.replace('_', ' ')}
                       </span>
@@ -807,9 +794,7 @@ export function Settings() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Layers className="h-5 w-5" />
-                  Process Center
-                </CardTitle>
+                  <Layers className="h-5 w-5" /><AppT text="Process Center"/></CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="rounded-xl border border-dashed p-4 bg-muted/30 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -825,9 +810,7 @@ export function Settings() {
                     onClick={() => (window.location.href = '/dashboard/processes')}
                     className="gap-2"
                   >
-                    <Layers className="h-4 w-4" />
-                    Go to Process Center
-                  </Button>
+                    <Layers className="h-4 w-4" /><AppT text="Go to Process Center"/></Button>
                 </div>
               </CardContent>
             </Card>
@@ -911,15 +894,13 @@ export function Settings() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Bell className="h-5 w-5" />
-                Notifications
-              </CardTitle>
+                <Bell className="h-5 w-5" /><AppT text="Notifications"/></CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <Label className="text-sm font-medium">Email Notifications</Label>
-                  <p className="text-xs text-muted-foreground">Receive email updates for action assignments</p>
+                  <Label className="text-sm font-medium"><AppT text="Email Notifications"/></Label>
+                  <p className="text-xs text-muted-foreground"><AppT text="Receive email updates for action assignments"/></p>
                 </div>
                 <Switch 
                   checked={emailNotifications} 
@@ -928,8 +909,8 @@ export function Settings() {
               </div>
               <div className="flex items-center justify-between">
                 <div>
-                  <Label className="text-sm font-medium">Push Notifications</Label>
-                  <p className="text-xs text-muted-foreground">Reminders, due dates, assignments, and updates in your browser</p>
+                  <Label className="text-sm font-medium"><AppT text="Push Notifications"/></Label>
+                  <p className="text-xs text-muted-foreground"><AppT text="Reminders, due dates, assignments, and updates in your browser"/></p>
                 </div>
                 <Switch 
                   checked={pushNotifications} 
@@ -961,8 +942,8 @@ export function Settings() {
               </div>
               <div className="flex items-center justify-between">
                 <div>
-                  <Label className="text-sm font-medium">Team Activity</Label>
-                  <p className="text-xs text-muted-foreground">Notifications when team members complete actions</p>
+                  <Label className="text-sm font-medium"><AppT text="Team Activity"/></Label>
+                  <p className="text-xs text-muted-foreground"><AppT text="Notifications when team members complete actions"/></p>
                 </div>
                 <Switch 
                   checked={teamActivity} 
@@ -1008,7 +989,7 @@ export function Settings() {
 
               <div className="space-y-3">
                 <div className="space-y-1">
-                  <Label className="text-sm font-medium">Google Calendar</Label>
+                  <Label className="text-sm font-medium"><AppT text="Google Calendar"/></Label>
                   <p className="text-xs text-muted-foreground">
                     Sync due dates to a calendar you choose. Each teammate uses their own Google account and time zone.
                   </p>
@@ -1016,7 +997,7 @@ export function Settings() {
 
                 {!googleConnected ? (
                   <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
-                    <p className="text-sm text-muted-foreground">Not connected</p>
+                    <p className="text-sm text-muted-foreground"><AppT text="Not connected"/></p>
                     <Button type="button" onClick={handleGoogleConnect} disabled={googleBusy}>
                       Connect Google
                     </Button>
@@ -1024,20 +1005,20 @@ export function Settings() {
                 ) : (
                   <div className="space-y-4">
                     <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-sm">
-                      <div className="text-muted-foreground text-xs">Connected as</div>
+                      <div className="text-muted-foreground text-xs"><AppT text="Connected as"/></div>
                       <div className="font-medium">{googleEmail || 'Google account'}</div>
                     </div>
 
                     <div className="flex items-center justify-between gap-4">
                       <div>
-                        <Label className="text-sm font-medium">Sync due dates</Label>
-                        <p className="text-xs text-muted-foreground">Pause without disconnecting Google</p>
+                        <Label className="text-sm font-medium"><AppT text="Sync due dates"/></Label>
+                        <p className="text-xs text-muted-foreground"><AppT text="Pause without disconnecting Google"/></p>
                       </div>
                       <Switch checked={googleSyncEnabled} onCheckedChange={(v) => void handleGoogleSyncToggle(v)} disabled={googleBusy} />
                     </div>
 
                     <div className="space-y-2">
-                      <Label className="text-xs font-medium">Destination calendar</Label>
+                      <Label className="text-xs font-medium"><AppT text="Destination calendar"/></Label>
                       <Select
                         value={googleSelectedCalendarId}
                         onValueChange={(v) => void handleGoogleCalendarChange(v)}
@@ -1056,7 +1037,7 @@ export function Settings() {
                         </SelectContent>
                       </Select>
                       {!googleSyncEnabled ? (
-                        <p className="text-xs text-muted-foreground">Turn sync on to update Google Calendar events.</p>
+                        <p className="text-xs text-muted-foreground"><AppT text="Turn sync on to update Google Calendar events."/></p>
                       ) : null}
                     </div>
 
@@ -1064,9 +1045,7 @@ export function Settings() {
                       <Button type="button" variant="outline" onClick={() => void loadGoogleCalendars()} disabled={googleBusy || googleCalendarsLoading}>
                         Refresh calendars
                       </Button>
-                      <Button type="button" variant="destructive" onClick={() => void handleGoogleDisconnect()} disabled={googleBusy}>
-                        Disconnect
-                      </Button>
+                      <Button type="button" variant="destructive" onClick={() => void handleGoogleDisconnect()} disabled={googleBusy}><AppT text="Disconnect"/></Button>
                     </div>
                   </div>
                 )}
@@ -1077,9 +1056,7 @@ export function Settings() {
           <Card className="border-amber-200/80 dark:border-amber-900/40">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
-                <LogOut className="h-5 w-5 text-amber-600 dark:text-amber-500" />
-                Workspace
-              </CardTitle>
+                <LogOut className="h-5 w-5 text-amber-600 dark:text-amber-500" /><AppT text="Workspace"/></CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <p className="text-sm text-muted-foreground">
@@ -1105,9 +1082,7 @@ export function Settings() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
-                <SettingsIcon className="h-4 w-4" />
-                Profile
-              </CardTitle>
+                <SettingsIcon className="h-4 w-4" /><AppT text="Profile"/></CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
@@ -1115,7 +1090,7 @@ export function Settings() {
                 <Input id="display-name" defaultValue={currentUser?.name || ''} className="bg-white dark:bg-gray-800" />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-xs font-medium">Email</Label>
+                <Label htmlFor="email" className="text-xs font-medium"><AppT text="Email"/></Label>
                 <Input id="email" defaultValue={currentUser?.email || ''} disabled />
               </div>
             </CardContent>
@@ -1125,9 +1100,7 @@ export function Settings() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
-                <Palette className="h-4 w-4" />
-                Appearance
-              </CardTitle>
+                <Palette className="h-4 w-4" /><AppT text="Appearance"/></CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
@@ -1159,9 +1132,7 @@ export function Settings() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
-                <Shield className="h-4 w-4" />
-                Security
-              </CardTitle>
+                <Shield className="h-4 w-4" /><AppT text="Security"/></CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <Button 
@@ -1169,9 +1140,7 @@ export function Settings() {
                 size="sm" 
                 className="w-full"
                 onClick={() => setShowChangePassword(true)}
-              >
-                Change Password
-              </Button>
+              ><AppT text="Change Password"/></Button>
               <p className="rounded-xl border bg-muted/40 px-4 py-3 text-xs leading-5 text-muted-foreground">
                 Two-factor authentication and remote session management are not available inside Actiproc.
                 If you sign in with Google, manage those protections from your Google Account.

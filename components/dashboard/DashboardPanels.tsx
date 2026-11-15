@@ -1,4 +1,5 @@
 'use client';
+import {T as AppT} from '@/components/i18n/AppLocaleProvider';
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -108,12 +109,12 @@ export function DashboardFocusProcesses() {
         <div className="flex min-w-0 items-start gap-2.5">
           <span className="dashboard-v2-icon dashboard-v2-icon--focus"><Star className="h-4 w-4" /></span>
           <div className="min-w-0 pt-0.5">
-            <h2 id="dashboard-focus-title" className="dashboard-v2-section-title">Focus Processes</h2>
-            <p className="mt-0.5 text-[0.7rem] text-muted-foreground">Pinned first, then recently active</p>
+            <h2 id="dashboard-focus-title" className="dashboard-v2-section-title"><AppT text="Focus Processes"/></h2>
+            <p className="mt-0.5 text-[0.7rem] text-muted-foreground"><AppT text="Pinned first, then recently active"/></p>
           </div>
         </div>
         <Button asChild variant="ghost" size="sm" className="dashboard-v2-link">
-          <Link href="/dashboard/processes">Manage <ArrowUpRight className="ml-1 h-3.5 w-3.5" /></Link>
+          <Link href="/dashboard/processes"><AppT text="Manage"/><ArrowUpRight className="ml-1 h-3.5 w-3.5" /></Link>
         </Button>
       </header>
 
@@ -123,7 +124,7 @@ export function DashboardFocusProcesses() {
         )) : visible.length === 0 ? (
           <div className="dashboard-v2-empty mx-2 mb-2">
             <FolderKanban className="h-5 w-5 text-muted-foreground" />
-            <div><p className="text-sm font-medium">No Processes yet</p><p className="text-xs text-muted-foreground">Create a Process to keep important work close.</p></div>
+            <div><p className="text-sm font-medium"><AppT text="No Processes yet"/></p><p className="text-xs text-muted-foreground"><AppT text="Create a Process to keep important work close."/></p></div>
           </div>
         ) : (
           <AxiomProcessList
@@ -153,7 +154,7 @@ export function DashboardFocusProcesses() {
             <span>{focusStats.percent}%</span>
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-[0.68rem] font-semibold uppercase tracking-[0.11em] text-muted-foreground">Process progress</p>
+            <p className="text-[0.68rem] font-semibold uppercase tracking-[0.11em] text-muted-foreground"><AppT text="Process progress"/></p>
             <p className="mt-1 text-sm font-medium">{focusStats.finished} of {focusStats.total} Actions completed</p>
             <p className="mt-0.5 text-xs text-muted-foreground">{focusStats.active} active Actions · {projectsForTeam.length} Processes</p>
           </div>
@@ -190,12 +191,12 @@ export function DashboardRecentKnowledge() {
         <div className="flex min-w-0 items-start gap-2.5">
           <span className="dashboard-v2-icon dashboard-v2-icon--knowledge"><Library className="h-4 w-4" /></span>
           <div className="min-w-0 pt-0.5">
-            <h2 id="dashboard-knowledge-title" className="dashboard-v2-section-title">Recent Knowledge</h2>
-            <p className="mt-0.5 text-[0.7rem] text-muted-foreground">Recent Notes and Checklist context</p>
+            <h2 id="dashboard-knowledge-title" className="dashboard-v2-section-title"><AppT text="Recent Knowledge"/></h2>
+            <p className="mt-0.5 text-[0.7rem] text-muted-foreground"><AppT text="Recent Notes and Checklist context"/></p>
           </div>
         </div>
         <Button asChild variant="ghost" size="sm" className="dashboard-v2-link">
-          <Link href="/dashboard/knowledge-hub">Knowledge Hub <ArrowUpRight className="ml-1 h-3.5 w-3.5" /></Link>
+          <Link href="/dashboard/knowledge-hub"><AppT text="Knowledge Hub"/><ArrowUpRight className="ml-1 h-3.5 w-3.5" /></Link>
         </Button>
       </header>
 
@@ -203,9 +204,9 @@ export function DashboardRecentKnowledge() {
         {loading || notesLoading ? [0, 1, 2].map((row) => (
           <div key={row} className="flex min-h-[70px] items-center gap-3 px-2.5"><Skeleton className="h-9 w-9 rounded-lg" /><div className="flex-1 space-y-2"><Skeleton className="h-4 w-3/4" /><Skeleton className="h-3 w-1/2" /></div></div>
         )) : notesError && entries.length === 0 ? (
-          <div className="dashboard-v2-empty mx-2 mb-2"><BookOpen className="h-5 w-5 text-muted-foreground" /><div className="flex-1"><p className="text-sm font-medium">Knowledge is unavailable</p><p className="text-xs text-muted-foreground">{notesError}</p></div><Button variant="ghost" size="sm" onClick={() => void retryNotes()}>Retry</Button></div>
+          <div className="dashboard-v2-empty mx-2 mb-2"><BookOpen className="h-5 w-5 text-muted-foreground" /><div className="flex-1"><p className="text-sm font-medium"><AppT text="Knowledge is unavailable"/></p><p className="text-xs text-muted-foreground">{notesError}</p></div><Button variant="ghost" size="sm" onClick={() => void retryNotes()}><AppT text="Retry"/></Button></div>
         ) : entries.length === 0 ? (
-          <div className="dashboard-v2-empty mx-2 mb-2"><BookOpen className="h-5 w-5 text-muted-foreground" /><div><p className="text-sm font-medium">No knowledge yet</p><p className="text-xs text-muted-foreground">Notes and meaningful Checklist context will appear here.</p></div></div>
+          <div className="dashboard-v2-empty mx-2 mb-2"><BookOpen className="h-5 w-5 text-muted-foreground" /><div><p className="text-sm font-medium"><AppT text="No knowledge yet"/></p><p className="text-xs text-muted-foreground"><AppT text="Notes and meaningful Checklist context will appear here."/></p></div></div>
         ) : entries.map((entry) => (
           <button key={entry.id} type="button" onClick={() => openTaskEditor(entry.taskId)} className="dashboard-v2-row group min-h-[72px] gap-3 px-3 py-2.5">
             <span className="dashboard-v2-row-icon"><BookOpen className="h-4 w-4" /></span>
@@ -248,8 +249,8 @@ export function DashboardWorkspaceSummary() {
         <div className="flex min-w-0 items-start gap-2.5">
           <span className="dashboard-v2-icon dashboard-v2-icon--summary"><Layers3 className="h-4 w-4" /></span>
           <div className="min-w-0 pt-0.5">
-            <h2 id="dashboard-summary-title" className="dashboard-v2-section-title">Workspace Summary</h2>
-            <p className="mt-0.5 text-[0.7rem] text-muted-foreground">Canonical workspace totals</p>
+            <h2 id="dashboard-summary-title" className="dashboard-v2-section-title"><AppT text="Workspace Summary"/></h2>
+            <p className="mt-0.5 text-[0.7rem] text-muted-foreground"><AppT text="Canonical workspace totals"/></p>
           </div>
         </div>
       </header>
@@ -260,15 +261,15 @@ export function DashboardWorkspaceSummary() {
           <div>
             <div className="dashboard-v2-summary-feature">
               <div className="flex items-center justify-between gap-3">
-                <span className="flex items-center gap-2 text-xs font-medium text-muted-foreground"><Activity className="h-3.5 w-3.5 text-primary" />Active work</span>
-                <span className="dashboard-v2-summary-live"><span className="h-1.5 w-1.5 rounded-full bg-current" /> Current</span>
+                <span className="flex items-center gap-2 text-xs font-medium text-muted-foreground"><Activity className="h-3.5 w-3.5 text-primary" /><AppT text="Active work"/></span>
+                <span className="dashboard-v2-summary-live"><span className="h-1.5 w-1.5 rounded-full bg-current" /><AppT text="Current"/></span>
               </div>
               <div className="mt-3 flex items-end justify-between gap-3">
                 <strong className="text-[2rem] font-semibold leading-none tabular-nums tracking-[-0.045em]">{active.length}</strong>
-                <p className="pb-0.5 text-right text-[0.7rem] leading-4 text-muted-foreground">Across {projectsForTeam.length}<br />visible Processes</p>
+                <p className="pb-0.5 text-right text-[0.7rem] leading-4 text-muted-foreground">Across {projectsForTeam.length}<br /><AppT text="visible Processes"/></p>
               </div>
               <div className="mt-4 flex items-center justify-between gap-3 text-[0.72rem]">
-                <span className="text-muted-foreground">Completion</span>
+                <span className="text-muted-foreground"><AppT text="Completion"/></span>
                 <strong className="tabular-nums">{completionPercent}%</strong>
               </div>
               <div className="dashboard-v2-progress-track mt-2"
@@ -279,11 +280,11 @@ export function DashboardWorkspaceSummary() {
             </div>
             <div className="dashboard-v2-summary-tiles">
               <div className="px-3 py-1.5">
-                <span className="flex items-center gap-1.5 text-[0.68rem] text-muted-foreground"><UserRound className="h-3.5 w-3.5" />Assigned to you</span>
+                <span className="flex items-center gap-1.5 text-[0.68rem] text-muted-foreground"><UserRound className="h-3.5 w-3.5" /><AppT text="Assigned to you"/></span>
                 <strong className="mt-1 block text-lg font-semibold tabular-nums tracking-tight">{assigned}</strong>
               </div>
               <div className="px-3 py-1.5">
-                <span className="flex items-center gap-1.5 text-[0.68rem] text-muted-foreground"><CheckCircle2 className="h-3.5 w-3.5" />Terminal Actions</span>
+                <span className="flex items-center gap-1.5 text-[0.68rem] text-muted-foreground"><CheckCircle2 className="h-3.5 w-3.5" /><AppT text="Terminal Actions"/></span>
                 <strong className="mt-1 block text-lg font-semibold tabular-nums tracking-tight">{completed}</strong>
               </div>
             </div>

@@ -1,4 +1,5 @@
 'use client';
+import {T as AppT} from '@/components/i18n/AppLocaleProvider';
 
 import Link from 'next/link';
 import {ArrowRight,Check,CheckCircle2,Compass,Layers3,Plus,Trophy,X} from 'lucide-react';
@@ -37,7 +38,7 @@ export function FirstSuccessJourney({compact=false,onDismiss}:{compact?:boolean;
     <div className={'bg-gradient-to-br from-primary/10 via-background to-background '+(compact?'p-4 sm:p-5':'p-5 sm:p-7')}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
-          <span className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[.14em] text-primary"><Compass className="h-3.5 w-3.5"/> Your first win</span>
+          <span className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[.14em] text-primary"><Compass className="h-3.5 w-3.5"/><AppT text="Your first win"/></span>
           <h2 id={compact?'p1-journey-small':'p1-journey-large'} className={'font-semibold tracking-tight '+(compact?'text-lg':'text-2xl')}>
             {p.complete?'Your first workflow is running':'From a blank page to finished work'}
           </h2>
@@ -67,7 +68,7 @@ export function FirstSuccessJourney({compact=false,onDismiss}:{compact?:boolean;
         </div>
         <h3 className="mt-3 text-sm font-semibold">{step.title}</h3>
         <p className="mt-1 min-h-[36px] text-xs leading-5 text-muted-foreground">{step.description}</p>
-        {step.done?<p className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400"><CheckCircle2 className="h-3.5 w-3.5"/> Completed</p>:
+        {step.done?<p className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400"><CheckCircle2 className="h-3.5 w-3.5"/><AppT text="Completed"/></p>:
           (i===0&&!admin?<p className="mt-3 text-xs text-muted-foreground">A workspace admin creates Processes. You can explore the sample workspace below.</p>:
             <Link href={step.href} className="mt-3 inline-flex min-h-9 items-center gap-1.5 text-xs font-semibold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               {step.action}<ArrowRight className="h-3.5 w-3.5"/>

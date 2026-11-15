@@ -1,4 +1,6 @@
 'use client';
+import {T as AppT} from '@/components/i18n/AppLocaleProvider';
+
 
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -145,7 +147,7 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
       <DialogContent className="max-h-[90dvh] w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] overflow-y-auto sm:w-full sm:max-w-md">
         <DialogHeader>
           <div className="flex items-center gap-2">
-            <DialogTitle>New action</DialogTitle>
+            <DialogTitle><AppT text="New action"/></DialogTitle>
             <Popover>
               <PopoverTrigger asChild>
                 <button
@@ -168,7 +170,7 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="title">Title</Label>
+            <Label htmlFor="title"><AppT text="Title"/></Label>
             <Input
               id="title"
               placeholder="Action title…"
@@ -180,7 +182,7 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label htmlFor="description">Description (Optional)</Label>
+              <Label htmlFor="description"><AppT text="Description (Optional)"/></Label>
               {title.trim() && (
                 <DescriptionGeneratorButton
                   taskTitle={title}
@@ -201,7 +203,7 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Status (stage)</Label>
+              <Label><AppT text="Status (stage)"/></Label>
               <Select value={status} onValueChange={(value) => setStatus(value as TaskStatus)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select a stage" />
@@ -217,16 +219,16 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
             </div>
 
             <div className="space-y-2">
-              <Label>Priority</Label>
+              <Label><AppT text="Priority"/></Label>
               <Select value={priority} onValueChange={(value) => setPriority(value as TaskPriority)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="urgent">Urgent</SelectItem>
+                  <SelectItem value="low"><AppT text="Low"/></SelectItem>
+                  <SelectItem value="medium"><AppT text="Medium"/></SelectItem>
+                  <SelectItem value="high"><AppT text="High"/></SelectItem>
+                  <SelectItem value="urgent"><AppT text="Urgent"/></SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -234,7 +236,7 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Due Date</Label>
+              <Label><AppT text="Due Date"/></Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
@@ -260,13 +262,13 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
             </div>
 
             <div className="space-y-2">
-              <Label>Assignee</Label>
+              <Label><AppT text="Assignee"/></Label>
               <Select value={assigneeId || "unassigned"} onValueChange={setAssigneeId}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select assignee" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="unassigned">Unassigned</SelectItem>
+                  <SelectItem value="unassigned"><AppT text="Unassigned"/></SelectItem>
                   {currentTeam?.members.map((member) => (
                     <SelectItem key={member.id} value={member.id}>
                       {member.name}
@@ -279,7 +281,7 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label>Process</Label>
+              <Label><AppT text="Process"/></Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <button
@@ -291,7 +293,7 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
                   </button>
                 </PopoverTrigger>
                 <PopoverContent className="w-80 text-sm" align="end">
-                  <span className="font-semibold block mb-1">Automatic:</span>
+                  <span className="font-semibold block mb-1"><AppT text="Automatic:"/></span>
                   Links to the process selected on the board. In General board, no process is assigned and statuses follow the general board columns.
                 </PopoverContent>
               </Popover>
@@ -304,7 +306,7 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
                 <SelectItem value="__auto__">
                   Automatic (board selection: {autoContextLabel})
                 </SelectItem>
-                <SelectItem value="__none__">No process</SelectItem>
+                <SelectItem value="__none__"><AppT text="No process"/></SelectItem>
                 {projectsForTeam.map((p) => (
                   <SelectItem key={p.id} value={p.id}>
                     {p.name}
@@ -316,7 +318,7 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
 
           <div className="space-y-2">
             <Label>
-              {customerSingularLabel} <span className="text-muted-foreground font-normal">(optional)</span>
+              {customerSingularLabel} <span className="text-muted-foreground font-normal"><AppT text="(optional)"/></span>
             </Label>
             <Select value={customerId} onValueChange={setCustomerId}>
               <SelectTrigger>
@@ -334,12 +336,8 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
           </div>
 
           <div className="flex justify-end gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={!title.trim() || saving || statusColumns.length === 0}>
-              Create
-            </Button>
+            <Button type="button" variant="outline" onClick={onClose}><AppT text="Cancel"/></Button>
+            <Button type="submit" disabled={!title.trim() || saving || statusColumns.length === 0}><AppT text="Create"/></Button>
           </div>
         </form>
       </DialogContent>

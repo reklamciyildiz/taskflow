@@ -1,3 +1,4 @@
+import {T as AppT} from '@/components/i18n/AppLocaleProvider';
 "use client";
 import { ActionPropertyFields } from '@/components/ActionPropertyFields';
 
@@ -1085,9 +1086,7 @@ function ActionPanelContent({
         )}
       >
         <div className="flex items-start gap-2 px-4 pt-3 md:px-6 md:pt-4">
-          <label htmlFor="action-panel-title" className="sr-only">
-            Title
-          </label>
+          <label htmlFor="action-panel-title" className="sr-only"><AppT text="Title"/></label>
           <Input
             id="action-panel-title"
             value={title}
@@ -1173,11 +1172,9 @@ function ActionPanelContent({
                     : "No schedule"}
                 </MetaChip>
                 {customerName ? <MetaChip>{customerName}</MetaChip> : null}
-                {!canEdit ? <MetaChip muted>Read-only</MetaChip> : null}
+                {!canEdit ? <MetaChip muted><AppT text="Read-only"/></MetaChip> : null}
               </div>
-              <span className="inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-[11px] font-medium text-muted-foreground transition-colors group-hover:bg-muted/40 group-hover:text-foreground group-focus-visible:ring-2 group-focus-visible:ring-ring/30">
-                Details
-                <ChevronDown
+              <span className="inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-[11px] font-medium text-muted-foreground transition-colors group-hover:bg-muted/40 group-hover:text-foreground group-focus-visible:ring-2 group-focus-visible:ring-ring/30"><AppT text="Details"/><ChevronDown
                   className={cn(
                     "h-3.5 w-3.5 transition-transform duration-200",
                     detailsOpen && "rotate-180",
@@ -1192,9 +1189,7 @@ function ActionPanelContent({
                       <div className="rounded-xl border border-border/50 bg-background/60 p-3">
                         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                           <div className="space-y-1.5">
-                            <Label className="text-[11px] uppercase text-muted-foreground">
-                              Status
-                            </Label>
+                            <Label className="text-[11px] uppercase text-muted-foreground"><AppT text="Status"/></Label>
                             <Select
                               value={status}
                               onValueChange={(v) => {
@@ -1219,9 +1214,7 @@ function ActionPanelContent({
                             </Select>
                           </div>
                           <div className="space-y-1.5">
-                            <Label className="text-[11px] uppercase text-muted-foreground">
-                              Priority
-                            </Label>
+                            <Label className="text-[11px] uppercase text-muted-foreground"><AppT text="Priority"/></Label>
                             <Select
                               value={priority}
                               onValueChange={(v) => {
@@ -1237,17 +1230,15 @@ function ActionPanelContent({
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="low">Low</SelectItem>
-                                <SelectItem value="medium">Medium</SelectItem>
-                                <SelectItem value="high">High</SelectItem>
-                                <SelectItem value="urgent">Urgent</SelectItem>
+                                <SelectItem value="low"><AppT text="Low"/></SelectItem>
+                                <SelectItem value="medium"><AppT text="Medium"/></SelectItem>
+                                <SelectItem value="high"><AppT text="High"/></SelectItem>
+                                <SelectItem value="urgent"><AppT text="Urgent"/></SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
                           <div className="space-y-1.5">
-                            <Label className="text-[11px] uppercase text-muted-foreground">
-                              Assignee
-                            </Label>
+                            <Label className="text-[11px] uppercase text-muted-foreground"><AppT text="Assignee"/></Label>
                             <Popover>
                               <PopoverTrigger asChild>
                                 <Button
@@ -1297,14 +1288,12 @@ function ActionPanelContent({
                                 onOpenAutoFocus={(e) => e.preventDefault()}
                               >
                                 <div className="border-b border-border/60 px-3 py-2">
-                                  <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                                    Assignee
-                                  </p>
+                                  <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground"><AppT text="Assignee"/></p>
                                 </div>
                                 <Command className="rounded-none">
                                   <CommandInput placeholder="Search member…" />
                                   <CommandList>
-                                    <CommandEmpty>No results.</CommandEmpty>
+                                    <CommandEmpty><AppT text="No results."/></CommandEmpty>
                                     <CommandGroup heading=" ">
                                       <CommandItem
                                         className="flex items-center gap-2"
@@ -1322,9 +1311,7 @@ function ActionPanelContent({
                                             aria-hidden
                                           />
                                         </span>
-                                        <span className="flex-1 truncate text-sm">
-                                          Unassigned
-                                        </span>
+                                        <span className="flex-1 truncate text-sm"><AppT text="Unassigned"/></span>
                                         {assigneeId === "unassigned" && (
                                           <Check
                                             className="h-4 w-4 text-primary"
@@ -1370,9 +1357,7 @@ function ActionPanelContent({
                             </Popover>
                           </div>
                           <div className="space-y-1.5">
-                            <Label className="text-[11px] uppercase text-muted-foreground">
-                              Schedule
-                            </Label>
+                            <Label className="text-[11px] uppercase text-muted-foreground"><AppT text="Schedule"/></Label>
                             {isNarrow ? (
                               <Drawer
                                 open={taskDueOpen}
@@ -1506,9 +1491,7 @@ function ActionPanelContent({
                       </div>
 
                       <div className="space-y-2">
-                        <Label className="text-[11px] uppercase text-muted-foreground">
-                          Description
-                        </Label>
+                        <Label className="text-[11px] uppercase text-muted-foreground"><AppT text="Description"/></Label>
                         <textarea
                           value={description}
                           disabled={!canEdit}

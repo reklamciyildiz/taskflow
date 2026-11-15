@@ -1,4 +1,5 @@
 'use client';
+import {T as AppT} from '@/components/i18n/AppLocaleProvider';
 
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -63,9 +64,7 @@ export function CreateTeamModal({ open, onClose }: CreateTeamModalProps): JSX.El
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            Create New Team
-          </DialogTitle>
+            <Users className="h-5 w-5" /><AppT text="Create New Team"/></DialogTitle>
           <DialogDescription>
             Enter a team name and description. You can invite members after creating the team.
           </DialogDescription>
@@ -99,9 +98,7 @@ export function CreateTeamModal({ open, onClose }: CreateTeamModalProps): JSX.El
           {error && <p className="text-sm text-red-500">{error}</p>}
 
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={handleClose}>
-              Cancel
-            </Button>
+            <Button type="button" variant="outline" onClick={handleClose}><AppT text="Cancel"/></Button>
             <Button type="submit" disabled={loading || !name.trim()}>
               {loading ? (
                 <>

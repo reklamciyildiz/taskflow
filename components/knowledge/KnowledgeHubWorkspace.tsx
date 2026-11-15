@@ -1,4 +1,5 @@
 'use client';
+import {T as AppT} from '@/components/i18n/AppLocaleProvider';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -179,7 +180,7 @@ export function KnowledgeHubWorkspace({
             <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#C8FF93]">
               <Sparkles className="h-3.5 w-3.5" aria-hidden /> Your team's second brain
             </div>
-            <h1 className="text-[28px] font-semibold tracking-tight sm:text-[35px]">Knowledge Hub</h1>
+            <h1 className="text-[28px] font-semibold tracking-tight sm:text-[35px]"><AppT text="Knowledge Hub"/></h1>
             <p className="mt-2 max-w-xl text-sm leading-relaxed text-slate-300">
               Find important notes, decisions and checklists without digging through every action.
             </p>
@@ -196,12 +197,12 @@ export function KnowledgeHubWorkspace({
             <div className="actiproc-knowledge-hero-stat rounded-2xl border border-white/10 bg-white/[0.065] p-4 backdrop-blur-sm">
               <BookOpen className="h-4 w-4 text-[#C8FF93]" aria-hidden />
               <p className="mt-3 text-2xl font-semibold tabular-nums">{notesCount}</p>
-              <p className="mt-0.5 text-[11px] text-slate-300">Saved notes</p>
+              <p className="mt-0.5 text-[11px] text-slate-300"><AppT text="Saved notes"/></p>
             </div>
             <div className="actiproc-knowledge-hero-stat rounded-2xl border border-white/10 bg-white/[0.065] p-4 backdrop-blur-sm">
               <CheckSquare2 className="h-4 w-4 text-emerald-300" aria-hidden />
               <p className="mt-3 text-2xl font-semibold tabular-nums">{openItems}</p>
-              <p className="mt-0.5 text-[11px] text-slate-300">Open checklist items</p>
+              <p className="mt-0.5 text-[11px] text-slate-300"><AppT text="Open checklist items"/></p>
             </div>
           </div>
         </div>
@@ -252,8 +253,8 @@ export function KnowledgeHubWorkspace({
                 <SelectValue placeholder="All processes" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All processes</SelectItem>
-                <SelectItem value="__none__">No process</SelectItem>
+                <SelectItem value="all"><AppT text="All processes"/></SelectItem>
+                <SelectItem value="__none__"><AppT text="No process"/></SelectItem>
                 {projects.map((project) => <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>)}
               </SelectContent>
             </Select>
@@ -263,8 +264,8 @@ export function KnowledgeHubWorkspace({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="recent">Recently updated</SelectItem>
-                <SelectItem value="title">Title A–Z</SelectItem>
+                <SelectItem value="recent"><AppT text="Recently updated"/></SelectItem>
+                <SelectItem value="title"><AppT text="Title A–Z"/></SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -302,15 +303,15 @@ export function KnowledgeHubWorkspace({
 
       {notesError && !notesLoading && (
         <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-500/25 bg-amber-500/[0.06] px-4 py-3 text-xs">
-          <p>Notes could not be loaded. Checklist and action results may still be available.</p>
-          <Button type="button" size="sm" variant="outline" className="h-8 rounded-lg" onClick={() => void retryNotes()}>Retry notes</Button>
+          <p><AppT text="Notes could not be loaded. Checklist and action results may still be available."/></p>
+          <Button type="button" size="sm" variant="outline" className="h-8 rounded-lg" onClick={() => void retryNotes()}><AppT text="Retry notes"/></Button>
         </div>
       )}
 
       <main aria-label="Knowledge results" className="space-y-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">Your library</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary"><AppT text="Your library"/></p>
             <h2 className="mt-1 text-lg font-semibold tracking-tight sm:text-xl">
               {tab === 'pinned' ? 'Pinned knowledge' : tab === 'notes' ? 'Saved notes' : tab === 'checklist' ? 'Checklists' : tab === 'actions' ? 'All actions' : 'Explore knowledge'}
             </h2>
@@ -320,7 +321,7 @@ export function KnowledgeHubWorkspace({
               {loading || notesLoading ? 'Loading…' : String(results.length) + ' entries'}
             </p>
             {(query || tab !== 'all' || projectFilter !== 'all') && (
-              <button type="button" onClick={clearFilters} className="text-xs font-medium text-primary underline-offset-4 hover:underline">Clear filters</button>
+              <button type="button" onClick={clearFilters} className="text-xs font-medium text-primary underline-offset-4 hover:underline"><AppT text="Clear filters"/></button>
             )}
           </div>
         </div>
@@ -352,7 +353,7 @@ export function KnowledgeHubWorkspace({
               <Button type="button" className="h-10 rounded-xl" onClick={() => navigate('/board')}>
                 Open board <ArrowRight className="ml-1.5 h-4 w-4" aria-hidden />
               </Button>
-              {cards.length > 0 && <Button type="button" variant="outline" className="h-10 rounded-xl" onClick={clearFilters}>Reset view</Button>}
+              {cards.length > 0 && <Button type="button" variant="outline" className="h-10 rounded-xl" onClick={clearFilters}><AppT text="Reset view"/></Button>}
             </div>
           </div>
         ) : (
@@ -378,7 +379,7 @@ export function KnowledgeHubWorkspace({
                     <div className="mb-3 flex flex-wrap items-center gap-1.5 text-[10px] font-semibold">
                       {card.notes.length > 0 && <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/10 px-2 py-1 text-violet-600 dark:text-violet-300"><BookOpen className="h-3 w-3" aria-hidden /> Notes · {card.notes.length}</span>}
                       {card.checklistItems.length > 0 && <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-1 text-emerald-700 dark:text-emerald-300"><CheckSquare2 className="h-3 w-3" aria-hidden /> {completed}/{card.checklistItems.length} done</span>}
-                      {!hasKnowledge(card) && <span className="rounded-full bg-muted px-2 py-1 text-muted-foreground">Action</span>}
+                      {!hasKnowledge(card) && <span className="rounded-full bg-muted px-2 py-1 text-muted-foreground"><AppT text="Action"/></span>}
                     </div>
                     <h3 className="line-clamp-2 text-[15px] font-semibold leading-snug tracking-tight text-foreground group-hover:text-primary">
                       {card.taskTitle}

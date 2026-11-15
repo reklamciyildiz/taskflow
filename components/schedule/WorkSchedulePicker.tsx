@@ -1,4 +1,5 @@
 'use client';
+import {T as AppT} from '@/components/i18n/AppLocaleProvider';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Bell, CalendarDays, Check, ChevronLeft, Clock3, Repeat2, Trash2, X } from 'lucide-react';
@@ -286,10 +287,10 @@ export function WorkSchedulePicker({
               </div>
             ) : null}
             <button className="schedule-menu-row" disabled={saving || disabled} onClick={() => void oneOff(today)}>
-              <CalendarDays className="h-4 w-4" /><span>Today</span>
+              <CalendarDays className="h-4 w-4" /><span><AppT text="Today"/></span>
             </button>
             <button className="schedule-menu-row" disabled={saving || disabled} onClick={() => void oneOff(addCalendarDays(today, 1))}>
-              <CalendarDays className="h-4 w-4" /><span>Tomorrow</span>
+              <CalendarDays className="h-4 w-4" /><span><AppT text="Tomorrow"/></span>
             </button>
             <button className="schedule-menu-row" disabled={saving || disabled} onClick={() => setView('calendar')}>
               <CalendarDays className="h-4 w-4" /><span>Pick date</span>
@@ -300,7 +301,7 @@ export function WorkSchedulePicker({
             </button>
             <div className="my-2 border-t border-border/50" />
             <label className="schedule-menu-row cursor-pointer">
-              <Clock3 className="h-4 w-4" /><span>Time</span>
+              <Clock3 className="h-4 w-4" /><span><AppT text="Time"/></span>
               <Input
                 type="time"
                 value={schedule?.scheduleTime?.slice(0, 5) ?? ''}
@@ -326,7 +327,7 @@ export function WorkSchedulePicker({
               </label>
             ) : null}
             <button className="schedule-menu-row" disabled={saving || disabled || !schedule} onClick={() => setView('reminder')}>
-              <Bell className="h-4 w-4" /><span>Reminder</span>
+              <Bell className="h-4 w-4" /><span><AppT text="Reminder"/></span>
               <span className="ml-auto text-[11px] text-muted-foreground">
                 {REMINDER_PRESETS.find((preset) => preset.id === reminderPreset)?.label ?? 'Off'}
               </span>
@@ -378,8 +379,8 @@ export function WorkSchedulePicker({
                 ))}
               </div>
             ) : null}
-            <label className="block space-y-1 text-xs"><span className="text-muted-foreground">Start date</span><Input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} /></label>
-            <label className="block space-y-1 text-xs"><span className="text-muted-foreground">End date <span className="opacity-60">(optional)</span></span><Input type="date" min={startDate} value={endsOn} onChange={(event) => setEndsOn(event.target.value)} /></label>
+            <label className="block space-y-1 text-xs"><span className="text-muted-foreground"><AppT text="Start date"/></span><Input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} /></label>
+            <label className="block space-y-1 text-xs"><span className="text-muted-foreground"><AppT text="End date"/><span className="opacity-60"><AppT text="(optional)"/></span></span><Input type="date" min={startDate} value={endsOn} onChange={(event) => setEndsOn(event.target.value)} /></label>
             <Button className="w-full" disabled={saving || disabled || !startDate} onClick={() => void applyRepeat()}>
               {saving ? 'Saving…' : 'Apply repeat'}
             </Button>

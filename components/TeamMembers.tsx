@@ -1,4 +1,5 @@
 'use client';
+import {T as AppT} from '@/components/i18n/AppLocaleProvider';
 
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -157,7 +158,7 @@ export function TeamMembers() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Team Members</h2>
+        <h2 className="text-2xl font-bold"><AppT text="Team Members"/></h2>
         {permissions.canInviteMembers && (
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => setIsInviteModalOpen(true)}>
@@ -184,7 +185,7 @@ export function TeamMembers() {
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Name</Label>
+                  <Label htmlFor="name"><AppT text="Name"/></Label>
                   <Input
                     id="name"
                     name="name"
@@ -195,7 +196,7 @@ export function TeamMembers() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email"><AppT text="Email"/></Label>
                   <Input
                     id="email"
                     name="email"
@@ -207,7 +208,7 @@ export function TeamMembers() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="role">Role</Label>
+                  <Label htmlFor="role"><AppT text="Role"/></Label>
                   <Select
                     value={formData.role}
                     onValueChange={(value) => setFormData(prev => ({ ...prev, role: value as any }))}
@@ -216,9 +217,9 @@ export function TeamMembers() {
                       <SelectValue placeholder="Select role" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="member">Member</SelectItem>
-                      <SelectItem value="viewer">Viewer</SelectItem>
+                      <SelectItem value="admin"><AppT text="Admin"/></SelectItem>
+                      <SelectItem value="member"><AppT text="Member"/></SelectItem>
+                      <SelectItem value="viewer"><AppT text="Viewer"/></SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -241,9 +242,7 @@ export function TeamMembers() {
                       setIsDialogOpen(false);
                       setEditingMember(null);
                     }}
-                  >
-                    Cancel
-                  </Button>
+                  ><AppT text="Cancel"/></Button>
                   <Button type="submit">
                     {editingMember ? 'Update' : 'Add'} Member
                   </Button>
@@ -318,9 +317,9 @@ export function TeamMembers() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="admin">Admin</SelectItem>
-                          <SelectItem value="member">Member</SelectItem>
-                          <SelectItem value="viewer">Viewer</SelectItem>
+                          <SelectItem value="admin"><AppT text="Admin"/></SelectItem>
+                          <SelectItem value="member"><AppT text="Member"/></SelectItem>
+                          <SelectItem value="viewer"><AppT text="Viewer"/></SelectItem>
                         </SelectContent>
                       </Select>
                     ) : (
@@ -372,15 +371,15 @@ export function TeamMembers() {
         <h3 className="text-sm font-medium mb-3 text-muted-foreground">Role Descriptions</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
           <div>
-            <p className="font-medium">Admin</p>
+            <p className="font-medium"><AppT text="Admin"/></p>
             <p className="text-muted-foreground text-xs mt-1">{roleDescriptions.admin}</p>
           </div>
           <div>
-            <p className="font-medium">Member</p>
+            <p className="font-medium"><AppT text="Member"/></p>
             <p className="text-muted-foreground text-xs mt-1">{roleDescriptions.member}</p>
           </div>
           <div>
-            <p className="font-medium">Viewer</p>
+            <p className="font-medium"><AppT text="Viewer"/></p>
             <p className="text-muted-foreground text-xs mt-1">{roleDescriptions.viewer}</p>
           </div>
         </div>

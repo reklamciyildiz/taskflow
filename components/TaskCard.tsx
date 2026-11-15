@@ -1,4 +1,5 @@
 'use client';
+import {T as AppT} from '@/components/i18n/AppLocaleProvider';
 
 import { useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -143,9 +144,7 @@ export function TaskCard({ task, dragHandleProps, onTaskClick, propertyBadges = 
                 {canEdit && (
                   <>
                     <DropdownMenuLabel className="flex items-center gap-2">
-                      <ArrowRightLeft className="h-4 w-4" />
-                      Move to stage
-                    </DropdownMenuLabel>
+                      <ArrowRightLeft className="h-4 w-4" /><AppT text="Move to stage"/></DropdownMenuLabel>
                     {boardColumns.map((col: ProjectColumnConfig) => {
                       const isCurrent = col.id === task.status;
                       const isTerminal = isTerminalBoardColumn(col.id, boardColumns);
@@ -168,7 +167,7 @@ export function TaskCard({ task, dragHandleProps, onTaskClick, propertyBadges = 
                           }}
                         >
                           {col.title}
-                          {isCurrent ? <span className="ml-auto text-xs text-muted-foreground">Current</span> : null}
+                          {isCurrent ? <span className="ml-auto text-xs text-muted-foreground"><AppT text="Current"/></span> : null}
                           {blocked ? <span className="ml-auto text-xs text-muted-foreground">Permission</span> : null}
                         </DropdownMenuItem>
                       );
@@ -200,9 +199,7 @@ export function TaskCard({ task, dragHandleProps, onTaskClick, propertyBadges = 
                       blockCardOpenUntilRef.current = Date.now() + 700;
                       void deleteTask(task.id);
                     }}
-                  >
-                    Delete
-                  </DropdownMenuItem>
+                  ><AppT text="Delete"/></DropdownMenuItem>
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
