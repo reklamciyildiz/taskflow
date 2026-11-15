@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,6 +30,9 @@ import { DeleteCustomerModal } from '@/components/DeleteCustomerModal';
 import { toast } from 'sonner';
 
 export function Customers() {
+  const router=useRouter();
+  const searchParams=useSearchParams();
+  const requestedCustomer=searchParams.get('customer');
   const {
     customers,
     fetchCustomers,
@@ -45,11 +49,13 @@ export function Customers() {
     fetchCustomers();
   }, [fetchCustomers]);
 
-  const filteredCustomers = customers.filter(customer =>
-    customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    customer.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    customer.phone?.includes(searchQuery)
-  );
+  const filteredCustomers = customers.filter(customer => {
+    if(requestedCustomer&&!searchQuery)return customer.id===requestedCustomer;
+    const term=searchQuery.toLowerCase();
+    return customer.name.toLowerCase().includes(term)||
+      customer.email?.toLowerCase().includes(term)||
+      Boolean(customer.phone?.includes(searchQuery));
+  });
 
   const canManageCustomers = permissions.canEditAnyTask;
 
@@ -62,12 +68,17 @@ export function Customers() {
         </p>
       </div>
 
+      {requestedCustomer&&<div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/25 bg-primary/5 p-3">
+        <p className="text-xs font-medium">Showing the selected customer from global search.</p>
+        <Button type="button" variant="outline" size="sm" onClick={()=>router.replace('/customers',{scroll:false})}>Show all customers</Button>
+      </div>}
       {/* Search and Actions */}
       <div className="flex flex-col sm:flex-row gap-4 mb-6">
         <div className="flex-1">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
+              onFocus={()=>{if(requestedCustomer)router.replace('/customers',{scroll:false});}}
               placeholder={`Search ${customerDirectoryLabel.toLowerCase()}…`}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -108,7 +119,7 @@ export function Customers() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredCustomers.map((customer) => (
-            <Card key={customer.id} className="p-4 hover:shadow-md transition-all duration-200">
+            <Card key={customer.id} className={'p-4 hover:shadow-md transition-all duration-200 '+(requestedCustomer===customer.id?'border-primary ring-1 ring-primary/30':'')}>
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
