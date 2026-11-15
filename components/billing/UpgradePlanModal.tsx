@@ -1,4 +1,5 @@
 'use client';
+import {T as AppT} from '@/components/i18n/AppLocaleProvider';
 
 import { useMemo, useState } from 'react';
 import { ArrowRight, Check, CircleAlert, CreditCard, Info, ShieldCheck, Sparkles, X } from 'lucide-react';
@@ -138,8 +139,8 @@ export function UpgradePlanModal(props: {
                 </DialogDescription>
               </DialogHeader>
               <div className="mt-5 flex flex-wrap items-center gap-3 text-[11px] leading-5 text-slate-400">
-                <span className="inline-flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5 text-emerald-400" aria-hidden /> Verified billing</span>
-                <span className="inline-flex items-center gap-1.5"><CreditCard className="h-3.5 w-3.5 text-[#C8FF93]" aria-hidden /> Secured by Creem</span>
+                <span className="inline-flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5 text-emerald-400" aria-hidden /><AppT text="Verified billing"/></span>
+                <span className="inline-flex items-center gap-1.5"><CreditCard className="h-3.5 w-3.5 text-[#C8FF93]" aria-hidden /><AppT text="Secured by Creem"/></span>
               </div>
               {onePlan && <Button variant="ghost" onClick={close} disabled={busy !== null}
                 className="mt-6 hidden h-9 px-0 text-slate-300 hover:bg-transparent hover:text-white md:inline-flex">
@@ -158,7 +159,7 @@ export function UpgradePlanModal(props: {
               {plans.length === 0 && (
                 <div className="rounded-xl border border-white/15 bg-white/[0.05] p-5 text-sm leading-relaxed text-slate-300">
                   No higher plan is available for this request. Review your existing subscription in
-                  {' '}<a href="/settings/billing" className="font-semibold text-[#C8FF93] underline underline-offset-4">Billing settings</a>.
+                  {' '}<a href="/settings/billing" className="font-semibold text-[#C8FF93] underline underline-offset-4"><AppT text="Billing settings"/></a>.
                 </div>
               )}
               {plans.map((plan) => {
@@ -172,10 +173,10 @@ export function UpgradePlanModal(props: {
                   )}>
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <h3 className="text-[15px] font-semibold text-white capitalize">{plan}</h3>
-                      {featured && <span className="rounded-full border border-[#C8FF93]/20 bg-[#C8FF93]/[0.10] px-2 py-0.5 text-[10px] font-semibold text-[#DBF6C8]">Recommended</span>}
+                      {featured && <span className="rounded-full border border-[#C8FF93]/20 bg-[#C8FF93]/[0.10] px-2 py-0.5 text-[10px] font-semibold text-[#DBF6C8]"><AppT text="Recommended"/></span>}
                     </div>
                     <p className="mt-1 text-[11px] text-slate-400">{DESCRIPTIONS[plan]}</p>
-                    {plan === 'individual' && <p className="mt-2 text-[10.5px] font-medium text-[#C8FF93]">Annual billing only · $12/seat per year</p>}
+                    {plan === 'individual' && <p className="mt-2 text-[10.5px] font-medium text-[#C8FF93]"><AppT text="Annual billing only · $12/seat per year"/></p>}
                     <div className="mt-5 flex flex-wrap items-baseline gap-1">
                       <strong className="text-[38px] font-semibold leading-none tracking-[-0.055em] text-white">${price}</strong>
                       <span className="text-[11px] text-slate-400">{plan==='individual'?'/seat/year':annual?'/seat/year':'/seat/month'}</span>
@@ -185,11 +186,11 @@ export function UpgradePlanModal(props: {
                         <Sparkles className="h-3.5 w-3.5" aria-hidden /> Included AI
                       </div>
                       <p className="mt-1 text-[18px] font-semibold tabular-nums text-white">{AI_PLAN_LIMITS[plan].monthlyBase.toLocaleString('en-US')}
-                        <span className="ml-1 text-[10.5px] font-normal text-slate-300">requests/month</span>
+                        <span className="ml-1 text-[10.5px] font-normal text-slate-300"><AppT text="requests/month"/></span>
                       </p>
                       <p className="mt-0.5 text-[10px] leading-4 text-slate-400">{aiPlanDailyDescription(plan)}</p>
                       {(plan === "pro" || plan === "team") && (
-                        <p className="mt-1 text-[10px] leading-4 text-slate-400">Per verified paid seat · shared organization allowance (up to 20 funded seats).</p>
+                        <p className="mt-1 text-[10px] leading-4 text-slate-400"><AppT text="Per verified paid seat · shared organization allowance (up to 20 funded seats)."/></p>
                       )}
                     </div>
                     <ul className="mt-4 flex-1 space-y-2.5 text-[11px] leading-5 text-slate-300">
@@ -218,7 +219,7 @@ export function UpgradePlanModal(props: {
           </div>}
           <div className="relative mt-5 flex items-start gap-2.5 rounded-xl border border-white/[0.08] bg-white/[0.035] px-3.5 py-3 text-[10.5px] leading-[1.65] text-slate-400">
             <Info className="mt-[2px] h-3.5 w-3.5 shrink-0 text-[#C8FF93]" aria-hidden />
-            <p>Prices are shown in USD. Final payable totals, renewal dates, and any applicable taxes are confirmed during Creem checkout or the Billing review. No automatic usage overage charges. AI limits reset monthly (UTC).</p>
+            <p><AppT text="Prices are shown in USD. Final payable totals, renewal dates, and any applicable taxes are confirmed during Creem checkout or the Billing review. No automatic usage overage charges. AI limits reset monthly (UTC)."/></p>
           </div>
           {!onePlan && <button type="button" onClick={close} disabled={busy !== null}
             className="relative mt-4 text-[12px] font-medium text-slate-400 hover:text-white focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8FF93]">

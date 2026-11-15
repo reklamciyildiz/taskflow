@@ -19,8 +19,8 @@ assert.match(shell, /safe-area-inset-bottom/);
 for (const route of ['/', '/planner', '/board', '/dashboard/knowledge-hub', '/ai']) {
   assert.ok(nav.includes("href: '" + route + "'"), 'Missing navigation destination: ' + route);
 }
-assert.match(mobileApp, /<CheckSquare2 \/><span>Actions<\/span>/);
-assert.match(mobileApp, /aria-label="Account settings"/);
+assert.match(mobileApp, /<CheckSquare2 \/><span>(?:Actions|\{t\("Actions"\)\})<\/span>/);
+assert.match(mobileApp, /aria-label=(?:"Account settings"|\{t\("Account settings"\)\})/);
 assert.match(css, /\.screen-workspace, \.screen-process/);
 assert.match(nativeAuth, /!secureEqual\(expectedState, returnedState\)/, 'Native handler must ignore JS-owned OAuth callback state');
 assert.match(nativeAuth, /bridge\.executeOnMainThread\(\(\) -> \{/);
@@ -120,7 +120,7 @@ assert.match(attachmentListRoute, /attachmentTargetAccess\(target, false, reques
 assert.match(attachmentItemRoute, /attachmentAccess\(params.id, false, request\)/);
 assert.match(mobileApp, /<MobileMoreView/);
 assert.match(mobileApp, /<MobileListView/);
-assert.match(mobileMoreView, /aria-label="All Actiproc features"/);
+assert.match(mobileMoreView, /aria-label=(?:"All Actiproc features"|\{t\("All Actiproc features"\)\})/);
 assert.match(mobileMoreView, /Customers/);
 const mobileSettings = read('mobile/src/MobileSettingsView.tsx');
 const profileRoute = read('app/api/users/profile/route.ts');
@@ -149,7 +149,7 @@ for (const path of ['/api/users/profile', '/api/users/settings', '/api/billing/s
 }
 assert.doesNotMatch(mobileMoreView, /path: '\/settings'|path: '\/settings\/billing'/);
 assert.match(mobileMoreView, /destination: 'ai'/);
-assert.match(mobileApp, /<Grid2X2 \/><span>More<\/span>/);
+assert.match(mobileApp, /<Grid2X2 \/><span>(?:More|\{t\("More"\)\})<\/span>/);
 assert.doesNotMatch(mobileApp, /mobile-more-shortcut/);
 assert.match(mobileMoreView, /sign in to the web separately/);
 const canonicalTaskList = read('components/TaskList.tsx');
@@ -163,7 +163,7 @@ assert.match(canonicalTaskList, /filterAndSortOperationalTasks/);
 assert.match(canonicalTaskList, /propertyValuesByTask/);
 assert.match(canonicalTaskList, /InlineSelect/);
 assert.match(canonicalTaskList, /Sort by stage/);
-assert.match(canonicalTaskList, /SelectItem value="__inbox__">Inbox/);
+assert.match(canonicalTaskList, /SelectItem value="__inbox__"><AppT text="Inbox"\s*\/>/);
 assert.match(actionPanel, /data-action-panel-sheet/);
 assert.match(actionPanel, /overflow-x-hidden overflow-y-auto/);
 assert.match(actionNotes, /aria-label="Action notes navigator"/, 'Action notes must retain a mobile-friendly navigation surface');

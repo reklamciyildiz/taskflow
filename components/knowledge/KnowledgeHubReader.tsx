@@ -1,4 +1,5 @@
 'use client';
+import {T as AppT} from '@/components/i18n/AppLocaleProvider';
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
@@ -251,7 +252,7 @@ export function KnowledgeHubReader({
                       {highlightKnowledgeText(selectedNote.text, query)}
                     </p>
                   ) : (
-                    <p className="text-xs italic text-muted-foreground">This note has a title but no body text.</p>
+                    <p className="text-xs italic text-muted-foreground"><AppT text="This note has a title but no body text."/></p>
                   )}
                   {selectedNote.authorName && (
                     <p className="border-t border-border/60 pt-3 text-[11px] text-muted-foreground">
@@ -283,8 +284,7 @@ export function KnowledgeHubReader({
     <section aria-label="Checklist items" className="space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="flex items-center gap-2 text-sm font-semibold">
-          <CheckSquare2 className="h-4 w-4 text-emerald-500" aria-hidden /> Checklist
-        </h3>
+          <CheckSquare2 className="h-4 w-4 text-emerald-500" aria-hidden /><AppT text="Checklist"/></h3>
         <span className="rounded-full bg-muted px-2.5 py-1 text-[11px] tabular-nums text-muted-foreground">
           {card.checklistItems.filter((item) => item.done).length} / {card.checklistItems.length}
         </span>

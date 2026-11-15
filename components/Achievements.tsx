@@ -1,4 +1,6 @@
 'use client';
+import {T as AppT,useAppLocale} from '@/components/i18n/AppLocaleProvider';
+
 
 import {completionCalendarDay,verifiedCompletionAt} from '@/lib/metrics/completions';
 
@@ -67,6 +69,7 @@ interface Achievement {
 // ─── Achievement card ─────────────────────────────────────────────────────────
 
 function AchievementCard({ a }: { a: Achievement }) {
+  const {t}=useAppLocale();
   const pct = Math.round((a.progress / a.maxProgress) * 100);
   const almostThere = !a.unlocked && pct >= 50;
 
@@ -90,17 +93,17 @@ function AchievementCard({ a }: { a: Achievement }) {
 
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-sm font-semibold leading-tight">{a.name}</span>
+          <span className="text-sm font-semibold leading-tight">{t(a.name)}</span>
           {a.unlocked ? (
-            <Badge variant="outline" className="text-xs capitalize">{a.tier}</Badge>
+            <Badge variant="outline" className="text-xs capitalize">{t(a.tier)}</Badge>
           ) : almostThere ? (
-            <Badge variant="secondary" className="text-xs">Almost!</Badge>
+            <Badge variant="secondary" className="text-xs"><AppT text="Almost!"/></Badge>
           ) : null}
           <span className="ml-auto shrink-0 text-xs font-medium text-muted-foreground">
             +{TIER_POINTS[a.tier]}pts
           </span>
         </div>
-        <p className="mt-0.5 text-xs text-muted-foreground">{a.description}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">{t(a.description,{count:a.maxProgress})}</p>
         <div className="mt-2 space-y-1">
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span>{a.progress} / {a.maxProgress}</span>
@@ -121,6 +124,7 @@ function CategorySection({
   category: Category;
   achievements: Achievement[];
 }) {
+  const {t}=useAppLocale();
   const meta = CATEGORY_META[category];
   const unlockedCount = achievements.filter(a => a.unlocked).length;
 
@@ -128,7 +132,7 @@ function CategorySection({
     <section>
       <div className="mb-3 flex items-center gap-2">
         <span className="text-muted-foreground">{meta.icon}</span>
-        <h2 className="text-sm font-semibold">{meta.label}</h2>
+        <h2 className="text-sm font-semibold">{t(meta.label)}</h2>
         <Badge variant="secondary" className="text-xs">
           {unlockedCount}/{achievements.length}
         </Badge>
@@ -145,6 +149,7 @@ function CategorySection({
 const CATEGORY_ORDER: Category[] = ['productivity', 'process', 'streak', 'speed', 'team'];
 
 export function Achievements() {
+  const {t}=useAppLocale();
   const { tasks, projects, currentTeam, currentUser, generalBoardColumns } = useTaskContext();
 
   // ── Column resolver (same pattern as Analytics) ────────────────────────────
@@ -319,7 +324,7 @@ export function Achievements() {
     {
       id: 'all-rounder',
       name: 'All-Rounder',
-      description: `Contribute to every process (${Math.max(totalProcesses, 1)} total)`,
+      description: 'Contribute to every process ({count} total)',
       icon: <Star className="h-5 w-5" />,
       progress: Math.min(processesWithCompletion, Math.max(totalProcesses, 1)),
       maxProgress: Math.max(totalProcesses, 1),
@@ -481,11 +486,11 @@ export function Achievements() {
               <Trophy className="h-6 w-6 text-white" />
             </div>
             <div>
-              <p className="text-sm text-purple-700 dark:text-purple-300">Achievements</p>
+              <p className="text-sm text-purple-700 dark:text-purple-300"><AppT text="Achievements"/></p>
               <p className="text-2xl font-bold text-purple-900 dark:text-purple-100">
                 {unlockedCount}/{achievements.length}
               </p>
-              <p className="text-xs text-purple-600 dark:text-purple-400">{totalPoints} total points</p>
+              <p className="text-xs text-purple-600 dark:text-purple-400">{totalPoints} <AppT text="total points"/></p>
             </div>
           </CardContent>
         </Card>
@@ -496,11 +501,11 @@ export function Achievements() {
               <Flame className="h-6 w-6 text-white" />
             </div>
             <div>
-              <p className="text-sm text-orange-700 dark:text-orange-300">Current Streak</p>
+              <p className="text-sm text-orange-700 dark:text-orange-300"><AppT text="Current Streak"/></p>
               <p className="text-2xl font-bold text-orange-900 dark:text-orange-100">
-                {streak} {streak === 1 ? 'day' : 'days'}
+                {streak} {t(streak === 1 ? 'day' : 'days')}
               </p>
-              <p className="text-xs text-orange-600 dark:text-orange-400">consecutive days with completions</p>
+              <p className="text-xs text-orange-600 dark:text-orange-400"><AppT text="consecutive days with completions"/></p>
             </div>
           </CardContent>
         </Card>
@@ -511,12 +516,12 @@ export function Achievements() {
               <CheckCircle2 className="h-6 w-6 text-white" />
             </div>
             <div>
-              <p className="text-sm text-emerald-700 dark:text-emerald-300">Tasks Completed</p>
+              <p className="text-sm text-emerald-700 dark:text-emerald-300"><AppT text="Tasks Completed"/></p>
               <p className="text-2xl font-bold text-emerald-900 dark:text-emerald-100">
                 {completedUserTasks.length}
               </p>
               <p className="text-xs text-emerald-600 dark:text-emerald-400">
-                out of {userTasks.length} assigned
+                <AppT text="out of"/> {userTasks.length} <AppT text="assigned"/>
               </p>
             </div>
           </CardContent>

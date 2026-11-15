@@ -23,10 +23,15 @@ async function main() {
           () => ({ path: 'task-context', namespace: 'fixture-stubs' }));
         build.onResolve({ filter: /^next\/navigation$/ },
           () => ({ path: 'next-navigation', namespace: 'fixture-stubs' }));
+        // The isolated AI browser fixture only exercises presentation; no session is used.
+        build.onResolve({ filter: /^next-auth\/react$/ },
+          () => ({ path: 'next-auth-react', namespace: 'fixture-stubs' }));
         build.onLoad({ filter: /.*/, namespace: 'fixture-stubs' }, (args) => ({
           contents: args.path === 'task-context'
             ? 'export function useTaskContext(){ return { openTaskEditor() {}, refreshData: async()=>{} }; }'
-            : 'export function useSearchParams(){ return new URLSearchParams(); }',
+            : args.path === 'next-auth-react'
+              ? "export function useSession(){ return { data:null, status:'unauthenticated' }; } export async function signIn(){ return undefined; } export async function signOut(){ return undefined; } export function SessionProvider({children}){ return children; }"
+              : 'export function useSearchParams(){ return new URLSearchParams(); }',
           loader: 'js',
         }));
       },
@@ -58,6 +63,7 @@ async function main() {
     for (const width of [320, 390, 768, 1024, 1440]) {
       const page = await browser.newPage({ viewport: { width, height: 900 }, hasTouch: width < 768 });
       page.on('pageerror', error => errors.push(error.stack || error.message));
+      page.on('console', message => { if(message.type()==='error') errors.push(message.text()); });
       const now = new Date().toISOString();
       const conversations = [
         { id: 'old-1', title: 'Planning decisions', context: { origin: 'global' }, createdAt: now, updatedAt: now, lastMessageAt: now },
@@ -67,6 +73,7 @@ async function main() {
         'old-1': [{ id: 'old-message', role: 'assistant', content: 'Existing conversation content', status: 'completed', model: null, createdAt: now, sources: [] }],
       };
       let incomingMessages = 0;
+      let mockReplyCounter = 0; // Real SSE events use unique IDs, including across retries.
       await page.route('**/api/ai/**', async (route) => {
         const request = route.request();
         const url = new URL(request.url());
@@ -110,9 +117,10 @@ async function main() {
           assert.equal(typeof requestBody.message, 'string');
           assert.ok(requestBody.clientRequestId);
           const cited = 'a'.repeat(64);
+          const replyId = ++mockReplyCounter;
           const body = [
             sse({ type: 'meta', conversationId: requestBody.conversationId,
-              userMessageId: 'user-real', assistantMessageId: 'assistant-real' }),
+              userMessageId: `user-real-${replyId}`, assistantMessageId: `assistant-real-${replyId}` }),
             sse({ type: 'tool_status', label: 'Checking accessible workspace records' }),
             sse({ type: 'delta', text: '## Summary\n\n- Action A is in progress.\n- Action B is done.\n\n' }),
             sse({ type: 'delta', text: '| # | Action | Priority | Stage | Status |\n| --- | --- | :---: | --- | --- |\n| 1 | Implementation | High | In Progress | Open |\n| 2 | UI redesign | Medium | Done | Completed |\n\n~~~ts\nconst safe = true;\n~~~\n\n' }),
@@ -138,7 +146,9 @@ async function main() {
         assert.ok(bounds && bounds.width <= width + 1, width + 'px ' + label + ': shell overflow');
         checks += 2;
       };
-      await page.getByRole('heading', { name: 'Work, clarified.' }).waitFor();
+      await page.getByRole('heading', { name: 'Work, clarified.' }).waitFor().catch(async error => {
+        throw new Error('AI welcome fixture did not render. Browser errors: '+JSON.stringify(errors)+'; page text: '+(await page.locator('body').innerText()).slice(0,600),{cause:error});
+      });
       await checkLayout('welcome');
       await page.getByRole('button', { name: 'AI usage and access' }).click();
       await page.getByText('Monthly requests').waitFor();

@@ -1,4 +1,5 @@
 'use client';
+import {T as AppT} from '@/components/i18n/AppLocaleProvider';
 
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -61,7 +62,7 @@ export function EditCustomerModal({ customer, open, onClose }: EditCustomerModal
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Edit Customer</DialogTitle>
+          <DialogTitle><AppT text="Edit Customer"/></DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -78,7 +79,7 @@ export function EditCustomerModal({ customer, open, onClose }: EditCustomerModal
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="edit-email">Email</Label>
+              <Label htmlFor="edit-email"><AppT text="Email"/></Label>
               <Input
                 id="edit-email"
                 type="email"
@@ -89,7 +90,7 @@ export function EditCustomerModal({ customer, open, onClose }: EditCustomerModal
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="edit-phone">Phone</Label>
+              <Label htmlFor="edit-phone"><AppT text="Phone"/></Label>
               <Input
                 id="edit-phone"
                 value={phone}
@@ -100,7 +101,7 @@ export function EditCustomerModal({ customer, open, onClose }: EditCustomerModal
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="edit-address">Address</Label>
+            <Label htmlFor="edit-address"><AppT text="Address"/></Label>
             <Input
               id="edit-address"
               value={address}
@@ -110,7 +111,7 @@ export function EditCustomerModal({ customer, open, onClose }: EditCustomerModal
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="edit-notes">Notes</Label>
+            <Label htmlFor="edit-notes"><AppT text="Notes"/></Label>
             <Textarea
               id="edit-notes"
               value={notes}
@@ -121,15 +122,11 @@ export function EditCustomerModal({ customer, open, onClose }: EditCustomerModal
           </div>
 
           <div className="flex justify-end gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
+            <Button type="button" variant="outline" onClick={onClose}><AppT text="Cancel"/></Button>
             <Button type="submit" disabled={loading || !name.trim()}>
               {loading ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Saving...
-                </>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" /><AppT text="Saving..."/></>
               ) : (
                 'Save Changes'
               )}

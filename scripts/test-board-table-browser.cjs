@@ -16,6 +16,10 @@ async function main() {
     define: { 'process.env.NODE_ENV': '"development"' },
     plugins: [{ name: 'workspace-fixture', setup(build) {
       build.onResolve({ filter: /components\/(TaskContext|CreateProjectModal|CreateTaskModal|EditGeneralBoardModal)$/ }, () => ({ path: fixture }));
+      // The standalone fixture uses the app's locale context but never authenticates.
+      // Isolate NextAuth instead of bundling its Node process dependencies into Chromium.
+      build.onResolve({ filter: /^next-auth\/react$/ }, () => ({ path: 'next-auth-react', namespace: 'fixture-auth' }));
+      build.onLoad({ filter: /.*/, namespace: 'fixture-auth' }, () => ({ contents: "export function useSession(){ return { data:null, status:'unauthenticated' }; } export async function signIn(){ return undefined; } export async function signOut(){ return undefined; } export function SessionProvider({children}){ return children; }", loader: 'js' }));
     } }],
   });
   const css = await postcss([tailwind('./tailwind.config.ts')]).process(fs.readFileSync('app/globals.css', 'utf8'), { from: 'app/globals.css' });
@@ -35,6 +39,13 @@ async function main() {
     for (const width of [320, 375, 430, 768, 1440]) {
       const page = await browser.newPage({ viewport: { width, height: 900 }, hasTouch: width < 768 });
       page.on('pageerror', error => errors.push(error.stack || error.message));
+      // The fixture intentionally returns HTTP 500 during rollback tests: those network
+      // console messages are expected; retain unexpected console and React errors.
+      page.on('console', message => {
+        if (message.type() !== 'error') return;
+        const detail = message.text();
+        if (!/^Failed to load resource: the server responded with a status of 500 \(Internal Server Error\)$/.test(detail)) errors.push(detail);
+      });
       let failNext = false;
       let failProperty = false;
       let readDelay = 0;
@@ -78,7 +89,9 @@ async function main() {
       };
       await page.goto(`http://127.0.0.1:${server.address().port}`);
       const checkbox = page.getByRole('checkbox', { name: 'Mark Open Action complete', exact: true });
-      await checkbox.waitFor();
+      await checkbox.waitFor().catch(async error => {
+        throw new Error('Board fixture did not render the completion control. Browser errors: '+JSON.stringify(errors)+'; page text: '+(await page.locator('body').innerText()).slice(0,600),{cause:error});
+      });
       await noOverflow('Table');
       assert.equal(await checkbox.isChecked(), false);
       assert.equal(await page.getByRole('checkbox', { name: 'Mark Closed Action open', exact: true }).isChecked(), true);

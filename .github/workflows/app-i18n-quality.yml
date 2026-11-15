@@ -1,0 +1,71 @@
+name: App-wide localization quality
+on:
+  pull_request:
+    paths:
+      - 'lib/i18n/**'
+      - 'components/i18n/**'
+      - 'components/ShellProviders.tsx'
+      - 'components/Header.tsx'
+      - 'components/Sidebar.tsx'
+      - 'components/Settings.tsx'
+      - 'components/dashboard/**'
+      - 'components/planner/**'
+      - 'components/knowledge/**'
+      - 'components/billing/**'
+      - 'components/Analytics.tsx'
+      - 'components/Achievements.tsx'
+      - 'components/TaskBoard.tsx'
+      - 'components/TaskCard.tsx'
+      - 'components/TaskList.tsx'
+      - 'components/Customers.tsx'
+      - 'components/Profile.tsx'
+      - 'components/TeamMembers.tsx'
+      - 'components/CreateTaskModal.tsx'
+      - 'components/CreateProjectModal.tsx'
+      - 'components/settings/**'
+      - 'app/(shell)/**'
+      - 'app/api/users/settings/route.ts'
+      - 'supabase/migrations/20261115120000_user_interface_locale.sql'
+      - 'scripts/test-app-i18n.ts'
+      - 'scripts/test-app-locale-api.cjs'
+      - 'mobile/src/**'
+      - 'scripts/test-capacitor-mobile-shell.mjs'
+      - '.github/workflows/app-i18n-quality.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Translation catalog and scope
+        run: npx tsx scripts/test-app-i18n.ts
+      - name: Account locale persistence and isolation
+        run: node scripts/test-app-locale-api.cjs
+      - name: Existing per-user preferences regression
+        run: node scripts/test-user-preferences.cjs
+      - name: Native mobile shell compatibility
+        run: node scripts/test-capacitor-mobile-shell.mjs
+      - name: Native Android web-bundle TypeScript and Vite build
+        run: |
+          npm ci --prefix mobile --no-audit --no-fund
+          npm --prefix mobile run build
+      - name: TypeScript
+        run: npx tsc --noEmit
+      - name: Production build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-not-a-real-key
+          SUPABASE_SERVICE_ROLE_KEY: ci-not-a-real-service-role-key
+          NEXTAUTH_SECRET: ci-only-build-secret
+          NEXTAUTH_URL: http://localhost:3000
+          RESEND_API_KEY: re_ci_build_placeholder_never_valid
+          RESEND_FROM_EMAIL: ci@example.invalid
+        run: npm run build

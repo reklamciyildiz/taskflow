@@ -1,4 +1,6 @@
 'use client';
+import {T as AppT,useAppLocale} from '@/components/i18n/AppLocaleProvider';
+
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
@@ -100,14 +102,19 @@ function InlineSelect({
 function CompletionControl({ task, columns, disabled, onChange }: {
   task: Task; columns: ProjectColumnConfig[]; disabled: boolean; onChange: (status: string) => void;
 }) {
+  const {t}=useAppLocale();
   const [open, setOpen] = useState(false);
   const lifecycle = resolveStageLifecycle(task.status, columns);
   const targets = columns.filter(column => isTerminalBoardColumn(column.id, columns) !== lifecycle.isTerminal);
   const recurring = task.schedule?.scheduleType === 'recurring';
   const unavailable = disabled || !lifecycle.resolved || !targets.length || recurring;
-  const label = recurring ? `Complete occurrences of ${task.title} in Planner`
-    : !targets.length ? `No ${lifecycle.isTerminal ? 'open' : 'terminal'} stage configured for ${task.title}`
-      : `Mark ${task.title} ${lifecycle.isTerminal ? 'open' : 'complete'}`;
+  const label = recurring ? t('Complete occurrences of {title} in Planner',{title:task.title})
+    : !targets.length ? (lifecycle.isTerminal
+      ? t('No open stage configured for {title}',{title:task.title})
+      : t('No terminal stage configured for {title}',{title:task.title}))
+    : lifecycle.isTerminal
+      ? t('Mark {title} open',{title:task.title})
+      : t('Mark {title} complete',{title:task.title});
   return <Popover open={open} onOpenChange={next => setOpen(next && !unavailable && targets.length > 1)}>
     <label className="flex h-11 w-11 items-center justify-center md:h-8 md:w-6" title={label}>
       <PopoverTrigger asChild>
@@ -118,13 +125,14 @@ function CompletionControl({ task, columns, disabled, onChange }: {
       </PopoverTrigger>
     </label>
     <PopoverContent align="start" className="w-64 p-2">
-      <p className="px-2 py-1 text-xs text-muted-foreground">Choose {lifecycle.isTerminal ? 'an open' : 'a terminal'} stage</p>
+      <p className="px-2 py-1 text-xs text-muted-foreground">{t(lifecycle.isTerminal ? 'Choose an open stage' : 'Choose a terminal stage')}</p>
       {targets.map(stage => <button key={stage.id} type="button" className="block min-h-[44px] w-full rounded px-2 text-left text-sm hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring" onClick={() => { onChange(stage.id); setOpen(false); }}>{stage.title}</button>)}
     </PopoverContent>
   </Popover>;
 }
 
 function ScheduleCell({ task, disabled }: { task: Task; disabled: boolean }) {
+  const {t}=useAppLocale();
   const [open, setOpen] = useState(false);
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -132,11 +140,11 @@ function ScheduleCell({ task, disabled }: { task: Task; disabled: boolean }) {
         <button
           type="button"
           disabled={disabled}
-          aria-label={`Schedule for ${task.title}`}
+          aria-label={t("Schedule for {title}",{title:task.title})}
           className="inline-flex h-11 md:h-8 max-w-full md:max-w-[170px] items-center gap-1.5 rounded-md px-2 text-left text-xs text-muted-foreground hover:bg-muted/50 hover:text-foreground disabled:cursor-default"
         >
           <CalendarDays className="h-3.5 w-3.5 shrink-0" />
-          <span className="truncate">{task.schedule ? scheduleChipLabel(task.schedule) : 'Unscheduled'}</span>
+          <span className="truncate">{task.schedule ? t(scheduleChipLabel(task.schedule)) : t('Unscheduled')}</span>
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-[min(92vw,380px)] border-0 bg-transparent p-0 shadow-none">
@@ -152,6 +160,7 @@ function ScheduleCell({ task, disabled }: { task: Task; disabled: boolean }) {
 }
 
 export function TaskList({ allowProcessAdministration = true, mobileCompact = false }: { allowProcessAdministration?: boolean; mobileCompact?: boolean } = {}) {
+  const {t}=useAppLocale();
   const {
     tasks,
     currentTeam,
@@ -297,34 +306,34 @@ export function TaskList({ allowProcessAdministration = true, mobileCompact = fa
   const setSortField = (field: string) => setSort((current) => ({ ...current, field: field as OperationalSortField }));
 
   const headerLabel = (column: ColumnId) => {
-    if (column === 'stage') return 'Stage';
-    if (column === 'priority') return 'Priority';
-    if (column === 'assignee') return 'Assignee';
-    if (column === 'schedule') return 'Schedule';
-    if (column === 'client') return 'Client';
-    return propertyForColumn(column)?.name ?? 'Property';
+    if (column === 'stage') return t('Stage');
+    if (column === 'priority') return t('Priority');
+    if (column === 'assignee') return t('Assignee');
+    if (column === 'schedule') return t('Schedule');
+    if (column === 'client') return t('Client');
+    return propertyForColumn(column)?.name ?? t('Property');
   };
 
   return (
     <div className="h-full min-w-0 max-w-full space-y-3 md:space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-xl md:text-2xl font-bold text-foreground">{mobileCompact ? 'List View' : 'Action table'}</h1>
+          <h1 className="text-xl md:text-2xl font-bold text-foreground">{t(mobileCompact ? 'List View' : 'Action table')}</h1>
           <p className="mt-1 hidden md:block text-sm text-muted-foreground">
-            {boardProject ? `${boardProject.name} · edit operational metadata inline` : 'Inbox · edit operational metadata inline'}
+            {t('Edit operational metadata inline in {name}',{name:boardProject?.name ?? t('Inbox')})}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {projectsForTeam.length > 0 && (
             <Select value={processId ?? '__inbox__'} onValueChange={(value) => setBoardScope(value === '__inbox__' ? { type: 'general' } : { type: 'project', projectId: value })}>
-              <SelectTrigger aria-label="Table process" className="h-11 w-full min-w-0 sm:w-auto sm:min-w-[210px]"><SelectValue placeholder="Choose process" /></SelectTrigger>
-              <SelectContent><SelectItem value="__inbox__">Inbox</SelectItem>{projectsForTeam.map((project) => <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>)}</SelectContent>
+              <SelectTrigger aria-label={t("Table process")} className="h-11 w-full min-w-0 sm:w-auto sm:min-w-[210px]"><SelectValue placeholder={t("Choose process")} /></SelectTrigger>
+              <SelectContent><SelectItem value="__inbox__"><AppT text="Inbox"/></SelectItem>{projectsForTeam.map((project) => <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>)}</SelectContent>
             </Select>
           )}
           {allowProcessAdministration && currentUserRole === 'admin' && (
             <>
-              <Button variant="outline" size="sm" className="h-9 gap-2" onClick={() => setIsCreateProjectOpen(true)}><Layers className="h-4 w-4" />New process</Button>
-              <Button variant="outline" size="icon" className="h-9 w-9" disabled={!boardProject} onClick={() => setEditingProjectId(boardProject?.id ?? null)} aria-label="Edit selected process"><Settings2 className="h-4 w-4" /></Button>
+              <Button variant="outline" size="sm" className="h-9 gap-2" onClick={() => setIsCreateProjectOpen(true)}><Layers className="h-4 w-4" /><AppT text="New process"/></Button>
+              <Button variant="outline" size="icon" className="h-9 w-9" disabled={!boardProject} onClick={() => setEditingProjectId(boardProject?.id ?? null)} aria-label={t("Edit selected process")}><Settings2 className="h-4 w-4" /></Button>
             </>
           )}
         </div>
@@ -334,54 +343,54 @@ export function TaskList({ allowProcessAdministration = true, mobileCompact = fa
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
           <div className="relative min-w-0 flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input aria-label="Search actions and property values" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search actions and property values…" className="h-11 md:h-9 pl-9" />
+            <Input aria-label={t("Search actions and property values")} value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder={t("Search actions and property values…")} className="h-11 md:h-9 pl-9" />
           </div>
-          <Button variant="ghost" className="h-11 md:hidden" aria-expanded={showFilters} aria-controls="table-filters" onClick={() => setShowFilters(value => !value)}><Filter className="mr-2 h-4 w-4" />Filters{hasOperationalFilters(filters) ? ' (active)' : ''}</Button>
+          <Button variant="ghost" className="h-11 md:hidden" aria-expanded={showFilters} aria-controls="table-filters" onClick={() => setShowFilters(value => !value)}><Filter className="mr-2 h-4 w-4" />{t('Filters')}{hasOperationalFilters(filters) ? t(' (active)') : ''}</Button>
           <div id="table-filters" className={cn('flex-wrap items-center gap-2 md:flex max-md:[&_button]:min-h-[44px]', showFilters ? 'flex' : 'hidden')}>
-            <span className="inline-flex h-8 items-center gap-1.5 text-xs font-medium text-muted-foreground"><Filter className="h-3.5 w-3.5" />Filters</span>
+            <span className="inline-flex h-8 items-center gap-1.5 text-xs font-medium text-muted-foreground"><Filter className="h-3.5 w-3.5" /><AppT text="Filters"/></span>
             <Select value={filters.stage ?? ALL} onValueChange={(value) => setFilters((current) => ({ ...current, stage: value === ALL ? null : value }))}>
-              <SelectTrigger aria-label="Filter by stage" className="h-8 w-[150px] text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent><SelectItem value={ALL}>All stages</SelectItem>{boardColumns.map((column) => <SelectItem key={column.id} value={column.id}>{column.title}</SelectItem>)}</SelectContent>
+              <SelectTrigger aria-label={t("Filter by stage")} className="h-8 w-[150px] text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent><SelectItem value={ALL}><AppT text="All stages"/></SelectItem>{boardColumns.map((column) => <SelectItem key={column.id} value={column.id}>{column.title}</SelectItem>)}</SelectContent>
             </Select>
             <Select value={filters.priority ?? ALL} onValueChange={(value) => setFilters((current) => ({ ...current, priority: value === ALL ? null : value as TaskPriority }))}>
-              <SelectTrigger aria-label="Filter by priority" className="h-8 w-[138px] text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent><SelectItem value={ALL}>All priorities</SelectItem>{Object.entries(priorityConfig).map(([value, config]) => <SelectItem key={value} value={value}>{config.label}</SelectItem>)}</SelectContent>
+              <SelectTrigger aria-label={t("Filter by priority")} className="h-8 w-[138px] text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent><SelectItem value={ALL}><AppT text="All priorities"/></SelectItem>{Object.entries(priorityConfig).map(([value, config]) => <SelectItem key={value} value={value}>{t(config.label)}</SelectItem>)}</SelectContent>
             </Select>
             <Select value={filters.assignee ?? ALL} onValueChange={(value) => setFilters((current) => ({ ...current, assignee: value === ALL ? null : value }))}>
-              <SelectTrigger aria-label="Filter by assignee" className="h-8 w-[150px] text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent><SelectItem value={ALL}>All assignees</SelectItem><SelectItem value={UNASSIGNED_FILTER}>Unassigned</SelectItem>{currentTeam?.members.map((member) => <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>)}</SelectContent>
+              <SelectTrigger aria-label={t("Filter by assignee")} className="h-8 w-[150px] text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent><SelectItem value={ALL}><AppT text="All assignees"/></SelectItem><SelectItem value={UNASSIGNED_FILTER}><AppT text="Unassigned"/></SelectItem>{currentTeam?.members.map((member) => <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>)}</SelectContent>
             </Select>
             {activeProperties.map((property) => (
               <Select key={property.id} value={filters.properties[property.id] ?? ALL} onValueChange={(value) => setPropertyFilter(property.id, value)}>
-                <SelectTrigger aria-label={`Filter by ${property.name}`} className="h-8 w-[150px] text-xs"><SelectValue placeholder={property.name} /></SelectTrigger>
+                <SelectTrigger aria-label={t('Filter by {name}',{name:property.name})} className="h-8 w-[150px] text-xs"><SelectValue placeholder={property.name} /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={ALL}>All {property.name}</SelectItem>
-                  <SelectItem value={UNASSIGNED_FILTER}>Unassigned</SelectItem>
+                  <SelectItem value={ALL}>{t('All {name}',{name:property.name})}</SelectItem>
+                  <SelectItem value={UNASSIGNED_FILTER}><AppT text="Unassigned"/></SelectItem>
                   {properties.data?.options.filter((option) => option.property_id === property.id && !option.archived_at).map((option) => <SelectItem key={option.id} value={option.id}>{option.label}</SelectItem>)}
                 </SelectContent>
               </Select>
             ))}
-            {(hasOperationalFilters(filters) || searchQuery) && <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => { setFilters(emptyFilters()); setSearchQuery(''); }}><RotateCcw className="h-3.5 w-3.5" />Clear</Button>}
+            {(hasOperationalFilters(filters) || searchQuery) && <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => { setFilters(emptyFilters()); setSearchQuery(''); }}><RotateCcw className="h-3.5 w-3.5" /><AppT text="Clear"/></Button>}
           </div>
         </div>
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border/50 pt-3">
-          <p className="text-xs text-muted-foreground">{filteredTasks.length} of {scopedTasks.length} Actions</p>
+          <p className="text-xs text-muted-foreground">{t('{visible} of {total} Actions',{visible:filteredTasks.length,total:scopedTasks.length})}</p>
           <div className="flex min-w-0 flex-wrap items-center gap-2 max-md:[&_button]:min-h-[44px]">
             <Select value={sort.field} onValueChange={setSortField}>
-              <SelectTrigger aria-label="Sort table" className="h-8 w-[150px] text-xs"><SelectValue /></SelectTrigger>
+              <SelectTrigger aria-label={t("Sort table")} className="h-8 w-[150px] text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="title">Sort by title</SelectItem><SelectItem value="stage">Sort by stage</SelectItem><SelectItem value="priority">Sort by priority</SelectItem><SelectItem value="assignee">Sort by assignee</SelectItem><SelectItem value="schedule">Sort by schedule</SelectItem><SelectItem value="client">Sort by client</SelectItem><SelectItem value="created">Sort by created</SelectItem>
-                {activeProperties.map((property) => <SelectItem key={property.id} value={`property:${property.id}`}>Sort by {property.name}</SelectItem>)}
+                <SelectItem value="title"><AppT text="Sort by title"/></SelectItem><SelectItem value="stage"><AppT text="Sort by stage"/></SelectItem><SelectItem value="priority"><AppT text="Sort by priority"/></SelectItem><SelectItem value="assignee"><AppT text="Sort by assignee"/></SelectItem><SelectItem value="schedule"><AppT text="Sort by schedule"/></SelectItem><SelectItem value="client"><AppT text="Sort by client"/></SelectItem><SelectItem value="created"><AppT text="Sort by created"/></SelectItem>
+                {activeProperties.map((property) => <SelectItem key={property.id} value={`property:${property.id}`}>{t('Sort by {name}',{name:property.name})}</SelectItem>)}
               </SelectContent>
             </Select>
             <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setSort((current) => ({ ...current, direction: current.direction === 'asc' ? 'desc' : 'asc' }))} aria-label={`Sort ${sort.direction === 'asc' ? 'descending' : 'ascending'}`}>
               {sort.direction === 'asc' ? <ArrowDownAZ className="h-4 w-4" /> : <ArrowUpAZ className="h-4 w-4" />}
             </Button>
             <DropdownMenu>
-              <DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs"><Columns3 className="h-3.5 w-3.5" />Columns</Button></DropdownMenuTrigger>
+              <DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs"><Columns3 className="h-3.5 w-3.5" /><AppT text="Columns"/></Button></DropdownMenuTrigger>
               <DropdownMenuContent align="end" sideOffset={8} className="max-h-[min(52dvh,20rem)] w-56 max-w-[calc(100vw-2rem)] overflow-y-auto">
-                <DropdownMenuLabel>Visible columns</DropdownMenuLabel>
-                <DropdownMenuCheckboxItem checked disabled>Action</DropdownMenuCheckboxItem>
+                <DropdownMenuLabel><AppT text="Visible columns"/></DropdownMenuLabel>
+                <DropdownMenuCheckboxItem checked disabled><AppT text="Action"/></DropdownMenuCheckboxItem>
                 {NATIVE_COLUMNS.map((column) => <DropdownMenuCheckboxItem key={column} checked={visibleColumns.includes(column)} onCheckedChange={(checked) => toggleColumn(column, checked === true)}>{headerLabel(column)}</DropdownMenuCheckboxItem>)}
                 {activeProperties.length > 0 && <DropdownMenuSeparator />}
                 {activeProperties.map((property) => {
@@ -392,7 +401,7 @@ export function TaskList({ allowProcessAdministration = true, mobileCompact = fa
             </DropdownMenu>
           </div>
         </div>
-        {properties.error && <p className="mt-2 text-xs text-destructive">Properties could not be loaded. <button className="underline" onClick={() => void properties.reload()}>Retry</button></p>}
+        {properties.error && <p className="mt-2 text-xs text-destructive"><AppT text="Properties could not be loaded."/><button className="underline" onClick={() => void properties.reload()}><AppT text="Retry"/></button></p>}
       </div>
 
       <div className="min-w-0 max-w-full overflow-hidden rounded-xl border border-border/60 bg-card/30 shadow-sm">
@@ -400,7 +409,7 @@ export function TaskList({ allowProcessAdministration = true, mobileCompact = fa
           <TableHeader className="hidden md:table-header-group bg-muted/30">
             <TableRow className="hover:bg-muted/30">
               <TableHead className="w-10 px-3" />
-              <TableHead className="min-w-[240px] px-3">Action</TableHead>
+              <TableHead className="min-w-[240px] px-3"><AppT text="Action"/></TableHead>
               {visibleColumns.map((column) => <TableHead key={column} className="min-w-[150px] px-3 text-xs uppercase tracking-wide">{headerLabel(column)}</TableHead>)}
               <TableHead className="w-10 px-2" />
             </TableRow>
@@ -423,24 +432,24 @@ export function TaskList({ allowProcessAdministration = true, mobileCompact = fa
                       ['stage', 'priority', 'schedule'].includes(column) ? 'block' : 'col-span-2',
                       !['stage', 'priority', 'schedule'].includes(column) && !expandedRows.has(task.id) ? 'hidden' : 'block');
                     if (column === 'stage') return <TableCell key={column} data-label={headerLabel(column)} className={cellClass}><InlineSelect label={`Stage for ${task.title}`} value={task.status} disabled={!canEdit || isPending(task.id, 'status')} onValueChange={(status) => void mutateTaskField(task, 'status', { status })}>{!boardColumns.some((stage) => stage.id === task.status) && <SelectItem value={task.status}>Unresolved ({task.status})</SelectItem>}{boardColumns.map((stage) => <SelectItem key={stage.id} value={stage.id} disabled={isTerminalBoardColumn(stage.id, boardColumns) && !canCompleteTask(task.assigneeId)}>{stage.title}</SelectItem>)}</InlineSelect></TableCell>;
-                    if (column === 'priority') return <TableCell key={column} data-label={headerLabel(column)} className={cellClass}><InlineSelect label={`Priority for ${task.title}`} value={task.priority} disabled={!canEdit || isPending(task.id, 'priority')} onValueChange={(priority) => void mutateTaskField(task, 'priority', { priority: priority as TaskPriority })}>{Object.entries(priorityConfig).map(([value, config]) => <SelectItem key={value} value={value}>{config.label}</SelectItem>)}</InlineSelect></TableCell>;
-                    if (column === 'assignee') return <TableCell key={column} data-label={headerLabel(column)} className={cellClass}><InlineSelect label={`Assignee for ${task.title}`} value={task.assigneeId ?? UNASSIGNED_FILTER} disabled={!canEdit || isPending(task.id, 'assignee')} onValueChange={(assigneeId) => void mutateTaskField(task, 'assignee', { assigneeId: assigneeId === UNASSIGNED_FILTER ? null : assigneeId })}><SelectItem value={UNASSIGNED_FILTER}>Unassigned</SelectItem>{currentTeam?.members.map((member) => <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>)}</InlineSelect></TableCell>;
+                    if (column === 'priority') return <TableCell key={column} data-label={headerLabel(column)} className={cellClass}><InlineSelect label={t("Priority for {title}",{title:task.title})} value={task.priority} disabled={!canEdit || isPending(task.id, 'priority')} onValueChange={(priority) => void mutateTaskField(task, 'priority', { priority: priority as TaskPriority })}>{Object.entries(priorityConfig).map(([value, config]) => <SelectItem key={value} value={value}>{t(config.label)}</SelectItem>)}</InlineSelect></TableCell>;
+                    if (column === 'assignee') return <TableCell key={column} data-label={headerLabel(column)} className={cellClass}><InlineSelect label={`Assignee for ${task.title}`} value={task.assigneeId ?? UNASSIGNED_FILTER} disabled={!canEdit || isPending(task.id, 'assignee')} onValueChange={(assigneeId) => void mutateTaskField(task, 'assignee', { assigneeId: assigneeId === UNASSIGNED_FILTER ? null : assigneeId })}><SelectItem value={UNASSIGNED_FILTER}><AppT text="Unassigned"/></SelectItem>{currentTeam?.members.map((member) => <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>)}</InlineSelect></TableCell>;
                     if (column === 'schedule') return <TableCell key={column} data-label={headerLabel(column)} className={cellClass}><ScheduleCell task={task} disabled={!canEdit} /></TableCell>;
                     if (column === 'client') return <TableCell key={column} data-label={headerLabel(column)} className={cn(cellClass, "text-xs text-muted-foreground break-words")}>{task.customerName ?? '—'}</TableCell>;
                     const property = propertyForColumn(column);
                     if (!property) return null;
                     const selected = taskSelections?.get(property.id) ?? UNASSIGNED_FILTER;
                     const options = properties.data?.options.filter((option) => option.property_id === property.id && (!option.archived_at || option.id === selected)) ?? [];
-                    return <TableCell key={column} data-label={headerLabel(column)} className={cellClass}><InlineSelect label={`${property.name} for ${task.title}`} value={selected} disabled={!canEdit || properties.isValuePending(task.id, property.id)} onValueChange={(optionId) => { void properties.setValue(task.id, property.id, optionId === UNASSIGNED_FILTER ? null : optionId).catch((error) => toast.error(error instanceof Error ? error.message : 'Property could not be updated')); }}><SelectItem value={UNASSIGNED_FILTER}>Unassigned</SelectItem>{options.map((option) => <SelectItem key={option.id} value={option.id} disabled={!!option.archived_at}><span className="inline-flex items-center gap-2"><span className={`h-2 w-2 rounded-full ${PROPERTY_COLOR_CLASSES[option.color]}`} />{option.label}{option.archived_at ? ' (archived)' : ''}</span></SelectItem>)}</InlineSelect></TableCell>;
+                    return <TableCell key={column} data-label={headerLabel(column)} className={cellClass}><InlineSelect label={`${property.name} for ${task.title}`} value={selected} disabled={!canEdit || properties.isValuePending(task.id, property.id)} onValueChange={(optionId) => { void properties.setValue(task.id, property.id, optionId === UNASSIGNED_FILTER ? null : optionId).catch((error) => toast.error(error instanceof Error ? error.message : 'Property could not be updated')); }}><SelectItem value={UNASSIGNED_FILTER}><AppT text="Unassigned"/></SelectItem>{options.map((option) => <SelectItem key={option.id} value={option.id} disabled={!!option.archived_at}><span className="inline-flex items-center gap-2"><span className={`h-2 w-2 rounded-full ${PROPERTY_COLOR_CLASSES[option.color]}`} />{option.label}{option.archived_at ? ' (archived)' : ''}</span></SelectItem>)}</InlineSelect></TableCell>;
                   })}
                   <TableCell className="absolute right-2 top-2 p-0 md:static md:px-2 md:py-1.5">
                     <DropdownMenu>
-                      <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-11 w-11 md:h-8 md:w-8 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100" aria-label={`Actions for ${task.title}`}><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
-                      <DropdownMenuContent align="end"><DropdownMenuItem onSelect={() => openTaskEditor(task.id)}>Open Action</DropdownMenuItem>{canDeleteTask(task.createdBy) && <DropdownMenuItem className="text-destructive" onSelect={() => void deleteTask(task.id)}>Delete</DropdownMenuItem>}</DropdownMenuContent>
+                      <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-11 w-11 md:h-8 md:w-8 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100" aria-label={t("Actions for {title}",{title:task.title})}><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                      <DropdownMenuContent align="end"><DropdownMenuItem onSelect={() => openTaskEditor(task.id)}><AppT text="Open Action"/></DropdownMenuItem>{canDeleteTask(task.createdBy) && <DropdownMenuItem className="text-destructive" onSelect={() => void deleteTask(task.id)}><AppT text="Delete"/></DropdownMenuItem>}</DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
                   {visibleColumns.some(column => !['stage', 'priority', 'schedule'].includes(column)) && <TableCell className="self-end p-0 md:hidden">
-                    <button type="button" className="min-h-[44px] w-full rounded px-2 text-left text-xs text-muted-foreground hover:bg-muted" aria-expanded={expandedRows.has(task.id)} aria-label={`More details for ${task.title}`} onClick={() => setExpandedRows(current => { const next = new Set(current); if (next.has(task.id)) next.delete(task.id); else next.add(task.id); return next; })}>{expandedRows.has(task.id) ? 'Less details' : 'More details'}</button>
+                    <button type="button" className="min-h-[44px] w-full rounded px-2 text-left text-xs text-muted-foreground hover:bg-muted" aria-expanded={expandedRows.has(task.id)} aria-label={t("More details for {title}",{title:task.title})} onClick={() => setExpandedRows(current => { const next = new Set(current); if (next.has(task.id)) next.delete(task.id); else next.add(task.id); return next; })}>{t(expandedRows.has(task.id) ? 'Less details' : 'More details')}</button>
                   </TableCell>}
                 </TableRow>
               );
@@ -449,7 +458,7 @@ export function TaskList({ allowProcessAdministration = true, mobileCompact = fa
         </Table>
         {filteredTasks.length === 0 && (
           <div className="px-6 py-14 text-center">
-            {loading ? <p className="animate-pulse text-sm text-muted-foreground">Loading actions…</p> : <><CheckCircle2 className="mx-auto mb-3 h-9 w-9 text-muted-foreground/60" /><h3 className="text-sm font-medium">No actions found</h3><p className="mt-1 text-xs text-muted-foreground">{searchQuery || hasOperationalFilters(filters) ? 'Try adjusting your search or filters.' : 'This process has no Actions yet.'}</p></>}
+            {loading ? <p className="animate-pulse text-sm text-muted-foreground"><AppT text="Loading actions…"/></p> : <><CheckCircle2 className="mx-auto mb-3 h-9 w-9 text-muted-foreground/60" /><h3 className="text-sm font-medium"><AppT text="No actions found"/></h3><p className="mt-1 text-xs text-muted-foreground">{t(searchQuery || hasOperationalFilters(filters) ? 'Try adjusting your search or filters.' : 'This process has no Actions yet.')}</p></>}
           </div>
         )}
       </div>

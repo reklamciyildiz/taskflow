@@ -1,4 +1,5 @@
 'use client';
+import {T as AppT} from '@/components/i18n/AppLocaleProvider';
 
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
@@ -112,7 +113,7 @@ export function EditGeneralBoardModal({ open, onClose }: EditGeneralBoardModalPr
 
           <div className="rounded-md border bg-muted/40">
             <div className="flex items-center justify-between px-3 py-2 border-b bg-muted/60">
-              <span className="text-xs font-medium text-muted-foreground">Column editor</span>
+              <span className="text-xs font-medium text-muted-foreground"><AppT text="Column editor"/></span>
               <Button type="button" size="sm" variant="outline" onClick={handleAddColumn} className="h-7 px-2 text-xs">
                 + Add column
               </Button>
@@ -218,12 +219,8 @@ export function EditGeneralBoardModal({ open, onClose }: EditGeneralBoardModalPr
           </div>
 
           <div className="flex items-center justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={loading}>
-              Save
-            </Button>
+            <Button type="button" variant="outline" onClick={onClose} disabled={loading}><AppT text="Cancel"/></Button>
+            <Button type="submit" disabled={loading}><AppT text="Save"/></Button>
           </div>
         </form>
       </DialogContent>

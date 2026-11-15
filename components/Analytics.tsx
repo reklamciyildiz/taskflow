@@ -1,4 +1,6 @@
 'use client';
+import {T as AppT,useAppLocale} from '@/components/i18n/AppLocaleProvider';
+
 
 import {completedWithin,completionDurationDays,verifiedCompletionAt} from '@/lib/metrics/completions';
 
@@ -7,7 +9,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell,
 } from 'recharts';
-import { format, subDays } from 'date-fns';
+import { subDays } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -62,18 +64,19 @@ function KpiCard({
   label: string; value: string; sub: string;
   icon: React.ReactNode; accent: Accent; progress?: number;
 }) {
+  const {t}=useAppLocale();
   const s = ACCENT[accent];
   return (
     <Card className={cn('border', s.card)}>
       <CardContent className="p-5">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className={cn('text-xs font-medium', s.label)}>{label}</p>
+            <p className={cn('text-xs font-medium', s.label)}>{t(label)}</p>
             <p className={cn('mt-1 text-2xl font-bold tabular-nums', s.value)}>{value}</p>
           </div>
           {icon}
         </div>
-        <p className={cn('mt-1 text-xs', s.sub)}>{sub}</p>
+        <p className={cn('mt-1 text-xs', s.sub)}>{t(sub)}</p>
         {progress !== undefined && <Progress value={progress} className="mt-3 h-1.5" />}
       </CardContent>
     </Card>
@@ -92,6 +95,7 @@ function ProcessCard({
   bottleneck: ColStat | null;
   overdueCount: number;
 }) {
+  const {t}=useAppLocale();
   const rate = total > 0 ? Math.round((terminalCount / total) * 100) : 0;
   return (
     <Card>
@@ -99,12 +103,12 @@ function ProcessCard({
         <div className="mb-3 flex items-center justify-between gap-2">
           <p className="truncate text-sm font-semibold">{name}</p>
           <Badge variant={rate >= 70 ? 'default' : 'secondary'} className="shrink-0 text-xs">
-            {rate}% done
+            {rate}% {t('done')}
           </Badge>
         </div>
 
         {total === 0 ? (
-          <p className="text-xs text-muted-foreground">No actions in this process yet.</p>
+          <p className="text-xs text-muted-foreground"><AppT text="No actions in this process yet."/></p>
         ) : (
           <>
             {/* Segmented progress bar */}
@@ -140,17 +144,17 @@ function ProcessCard({
 
             {/* Alert row */}
             <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-              <span>{total} total</span>
+              <span>{total} {t('total')}</span>
               {bottleneck && bottleneck.count >= 2 && (
                 <span className="flex items-center gap-1 font-medium text-orange-600 dark:text-orange-400">
                   <AlertCircle className="h-3 w-3" />
-                  Bottleneck: {bottleneck.title} ({bottleneck.count})
+                  {t('Bottleneck: {name} ({count})',{name:bottleneck.title,count:bottleneck.count})}
                 </span>
               )}
               {overdueCount > 0 && (
                 <span className="flex items-center gap-1 font-medium text-red-600 dark:text-red-400">
                   <AlertTriangle className="h-3 w-3" />
-                  {overdueCount} overdue
+                  {overdueCount} {t('overdue')}
                 </span>
               )}
             </div>
@@ -164,6 +168,7 @@ function ProcessCard({
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function Analytics() {
+  const {date,t,number}=useAppLocale();
   const { tasks, projects, currentTeam, generalBoardColumns } = useTaskContext();
   const [showExport, setShowExport] = useState(false);
   const [selectedProcessId, setSelectedProcessId] = useState<string>('all');
@@ -219,7 +224,7 @@ export function Analytics() {
   const velocityThisWeek = useMemo(() => {
     const weekAgo = subDays(now, 7);
     return completedTasks.filter(t => completedWithin(t,weekAgo,now)).length;
-  }, [completedTasks, now]);
+  }, [completedTasks, now, date]);
 
   const incompleteHistoryCount = useMemo(
     () => completedTasks.filter(t => !verifiedCompletionAt(t)).length,
@@ -246,7 +251,7 @@ export function Analytics() {
       const count = completedTasks.filter(
         t => completedWithin(t,weekStart,weekEnd)
       ).length;
-      return { week: format(weekStart, 'MMM d'), completed: count };
+      return { week: date(weekStart,{month:'short',day:'numeric'}), completed: count };
     }).reverse();
   }, [completedTasks, now]);
 
@@ -322,42 +327,42 @@ export function Analytics() {
     const list: Insight[] = [];
 
     if (completionRate >= 80) {
-      list.push({ type: 'success', icon: '🚀', title: 'Excellent progress', body: `${completionRate}% of all actions complete — team is firing on all cylinders.` });
+      list.push({ type: 'success', icon: '🚀', title: t('Excellent progress'), body: t('{percent}% of all actions complete — team is firing on all cylinders.',{percent:completionRate}) });
     } else if (completionRate < 40 && filteredTasks.length > 5) {
-      list.push({ type: 'warning', icon: '⚠️', title: 'Low completion rate', body: `Only ${completionRate}% done. Review priorities and unblock stuck items.` });
+      list.push({ type: 'warning', icon: '⚠️', title: t('Low completion rate'), body: t('Only {percent}% done. Review priorities and unblock stuck items.',{percent:completionRate}) });
     }
 
     if (overdueTasks.length > 0) {
-      list.push({ type: 'warning', icon: '⏰', title: `${overdueTasks.length} overdue action${overdueTasks.length > 1 ? 's' : ''}`, body: 'These are past their due date and still open — address them first.' });
+      list.push({ type: 'warning', icon: '⏰', title: t('{count} overdue actions',{count:overdueTasks.length}), body: t('These are past their due date and still open — address them first.') });
     }
 
     const stalledProcesses = visibleBreakdowns.filter(pb => pb.bottleneck && pb.bottleneck.count >= 3);
     if (stalledProcesses.length > 0) {
       const names = stalledProcesses.map(pb => `"${pb.project.name}"`).join(', ');
-      list.push({ type: 'warning', icon: '🔴', title: 'Process bottleneck', body: `${names} — items piling up in one stage. Consider WIP limits or unblocking.` });
+      list.push({ type: 'warning', icon: '🔴', title: t('Process bottleneck'), body: t('{name} — items piling up in one stage. Consider WIP limits or unblocking.',{name:names}) });
     }
 
     if (velocityThisWeek >= 5) {
-      list.push({ type: 'success', icon: '⚡', title: 'High-velocity week', body: `${velocityThisWeek} actions closed this week. Momentum is strong.` });
+      list.push({ type: 'success', icon: '⚡', title: t('High-velocity week'), body: t('{count} actions closed this week. Momentum is strong.',{count:velocityThisWeek}) });
     }
 
     const unassigned = pendingTasks.filter(t => !t.assigneeId).length;
     if (unassigned > 0) {
-      list.push({ type: 'info', icon: '👥', title: `${unassigned} unassigned action${unassigned > 1 ? 's' : ''}`, body: 'Assign owners to improve accountability and velocity tracking.' });
+      list.push({ type: 'info', icon: '👥', title: t('{count} unassigned actions',{count:unassigned}), body: t('Assign owners to improve accountability and velocity tracking.') });
     }
 
     if (avgCompletionDays !== null && avgCompletionDays <= 2) {
-      list.push({ type: 'success', icon: '🎯', title: 'Fast turnaround', body: `Average ${avgCompletionDays.toFixed(1)} days per action — excellent execution speed.` });
+      list.push({ type: 'success', icon: '🎯', title: t('Fast turnaround'), body: t('Average {days} days per action — excellent execution speed.',{days:number(avgCompletionDays,{minimumFractionDigits:1,maximumFractionDigits:1})}) });
     } else if (avgCompletionDays !== null && avgCompletionDays > 10) {
-      list.push({ type: 'info', icon: '📊', title: 'Long completion cycles', body: `Actions take ~${Math.round(avgCompletionDays)} days on average. Break them into smaller steps.` });
+      list.push({ type: 'info', icon: '📊', title: t('Long completion cycles'), body: t('Actions take ~{days} days on average. Break them into smaller steps.',{days:Math.round(avgCompletionDays)}) });
     }
 
     if (list.length === 0) {
-      list.push({ type: 'info', icon: '💡', title: 'Getting started', body: 'Complete actions to unlock personalised insights about your team\'s performance.' });
+      list.push({ type: 'info', icon: '💡', title: t('Getting started'), body: t('Complete actions to unlock personalised insights about your team\'s performance.') });
     }
 
     return list.slice(0, 4);
-  }, [completionRate, overdueTasks.length, visibleBreakdowns, velocityThisWeek, pendingTasks, avgCompletionDays, filteredTasks.length]);
+  }, [completionRate, overdueTasks.length, visibleBreakdowns, velocityThisWeek, pendingTasks, avgCompletionDays, filteredTasks.length,t,number]);
 
   const showGeneralCard =
     (selectedProcessId === 'all' || selectedProcessId === 'general') && generalBreakdown.total > 0;
@@ -379,12 +384,12 @@ export function Analytics() {
       {/* ── Header ── */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Analytics</h1>
+          <h1 className="text-2xl font-bold text-foreground"><AppT text="Analytics"/></h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {currentTeam?.name ?? 'Team'} · {filteredTasks.length} actions
+            {currentTeam?.name ?? t('Team')} · {filteredTasks.length} {t('actions')}
             {selectedProcessId !== 'all' && (
               <span className="ml-1 text-muted-foreground/60">
-                (filtered)
+                {t('(filtered)')}
               </span>
             )}
           </p>
@@ -395,9 +400,9 @@ export function Analytics() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All processes</SelectItem>
+              <SelectItem value="all"><AppT text="All processes"/></SelectItem>
               {hasGeneralTasks && (
-                <SelectItem value="general">General board</SelectItem>
+                <SelectItem value="general"><AppT text="General board"/></SelectItem>
               )}
               {teamProjects.map(p => (
                 <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
@@ -405,9 +410,7 @@ export function Analytics() {
             </SelectContent>
           </Select>
           <Button onClick={() => setShowExport(true)} variant="outline" size="sm">
-            <Download className="mr-2 h-4 w-4" />
-            Export
-          </Button>
+            <Download className="mr-2 h-4 w-4" /><AppT text="Export"/></Button>
         </div>
       </div>
 
@@ -416,7 +419,7 @@ export function Analytics() {
         <KpiCard
           label="Completion rate"
           value={`${completionRate}%`}
-          sub={`${completedTasks.length} / ${filteredTasks.length} actions`}
+          sub={t('{completed} / {total} actions',{completed:completedTasks.length,total:filteredTasks.length})}
           icon={<Target className="h-5 w-5 text-blue-500" />}
           accent="blue"
           progress={completionRate}
@@ -451,8 +454,8 @@ export function Analytics() {
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm font-semibold">
               <TrendingUp className="h-4 w-4" />
-              Completion velocity — last 12 weeks
-              {incompleteHistoryCount > 0 && <span className="ml-2 text-xs font-normal text-muted-foreground">({incompleteHistoryCount} historical completions without verified dates excluded)</span>}
+              <AppT text="Completion velocity — last 12 weeks"/>
+              {incompleteHistoryCount > 0 && <span className="ml-2 text-xs font-normal text-muted-foreground">({incompleteHistoryCount} <AppT text="historical completions without verified dates excluded"/>)</span>}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -471,7 +474,7 @@ export function Analytics() {
                 <Area
                   type="monotone"
                   dataKey="completed"
-                  name="Completed"
+                  name={t("Completed")}
                   stroke={VELOCITY_COLOR}
                   strokeWidth={2}
                   fill="url(#vGrad)"
@@ -488,7 +491,7 @@ export function Analytics() {
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm font-semibold">
               <Layers className="h-4 w-4" />
-              Priority mix
+              <AppT text="Priority mix"/>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -509,7 +512,7 @@ export function Analytics() {
                     </Pie>
                     <Tooltip
                       contentStyle={tooltipStyle}
-                      formatter={(v: number, name: string) => [`${v} actions`, name]}
+                      formatter={(v: number, name: string) => [t('{count} actions',{count:v}), t(name)]}
                     />
                   </PieChart>
                 </ResponsiveContainer>
@@ -517,14 +520,14 @@ export function Analytics() {
                   {priorityData.map(d => (
                     <div key={d.name} className="flex items-center gap-1.5 text-xs text-muted-foreground">
                       <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: d.color }} />
-                      <span className="capitalize">{d.name}</span>
+                      <span className="capitalize">{t(d.name)}</span>
                       <span className="ml-auto font-medium text-foreground">{d.value}</span>
                     </div>
                   ))}
                 </div>
               </>
             ) : (
-              <div className="flex h-44 items-center justify-center text-sm text-muted-foreground">No data yet</div>
+              <div className="flex h-44 items-center justify-center text-sm text-muted-foreground"><AppT text="No data yet"/></div>
             )}
           </CardContent>
         </Card>
@@ -533,11 +536,11 @@ export function Analytics() {
       {/* ── Process breakdown ── */}
       {showProcessSection && (
         <section>
-          <h2 className="mb-3 text-base font-semibold text-foreground">Process breakdown</h2>
+          <h2 className="mb-3 text-base font-semibold text-foreground"><AppT text="Process breakdown"/></h2>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {showGeneralCard && (
               <ProcessCard
-                name="General board"
+                name={t('General board')}
                 colStats={generalBreakdown.colStats}
                 total={generalBreakdown.total}
                 terminalCount={generalBreakdown.terminalCount}
@@ -565,13 +568,11 @@ export function Analytics() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-              <Users className="h-4 w-4" />
-              Team performance
-            </CardTitle>
+              <Users className="h-4 w-4" /><AppT text="Team performance"/></CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {memberPerf.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No team members yet.</p>
+              <p className="text-sm text-muted-foreground"><AppT text="No team members yet."/></p>
             ) : (
               memberPerf.map(m => (
                 <div key={m.id} className="flex items-center gap-3">
@@ -600,9 +601,7 @@ export function Analytics() {
         <Card className="border-emerald-200 bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:border-emerald-800/40 dark:from-emerald-900/20 dark:to-emerald-900/5">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm font-semibold text-emerald-800 dark:text-emerald-200">
-              <Zap className="h-4 w-4" />
-              Insights
-            </CardTitle>
+              <Zap className="h-4 w-4" /><AppT text="Insights"/></CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {insights.map((ins, i) => (

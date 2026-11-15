@@ -1,4 +1,5 @@
 'use client';
+import {T as AppT,useAppLocale} from '@/components/i18n/AppLocaleProvider';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -25,6 +26,7 @@ async function saveTimeZoneSetting(tz: string) {
 }
 
 export function CalendarSettings() {
+  const {t}=useAppLocale();
   const [mounted, setMounted] = useState(false);
   const [timeZone, setTimeZone] = useState('UTC');
   const [googleConnected, setGoogleConnected] = useState(false);
@@ -85,7 +87,7 @@ export function CalendarSettings() {
         if (res.status === 401 && json?.code === 'google_reauth_required') {
           setGoogleConnected(false);
           setGoogleEmail(null);
-          toast.error('Google connection expired. Please reconnect Google Calendar.');
+          toast.error(t('Google connection expired. Please reconnect Google Calendar.'));
           void loadGoogleStatus();
           return;
         }
@@ -95,7 +97,7 @@ export function CalendarSettings() {
       setGoogleCalendars(json.data?.calendars ?? []);
     } catch {
       setGoogleCalendars([]);
-      toast.error('Could not load Google calendars.');
+      toast.error(t('Could not load Google calendars.'));
     } finally {
       setGoogleCalendarsLoading(false);
     }
@@ -152,13 +154,13 @@ export function CalendarSettings() {
     try {
       const res = await fetch('/api/integrations/google/disconnect', { method: 'POST' });
       const json = await res.json();
-      if (!json?.success) throw new Error(json?.error || 'Disconnect failed');
-      toast.success('Google Calendar disconnected');
+      if (!json?.success) throw new Error(json?.error || t('Disconnect failed'));
+      toast.success(t('Google Calendar disconnected'));
       setGoogleConnected(false);
       setGoogleEmail(null);
       setGoogleCalendars([]);
     } catch (e: any) {
-      toast.error(e?.message || 'Disconnect failed');
+      toast.error(e?.message || t('Disconnect failed'));
     } finally {
       setGoogleBusy(false);
     }
@@ -173,9 +175,9 @@ export function CalendarSettings() {
         body: JSON.stringify(patch),
       });
       const json = await res.json();
-      if (!json?.success) throw new Error(json?.error || 'Update failed');
+      if (!json?.success) throw new Error(json?.error || t('Update failed'));
     } catch (e: any) {
-      toast.error(e?.message || 'Update failed');
+      toast.error(e?.message || t('Update failed'));
     } finally {
       setGoogleBusy(false);
     }
@@ -184,21 +186,21 @@ export function CalendarSettings() {
   const handleCalendarChange = async (calendarId: string) => {
     setGoogleSelectedCalendarId(calendarId);
     await patchGoogleConnection({ selectedCalendarId: calendarId });
-    toast.success('Calendar selection saved');
+    toast.success(t('Calendar selection saved'));
   };
 
   const handleSyncToggle = async (checked: boolean) => {
     setGoogleSyncEnabled(checked);
     await patchGoogleConnection({ syncEnabled: checked });
-    toast.success(checked ? 'Calendar sync enabled' : 'Calendar sync paused');
+    toast.success(t(checked ? 'Calendar sync enabled' : 'Calendar sync paused'));
   };
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold">Calendar</h1>
+        <h1 className="text-xl font-semibold"><AppT text="Calendar"/></h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Time zone and calendar integrations.
+          <AppT text="Time zone and calendar integrations."/>
         </p>
       </div>
 
@@ -206,16 +208,16 @@ export function CalendarSettings() {
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
             <Calendar className="h-4 w-4" />
-            Time zone
+            <AppT text="Time zone"/>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-xs text-muted-foreground">
-            Date-only due dates are interpreted as calendar days in this time zone.
+            <AppT text="Date-only due dates are interpreted as calendar days in this time zone."/>
           </p>
           <Select value={timeZone} onValueChange={handleSaveTimeZone}>
             <SelectTrigger className="bg-white dark:bg-gray-800">
-              <SelectValue placeholder="Select a time zone" />
+              <SelectValue placeholder={t("Select a time zone")} />
             </SelectTrigger>
             <SelectContent className="max-h-[320px] overflow-y-auto">
               {timeZoneOptions.map((tz) => (
@@ -223,43 +225,43 @@ export function CalendarSettings() {
               ))}
             </SelectContent>
           </Select>
-          <p className="text-xs text-muted-foreground">Detected from browser: {browserTimeZone}</p>
+          <p className="text-xs text-muted-foreground">{t('Detected from browser: {zone}',{zone:browserTimeZone})}</p>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Google Calendar</CardTitle>
+          <CardTitle className="text-base"><AppT text="Google Calendar"/></CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-xs text-muted-foreground">
-            Sync due dates to a calendar you choose. Each teammate uses their own Google account and time zone.
+            <AppT text="Sync due dates to a calendar you choose. Each teammate uses their own Google account and time zone."/>
           </p>
           <Separator />
           {!googleEligible && (
             <div role="status" className="rounded-xl border border-primary/20 bg-primary/[.06] p-3 text-sm">
-              Google Calendar synchronization requires an active Pro or Team subscription.
-              <a href="/settings/billing" className="ml-2 font-semibold text-primary underline underline-offset-4">View plans</a>
+              <AppT text="Google Calendar synchronization requires an active Pro or Team subscription."/>
+              <a href="/settings/billing" className="ml-2 font-semibold text-primary underline underline-offset-4"><AppT text="View plans"/></a>
             </div>
           )}
           {!googleConnected ? (
             <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
-              <p className="text-sm text-muted-foreground">Not connected</p>
+              <p className="text-sm text-muted-foreground"><AppT text="Not connected"/></p>
               <Button type="button" onClick={handleGoogleConnect} disabled={googleBusy || !googleEligible}>
-                Connect Google
+                <AppT text="Connect Google"/>
               </Button>
             </div>
           ) : (
             <div className="space-y-4">
               <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-sm">
-                <div className="text-xs text-muted-foreground">Connected as</div>
-                <div className="font-medium">{googleEmail || 'Google account'}</div>
+                <div className="text-xs text-muted-foreground"><AppT text="Connected as"/></div>
+                <div className="font-medium">{googleEmail || t('Google account')}</div>
               </div>
 
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <Label className="text-sm font-medium">Sync due dates</Label>
-                  <p className="text-xs text-muted-foreground">Pause without disconnecting Google</p>
+                  <Label className="text-sm font-medium"><AppT text="Sync due dates"/></Label>
+                  <p className="text-xs text-muted-foreground"><AppT text="Pause without disconnecting Google"/></p>
                 </div>
                 <Switch
                   checked={googleSyncEnabled}
@@ -269,7 +271,7 @@ export function CalendarSettings() {
               </div>
 
               <div className="space-y-2">
-                <Label className="text-xs font-medium">Destination calendar</Label>
+                <Label className="text-xs font-medium"><AppT text="Destination calendar"/></Label>
                 <Select
                   value={googleSelectedCalendarId}
                   onValueChange={(v) => void handleCalendarChange(v)}
@@ -277,7 +279,7 @@ export function CalendarSettings() {
                 >
                   <SelectTrigger className="bg-white dark:bg-gray-800">
                     <SelectValue
-                      placeholder={googleCalendarsLoading ? 'Loading calendars…' : 'Select a calendar'}
+                      placeholder={t(googleCalendarsLoading ? 'Loading calendars…' : 'Select a calendar')}
                     />
                   </SelectTrigger>
                   <SelectContent className="max-h-[320px] overflow-y-auto">
@@ -286,13 +288,13 @@ export function CalendarSettings() {
                       : [{ id: 'primary', summary: 'Primary', primary: true }]
                     ).map((c) => (
                       <SelectItem key={c.id} value={c.id}>
-                        {c.summary}{c.primary ? ' (primary)' : ''}
+                        {c.summary}{c.primary ? t(' (primary)') : ''}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
                 {!googleSyncEnabled && (
-                  <p className="text-xs text-muted-foreground">Turn sync on to update Google Calendar events.</p>
+                  <p className="text-xs text-muted-foreground"><AppT text="Turn sync on to update Google Calendar events."/></p>
                 )}
               </div>
 
@@ -303,16 +305,14 @@ export function CalendarSettings() {
                   onClick={() => void loadGoogleCalendars()}
                   disabled={googleBusy || googleCalendarsLoading || !googleEligible}
                 >
-                  Refresh calendars
+                  <AppT text="Refresh calendars"/>
                 </Button>
                 <Button
                   type="button"
                   variant="destructive"
                   onClick={() => void handleGoogleDisconnect()}
                   disabled={googleBusy}
-                >
-                  Disconnect
-                </Button>
+                ><AppT text="Disconnect"/></Button>
               </div>
             </div>
           )}

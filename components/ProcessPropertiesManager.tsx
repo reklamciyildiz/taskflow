@@ -1,4 +1,5 @@
 'use client';
+import {T as AppT} from '@/components/i18n/AppLocaleProvider';
 import { useEffect, useState } from 'react';
 import { ArrowDown, ArrowUp, Archive } from 'lucide-react';
 import { toast } from 'sonner';
@@ -36,7 +37,7 @@ export function ProcessPropertiesManager({ projectId, teamId }: { projectId: str
     void execute({ operation: 'reorder', propertyId, ids: next });
   };
   if (loading) return <p className="text-xs text-muted-foreground">Loading properties…</p>;
-  if (error) return <p className="text-xs text-destructive">{error} <button type="button" className="underline" onClick={() => void reload()}>Retry</button></p>;
+  if (error) return <p className="text-xs text-destructive">{error} <button type="button" className="underline" onClick={() => void reload()}><AppT text="Retry"/></button></p>;
   if (!data) return null;
   const properties = data.properties.filter(p => !p.archived_at);
   const disabled = busy || !data.canManage;
@@ -70,7 +71,7 @@ export function ProcessPropertiesManager({ projectId, teamId }: { projectId: str
         {data.canManage && <div className="flex gap-2 pl-2"><Input className="h-8" placeholder="Add option…" aria-label={`New option for ${property.name}`} value={drafts[property.id] ?? ''} maxLength={80} disabled={busy}
           onChange={event => setDrafts(previous => ({ ...previous, [property.id]: event.target.value }))}
           onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); event.stopPropagation(); void addOption(); } }} />
-          <Button type="button" size="sm" variant="outline" disabled={busy || !drafts[property.id]?.trim()} onClick={() => void addOption()}>Add</Button></div>}
+          <Button type="button" size="sm" variant="outline" disabled={busy || !drafts[property.id]?.trim()} onClick={() => void addOption()}><AppT text="Add"/></Button></div>}
         {data.options.some(o => o.property_id === property.id && o.archived_at) && <p className="text-xs text-muted-foreground">Archived: {data.options.filter(o => o.property_id === property.id && o.archived_at).map(o => o.label).join(', ')}</p>}
       </div>;
     })}
@@ -80,7 +81,7 @@ export function ProcessPropertiesManager({ projectId, teamId }: { projectId: str
     {data.properties.some(p => p.archived_at) && <p className="text-xs text-muted-foreground">Archived properties: {data.properties.filter(p => p.archived_at).map(p => p.name).join(', ')}</p>}
     <AlertDialog open={!!archive} onOpenChange={open => { if (!open) setArchive(null); }}>
       <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Archive this field or option?</AlertDialogTitle><AlertDialogDescription>Existing Action values will be kept and shown as archived. It cannot be assigned to new Actions.</AlertDialogDescription></AlertDialogHeader>
-        <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => { if (archive) void execute(archive); setArchive(null); }}>Archive</AlertDialogAction></AlertDialogFooter>
+        <AlertDialogFooter><AlertDialogCancel><AppT text="Cancel"/></AlertDialogCancel><AlertDialogAction onClick={() => { if (archive) void execute(archive); setArchive(null); }}><AppT text="Archive"/></AlertDialogAction></AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
   </section>;

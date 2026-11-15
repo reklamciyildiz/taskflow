@@ -11,10 +11,10 @@ const process = read('components/ProcessSwitcher.tsx');
 const browserQA = read('scripts/test-board-table-browser.cjs');
 
 for (const [file, source, required] of [
-  ['TaskBoard', board, ['Workspace', 'Projects &amp; Board', 'filteredTasks.length',
+  ['TaskBoard', board, ['Workspace', 'Projects & Board', 'filteredTasks.length',
     'progressPercent', 'DragDropContext onDragEnd={onDragEnd}', 'Droppable droppableId={column.id}',
     'provided.innerRef', 'drag.innerRef', 'provided.placeholder', 'onDragEnd',
-    'isDragDisabled={isMobileBoard}', 'snapshot.isDraggingOver', 'aria-label="Board actions"',
+    'isDragDisabled={isMobileBoard}', 'snapshot.isDraggingOver', 'aria-label={t("Board actions")}',
     'canCompleteTask', 'canEditTask', 'permissions.canCreateTask',
     'statusFilter', 'customerFilter', 'onOpen={openTaskEditor}', 'isMobileBoard ?']],
   ['TaskCard', card, ['data-board-action-card={task.id}', 'aria-busy={movePending}',
@@ -40,7 +40,7 @@ assert.match(board, /rounded-\[23px\]/);
 assert.match(card, /rounded-\[18px\]/);
 assert.ok(board.includes('md:px-2.5 md:py-2') && board.includes('lg:flex-row lg:items-center lg:justify-between'),
  'Compact toolbar must stack at tablet widths and align horizontally only when enough space exists');
-assert.ok(board.includes('aria-label="Create a new process"') &&
+assert.ok(board.includes('aria-label={t("Create a new process")}') &&
  board.includes('hover:bg-muted/60 hover:text-foreground'),
  'Process creation must keep a visible label on dark hover');
 assert.ok(process.includes('hover:text-foreground') && process.includes('focus-visible:text-foreground'),

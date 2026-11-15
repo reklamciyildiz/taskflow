@@ -1,4 +1,5 @@
 'use client';
+import {T as AppT} from '@/components/i18n/AppLocaleProvider';
 
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -68,9 +69,7 @@ export function DeleteProjectModal({
           {error && <p className="text-sm text-red-500">{error}</p>}
 
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={handleClose} disabled={loading}>
-              Cancel
-            </Button>
+            <Button variant="outline" onClick={handleClose} disabled={loading}><AppT text="Cancel"/></Button>
             <Button variant="destructive" onClick={handleDelete} disabled={loading}>
               {loading ? (
                 <>

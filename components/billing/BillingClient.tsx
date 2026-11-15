@@ -1,4 +1,5 @@
 'use client';
+import {T as AppT,useAppLocale} from '@/components/i18n/AppLocaleProvider';
 
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -35,7 +36,7 @@ import { useOrganizationBilling } from '@/hooks/useOrganizationBilling';
 import { isCapacitorNative } from '@/lib/client/is-capacitor-native';
 import { ACTIPROC_PLANS, actiprocPriceUsd, type BillingInterval } from '@/lib/billing-plans';
 import { PLAN_MARKETING_FEATURES } from '@/lib/plan-entitlement-matrix';
-import { aiPlanMonthlyDescription, aiPlanDailyDescription } from '@/lib/ai/ai-plan-catalog';
+import { AI_PLAN_LIMITS } from '@/lib/ai/ai-plan-catalog';
 import { AIUsageBillingCard } from '@/components/billing/AIUsageBillingCard';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
@@ -80,6 +81,14 @@ const PLAN_FEATURES = {
 } as const;
 
 export function BillingClient({ organizationId, showBackLink = true }: Props) {
+  const {t,number}=useAppLocale();
+  const localizePlanFeature=(label:string)=>{
+    const qty=label.match(/^(\d+) (process|processes|workspace|workspaces|seat included)$/);
+    if(qty)return t('{count} {type}',{count:Number(qty[1]),type:t(qty[2])});
+    const upTo=label.match(/^Up to (\d+) workspaces$/);
+    if(upTo)return t('Up to {count} workspaces',{count:Number(upTo[1])});
+    return t(label);
+  };
   const searchParams = useSearchParams();
   const {
     billingPlan,
@@ -245,8 +254,8 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                 <ShieldCheck className="h-5 w-5 text-[#D5F1D1]" aria-hidden />
               </span>
               <DialogHeader className="space-y-1.5 text-left">
-                <div className="text-[10px] font-semibold uppercase tracking-[0.19em] text-[#C8FF93]">Secure billing confirmation</div>
-                <DialogTitle className="text-xl font-semibold tracking-tight text-white sm:text-2xl">Review billing change</DialogTitle>
+                <div className="text-[10px] font-semibold uppercase tracking-[0.19em] text-[#C8FF93]"><AppT text="Secure billing confirmation"/></div>
+                <DialogTitle className="text-xl font-semibold tracking-tight text-white sm:text-2xl"><AppT text="Review billing change"/></DialogTitle>
                 <DialogDescription className="text-xs leading-relaxed text-slate-300">
                   Nothing is charged or changed until you authorize this request.
                 </DialogDescription>
@@ -256,23 +265,23 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
           {billingReview ? <div className="space-y-4 p-5 sm:p-6">
             <section aria-label="Your updated subscription" className="overflow-hidden rounded-[20px] border border-border/70 bg-card shadow-[0_8px_28px_-24px_rgba(15,23,42,0.4)]">
               <div className="space-y-3 px-4 py-4 sm:px-5">
-                <p className="text-[10px] font-bold uppercase tracking-[0.17em] text-muted-foreground">Subscription update</p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.17em] text-muted-foreground"><AppT text="Subscription update"/></p>
                 {billingReview.kind==='seats' ? (
                   <div className="flex items-center justify-between gap-3">
                     <div className="rounded-xl border border-border/70 bg-muted/40 px-4 py-3 text-center">
-                      <div className="text-[11px] text-muted-foreground">Current seats</div>
+                      <div className="text-[11px] text-muted-foreground"><AppT text="Current seats"/></div>
                       <div className="mt-1 text-2xl font-semibold tabular-nums">{billingReview.previousSeats}</div>
                     </div>
                     <ArrowRight className="h-5 w-5 shrink-0 text-primary" aria-hidden />
                     <div className="rounded-xl border border-primary/25 bg-primary/[0.06] px-4 py-3 text-center">
-                      <div className="text-[11px] text-muted-foreground">New seats</div>
+                      <div className="text-[11px] text-muted-foreground"><AppT text="New seats"/></div>
                       <div className="mt-1 text-2xl font-semibold tabular-nums text-primary">{billingReview.desiredSeats}</div>
                     </div>
                   </div>
                 ) : (
                   <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0 rounded-xl border border-border/70 bg-muted/40 px-4 py-3">
-                      <div className="text-[11px] text-muted-foreground">Current plan</div>
+                      <div className="text-[11px] text-muted-foreground"><AppT text="Current plan"/></div>
                       <div className="mt-1 text-base font-semibold capitalize">{billingReview.fromPlan}</div>
                     </div>
                     <ArrowRight className="h-5 w-5 shrink-0 text-primary" aria-hidden />
@@ -294,7 +303,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                   </div>
                 </div>
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border/70 pt-3 text-xs">
-                  <span className="flex items-center gap-1.5 text-muted-foreground"><CalendarDays className="h-3.5 w-3.5" aria-hidden /> Current renewal date</span>
+                  <span className="flex items-center gap-1.5 text-muted-foreground"><CalendarDays className="h-3.5 w-3.5" aria-hidden /><AppT text="Current renewal date"/></span>
                   <span className="font-medium tabular-nums">{utcBillingDate(billingReview.currentNextChargeAt)}</span>
                 </div>
               </div>
@@ -303,8 +312,8 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
               <div className="flex gap-3 rounded-2xl border border-amber-500/25 bg-amber-500/[0.06] p-4">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden />
                 <div className="space-y-1.5 text-xs leading-relaxed">
-                  <p className="font-semibold text-foreground">Seat reduction</p>
-                  <p className="text-muted-foreground">Creem may apply fewer seats immediately or at the next billing cycle. Unused prepaid time is not automatically refunded. Confirm the effective quantity after synchronization.</p>
+                  <p className="font-semibold text-foreground"><AppT text="Seat reduction"/></p>
+                  <p className="text-muted-foreground"><AppT text="Creem may apply fewer seats immediately or at the next billing cycle. Unused prepaid time is not automatically refunded. Confirm the effective quantity after synchronization."/></p>
                 </div>
               </div>
             ) : (
@@ -314,13 +323,13 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                   <div className="space-y-1.5 text-xs leading-relaxed">
                     <p className="font-semibold text-foreground">Today&apos;s charge is prorated</p>
                     <p className="text-muted-foreground">Creem calculates the immediate charge using your subscription&apos;s remaining prepaid time and the new price. It may differ from the full billing-period price difference, and the amount is not guaranteed.</p>
-                    <p className="font-medium text-foreground">The exact charge is set by Creem and is not available before confirmation in this integration.</p>
+                    <p className="font-medium text-foreground"><AppT text="The exact charge is set by Creem and is not available before confirmation in this integration."/></p>
                   </div>
                 </div>
                 <div className="flex gap-3 rounded-2xl border border-border/70 bg-muted/30 p-4">
                   <CalendarDays className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                   <div className="space-y-1.5 text-xs leading-relaxed">
-                    <p className="font-semibold text-foreground">Your renewal date will change</p>
+                    <p className="font-semibold text-foreground"><AppT text="Your renewal date will change"/></p>
                     <p className="text-muted-foreground">The immediate-charge option starts a new billing cycle. We&apos;ll show the new date only after Creem verifies the update.</p>
                   </div>
                 </div>
@@ -337,12 +346,12 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
             <div className="flex flex-col-reverse gap-2 border-t border-border/70 pt-4 sm:flex-row sm:justify-end">
               <Button type="button" variant="outline" disabled={reviewBusy}
                 className="h-11 rounded-xl px-5 transition-all hover:bg-muted"
-                onClick={()=>{setBillingReview(null);setReviewAcknowledged(false);setReviewError(null);}}>Cancel</Button>
+                onClick={()=>{setBillingReview(null);setReviewAcknowledged(false);setReviewError(null);}}><AppT text="Cancel"/></Button>
               <Button type="button" disabled={!reviewAcknowledged||reviewBusy||Boolean(reviewError)||busy}
                 className="h-11 rounded-xl bg-primary px-5 font-semibold text-primary-foreground shadow-[0_10px_24px_-12px_rgba(40,122,82,0.8)] transition-all hover:bg-primary/90 focus-visible:ring-ring"
                 onClick={()=>void applyReviewedChange()}>
-                {reviewBusy ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />Confirming with Creem…</> :
-                  billingReview.kind==='seats'&&billingReview.direction==='decrease' ? <><Check className="mr-2 h-4 w-4" aria-hidden />Confirm reduction</> :
+                {reviewBusy ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden /><AppT text="Confirming with Creem…"/></> :
+                  billingReview.kind==='seats'&&billingReview.direction==='decrease' ? <><Check className="mr-2 h-4 w-4" aria-hidden /><AppT text="Confirm reduction"/></> :
                   <><ShieldCheck className="mr-2 h-4 w-4" aria-hidden />Authorize charge &amp; confirm</>}
               </Button>
             </div>
@@ -359,71 +368,70 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
         <div className="relative">
           {showBackLink ? (
             <Link href="/settings" className="mb-6 inline-flex items-center gap-1.5 rounded-lg text-xs text-slate-300 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60">
-              <ArrowLeft className="h-3.5 w-3.5" aria-hidden /> Back to settings
+              <ArrowLeft className="h-3.5 w-3.5" aria-hidden /> <AppT text="Back to settings"/>
             </Link>
           ) : null}
           <div className="flex flex-wrap items-start justify-between gap-5">
             <div className="min-w-0">
               <div className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#C8FF93]">
-                <span className="h-1.5 w-1.5 rounded-full bg-[#C8FF93]" aria-hidden /> Workspace subscription
+                <span className="h-1.5 w-1.5 rounded-full bg-[#C8FF93]" aria-hidden /> <AppT text="Workspace subscription"/>
               </div>
-              <h1 className="mt-2.5 text-[26px] font-semibold tracking-tight sm:text-[32px]">Billing &amp; plans</h1>
-              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-300">One clear view of your subscription, seats, and upcoming billing dates.</p>
+              <h1 className="mt-2.5 text-[26px] font-semibold tracking-tight sm:text-[32px]"><AppT text="Billing & plans"/></h1>
+              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-300"><AppT text="One clear view of your subscription, seats, and upcoming billing dates."/></p>
             </div>
             <div className="flex items-center gap-2">
               <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/25 bg-emerald-400/10 px-3 py-2 text-[11px] font-medium text-emerald-200">
-                <ShieldCheck className="h-3.5 w-3.5" aria-hidden /> Secured by Creem
-              </span>
+                <ShieldCheck className="h-3.5 w-3.5" aria-hidden /><AppT text="Secured by Creem"/></span>
               <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-2 text-[11px] font-medium capitalize text-white">
                 <span className={cn('h-1.5 w-1.5 rounded-full', billingStatus==='active'?'bg-emerald-400':billingStatus==='past_due'?'bg-amber-400':'bg-slate-300')} aria-hidden />
-                {statusLabel}
+                {t(statusLabel)}
               </span>
             </div>
           </div>
           <div className="mt-7 grid grid-cols-2 gap-2.5 border-t border-white/10 pt-5 lg:grid-cols-4">
             <div className="min-w-0 rounded-[18px] border border-white/10 bg-white/[0.055] p-4 backdrop-blur-sm">
-              <div className="flex items-center gap-2 text-[11px] font-medium text-slate-300"><CreditCard className="h-3.5 w-3.5 text-[#C8FF93]" aria-hidden /> Current plan</div>
-              <p className="mt-2 truncate text-xl font-semibold tracking-tight">{planTitle}</p>
+              <div className="flex items-center gap-2 text-[11px] font-medium text-slate-300"><CreditCard className="h-3.5 w-3.5 text-[#C8FF93]" aria-hidden /><AppT text="Current plan"/></div>
+              <p className="mt-2 truncate text-xl font-semibold tracking-tight">{t(planTitle)}</p>
             </div>
             <div className="min-w-0 rounded-[18px] border border-white/10 bg-white/[0.055] p-4 backdrop-blur-sm">
-              <div className="flex items-center gap-2 text-[11px] font-medium text-slate-300"><Users className="h-3.5 w-3.5 text-[#C8FF93]" aria-hidden /> Seat capacity</div>
+              <div className="flex items-center gap-2 text-[11px] font-medium text-slate-300"><Users className="h-3.5 w-3.5 text-[#C8FF93]" aria-hidden /><AppT text="Seat capacity"/></div>
               <p className="mt-2 truncate text-xl font-semibold tracking-tight tabular-nums">{seatsUsed}<span className="px-1 text-slate-500">/</span>{Number.isFinite(seatLimit)?seatLimit:'∞'}</p>
             </div>
             <div className="min-w-0 rounded-[18px] border border-white/10 bg-white/[0.055] p-4 backdrop-blur-sm">
-              <div className="flex items-center gap-2 text-[11px] font-medium text-slate-300"><Receipt className="h-3.5 w-3.5 text-[#C8FF93]" aria-hidden /> Verified list price</div>
+              <div className="flex items-center gap-2 text-[11px] font-medium text-slate-300"><Receipt className="h-3.5 w-3.5 text-[#C8FF93]" aria-hidden /><AppT text="Verified list price"/></div>
               <p className="mt-2 truncate text-lg font-semibold tracking-tight tabular-nums" title={verifiedPlanRate}>{verifiedPlanRate}</p>
             </div>
             <div className="min-w-0 rounded-[18px] border border-white/10 bg-white/[0.055] p-4 backdrop-blur-sm">
-              <div className="flex items-center gap-2 text-[11px] font-medium text-slate-300"><CalendarDays className="h-3.5 w-3.5 text-[#C8FF93]" aria-hidden /> Next scheduled charge</div>
+              <div className="flex items-center gap-2 text-[11px] font-medium text-slate-300"><CalendarDays className="h-3.5 w-3.5 text-[#C8FF93]" aria-hidden /><AppT text="Next scheduled charge"/></div>
               <p className="mt-2 line-clamp-2 text-[13px] font-semibold leading-snug" title={verifiedNextCharge}>{verifiedNextCharge}</p>
             </div>
           </div>
-          <p className="mt-3 text-[11px] leading-relaxed text-slate-400">List prices exclude individual discounts or credits. The next-charge date is displayed only when confirmed by Creem.</p>
+          <p className="mt-3 text-[11px] leading-relaxed text-slate-400"><AppT text="List prices exclude individual discounts or credits. The next-charge date is displayed only when confirmed by Creem."/></p>
         </div>
       </header>
 
       <AIUsageBillingCard key={`${billingPlan}:${seatLimit}:${billingStatus}`} />
 
       {hasPaidSubscription ? (
-        <section aria-label="Billing cycle details" className="grid gap-3 rounded-[22px] border border-border/70 bg-card p-4 shadow-sm sm:grid-cols-[1fr_1fr_1.5fr] sm:items-center sm:p-5">
+        <section aria-label={t("Billing cycle details")} className="grid gap-3 rounded-[22px] border border-border/70 bg-card p-4 shadow-sm sm:grid-cols-[1fr_1fr_1.5fr] sm:items-center sm:p-5">
           <div className="flex items-start gap-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/[0.08] text-primary"><CalendarDays className="h-4 w-4" aria-hidden /></span>
             <div className="min-w-0">
-              <p className="text-[11px] font-medium text-muted-foreground">Current period ends</p>
+              <p className="text-[11px] font-medium text-muted-foreground"><AppT text="Current period ends"/></p>
               <p className="mt-1 text-sm font-semibold tabular-nums">{utcBillingDate(billingCycle?.currentPeriodEndAt??null)}</p>
             </div>
           </div>
           <div className="flex items-start gap-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/[0.08] text-primary"><ShieldCheck className="h-4 w-4" aria-hidden /></span>
             <div className="min-w-0">
-              <p className="text-[11px] font-medium text-muted-foreground">Payment provider</p>
+              <p className="text-[11px] font-medium text-muted-foreground"><AppT text="Payment provider"/></p>
               <p className="mt-1 text-sm font-semibold">Creem</p>
-              <p className="text-[11px] text-muted-foreground">Invoices and card management in portal</p>
+              <p className="text-[11px] text-muted-foreground"><AppT text="Invoices and card management in portal"/></p>
             </div>
           </div>
           <p className="flex items-start gap-2 rounded-xl bg-muted/40 p-3 text-xs leading-relaxed text-muted-foreground">
             <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
-            Immediate charged changes start a new billing cycle. Refresh to view the next verified charge date after a change.
+            <AppT text="Immediate charged changes start a new billing cycle. Refresh to view the next verified charge date after a change."/>
           </p>
         </section>
       ) : null}
@@ -432,7 +440,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
         <div className="flex items-start gap-3 rounded-lg border border-[#78B495]/30 bg-[#1C3C2B] px-4 py-3 text-sm text-[#D5F1D1]">
           <Shield className="h-4 w-4 shrink-0 mt-0.5 text-[#C8FF93]" aria-hidden />
           <div className="space-y-1">
-            <p className="font-semibold text-white">Google Play Policy Notice</p>
+            <p className="font-semibold text-white"><AppT text="Google Play Policy Notice"/></p>
             <p className="text-xs text-[#D5F1D1]/90 leading-relaxed">
               This Capacitor app displays your existing subscription. Purchasing, upgrading and changing paid seats are unavailable in the native application.
               Your account's existing paid entitlements are synchronized across devices.
@@ -444,7 +452,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
       {checkoutSuccess && !hasPaidSubscription ? (
         <div role="status" className="flex gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-foreground">
           <Clock3 className="h-4 w-4 shrink-0 text-amber-500" aria-hidden />
-          <span>Payment confirmation is pending. Refresh if the plan has not updated yet.</span>
+          <span><AppT text="Payment confirmation is pending. Refresh if the plan has not updated yet."/></span>
         </div>
       ) : checkoutSuccess && hasPaidSubscription && billingStatus !== 'cancelled' ? (
         <div role="status" className="flex gap-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-foreground">
@@ -455,7 +463,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
 
       {needsPreviousSubscriptionReview ? (
         <div role="status" className="rounded-2xl border border-amber-400/30 bg-amber-400/[0.08] p-4 text-sm">
-          <p className="font-semibold">Previous subscription needs review</p>
+          <p className="font-semibold"><AppT text="Previous subscription needs review"/></p>
           <p className="mt-1 text-muted-foreground">
             A prior subscription is still linked to this organization. New checkout is temporarily
             blocked to prevent duplicate charges. If this was a Test Mode subscription,
@@ -467,16 +475,16 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
 
       {canResubscribe ? (
         <div className="space-y-3 rounded-2xl border border-amber-400/30 bg-amber-400/[0.08] p-4 text-sm">
-          <p className="font-semibold">Start a new subscription</p>
+          <p className="font-semibold"><AppT text="Start a new subscription"/></p>
           <p className="text-muted-foreground">
             Your previous Creem subscription was permanently cancelled. A new purchase starts
             a separate paid subscription immediately. Any unused time on the previous term
-            is <strong>not automatically credited or refunded</strong>.
+            is <strong><AppT text="not automatically credited or refunded"/></strong>.
           </p>
           <label className="flex cursor-pointer items-start gap-3 font-medium">
             <input type="checkbox" className="mt-1 h-4 w-4 accent-[#287A52]"
               checked={acceptNewCharge} onChange={(event) => setAcceptNewCharge(event.target.checked)} />
-            <span>I understand that a new charge will be made now, even if I have paid access remaining.</span>
+            <span><AppT text="I understand that a new charge will be made now, even if I have paid access remaining."/></span>
           </label>
         </div>
       ) : null}
@@ -494,7 +502,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
               </p>
               {billingPlan === 'free' && (
                 <div className="mt-3 flex flex-wrap items-center gap-3">
-                  <label htmlFor="checkout-seats" className="text-xs font-medium">Seats to purchase</label>
+                  <label htmlFor="checkout-seats" className="text-xs font-medium"><AppT text="Seats to purchase"/></label>
                   <input id="checkout-seats" type="number" inputMode="numeric"
                     min={Math.max(1,seatsUsed)} max={500} value={checkoutSeats}
                     onChange={event => setCheckoutSeats(Number(event.target.value))}
@@ -519,11 +527,9 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                   : billingPlan === 'free'
                     ? void openCheckout(selectedPlan, { billingInterval: selectedPlan === 'individual' ? 'yearly' : selectedBillingInterval, seats: checkoutSeats })
                     : void requestPlanReview(selectedPlan)}
-              >
-                Continue to checkout
-              </Button>
+              ><AppT text="Continue to checkout"/></Button>
               <Button type="button" variant="outline" className={actionSecondary} disabled={busy} onClick={() => setSelectedPlan(null)}>
-                Clear selection
+                <AppT text="Clear selection"/>
               </Button>
             </div>
           </CardContent>
@@ -540,18 +546,18 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                   <CreditCard className="h-5 w-5" aria-hidden />
                 </span>
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">Subscription management</p>
-                  <CardTitle className="mt-0.5 text-lg font-semibold tracking-tight sm:text-xl">Current subscription</CardTitle>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary"><AppT text="Subscription management"/></p>
+                  <CardTitle className="mt-0.5 text-lg font-semibold tracking-tight sm:text-xl"><AppT text="Current subscription"/></CardTitle>
                 </div>
               </div>
               <CardDescription className="max-w-lg text-xs leading-relaxed">
-                Your verified subscription details and available account actions.
+                <AppT text="Your verified subscription details and available account actions."/>
               </CardDescription>
             </div>
             <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
               <Button type="button" variant="outline" size="sm" className={actionSecondary} disabled={busy} onClick={() => void refreshBilling()}>
                 <RefreshCw className={cn('mr-1.5 h-3.5 w-3.5', billingLoading && 'animate-spin')} aria-hidden />
-                {billingLoading ? 'Refreshing…' : 'Refresh'}
+                {t(billingLoading ? 'Refreshing…' : 'Refresh')}
               </Button>
               <Button
                 type="button"
@@ -560,10 +566,10 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                 className={actionSecondary}
                 disabled={busy || !hasPaidSubscription}
                 onClick={() => void openCustomerPortal()}
-                title={billingPlan === 'free' ? 'Subscribe first' : 'Invoices & payment method'}
+                title={t(billingPlan === 'free' ? 'Subscribe first' : 'Invoices & payment method')}
               >
                 <Receipt className="mr-1.5 h-3.5 w-3.5" aria-hidden />
-                Invoices &amp; portal
+                <AppT text="Invoices & portal"/>
               </Button>
               {(billingPlan === 'team' || billingPlan === 'pro' || billingPlan === 'individual') && subscriptionId && Number.isFinite(seatLimit) ? (
                 <Button
@@ -579,7 +585,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                   }}
                 >
                   <Users className="mr-1.5 h-3.5 w-3.5" aria-hidden />
-                  Manage seats
+                  <AppT text="Manage seats"/>
                 </Button>
               ) : null}
               {canResume && hasPaidSubscription ? (
@@ -635,12 +641,12 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
         </CardHeader>
         <CardContent className="space-y-6 pt-6 sm:px-7 sm:pb-7">
           <div className="flex flex-wrap items-center gap-2.5">
-            <span className="text-xs font-medium text-muted-foreground">Your plan</span>
+            <span className="text-xs font-medium text-muted-foreground"><AppT text="Your plan"/></span>
             <Badge variant={billingPlan === 'free' ? 'secondary' : 'default'} className="rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-wide">
               {billingPlan}
             </Badge>
             <Separator orientation="vertical" className="mx-1 hidden h-4 sm:block" />
-            <span className="text-xs font-medium text-muted-foreground">Subscription status</span>
+            <span className="text-xs font-medium text-muted-foreground"><AppT text="Subscription status"/></span>
             <Badge variant={statusBadgeVariant(billingStatus)} className="rounded-full px-3 py-1 text-[10px] font-semibold capitalize">
               {billingLoading ? 'Refreshing…' : statusLabel}
             </Badge>
@@ -689,7 +695,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
           {planChange ? (
             <div role="status" className="flex items-start gap-3 rounded-2xl border border-amber-500/25 bg-amber-500/[0.07] p-4 text-xs leading-relaxed text-foreground">
               <Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden />
-              <div><p className="mb-1 font-semibold">Plan upgrade pending verification</p>
+              <div><p className="mb-1 font-semibold"><AppT text="Plan upgrade pending verification"/></p>
                 Your upgrade from <strong className="capitalize">{planChange.previousPlan}</strong> to <strong className="capitalize">{planChange.desiredPlan}</strong> is awaiting a verified Creem payment. You cannot start another change while verification is pending. Refresh your status or contact support if review remains open.
               </div>
             </div>
@@ -697,7 +703,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
           {seatChange ? (
             <div role="status" className="flex items-start gap-3 rounded-2xl border border-amber-500/25 bg-amber-500/[0.07] p-4 text-xs leading-relaxed text-foreground">
               <Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden />
-              <div><p className="mb-1 font-semibold">Seat change pending verification</p>
+              <div><p className="mb-1 font-semibold"><AppT text="Seat change pending verification"/></p>
                 Creem is verifying your request for <strong>{seatChange.desiredSeats}</strong> seats.
                 {seatChange.status === 'review' ? ' This requires billing review before another change.' : ' A new charge cannot start until confirmation.'} Refresh to check its status.
               </div>
@@ -706,7 +712,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
           {showSeatMeter ? (
             <div className="space-y-4 rounded-[20px] border border-border/70 bg-gradient-to-br from-muted/45 via-card to-card p-4 shadow-sm sm:p-5">
               <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-                <span className="flex items-center gap-2 font-semibold"><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/[0.08] text-primary"><Users className="h-4 w-4" aria-hidden /></span> Team seat usage</span>
+                <span className="flex items-center gap-2 font-semibold"><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/[0.08] text-primary"><Users className="h-4 w-4" aria-hidden /></span><AppT text="Team seat usage"/></span>
                 <span className="tabular-nums text-muted-foreground">
                   {billingLoading ? '…' : `${seatsUsed} / ${Number.isFinite(seatLimit) ? seatLimit : '∞'} used`}
                   {seatPct > 0 && Number.isFinite(seatLimit) ? (
@@ -717,7 +723,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
               <Progress aria-label="Seats used" value={seatsUsed} max={Number.isFinite(seatLimit) ? Math.max(seatLimit, 1) : Math.max(seatsUsed, 1)} className="h-2.5 overflow-hidden rounded-full bg-primary/10" />
               {Number.isFinite(seatLimit) && seatsUsed >= seatLimit ? (
                 <p className="text-xs text-muted-foreground">
-                  Invites are blocked at your purchased seat limit. Use <strong>Add seats</strong> above to increase
+                  Invites are blocked at your purchased seat limit. Use <strong><AppT text="Add seats"/></strong> above to increase
                   your quota; changes sync after the next webhook event (use Refresh).
                 </p>
               ) : (
@@ -738,19 +744,17 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
             return (
               <div className="space-y-5 rounded-[22px] border border-primary/25 bg-gradient-to-br from-primary/[0.04] via-card to-card p-5 shadow-[0_14px_36px_-26px_rgba(15,23,42,0.4)] sm:p-6">
                 <div className="flex items-center justify-between">
-                  <div><p className="text-sm font-semibold tracking-tight">Manage seats</p><p className="mt-1 text-xs text-muted-foreground">Review your new capacity before confirming.</p></div>
+                  <div><p className="text-sm font-semibold tracking-tight"><AppT text="Manage seats"/></p><p className="mt-1 text-xs text-muted-foreground"><AppT text="Review your new capacity before confirming."/></p></div>
                   <button
                     type="button"
                     className="text-xs text-muted-foreground hover:text-foreground"
                     onClick={() => { setAddSeatsOpen(false); setAddSeatsError(null); }}
-                  >
-                    Cancel
-                  </button>
+                  ><AppT text="Cancel"/></button>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="rounded-xl border border-border/70 bg-background/75 px-4 py-3">
-                     <p className="text-xs text-muted-foreground">Current capacity</p>
-                     <p className="mt-1 text-2xl font-semibold tabular-nums">{seatLimit}<span className="ml-1 text-xs font-medium text-muted-foreground">seats</span></p>
+                     <p className="text-xs text-muted-foreground"><AppT text="Current capacity"/></p>
+                     <p className="mt-1 text-2xl font-semibold tabular-nums">{seatLimit}<span className="ml-1 text-xs font-medium text-muted-foreground"><AppT text="seats"/></span></p>
                      <p className="mt-1 text-xs text-muted-foreground">{seatsUsed} in use · minimum {seatsUsed}</p>
                    </div>
                   <div className="space-y-1.5 rounded-xl border border-primary/20 bg-primary/[0.035] px-4 py-3">
@@ -780,7 +784,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                   {isIncrease ? (
                     <p>Creem calculates today&apos;s prorated payment using remaining prepaid time and the new price. The exact charge is not available before confirmation, and the immediate charge resets the billing cycle.</p>
                   ) : isDecrease ? (
-                    <p>Creem can reduce seat quantity immediately without automatically refunding prepaid time. Review this before confirming.</p>
+                    <p><AppT text="Creem can reduce seat quantity immediately without automatically refunding prepaid time. Review this before confirming."/></p>
                   ) : null}
                 </div>
                 {isDecrease ? (
@@ -788,7 +792,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                     <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0"
                       checked={seatReductionAcknowledged}
                       onChange={event => setSeatReductionAcknowledged(event.target.checked)} />
-                    <span>I understand that reducing seats may apply immediately and does not automatically refund unused subscription time.</span>
+                    <span><AppT text="I understand that reducing seats may apply immediately and does not automatically refund unused subscription time."/></span>
                   </label>
                 ) : null}
                 {desiredSeats < seatsUsed ? (
@@ -847,7 +851,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
           {subscriptionId ? (
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/70 bg-muted/20 px-4 py-3">
               <div className="min-w-0">
-                <p className="text-[11px] font-medium text-muted-foreground">Subscription reference</p>
+                <p className="text-[11px] font-medium text-muted-foreground"><AppT text="Subscription reference"/></p>
                 <p className="mt-1 break-all font-mono text-[11px] text-foreground/80" title={subscriptionId}>{subscriptionId}</p>
               </div>
               <Button type="button" variant="outline" size="sm" className="h-9 shrink-0 rounded-lg px-3 text-xs"
@@ -855,17 +859,16 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                   try { await navigator.clipboard.writeText(subscriptionId); toast.success('Subscription reference copied'); }
                   catch { toast.error('Unable to copy subscription reference'); }
                 }}>
-                <Copy className="mr-1.5 h-3.5 w-3.5" aria-hidden /> Copy
-              </Button>
+                <Copy className="mr-1.5 h-3.5 w-3.5" aria-hidden /><AppT text="Copy"/></Button>
             </div>
           ) : billingPlan !== 'free' ? (
-            <p className="text-xs text-muted-foreground">Subscription id will appear here after the first webhook sync.</p>
+            <p className="text-xs text-muted-foreground"><AppT text="Subscription id will appear here after the first webhook sync."/></p>
           ) : null}
 
           <div className="flex items-start gap-2 rounded-lg border border-border/60 bg-muted/20 p-3 text-xs text-muted-foreground">
             <Shield className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
             <span>
-              Tax, chargebacks, and receipts are handled by Creem. Open <strong>Invoices & portal</strong> for
+              Tax, chargebacks, and receipts are handled by Creem. Open <strong><AppT text="Invoices & portal"/></strong> for
               PDF invoices, card updates, and cancellation.
             </span>
           </div>
@@ -875,19 +878,19 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
       {/* Plan matrix */}
       <div id="billing-plans" className="scroll-mt-20">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div><p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">Flexible plans</p><h2 className="mt-1 text-xl font-semibold tracking-tight sm:text-2xl">Choose how your team grows</h2><p className="mt-1 text-sm text-muted-foreground">Individual renews annually; choose monthly or annual per-seat billing for Pro and Team.</p></div>
+          <div><p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary"><AppT text="Flexible plans"/></p><h2 className="mt-1 text-xl font-semibold tracking-tight sm:text-2xl"><AppT text="Choose how your team grows"/></h2><p className="mt-1 text-sm text-muted-foreground"><AppT text="Individual renews annually; choose monthly or annual per-seat billing for Pro and Team."/></p></div>
 
         </div>
-        <div role="group" aria-label="Billing period" className="mb-4 flex flex-wrap items-center justify-center gap-1.5 rounded-xl border border-border/70 bg-card p-1.5 sm:justify-start">
+        <div role="group" aria-label={t("Billing period")} className="mb-4 flex flex-wrap items-center justify-center gap-1.5 rounded-xl border border-border/70 bg-card p-1.5 sm:justify-start">
           {(['monthly','yearly'] as const).map(period=>
             <button key={period} type="button" aria-pressed={selectedBillingInterval===period}
               disabled={hasPaidSubscription}
               onClick={()=>setSelectedBillingInterval(period)}
               className={cn('rounded-lg px-4 py-2.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
                 selectedBillingInterval===period?'bg-primary text-primary-foreground':'text-muted-foreground hover:bg-primary/[0.06]')}
-            >{period==='yearly'?'Yearly · save 16.7%':'Monthly'}</button>
+            >{t(period==='yearly'?'Yearly · save 16.7%':'Monthly')}</button>
           )}
-          {hasPaidSubscription && <span className="px-2 text-[11px] text-muted-foreground">Existing subscription cadence is fixed for upgrades. Change it through Creem support.</span>}
+          {hasPaidSubscription && <span className="px-2 text-[11px] text-muted-foreground"><AppT text="Existing subscription cadence is fixed for upgrades. Change it through Creem support."/></span>}
         </div>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {(['free', 'individual', 'pro', 'team'] as const).map((key) => {
@@ -923,42 +926,40 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
               >
                 {current ? (
                   <div className="absolute right-3 top-3">
-                    <Badge variant="outline" className="rounded-full border-primary/30 bg-primary/[0.055] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-primary">
-                      Current
-                    </Badge>
+                    <Badge variant="outline" className="rounded-full border-primary/30 bg-primary/[0.055] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-primary"><AppT text="Current"/></Badge>
                   </div>
                 ) : null}
                 <CardHeader className="space-y-3 pb-3 pt-7">
                   <CardTitle className="flex items-center gap-2 text-lg font-semibold tracking-tight">
                     {key === 'pro' ? <Sparkles className="h-4 w-4 text-amber-500" aria-hidden /> : null}
                     {key === 'team' ? <Users className="h-4 w-4 text-primary" aria-hidden /> : null}
-                    {title}
+                    {t(title)}
                   </CardTitle>
-                  <CardDescription className="text-xs">{blurb}</CardDescription>
+                  <CardDescription className="text-xs">{t(blurb)}</CardDescription>
                 </CardHeader>
                 <CardContent className="flex flex-1 flex-col gap-5 pb-5">
                   <div className="rounded-[15px] border border-primary/15 bg-primary/[0.045] p-3">
                     <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
-                      <Sparkles className="h-3.5 w-3.5" aria-hidden /> Included Actiproc AI
+                      <Sparkles className="h-3.5 w-3.5" aria-hidden /> <AppT text="Included Actiproc AI"/>
                     </div>
-                    <p className="mt-2 text-sm font-semibold text-foreground">{aiPlanMonthlyDescription(key)}</p>
-                    <p className="mt-1 text-[11px] text-muted-foreground">{aiPlanDailyDescription(key)}</p>
+                    <p className="mt-2 text-sm font-semibold text-foreground">{t('{count} AI requests/month{seat}',{count:number(AI_PLAN_LIMITS[key].monthlyBase),seat:AI_PLAN_LIMITS[key].perSeat?t(' per paid seat'):''})}</p>
+                    <p className="mt-1 text-[11px] text-muted-foreground">{t('Up to {count} requests/day per user',{count:AI_PLAN_LIMITS[key].dailyPerUser})}</p>
                   </div>
                   <ul className="flex-1 space-y-3 border-t border-border/70 pt-4 text-xs text-muted-foreground">
                     {PLAN_FEATURES[key].map((f) => (
                       <li key={f} className="flex gap-2">
                         <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
-                        <span>{f}</span>
+                        <span>{localizePlanFeature(f)}</span>
                       </li>
                     ))}
                   </ul>
                   {key === 'free' ? (
-                    <p className="text-[11px] text-muted-foreground">Default for every organization.</p>
+                    <p className="text-[11px] text-muted-foreground"><AppT text="Default for every organization."/></p>
                   ) : (
                     <>
                       <p className="border-t border-border/70 pt-4 text-xs text-muted-foreground">
                          <strong className="text-3xl font-semibold tracking-tight tabular-nums text-foreground">${actiprocPriceUsd(key, key==='individual'?'yearly':selectedBillingInterval)}</strong>
-                        {key === 'individual' ? '/year' : '/seat/'+(selectedBillingInterval==='yearly'?'year':'month')}
+                        {key === 'individual' ? t('/year') : t('/seat')+t(selectedBillingInterval==='yearly'?'/year':'/month')}
                       </p>
                       <Button type="button" size="sm" variant={current ? 'secondary' : 'default'}
                          className={cn('h-11 w-full rounded-xl font-semibold transition-all', !current && 'bg-primary text-primary-foreground shadow-[0_12px_24px_-14px_rgba(40,122,82,0.8)] hover:bg-primary/90')}
@@ -969,7 +970,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                           : billingPlan === 'free'
                             ? void openCheckout(key, {billingInterval:key === 'individual' ? 'yearly' : 'monthly'})
                             : void requestPlanReview(key)}>
-                        {canResubscribe ? 'Subscribe to ' + title : current ? 'Current plan' : !canUpgrade ? billingStatus === 'cancelled' ? 'Not available after cancellation' : 'Unavailable for this subscription' : 'Choose ' + title}
+                        {canResubscribe ? t('Subscribe to {plan}',{plan:t(title)}) : current ? t('Current plan') : !canUpgrade ? t(billingStatus === 'cancelled' ? 'Not available after cancellation' : 'Unavailable for this subscription') : t('Choose {plan}',{plan:t(title)})}
                       </Button>
                     </>
                   )}
@@ -986,8 +987,8 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
 
       <Card className="rounded-2xl border-border/70 bg-muted/20">
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">Need help?</CardTitle>
-          <CardDescription>Billing questions, failed payments, or tax documents — use your payment provider’s portal first.</CardDescription>
+          <CardTitle className="text-base"><AppT text="Need help?"/></CardTitle>
+          <CardDescription><AppT text="Billing questions, failed payments, or tax documents — use your payment provider’s portal first."/></CardDescription>
         </CardHeader>
         <CardContent>
           <Button type="button" variant="link" className="h-auto p-0 text-sm" asChild>

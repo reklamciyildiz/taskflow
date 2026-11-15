@@ -10,11 +10,22 @@ export async function GET(request: NextRequest) {
     const user = authed.user;
 
     // Get user settings from database or return defaults
-    const { data: settings } = await supabaseAdmin
+    const { data: settings, error: settingsError } = await supabaseAdmin
       .from('user_settings')
       .select('*')
       .eq('user_id', user.id)
       .single();
+
+    // A real database error is not the same as a first-time user without settings.
+    // Never silently replace a previously saved locale with English during an outage
+    // or before the locale migration is present in the target environment.
+    if (settingsError && settingsError.code !== 'PGRST116') {
+      console.error('Get user settings failed:', settingsError);
+      return NextResponse.json(
+        { success: false, error: 'Could not load settings. Try again.' },
+        { status: 503 },
+      );
+    }
 
     const defaultSettings = {
       email_notifications: true,
@@ -26,6 +37,7 @@ export async function GET(request: NextRequest) {
       recurrence_missed_alerts_enabled: false,
       recurrence_missed_alert_threshold: 3,
       time_zone: null as string | null,
+      locale: 'en',
     };
 
     return NextResponse.json({
@@ -59,6 +71,9 @@ export async function PATCH(request: NextRequest) {
       if (allowedBooleanFields.includes(key) && typeof value === 'boolean') updates[key] = value;
       else if (key === 'recurrence_missed_alert_threshold' && (value === 2 || value === 3 || value === 5)) {
         updates[key] = value;
+      }
+      else if (key === 'locale' && (value === 'en' || value === 'tr')) {
+        updates.locale = value;
       }
       else if (key === 'time_zone' && (value === null || (typeof value === 'string' && value.length <= 100))) {
         if (value !== null) {

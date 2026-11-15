@@ -1,4 +1,5 @@
 'use client';
+import {T as AppT,useAppLocale} from '@/components/i18n/AppLocaleProvider';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -74,6 +75,7 @@ export function KnowledgeHubWorkspace({
   cards, tasks, projects, teamId, loading, notesLoading, notesError,
   retryNotes, openTaskEditor, updateTask, canEditTask, navigate,
 }: WorkspaceProps) {
+  const {t,date}=useAppLocale();
   const [query, setQuery] = useState('');
   const [tab, setTab] = useState<LibraryTab>('all');
   const [projectFilter, setProjectFilter] = useState('all');
@@ -177,18 +179,18 @@ export function KnowledgeHubWorkspace({
         <div className="relative flex flex-col justify-between gap-6 md:flex-row md:items-center">
           <div className="max-w-2xl">
             <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#C8FF93]">
-              <Sparkles className="h-3.5 w-3.5" aria-hidden /> Your team's second brain
+              <Sparkles className="h-3.5 w-3.5" aria-hidden /> <AppT text="Your team's second brain"/>
             </div>
-            <h1 className="text-[28px] font-semibold tracking-tight sm:text-[35px]">Knowledge Hub</h1>
+            <h1 className="text-[28px] font-semibold tracking-tight sm:text-[35px]"><AppT text="Knowledge Hub"/></h1>
             <p className="mt-2 max-w-xl text-sm leading-relaxed text-slate-300">
-              Find important notes, decisions and checklists without digging through every action.
+              <AppT text="Find important notes, decisions and checklists without digging through every action."/>
             </p>
             <div className="mt-5 flex flex-wrap items-center gap-2.5">
               <Button type="button" onClick={askAI} className="h-10 rounded-xl bg-[#C8FF93] px-4 text-[13px] font-semibold text-[#102518] shadow-[0_12px_26px_-16px_rgba(116,188,108,0.65)] hover:bg-[#E4FFC7]">
-                <Sparkles className="mr-2 h-4 w-4" aria-hidden /> Ask Actiproc AI
+                <Sparkles className="mr-2 h-4 w-4" aria-hidden /> <AppT text="Ask Actiproc AI"/>
               </Button>
               <Button type="button" variant="outline" onClick={() => navigate('/board')} className="h-10 rounded-xl border-white/20 bg-white/[0.075] px-4 text-[13px] text-white hover:bg-white/[0.15] hover:text-white">
-                Open workspace <ArrowUpRight className="ml-1.5 h-3.5 w-3.5" aria-hidden />
+                <AppT text="Open workspace"/> <ArrowUpRight className="ml-1.5 h-3.5 w-3.5" aria-hidden />
               </Button>
             </div>
           </div>
@@ -196,12 +198,12 @@ export function KnowledgeHubWorkspace({
             <div className="actiproc-knowledge-hero-stat rounded-2xl border border-white/10 bg-white/[0.065] p-4 backdrop-blur-sm">
               <BookOpen className="h-4 w-4 text-[#C8FF93]" aria-hidden />
               <p className="mt-3 text-2xl font-semibold tabular-nums">{notesCount}</p>
-              <p className="mt-0.5 text-[11px] text-slate-300">Saved notes</p>
+              <p className="mt-0.5 text-[11px] text-slate-300"><AppT text="Saved notes"/></p>
             </div>
             <div className="actiproc-knowledge-hero-stat rounded-2xl border border-white/10 bg-white/[0.065] p-4 backdrop-blur-sm">
               <CheckSquare2 className="h-4 w-4 text-emerald-300" aria-hidden />
               <p className="mt-3 text-2xl font-semibold tabular-nums">{openItems}</p>
-              <p className="mt-0.5 text-[11px] text-slate-300">Open checklist items</p>
+              <p className="mt-0.5 text-[11px] text-slate-300"><AppT text="Open checklist items"/></p>
             </div>
           </div>
         </div>
@@ -220,7 +222,7 @@ export function KnowledgeHubWorkspace({
             </span>
             <div className="min-w-0">
               <p className="text-xl font-semibold tabular-nums">{stat.value}</p>
-              <p className="truncate text-[11px] text-muted-foreground">{stat.label}</p>
+              <p className="truncate text-[11px] text-muted-foreground">{t(stat.label)}</p>
             </div>
           </div>
         ))}
@@ -234,12 +236,12 @@ export function KnowledgeHubWorkspace({
               ref={inputRef}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search notes, actions, decisions..."
-              aria-label="Search Knowledge Hub"
+              placeholder={t("Search notes, actions, decisions...")}
+              aria-label={t("Search Knowledge Hub")}
               className="h-11 rounded-xl border-border/80 bg-muted/20 pl-10 pr-10 text-[13px] shadow-none focus-visible:ring-primary/30"
             />
             {query ? (
-              <button type="button" aria-label="Clear search" onClick={() => setQuery('')}
+              <button type="button" aria-label={t("Clear search")} onClick={() => setQuery('')}
                 className="absolute right-2.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground">
                 <X className="h-3.5 w-3.5" aria-hidden />
               </button>
@@ -247,30 +249,30 @@ export function KnowledgeHubWorkspace({
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
             <Select value={projectFilter} onValueChange={setProjectFilter}>
-              <SelectTrigger aria-label="Filter by process" className="h-11 w-full rounded-xl border-border/80 bg-muted/20 text-xs sm:w-[210px]">
+              <SelectTrigger aria-label={t("Filter by process")} className="h-11 w-full rounded-xl border-border/80 bg-muted/20 text-xs sm:w-[210px]">
                 <FolderOpen className="mr-1 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-                <SelectValue placeholder="All processes" />
+                <SelectValue placeholder={t("All processes")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All processes</SelectItem>
-                <SelectItem value="__none__">No process</SelectItem>
+                <SelectItem value="all"><AppT text="All processes"/></SelectItem>
+                <SelectItem value="__none__"><AppT text="No process"/></SelectItem>
                 {projects.map((project) => <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={sort} onValueChange={(value) => setSort(value as Sort)}>
-              <SelectTrigger aria-label="Sort knowledge" className="h-11 w-full rounded-xl border-border/80 bg-muted/20 text-xs sm:w-[150px]">
+              <SelectTrigger aria-label={t("Sort knowledge")} className="h-11 w-full rounded-xl border-border/80 bg-muted/20 text-xs sm:w-[150px]">
                 <SlidersHorizontal className="mr-1 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="recent">Recently updated</SelectItem>
-                <SelectItem value="title">Title A–Z</SelectItem>
+                <SelectItem value="recent"><AppT text="Recently updated"/></SelectItem>
+                <SelectItem value="title"><AppT text="Title A–Z"/></SelectItem>
               </SelectContent>
             </Select>
           </div>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/70 pt-4">
-          <div role="group" aria-label="Knowledge collection" className="flex min-w-0 flex-wrap gap-1.5">
+          <div role="group" aria-label={t("Knowledge collection")} className="flex min-w-0 flex-wrap gap-1.5">
             {tabs.map((item) => {
               const Icon = item.icon;
               const selected = tab === item.id;
@@ -282,17 +284,17 @@ export function KnowledgeHubWorkspace({
                     selected ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                   )}>
                   <Icon className="h-3.5 w-3.5" aria-hidden />
-                  {item.label}
+                  {t(item.label)}
                 </button>
               );
             })}
           </div>
-          <div className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-border/70 bg-muted/25 p-1" role="group" aria-label="Result display">
-            <button type="button" aria-label="Card view" aria-pressed={layout === 'cards'} onClick={() => setLayout('cards')}
+          <div className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-border/70 bg-muted/25 p-1" role="group" aria-label={t("Result display")}>
+            <button type="button" aria-label={t("Card view")} aria-pressed={layout === 'cards'} onClick={() => setLayout('cards')}
               className={cn('flex h-8 w-8 items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary', layout === 'cards' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
               <LayoutGrid className="h-4 w-4" aria-hidden />
             </button>
-            <button type="button" aria-label="List view" aria-pressed={layout === 'list'} onClick={() => setLayout('list')}
+            <button type="button" aria-label={t("List view")} aria-pressed={layout === 'list'} onClick={() => setLayout('list')}
               className={cn('flex h-8 w-8 items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary', layout === 'list' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
               <List className="h-4 w-4" aria-hidden />
             </button>
@@ -302,25 +304,25 @@ export function KnowledgeHubWorkspace({
 
       {notesError && !notesLoading && (
         <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-500/25 bg-amber-500/[0.06] px-4 py-3 text-xs">
-          <p>Notes could not be loaded. Checklist and action results may still be available.</p>
-          <Button type="button" size="sm" variant="outline" className="h-8 rounded-lg" onClick={() => void retryNotes()}>Retry notes</Button>
+          <p><AppT text="Notes could not be loaded. Checklist and action results may still be available."/></p>
+          <Button type="button" size="sm" variant="outline" className="h-8 rounded-lg" onClick={() => void retryNotes()}><AppT text="Retry notes"/></Button>
         </div>
       )}
 
-      <main aria-label="Knowledge results" className="space-y-4">
+      <main aria-label={t("Knowledge results")} className="space-y-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">Your library</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary"><AppT text="Your library"/></p>
             <h2 className="mt-1 text-lg font-semibold tracking-tight sm:text-xl">
-              {tab === 'pinned' ? 'Pinned knowledge' : tab === 'notes' ? 'Saved notes' : tab === 'checklist' ? 'Checklists' : tab === 'actions' ? 'All actions' : 'Explore knowledge'}
+              {t(tab === 'pinned' ? 'Pinned knowledge' : tab === 'notes' ? 'Saved notes' : tab === 'checklist' ? 'Checklists' : tab === 'actions' ? 'All actions' : 'Explore knowledge')}
             </h2>
           </div>
           <div className="flex items-center gap-3">
             <p role="status" aria-live="polite" className="text-xs tabular-nums text-muted-foreground">
-              {loading || notesLoading ? 'Loading…' : String(results.length) + ' entries'}
+              {loading || notesLoading ? t('Loading…') : t('{count} entries',{count:results.length})}
             </p>
             {(query || tab !== 'all' || projectFilter !== 'all') && (
-              <button type="button" onClick={clearFilters} className="text-xs font-medium text-primary underline-offset-4 hover:underline">Clear filters</button>
+              <button type="button" onClick={clearFilters} className="text-xs font-medium text-primary underline-offset-4 hover:underline"><AppT text="Clear filters"/></button>
             )}
           </div>
         </div>
@@ -337,22 +339,22 @@ export function KnowledgeHubWorkspace({
               <BookOpen className="h-6 w-6" aria-hidden />
             </div>
             <h3 className="mt-4 text-base font-semibold">
-              {cards.length === 0 ? 'Your knowledge starts with an action' : 'No matching knowledge found'}
+              {t(cards.length === 0 ? 'Your knowledge starts with an action' : 'No matching knowledge found')}
             </h3>
             <p className="mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">
-              {cards.length === 0
+              {t(cards.length === 0
                 ? 'Create an action and add notes or checklist items. They will appear here automatically.'
                 : tab === 'pinned'
                   ? 'Nothing pinned yet. Pin important entries to find them quickly later on this device.'
                   : knowledgeCards.length === 0 && !query && tab !== 'actions'
                   ? 'No notes or checklist items yet. Open an action to capture your next idea or decision.'
-                  : 'Try another keyword, process or collection. Search can also find actions that do not have notes yet.'}
+                  : 'Try another keyword, process or collection. Search can also find actions that do not have notes yet.')}
             </p>
             <div className="mt-5 flex flex-wrap justify-center gap-2">
               <Button type="button" className="h-10 rounded-xl" onClick={() => navigate('/board')}>
-                Open board <ArrowRight className="ml-1.5 h-4 w-4" aria-hidden />
+                <AppT text="Open board"/> <ArrowRight className="ml-1.5 h-4 w-4" aria-hidden />
               </Button>
-              {cards.length > 0 && <Button type="button" variant="outline" className="h-10 rounded-xl" onClick={clearFilters}>Reset view</Button>}
+              {cards.length > 0 && <Button type="button" variant="outline" className="h-10 rounded-xl" onClick={clearFilters}><AppT text="Reset view"/></Button>}
             </div>
           </div>
         ) : (
@@ -376,15 +378,15 @@ export function KnowledgeHubWorkspace({
                     aria-label={firstMatch ? 'Read matching ' + firstMatch.label.toLowerCase() + ' in ' + card.taskTitle : 'Read ' + card.taskTitle}
                     className={cn('min-w-0 flex-1 p-5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary', layout === 'cards' && 'flex flex-col')}>
                     <div className="mb-3 flex flex-wrap items-center gap-1.5 text-[10px] font-semibold">
-                      {card.notes.length > 0 && <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/10 px-2 py-1 text-violet-600 dark:text-violet-300"><BookOpen className="h-3 w-3" aria-hidden /> Notes · {card.notes.length}</span>}
-                      {card.checklistItems.length > 0 && <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-1 text-emerald-700 dark:text-emerald-300"><CheckSquare2 className="h-3 w-3" aria-hidden /> {completed}/{card.checklistItems.length} done</span>}
-                      {!hasKnowledge(card) && <span className="rounded-full bg-muted px-2 py-1 text-muted-foreground">Action</span>}
+                      {card.notes.length > 0 && <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/10 px-2 py-1 text-violet-600 dark:text-violet-300"><BookOpen className="h-3 w-3" aria-hidden /> {t('Notes')} · {card.notes.length}</span>}
+                      {card.checklistItems.length > 0 && <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-1 text-emerald-700 dark:text-emerald-300"><CheckSquare2 className="h-3 w-3" aria-hidden /> {completed}/{card.checklistItems.length} {t('done')}</span>}
+                      {!hasKnowledge(card) && <span className="rounded-full bg-muted px-2 py-1 text-muted-foreground"><AppT text="Action"/></span>}
                     </div>
                     <h3 className="line-clamp-2 text-[15px] font-semibold leading-snug tracking-tight text-foreground group-hover:text-primary">
                       {card.taskTitle}
                     </h3>
                     <p className="mt-3 flex flex-wrap items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">
-                      <span>{previewLabel}</span>
+                      <span>{t(previewLabel)}</span>
                       {query.trim() && sourceMatches.length > 1 && (
                         <span className="rounded-full bg-primary/[0.08] px-2 py-1 text-primary normal-case tracking-normal">
                           {sourceMatches.length} matches · choose in reader
@@ -395,8 +397,8 @@ export function KnowledgeHubWorkspace({
                       {snippet}
                     </p>
                     <div className={cn('flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-border/60 pt-3 text-[11px] text-muted-foreground', layout === 'cards' ? 'mt-auto pt-4' : 'mt-4')}>
-                      <span className="flex min-w-0 max-w-full items-center gap-1.5"><FolderOpen className="h-3 w-3 shrink-0" aria-hidden /><span className="truncate">{card.projectName ?? 'No process'}</span></span>
-                      <span className="flex shrink-0 items-center gap-1.5"><Clock3 className="h-3 w-3" aria-hidden />{abbreviatedDate(card.sortDate)}</span>
+                      <span className="flex min-w-0 max-w-full items-center gap-1.5"><FolderOpen className="h-3 w-3 shrink-0" aria-hidden /><span className="truncate">{card.projectName ?? t('No process')}</span></span>
+                      <span className="flex shrink-0 items-center gap-1.5"><Clock3 className="h-3 w-3" aria-hidden />{date(card.sortDate,{year:'numeric',month:'short',day:'numeric'})}</span>
                     </div>
                   </button>
                   <button type="button" aria-label={isPinned ? 'Unpin ' + card.taskTitle : 'Pin ' + card.taskTitle}
@@ -413,10 +415,10 @@ export function KnowledgeHubWorkspace({
         )}
         {!loading && !notesLoading && results.length > visibleCount && (
           <div className="flex flex-col items-center gap-2 pt-3">
-            <p className="text-[11px] tabular-nums text-muted-foreground">Showing {displayedResults.length} of {results.length} entries</p>
+            <p className="text-[11px] tabular-nums text-muted-foreground">{t('Showing {visible} of {total} entries',{visible:displayedResults.length,total:results.length})}</p>
             <Button type="button" variant="outline" className="h-10 rounded-xl border-border/80 px-5 text-xs font-semibold shadow-sm"
               onClick={() => setVisibleCount((count) => count + 24)}>
-              Show more knowledge <ArrowRight className="ml-2 h-4 w-4" aria-hidden />
+              <AppT text="Show more knowledge"/> <ArrowRight className="ml-2 h-4 w-4" aria-hidden />
             </Button>
           </div>
         )}

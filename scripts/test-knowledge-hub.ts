@@ -131,7 +131,7 @@ assert.ok(view.includes('results.slice(0, visibleCount)') &&
   view.includes('Show more knowledge') &&
   view.includes('aria-pressed={selected}'),
   'Result previews must scale for large libraries and filters need pressed state');
-assert.ok(view.includes('aria-label="Search Knowledge Hub"') &&
+assert.ok(view.includes('aria-label={t("Search Knowledge Hub")}') &&
   view.includes('aria-pressed={isPinned}') &&
   view.includes('onClick={() => setActiveSelection({ cardId: card.id'),
   'Accessible, independent card actions are required');

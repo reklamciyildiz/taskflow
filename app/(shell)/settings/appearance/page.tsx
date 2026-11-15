@@ -4,7 +4,10 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Palette, Moon, LayoutList } from 'lucide-react';
+import { Palette, Moon, LayoutList, Languages } from 'lucide-react';
+import {useAppLocale} from '@/components/i18n/AppLocaleProvider';
+import {AppLanguageSwitcher} from '@/components/i18n/AppLanguageSwitcher';
+import {T} from '@/components/i18n/AppLocaleProvider';
 import { useTheme } from 'next-themes';
 
 async function saveSetting(key: string, value: boolean) {
@@ -23,6 +26,7 @@ async function saveSetting(key: string, value: boolean) {
 
 export default function SettingsAppearancePage() {
   const { theme, setTheme } = useTheme();
+  const {t}=useAppLocale();
   const [mounted, setMounted] = useState(false);
   const [compactView, setCompactView] = useState(false);
 
@@ -57,9 +61,9 @@ export default function SettingsAppearancePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold">Appearance</h1>
+        <h1 className="text-xl font-semibold"><T text="Appearance"/></h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Customize how Actiproc looks and feels.
+          <T text="Customize how Actiproc looks and feels."/>
         </p>
       </div>
 
@@ -67,16 +71,27 @@ export default function SettingsAppearancePage() {
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
             <Palette className="h-4 w-4" />
-            Display
+            <T text="Display"/>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="flex flex-col gap-3 rounded-xl border bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <Languages className="mt-1 h-5 w-5 text-primary" aria-hidden="true"/>
+              <div>
+                <p className="text-sm font-semibold"><T text="Application language"/></p>
+                <p className="mt-1 max-w-lg text-xs leading-5 text-muted-foreground"><T text="Choose the language used in navigation, settings, and system messages."/></p>
+                <p className="mt-1 text-xs text-muted-foreground"><T text="Your own notes, task titles and descriptions will not be translated."/></p>
+              </div>
+            </div>
+            <AppLanguageSwitcher/>
+          </div>
           <div className="flex items-center justify-between rounded-lg border p-4">
             <div className="flex items-center gap-3">
               <Moon className="h-4 w-4 text-muted-foreground" />
               <div>
-                <Label className="text-sm font-medium">Dark mode</Label>
-                <p className="text-xs text-muted-foreground">Switch between light and dark themes</p>
+                <Label className="text-sm font-medium"><T text="Dark mode"/></Label>
+                <p className="text-xs text-muted-foreground"><T text="Switch between light and dark themes"/></p>
               </div>
             </div>
             {mounted && (
@@ -91,8 +106,8 @@ export default function SettingsAppearancePage() {
             <div className="flex items-center gap-3">
               <LayoutList className="h-4 w-4 text-muted-foreground" />
               <div>
-                <Label className="text-sm font-medium">Compact view</Label>
-                <p className="text-xs text-muted-foreground">Reduce spacing in list and board views</p>
+                <Label className="text-sm font-medium"><T text="Compact view"/></Label>
+                <p className="text-xs text-muted-foreground"><T text="Reduce spacing in list and board views"/></p>
               </div>
             </div>
             <Switch checked={compactView} onCheckedChange={handleCompactView} />

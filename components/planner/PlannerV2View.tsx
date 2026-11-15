@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
+import {useAppLocale} from "@/components/i18n/AppLocaleProvider";
 import { CalendarDays, CalendarRange, ListChecks, Repeat2 } from "lucide-react";
 import { PlannerToday } from "@/components/PlannerToday";
 import { cn } from "@/lib/utils";
@@ -26,15 +27,9 @@ const VIEWS: Array<{
 /** Platform-neutral Planner presentation shared by Next.js and Capacitor. */
 export function PlannerV2View() {
   const { currentTeam, loading } = usePlannerRuntime();
+  const {t,date}=useAppLocale();
   const [view, setView] = useState<PlannerView>("today");
-  const dateLabel = useMemo(
-    () => new Intl.DateTimeFormat(undefined, {
-      weekday: "long",
-      month: "long",
-      day: "numeric",
-    }).format(new Date()),
-    []
-  );
+  const dateLabel = date(new Date(), { weekday: "long", month: "long", day: "numeric" });
 
   return (
     <main className="planner-v2 mx-auto w-full max-w-[1480px] pb-[calc(4rem+env(safe-area-inset-bottom))]">
@@ -43,8 +38,8 @@ export function PlannerV2View() {
           <div className="planner-v2-eyebrow">
             <CalendarDays aria-hidden="true" /> {dateLabel}
           </div>
-          <h1>Planner</h1>
-          <p>Shape the day, protect your time, and keep recurring work moving.</p>
+          <h1>{t("Planner")}</h1>
+          <p>{t("Shape the day, protect your time, and keep recurring work moving.")}</p>
         </div>
         <PlannerTeamSwitcher />
       </header>
@@ -52,11 +47,11 @@ export function PlannerV2View() {
       {!currentTeam ? (
         <section className="planner-v2-section flex min-h-44 items-center justify-center px-6 text-center">
           <div className="max-w-md">
-            <h2 className="text-base font-semibold">Choose a workspace</h2>
+            <h2 className="text-base font-semibold">{t("Choose a workspace")}</h2>
             <p className="mt-1.5 text-sm text-muted-foreground">
               {loading
-                ? 'Loading the workspaces you can access…'
-                : 'Select a workspace above to load its Planner. Your choice is remembered on this device.'}
+                ? t('Loading the workspaces you can access…')
+                : t('Select a workspace above to load its Planner. Your choice is remembered on this device.')}
             </p>
           </div>
         </section>
@@ -64,7 +59,7 @@ export function PlannerV2View() {
         <>
       <PlannerQuickAdd />
 
-      <nav className="planner-v2-tabs" aria-label="Planner views">
+      <nav className="planner-v2-tabs" aria-label={t("Planner views")}>
         {VIEWS.map((candidate) => {
           const Icon = candidate.icon;
           return (
@@ -78,8 +73,8 @@ export function PlannerV2View() {
             >
               <Icon aria-hidden="true" />
               <span>
-                <strong>{candidate.label}</strong>
-                <small>{candidate.description}</small>
+                <strong>{t(candidate.label)}</strong>
+                <small>{t(candidate.description)}</small>
               </span>
             </button>
           );
@@ -88,7 +83,7 @@ export function PlannerV2View() {
 
       <div className="planner-v2-content" role="tabpanel">
         {view === "today" ? (
-          <section className="planner-v2-section planner-v2-today" aria-label="Today agenda">
+          <section className="planner-v2-section planner-v2-today" aria-label={t("Today agenda")}>
             <PlannerToday embedded />
           </section>
         ) : null}

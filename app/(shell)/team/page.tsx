@@ -1,4 +1,5 @@
 'use client';
+import {T,useAppLocale} from '@/components/i18n/AppLocaleProvider';
 
 import { useEffect, useMemo } from 'react';
 import Link from 'next/link';
@@ -12,6 +13,7 @@ import { Users, Settings, ArrowRight } from 'lucide-react';
 import { isTerminalBoardColumn } from '@/lib/types';
 
 export default function TeamPage() {
+  const {t}=useAppLocale();
   const { setCurrentView } = useView();
   const { currentTeam, tasks, currentUser, boardColumns } = useTaskContext();
 
@@ -36,7 +38,7 @@ export default function TeamPage() {
   if (!currentTeam) {
     return (
       <div className="flex h-64 items-center justify-center text-muted-foreground">
-        No team selected.
+        <T text="No team selected."/>
       </div>
     );
   }
@@ -48,13 +50,13 @@ export default function TeamPage() {
         <div>
           <h1 className="text-xl font-semibold">{currentTeam.name}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {onlineCount} online · {currentTeam.members.length} members
+            {onlineCount} {t('online')} · {currentTeam.members.length} {t('members')}
           </p>
         </div>
         <Button variant="outline" size="sm" asChild>
           <Link href="/settings/members">
             <Settings className="mr-2 h-4 w-4" />
-            Manage members
+            <T text="Manage members"/>
           </Link>
         </Button>
       </div>
@@ -64,13 +66,13 @@ export default function TeamPage() {
         <Card>
           <CardContent className="pt-6 text-center">
             <p className="text-3xl font-bold tabular-nums">{currentTeam.members.length}</p>
-            <p className="mt-1 text-xs text-muted-foreground">Total Members</p>
+            <p className="mt-1 text-xs text-muted-foreground"><T text="Total Members"/></p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6 text-center">
             <p className="text-3xl font-bold tabular-nums text-emerald-600">{onlineCount}</p>
-            <p className="mt-1 text-xs text-muted-foreground">Online Now</p>
+            <p className="mt-1 text-xs text-muted-foreground"><T text="Online Now"/></p>
           </CardContent>
         </Card>
         <Card>
@@ -78,7 +80,7 @@ export default function TeamPage() {
             <p className="text-3xl font-bold tabular-nums">
               {memberStats.reduce((s, m) => s + m.active, 0)}
             </p>
-            <p className="mt-1 text-xs text-muted-foreground">Active Tasks</p>
+            <p className="mt-1 text-xs text-muted-foreground"><T text="Active Tasks"/></p>
           </CardContent>
         </Card>
       </div>
@@ -88,7 +90,7 @@ export default function TeamPage() {
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
             <Users className="h-4 w-4" />
-            Members
+            <T text="Members"/>
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
@@ -110,9 +112,9 @@ export default function TeamPage() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium truncate">{member.name}</span>
-                      {isMe && <span className="text-xs text-muted-foreground">(you)</span>}
+                      {isMe && <span className="text-xs text-muted-foreground"><T text="(you)"/></span>}
                       <Badge variant="outline" className="ml-auto shrink-0 capitalize text-xs h-5 px-2">
-                        {member.role}
+                        {t(member.role)}
                       </Badge>
                     </div>
                     <p className="text-xs text-muted-foreground truncate">{member.email}</p>
@@ -121,16 +123,16 @@ export default function TeamPage() {
                   <div className="hidden shrink-0 items-center gap-4 text-xs sm:flex">
                     <div className="text-center">
                       <p className="font-semibold tabular-nums">{active}</p>
-                      <p className="text-muted-foreground">Active</p>
+                      <p className="text-muted-foreground"><T text="Active"/></p>
                     </div>
                     <div className="text-center">
                       <p className="font-semibold tabular-nums text-emerald-600">{done}</p>
-                      <p className="text-muted-foreground">Done</p>
+                      <p className="text-muted-foreground"><T text="Done"/></p>
                     </div>
                     {urgent > 0 && (
                       <div className="text-center">
                         <p className="font-semibold tabular-nums text-red-500">{urgent}</p>
-                        <p className="text-muted-foreground">Urgent</p>
+                        <p className="text-muted-foreground"><T text="Urgent"/></p>
                       </div>
                     )}
                   </div>
@@ -144,11 +146,11 @@ export default function TeamPage() {
       {/* Manage CTA */}
       <div className="flex items-center justify-between rounded-lg border border-dashed p-4 text-sm">
         <p className="text-muted-foreground">
-          Invite members, change roles, or remove people from your team.
+          <T text="Invite members, change roles, or remove people from your team."/>
         </p>
         <Button variant="ghost" size="sm" asChild>
           <Link href="/settings/members" className="flex items-center gap-1">
-            Go to Settings <ArrowRight className="h-3.5 w-3.5" />
+            <T text="Manage members"/> <ArrowRight className="h-3.5 w-3.5" />
           </Link>
         </Button>
       </div>

@@ -1,4 +1,5 @@
 'use client';
+import {T as AppT} from '@/components/i18n/AppLocaleProvider';
 
 import { useState } from 'react';
 import { X, Mail, Copy, Check, Loader2, UserPlus } from 'lucide-react';
@@ -175,9 +176,7 @@ export function InviteMemberModal({ isOpen, onClose, teamId }: InviteMemberModal
 
               {/* Role Select */}
               <div>
-                <label htmlFor="role" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Role
-                </label>
+                <label htmlFor="role" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"><AppT text="Role"/></label>
                 <select
                   id="role"
                   value={role}
@@ -328,9 +327,7 @@ export function InviteMemberModal({ isOpen, onClose, teamId }: InviteMemberModal
                 <button
                   onClick={handleClose}
                   className="flex-1 py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
-                >
-                  Done
-                </button>
+                ><AppT text="Done"/></button>
               </div>
             </div>
           )}

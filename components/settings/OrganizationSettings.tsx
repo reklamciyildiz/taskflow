@@ -1,4 +1,5 @@
 'use client';
+import {T as AppT,useAppLocale} from '@/components/i18n/AppLocaleProvider';
 
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -22,6 +23,7 @@ import { cn } from '@/lib/utils';
 import Link from 'next/link';
 
 export function OrganizationSettings() {
+  const {t}=useAppLocale();
   const {
     currentTeam, currentUser, removeMember,
     organizationName, organizationId, updateOrganization,
@@ -68,11 +70,11 @@ export function OrganizationSettings() {
   };
 
   const handleSaveTerminology = () => {
-    if (!organizationId) { toast.error('Organization not loaded yet'); return; }
+    if (!organizationId) { toast.error(t('Organization not loaded yet')); return; }
     setTerminologySaving(true);
     try {
       updateCustomerTerminology({ directory: customerDirDraft, singular: customerSingDraft });
-      toast.success('Directory labels saved');
+      toast.success(t('Directory labels saved'));
     } finally {
       setTerminologySaving(false);
     }
@@ -81,7 +83,7 @@ export function OrganizationSettings() {
   if (!isAdmin) {
     return (
       <div className="flex h-40 items-center justify-center rounded-xl border border-dashed">
-        <p className="text-sm text-muted-foreground">Admin access required.</p>
+        <p className="text-sm text-muted-foreground"><AppT text="Admin access required."/></p>
       </div>
     );
   }
@@ -89,9 +91,9 @@ export function OrganizationSettings() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold">Organization</h1>
+        <h1 className="text-xl font-semibold"><AppT text="Organization"/></h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Workspace configuration — visible to admins only.
+          <AppT text="Workspace configuration — visible to admins only."/>
         </p>
       </div>
 
@@ -100,7 +102,7 @@ export function OrganizationSettings() {
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
             <Globe className="h-4 w-4" />
-            Organization name
+            <AppT text="Organization name"/>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -109,47 +111,46 @@ export function OrganizationSettings() {
               <Input
                 value={newOrgName}
                 onChange={(e) => setNewOrgName(e.target.value)}
-                placeholder="Organization name"
+                placeholder={t("Organization name")}
                 disabled={orgUpdateLoading}
               />
-              <Button onClick={handleOrgNameSave} disabled={orgUpdateLoading || !newOrgName.trim()}>Save</Button>
-              <Button variant="outline" onClick={handleOrgNameCancel} disabled={orgUpdateLoading}>Cancel</Button>
+              <Button onClick={handleOrgNameSave} disabled={orgUpdateLoading || !newOrgName.trim()}><AppT text="Save"/></Button>
+              <Button variant="outline" onClick={handleOrgNameCancel} disabled={orgUpdateLoading}><AppT text="Cancel"/></Button>
             </div>
           ) : (
             <div className="flex items-center gap-2">
               <p className="flex-1 text-sm font-medium">{organizationName}</p>
               <Button variant="outline" size="sm" onClick={handleOrgNameEdit}>
-                <Edit className="mr-2 h-4 w-4" />Edit
-              </Button>
+                <Edit className="mr-2 h-4 w-4" /><AppT text="Edit"/></Button>
             </div>
           )}
 
           <Separator />
 
           <div>
-            <Label className="text-sm font-medium">Customer directory labels</Label>
+            <Label className="text-sm font-medium"><AppT text="Customer directory labels"/></Label>
             <p className="mt-1 mb-3 text-xs text-muted-foreground">
-              Rename the sidebar entry and /customers page. Stored on this device per organization.
+              <AppT text="Rename the sidebar entry and /customers page. Stored on this device per organization."/>
             </p>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label htmlFor="cust-dir" className="text-xs text-muted-foreground">Plural (nav & page title)</Label>
+                <Label htmlFor="cust-dir" className="text-xs text-muted-foreground"><AppT text="Plural (nav & page title)"/></Label>
                 <Input
                   id="cust-dir"
                   value={customerDirDraft}
                   onChange={(e) => setCustomerDirDraft(e.target.value)}
-                  placeholder="e.g. Clients, Accounts"
+                  placeholder={t("e.g. Clients, Accounts")}
                   maxLength={48}
                   disabled={terminologySaving}
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="cust-sing" className="text-xs text-muted-foreground">Singular (buttons & forms)</Label>
+                <Label htmlFor="cust-sing" className="text-xs text-muted-foreground"><AppT text="Singular (buttons & forms)"/></Label>
                 <Input
                   id="cust-sing"
                   value={customerSingDraft}
                   onChange={(e) => setCustomerSingDraft(e.target.value)}
-                  placeholder="e.g. Client, Account"
+                  placeholder={t("e.g. Client, Account")}
                   maxLength={48}
                   disabled={terminologySaving}
                 />
@@ -165,16 +166,14 @@ export function OrganizationSettings() {
                     customerSingDraft.trim() === customerSingularLabel)
                 }
               >
-                Save labels
+                <AppT text="Save labels"/>
               </Button>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => { setCustomerDirDraft(customerDirectoryLabel); setCustomerSingDraft(customerSingularLabel); }}
                 disabled={terminologySaving}
-              >
-                Reset
-              </Button>
+              ><AppT text="Reset"/></Button>
             </div>
           </div>
         </CardContent>
@@ -185,7 +184,7 @@ export function OrganizationSettings() {
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
             <Users className="h-4 w-4" />
-            Teams
+            <AppT text="Teams"/>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -199,7 +198,7 @@ export function OrganizationSettings() {
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-medium">{team.name}</p>
                     {team.id === currentTeam?.id && (
-                      <Badge variant="outline" className="text-xs">Current</Badge>
+                      <Badge variant="outline" className="text-xs"><AppT text="Current"/></Badge>
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground">
@@ -231,19 +230,16 @@ export function OrganizationSettings() {
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
-            <Layers className="h-4 w-4" />
-            Process Center
-          </CardTitle>
+            <Layers className="h-4 w-4" /><AppT text="Process Center"/></CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col gap-3 rounded-xl border border-dashed bg-muted/30 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-sm font-medium">Manage pipeline processes</p>
-              <p className="text-xs text-muted-foreground">Create, edit, delete, and configure columns.</p>
+              <p className="text-sm font-medium"><AppT text="Manage pipeline processes"/></p>
+              <p className="text-xs text-muted-foreground"><AppT text="Create, edit, delete, and configure columns."/></p>
             </div>
             <Button variant="outline" onClick={() => (window.location.href = '/dashboard/processes')} className="gap-2 shrink-0">
-              <Layers className="h-4 w-4" />Go to Process Center
-            </Button>
+              <Layers className="h-4 w-4" /><AppT text="Go to Process Center"/></Button>
           </div>
         </CardContent>
       </Card>
@@ -255,14 +251,12 @@ export function OrganizationSettings() {
             <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <CardTitle className="flex flex-wrap items-center gap-2 text-base">
-                  <CreditCard className="h-4 w-4" />
-                  Billing
-                  <Badge variant={billingPlan === 'free' ? 'secondary' : 'default'} className="uppercase text-xs">
+                  <CreditCard className="h-4 w-4" /><AppT text="Billing"/><Badge variant={billingPlan === 'free' ? 'secondary' : 'default'} className="uppercase text-xs">
                     {billingPlan}
                   </Badge>
                 </CardTitle>
                 <CardDescription className="mt-1 text-xs">
-                  Plans, checkout, invoices, and seats.
+                  <AppT text="Plans, checkout, invoices, and seats."/>
                 </CardDescription>
               </div>
               <Button
@@ -280,28 +274,28 @@ export function OrganizationSettings() {
             <div className="flex flex-col gap-3 rounded-xl border bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="space-y-1 text-sm">
                 <p className="flex items-center gap-1.5">
-                  <span className="text-muted-foreground">Status </span>
+                  <span className="text-muted-foreground"><AppT text="Status"/></span>
                   <span className="font-medium capitalize">{billingLoading ? '…' : billingStatus.replace('_', ' ')}</span>
                   {billingStatus === 'past_due' && (
-                    <AlertTriangle className="h-3.5 w-3.5 text-amber-500" aria-label="Payment issue" />
+                    <AlertTriangle className="h-3.5 w-3.5 text-amber-500" aria-label={t("Payment issue")} />
                   )}
                 </p>
                 {(billingPlan === 'team' || billingPlan === 'pro') ? (
                   <p className="text-muted-foreground">
-                    Seats: <span className="font-medium text-foreground">{billingLoading ? '…' : `${seatsUsed} / ${Number.isFinite(seatLimit) ? seatLimit : '∞'}`}</span>
+                    <AppT text="Seats:"/> <span className="font-medium text-foreground">{billingLoading ? '…' : `${seatsUsed} / ${Number.isFinite(seatLimit) ? seatLimit : '∞'}`}</span>
                   </p>
                 ) : (
-                  <p className="text-xs text-muted-foreground">Open the billing page to compare plans.</p>
+                  <p className="text-xs text-muted-foreground"><AppT text="Open the billing page to compare plans."/></p>
                 )}
                 {billingStatus === 'past_due' && (
                   <p className="text-xs text-amber-600 dark:text-amber-400">
-                    Payment failed — visit Billing & plans to update your card.
+                    <AppT text="Payment failed — visit Billing & plans to update your card."/>
                   </p>
                 )}
               </div>
               <Button asChild className="gap-2 sm:shrink-0">
                 <Link href="/settings/billing">
-                  Billing & plans
+                  <AppT text="Billing & plans"/>
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </Button>
@@ -314,10 +308,9 @@ export function OrganizationSettings() {
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-base">Team members — {currentTeam?.members.length ?? 0}</CardTitle>
+            <CardTitle className="text-base">{t('Team members — {count}',{count:currentTeam?.members.length ?? 0})}</CardTitle>
             <Button size="sm" variant="outline" onClick={() => setIsInviteModalOpen(true)}>
-              <Plus className="mr-2 h-3.5 w-3.5" />Invite
-            </Button>
+              <Plus className="mr-2 h-3.5 w-3.5" /><AppT text="Invite"/></Button>
           </div>
         </CardHeader>
         <CardContent className="space-y-2">

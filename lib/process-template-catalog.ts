@@ -1,3 +1,5 @@
+import {translateApp} from '@/lib/i18n/catalog';
+import type {AppLocale} from '@/lib/i18n/app-locale';
 import type { ProjectColumnConfig } from '@/lib/types';
 import { newStageId } from '@/lib/stage-lifecycle';
 
@@ -55,10 +57,10 @@ export const PROCESS_TEMPLATES:readonly ProcessTemplate[] = [
 /** Generate fresh unique stage identities for each Process instance.
  * Never share template stage IDs or assume stage titles are identity.
  */
-export function instantiateProcessTemplate(id:ProcessTemplateId):ProjectColumnConfig[]{
+export function instantiateProcessTemplate(id:ProcessTemplateId,locale:AppLocale='en'):ProjectColumnConfig[]{
   const chosen=PROCESS_TEMPLATES.find(template=>template.id===id);
   if(!chosen)throw new Error('Unknown Process template');
-  return chosen.stages.map(entry=>({...entry,id:newStageId()}));
+  return chosen.stages.map(entry=>({...entry,title:translateApp(locale,entry.title),id:newStageId()}));
 }
 
 export function getProcessTemplate(id:string):ProcessTemplate|undefined {

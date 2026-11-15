@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useTaskContext } from '@/components/TaskContext';
+import {useAppLocale} from '@/components/i18n/AppLocaleProvider';
 import {
   User, Shield, Palette, Bell, Calendar, Users,
   Globe, CreditCard, LogOut, ChevronRight,
@@ -35,6 +36,7 @@ const BOTTOM_ITEMS: NavItem[] = [
 ];
 
 function NavLink({ item, active }: { item: NavItem; active: boolean }) {
+  const {t}=useAppLocale();
   return (
     <Link
       href={item.href}
@@ -48,13 +50,14 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
       )}
     >
       <item.icon className="h-4 w-4 shrink-0" />
-      <span className="truncate">{item.label}</span>
+      <span className="truncate">{t(item.label)}</span>
       {active && <ChevronRight className="ml-auto h-3 w-3 shrink-0 opacity-40" />}
     </Link>
   );
 }
 
 export function SettingsNav() {
+  const {t}=useAppLocale();
   const pathname = usePathname();
   const { currentUser } = useTaskContext();
   const isAdmin = currentUser?.role === 'admin' || (currentUser?.role as any) === 'owner';
@@ -85,7 +88,7 @@ export function SettingsNav() {
               )}
             >
               <item.icon className="h-3.5 w-3.5" />
-              {item.label}
+              {t(item.label)}
             </Link>
           ))}
         </div>
@@ -94,7 +97,7 @@ export function SettingsNav() {
       {/* ── Desktop: sticky vertical sidebar ── */}
       <nav className="hidden lg:flex lg:flex-col w-52 xl:w-56 shrink-0 border-r bg-card/50 p-3 gap-0.5 sticky top-0 self-start min-h-[calc(100vh-4rem)]">
         <p className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">
-          Personal
+          {t('Personal')}
         </p>
         {PERSONAL_ITEMS.map((item) => (
           <NavLink key={item.href} item={item} active={isActive(item.href)} />
@@ -104,7 +107,7 @@ export function SettingsNav() {
           <>
             <div className="my-2 border-t" />
             <p className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">
-              Workspace
+              {t('Workspace')}
             </p>
             {ADMIN_ITEMS.map((item) => (
               <NavLink key={item.href} item={item} active={isActive(item.href)} />

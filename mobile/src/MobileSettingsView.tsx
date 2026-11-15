@@ -6,6 +6,8 @@ import {
 import { useTaskContext } from '../../components/TaskContext';
 import { authenticatedRequest } from './mobile-api';
 import type { MobileSessionTokens } from '../../shared/mobile-contracts';
+import { useAppLocale } from '../../components/i18n/AppLocaleProvider';
+import { AppLanguageSwitcher } from '../../components/i18n/AppLanguageSwitcher';
 
 type Section = 'home' | 'profile' | 'account' | 'appearance' | 'notifications' | 'calendar' | 'members' | 'organization' | 'billing';
 type SettingsData = {
@@ -37,9 +39,10 @@ const timeZones = [
 ];
 
 function settingRow(title: string, detail: string, checked: boolean, onChange: (checked: boolean) => void, disabled = false) {
+  const {t}=useAppLocale();
   return (
     <label className="mobile-settings-toggle">
-      <span><strong>{title}</strong><small>{detail}</small></span>
+      <span><strong>{t(title)}</strong><small>{t(detail)}</small></span>
       <input type="checkbox" checked={checked} onChange={event => onChange(event.target.checked)} disabled={disabled} />
     </label>
   );
@@ -50,6 +53,7 @@ export function MobileSettingsView({ session, onSignOut }: {
   onSignOut: () => Promise<void>;
 }) {
   const { currentTeam, currentUser, organizationId, refreshData } = useTaskContext();
+  const {t,date}=useAppLocale();
   const admin = currentUser?.role === 'admin' || (currentUser?.role as string) === 'owner';
   const [section, setSection] = useState<Section>('home');
   const [settings, setSettings] = useState<SettingsData>({});
@@ -84,7 +88,7 @@ export function MobileSettingsView({ session, onSignOut }: {
         setBilling(await authenticatedRequest<BillingData>('/api/billing/summary'));
       }
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Could not load settings.');
+      setError(cause instanceof Error ? cause.message : t('Could not load settings.'));
     } finally {
       setLoading(false);
     }
@@ -108,10 +112,10 @@ export function MobileSettingsView({ session, onSignOut }: {
         method: 'PATCH',
         body: JSON.stringify({ [key]: value }),
       });
-      setMessage('Settings saved.');
+      setMessage(t('Settings saved.'));
     } catch (cause) {
       setSettings(before);
-      setError(cause instanceof Error ? cause.message : 'Could not save settings.');
+      setError(cause instanceof Error ? cause.message : t('Could not save settings.'));
     } finally {
       setSaving(false);
     }
@@ -123,10 +127,10 @@ export function MobileSettingsView({ session, onSignOut }: {
     setSaving(true); setError(null); setMessage(null);
     try {
       await authenticatedRequest('/api/users/profile', { method: 'PATCH', body: JSON.stringify({ name: name.trim() }) });
-      setMessage('Profile updated.');
+      setMessage(t('Profile updated.'));
       await refreshData();
       void load('profile');
-    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not update profile.'); }
+    } catch (cause) { setError(cause instanceof Error ? cause.message : t('Could not update profile.')); }
     finally { setSaving(false); }
   }
 
@@ -139,9 +143,9 @@ export function MobileSettingsView({ session, onSignOut }: {
         method: 'PATCH', body: JSON.stringify({ name: orgName.trim() }),
       });
       setOrganization({ name: orgName.trim() });
-      setMessage('Organization updated.');
+      setMessage(t('Organization updated.'));
       await refreshData();
-    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not update organization.'); }
+    } catch (cause) { setError(cause instanceof Error ? cause.message : t('Could not update organization.')); }
     finally { setSaving(false); }
   }
 
@@ -153,18 +157,18 @@ export function MobileSettingsView({ session, onSignOut }: {
     document.documentElement.style.colorScheme = value ? 'dark' : 'light';
   }
 
-  const pageTitle = entries.find(entry => entry.section === section)?.title ?? 'Settings';
+  const pageTitle = t(entries.find(entry => entry.section === section)?.title ?? 'Settings');
 
   return (
-    <section className="workspace mobile-product-view mobile-settings-view" aria-label="Actiproc settings">
+    <section className="workspace mobile-product-view mobile-settings-view" aria-label={t("Actiproc settings")}>
       {section === 'home' ? (
         <>
-          <div className="mobile-settings-hero"><p className="mobile-more-eyebrow">PREFERENCES</p><h1>Settings</h1>
-            <p>Manage your account and workspace.</p>
+          <div className="mobile-settings-hero"><p className="mobile-more-eyebrow">{t("PREFERENCES")}</p><h1>{t("Settings")}</h1>
+            <p>{t("Manage your account and workspace.")}</p>
           </div>
           <div className="mobile-settings-profile-summary">
             <span className="mobile-settings-avatar">{(profile?.name ?? session.user.name ?? session.user.email).slice(0, 1).toUpperCase()}</span>
-            <span><strong>{profile?.name ?? session.user.name ?? 'Actiproc account'}</strong><small>{session.user.email}</small></span>
+            <span><strong>{profile?.name ?? session.user.name ?? t('Actiproc account')}</strong><small>{session.user.email}</small></span>
           </div>
           <div className="mobile-settings-menu">
             {entries.filter(item => !item.adminOnly || admin).map(({ section: target, title, detail, Icon }) => (
@@ -179,77 +183,78 @@ export function MobileSettingsView({ session, onSignOut }: {
       ) : (
         <>
           <div className="mobile-settings-detail-heading">
-            <button type="button" onClick={() => navigate('home')} aria-label="Back to settings"><ArrowLeft /></button>
+            <button type="button" onClick={() => navigate('home')} aria-label={t("Back to settings")}><ArrowLeft /></button>
             <h1>{pageTitle}</h1>
           </div>
-          {loading ? <p role="status" className="mobile-settings-muted">Loading settings…</p> : null}
+          {loading ? <p role="status" className="mobile-settings-muted">{t("Loading settings…")}</p> : null}
           {error ? <p role="alert" className="notice error">{error}</p> : null}
           {message ? <p role="status" className="notice">{message}</p> : null}
           {section === 'profile' && !loading && (
             <form className="mobile-settings-card mobile-settings-form" onSubmit={event => void saveProfile(event)}>
-              <label>Full name<input value={name} onChange={event => setName(event.target.value)} maxLength={120} required /></label>
-              <label>Email<input value={profile?.email ?? session.user.email} readOnly /></label>
-              <button className="mobile-settings-primary" type="submit" disabled={saving || !name.trim()}>Save profile</button>
+              <label>{t("Full name")}<input value={name} onChange={event => setName(event.target.value)} maxLength={120} required /></label>
+              <label>{t("Email")}<input value={profile?.email ?? session.user.email} readOnly /></label>
+              <button className="mobile-settings-primary" type="submit" disabled={saving || !name.trim()}>{t("Save profile")}</button>
             </form>
           )}
           {section === 'account' && (
             <div className="mobile-settings-card mobile-settings-info">
-              <strong>Signed in securely</strong><span>{session.user.email}</span>
-              <p>This device uses a protected mobile session. Password changes, two-factor authentication and session revocation require a separately audited native security flow.</p>
-              <button className="mobile-settings-danger" type="button" onClick={() => void onSignOut()}> <LogOut /> Log out of this device</button>
+              <strong>{t("Signed in securely")}</strong><span>{session.user.email}</span>
+              <p>{t("This device uses a protected mobile session. Password changes, two-factor authentication and session revocation require a separately audited native security flow.")}</p>
+              <button className="mobile-settings-danger" type="button" onClick={() => void onSignOut()}> <LogOut /> {t("Log out of this device")}</button>
             </div>
           )}
           {section === 'appearance' && !loading && (
             <div className="mobile-settings-card">
-              {settingRow('Dark mode', 'Use the dark Actiproc appearance', dark, setDarkMode)}
-              {settingRow('Compact view', 'Reduce spacing in lists and boards', settings.compact_view === true, v => void persistPreference('compact_view', v), saving)}
+              <div className="mobile-settings-info"><strong>{t("Application language")}</strong><p>{t("Choose the language used in navigation, settings, and system messages.")}</p><AppLanguageSwitcher /></div>
+              {settingRow(t('Dark mode'), t('Use the dark Actiproc appearance'), dark, setDarkMode)}
+              {settingRow(t('Compact view'), t('Reduce spacing in lists and boards'), settings.compact_view === true, v => void persistPreference('compact_view', v), saving)}
             </div>
           )}
           {section === 'notifications' && !loading && (
             <div className="mobile-settings-card">
-              {settingRow('Email notifications', 'Receive updates about Action assignments', settings.email_notifications !== false, v => void persistPreference('email_notifications', v), saving)}
-              {settingRow('Team activity', 'Follow updates from your workspace', settings.team_activity === true, v => void persistPreference('team_activity', v), saving)}
-              <div className="mobile-settings-info"><strong>Mobile push</strong><p>Native Android push registration is not implemented yet. The web push switch does not enable Android notifications.</p></div>
+              {settingRow(t('Email notifications'), t('Receive updates about Action assignments'), settings.email_notifications !== false, v => void persistPreference('email_notifications', v), saving)}
+              {settingRow(t('Team activity'), t('Follow updates from your workspace'), settings.team_activity === true, v => void persistPreference('team_activity', v), saving)}
+              <div className="mobile-settings-info"><strong>{t("Mobile push")}</strong><p>{t("Native Android push registration is not implemented yet. The web push switch does not enable Android notifications.")}</p></div>
             </div>
           )}
           {section === 'calendar' && !loading && (
             <div className="mobile-settings-card mobile-settings-form">
-              <label>Time zone
+              <label>{t("Time zone")}
                 <select value={settings.time_zone ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'UTC'} onChange={event => void persistPreference('time_zone', event.target.value)} disabled={saving}>
                   {Array.from(new Set([settings.time_zone ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'UTC', ...timeZones])).map(tz => <option key={tz} value={tz}>{tz}</option>)}
                 </select>
               </label>
-              <div className="mobile-settings-info"><strong>Google Calendar</strong><p>Calendar authorization and account linking are currently managed on the website. A native OAuth connection flow must be validated before enabling it here.</p></div>
+              <div className="mobile-settings-info"><strong>Google Calendar</strong><p>{t("Calendar authorization and account linking are currently managed on the website. A native OAuth connection flow must be validated before enabling it here.")}</p></div>
             </div>
           )}
           {section === 'members' && (
             <div className="mobile-settings-card">
-              <p className="mobile-settings-muted">{currentTeam?.name ?? 'Current workspace'} · {currentTeam?.members.length ?? 0} members</p>
+              <p className="mobile-settings-muted">{currentTeam?.name ?? t('Current workspace')} · {currentTeam?.members.length ?? 0} {t("members")}</p>
               {(currentTeam?.members ?? []).map(member => (
                 <div className="mobile-settings-member" key={member.id}>
                   <span className="mobile-settings-avatar">{(member.name || member.email || '?').slice(0, 1).toUpperCase()}</span>
-                  <span><strong>{member.name || member.email}</strong><small>{member.email} · {member.role}</small></span>
+                  <span><strong>{member.name || member.email}</strong><small>{member.email} · {t(member.role)}</small></span>
                 </div>
               ))}
-              <p className="mobile-settings-muted">Invites, role changes and removals are not yet supported by this mobile administration screen. Membership data remains shared with the web product.</p>
+              <p className="mobile-settings-muted">{t("Invites, role changes and removals are not yet supported by this mobile administration screen. Membership data remains shared with the web product.")}</p>
             </div>
           )}
           {section === 'organization' && admin && !loading && (
             <form className="mobile-settings-card mobile-settings-form" onSubmit={event => void saveOrganization(event)}>
-              <label>Organization name<input value={orgName} onChange={event => setOrgName(event.target.value)} required maxLength={120} /></label>
-              <p className="mobile-settings-muted">{organization?.name ? 'Changes are shared across web and Android.' : 'Only organization administrators can change this name.'}</p>
-              <button className="mobile-settings-primary" disabled={saving || !orgName.trim()} type="submit">Save organization</button>
+              <label>{t("Organization name")}<input value={orgName} onChange={event => setOrgName(event.target.value)} required maxLength={120} /></label>
+              <p className="mobile-settings-muted">{organization?.name ? t('Changes are shared across web and Android.') : t('Only organization administrators can change this name.')}</p>
+              <button className="mobile-settings-primary" disabled={saving || !orgName.trim()} type="submit">{t("Save organization")}</button>
             </form>
           )}
           {section === 'billing' && admin && !loading && (
             <div className="mobile-settings-card mobile-settings-info">
               {billing ? <>
-                <div className="mobile-settings-kv"><span>Current plan</span><strong>{billing.plan ?? 'Unknown'}</strong></div>
-                <div className="mobile-settings-kv"><span>Subscription</span><strong>{billing.subscriptionStatus ?? 'Unknown'}</strong></div>
-                <div className="mobile-settings-kv"><span>Seats</span><strong>{billing.seatsUsed ?? 0} / {billing.seatLimit ?? 'Unlimited'}</strong></div>
-                {billing.endsAt ? <div className="mobile-settings-kv"><span>Ends on</span><strong>{billing.endsAt.slice(0, 10)}</strong></div> : null}
-              </> : <p>Subscription information is not available.</p>}
-              <p>Subscription details are read-only in the Android app. No purchase, upgrade, checkout or external payment link is offered here.</p>
+                <div className="mobile-settings-kv"><span>{t("Current plan")}</span><strong>{billing.plan ?? t('Unknown')}</strong></div>
+                <div className="mobile-settings-kv"><span>{t("Subscription")}</span><strong>{billing.subscriptionStatus ?? t('Unknown')}</strong></div>
+                <div className="mobile-settings-kv"><span>{t("Seats")}</span><strong>{billing.seatsUsed ?? 0} / {billing.seatLimit ?? t('Unlimited')}</strong></div>
+                {billing.endsAt ? <div className="mobile-settings-kv"><span>{t("Ends on")}</span><strong>{date(billing.endsAt,{dateStyle:"medium"})}</strong></div> : null}
+              </> : <p>{t("Subscription information is not available.")}</p>}
+              <p>{t("Subscription details are read-only in the Android app. No purchase, upgrade, checkout or external payment link is offered here.")}</p>
             </div>
           )}
         </>

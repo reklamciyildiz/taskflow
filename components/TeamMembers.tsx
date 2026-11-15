@@ -1,4 +1,5 @@
 'use client';
+import {T as AppT,useAppLocale} from '@/components/i18n/AppLocaleProvider';
 
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -17,6 +18,7 @@ import { Role, roleDisplayNames, roleDescriptions } from '@/lib/permissions';
 import { toast } from 'sonner';
 
 export function TeamMembers() {
+  const {t}=useAppLocale();
   const { 
     currentTeam, 
     currentUser, 
@@ -65,7 +67,7 @@ export function TeamMembers() {
     e.preventDefault();
     try {
       if (!currentTeam) {
-        toast.error('No team selected');
+        toast.error(t('No team selected'));
         return;
       }
 
@@ -95,7 +97,7 @@ export function TeamMembers() {
       setEditingMember(null);
       setIsDialogOpen(false);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Request failed');
+      toast.error(error instanceof Error ? error.message : t('Request failed'));
     }
   };
 
@@ -112,7 +114,7 @@ export function TeamMembers() {
 
   const handleDelete = async (memberId: string) => {
     if (!currentTeam) {
-      toast.error('No team selected');
+      toast.error(t('No team selected'));
       return;
     }
 
@@ -122,7 +124,7 @@ export function TeamMembers() {
 
       removeMember(currentTeam.id, memberId);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Member could not be removed');
+      toast.error(error instanceof Error ? error.message : t('Member could not be removed'));
     }
   };
 
@@ -135,56 +137,56 @@ export function TeamMembers() {
     
     try {
       await moveMember(memberId, currentTeam.id, targetTeamId);
-      toast.success('Member moved successfully');
+      toast.success(t('Member moved successfully'));
     } catch (error: any) {
-      toast.error(error.message || 'Failed to move member');
+      toast.error(error.message || t('Failed to move member'));
     }
   };
 
   const handleAddMemberToTeam = async (userId: string, teamId: string) => {
     try {
       await addMemberToTeam(userId, teamId);
-      toast.success('Member added to team successfully');
+      toast.success(t('Member added to team successfully'));
     } catch (error: any) {
-      toast.error(error.message || 'Failed to add member to team');
+      toast.error(error.message || t('Failed to add member to team'));
     }
   };
 
   if (!currentTeam) {
-    return <div className="p-4 text-center text-muted-foreground">Select a team to manage members</div>;
+    return <div className="p-4 text-center text-muted-foreground"><AppT text="Select a team to manage members"/></div>;
   }
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Team Members</h2>
+        <h2 className="text-2xl font-bold"><AppT text="Team Members"/></h2>
         {permissions.canInviteMembers && (
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => setIsInviteModalOpen(true)}>
               <Mail className="mr-2 h-4 w-4" />
-              Invite via Email
+              <AppT text="Invite via Email"/>
             </Button>
             <Button variant="outline" onClick={() => setShowAddMemberModal(true)}>
               <Users className="mr-2 h-4 w-4" />
-              Add Existing Member
+              <AppT text="Add Existing Member"/>
             </Button>
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
                 <Button onClick={() => setEditingMember(null)}>
                   <UserPlus className="mr-2 h-4 w-4" />
-                  Add New Member
+                  <AppT text="Add New Member"/>
                 </Button>
               </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>{editingMember ? 'Edit Member' : 'Add New Member'}</DialogTitle>
+                <DialogTitle>{t(editingMember ? 'Edit Member' : 'Add New Member')}</DialogTitle>
                 <DialogDescription>
-                  {editingMember ? 'Update the team member details' : 'Add a new member to your team'}
+                  {t(editingMember ? 'Update the team member details' : 'Add a new member to your team')}
                 </DialogDescription>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Name</Label>
+                  <Label htmlFor="name"><AppT text="Name"/></Label>
                   <Input
                     id="name"
                     name="name"
@@ -195,7 +197,7 @@ export function TeamMembers() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email"><AppT text="Email"/></Label>
                   <Input
                     id="email"
                     name="email"
@@ -207,23 +209,23 @@ export function TeamMembers() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="role">Role</Label>
+                  <Label htmlFor="role"><AppT text="Role"/></Label>
                   <Select
                     value={formData.role}
                     onValueChange={(value) => setFormData(prev => ({ ...prev, role: value as any }))}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select role" />
+                      <SelectValue placeholder={t("Select role")} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="member">Member</SelectItem>
-                      <SelectItem value="viewer">Viewer</SelectItem>
+                      <SelectItem value="admin"><AppT text="Admin"/></SelectItem>
+                      <SelectItem value="member"><AppT text="Member"/></SelectItem>
+                      <SelectItem value="viewer"><AppT text="Viewer"/></SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="avatar">Avatar URL (optional)</Label>
+                  <Label htmlFor="avatar"><AppT text="Avatar URL (optional)"/></Label>
                   <Input
                     id="avatar"
                     name="avatar"
@@ -241,11 +243,9 @@ export function TeamMembers() {
                       setIsDialogOpen(false);
                       setEditingMember(null);
                     }}
-                  >
-                    Cancel
-                  </Button>
+                  ><AppT text="Cancel"/></Button>
                   <Button type="submit">
-                    {editingMember ? 'Update' : 'Add'} Member
+                    {t(editingMember ? 'Update Member' : 'Add Member')}
                   </Button>
                 </div>
               </form>
@@ -267,7 +267,7 @@ export function TeamMembers() {
       <div className="space-y-4">
         {currentTeam.members.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
-            No members in this team yet. Add your first member!
+            <AppT text="No members in this team yet. Add your first member!"/>
           </div>
         ) : (
           <div className="border rounded-lg divide-y">
@@ -280,9 +280,9 @@ export function TeamMembers() {
                 if (!currentTeam) return;
                 try {
                   await updateMemberRole(currentTeam.id, member.id, newRole as Role);
-                  toast.success(`Role updated successfully`);
+                  toast.success(t('Role updated successfully'));
                 } catch (err) {
-                  toast.error('Failed to update role');
+                  toast.error(t('Failed to update role'));
                 }
               };
 
@@ -302,7 +302,7 @@ export function TeamMembers() {
                       <div className="flex items-center gap-2">
                         <p className="font-medium truncate">{member.name}</p>
                         {isCurrentUser && (
-                          <span className="text-xs text-muted-foreground flex-shrink-0">(you)</span>
+                          <span className="text-xs text-muted-foreground flex-shrink-0"><AppT text="(you)"/></span>
                         )}
                       </div>
                       <p className="text-sm text-muted-foreground truncate">{member.email}</p>
@@ -318,14 +318,14 @@ export function TeamMembers() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="admin">Admin</SelectItem>
-                          <SelectItem value="member">Member</SelectItem>
-                          <SelectItem value="viewer">Viewer</SelectItem>
+                          <SelectItem value="admin"><AppT text="Admin"/></SelectItem>
+                          <SelectItem value="member"><AppT text="Member"/></SelectItem>
+                          <SelectItem value="viewer"><AppT text="Viewer"/></SelectItem>
                         </SelectContent>
                       </Select>
                     ) : (
                       <span className="text-sm text-muted-foreground capitalize">
-                        {member.role}
+                        {t(member.role)}
                       </span>
                     )}
                     {permissions.canRemoveMembers && (
@@ -344,7 +344,7 @@ export function TeamMembers() {
                         size="icon"
                         onClick={() => handleMoveMember(member)}
                         disabled={!canManage}
-                        title="Move to another team"
+                        title={t("Move to another team")}
                       >
                         <ArrowRight className="h-4 w-4" />
                       </Button>
@@ -369,19 +369,19 @@ export function TeamMembers() {
 
       {/* Role Descriptions */}
       <div className="mt-6 p-4 border rounded-lg">
-        <h3 className="text-sm font-medium mb-3 text-muted-foreground">Role Descriptions</h3>
+        <h3 className="text-sm font-medium mb-3 text-muted-foreground"><AppT text="Role Descriptions"/></h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
           <div>
-            <p className="font-medium">Admin</p>
-            <p className="text-muted-foreground text-xs mt-1">{roleDescriptions.admin}</p>
+            <p className="font-medium"><AppT text="Admin"/></p>
+            <p className="text-muted-foreground text-xs mt-1">{t(roleDescriptions.admin)}</p>
           </div>
           <div>
-            <p className="font-medium">Member</p>
-            <p className="text-muted-foreground text-xs mt-1">{roleDescriptions.member}</p>
+            <p className="font-medium"><AppT text="Member"/></p>
+            <p className="text-muted-foreground text-xs mt-1">{t(roleDescriptions.member)}</p>
           </div>
           <div>
-            <p className="font-medium">Viewer</p>
-            <p className="text-muted-foreground text-xs mt-1">{roleDescriptions.viewer}</p>
+            <p className="font-medium"><AppT text="Viewer"/></p>
+            <p className="text-muted-foreground text-xs mt-1">{t(roleDescriptions.viewer)}</p>
           </div>
         </div>
       </div>

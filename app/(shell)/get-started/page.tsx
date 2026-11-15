@@ -1,4 +1,5 @@
 'use client';
+import {T} from '@/components/i18n/AppLocaleProvider';
 
 import Link from 'next/link';
 import {useRouter} from 'next/navigation';
@@ -16,22 +17,21 @@ export default function GettingStartedPage(){
     <header className="relative overflow-hidden rounded-[28px] border bg-gradient-to-br from-primary/10 via-card to-card p-5 sm:p-9">
       <div className="relative z-10 max-w-3xl space-y-4">
         <Link href="/" className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="h-3.5 w-3.5"/> Back to dashboard
+          <ArrowLeft className="h-3.5 w-3.5"/> <T text="Back to dashboard"/>
         </Link>
         <span className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[.17em] text-primary">
-          <Compass className="h-4 w-4"/> Actiproc · Getting started
+          <Compass className="h-4 w-4"/> <T text="Actiproc · Getting started"/>
         </span>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Your work, connected from day one.</h1>
+        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl"><T text="Your work, connected from day one."/></h1>
         <p className="max-w-2xl text-sm leading-7 text-muted-foreground sm:text-base">
-          Explore without risk, choose a Process structure, then complete one real Action.
-          No automatic data imports, fictitious achievements or hidden account changes.
+          <T text="Explore without risk, choose a Process structure, then complete one real Action. No automatic data imports, fictitious achievements or hidden account changes."/>
         </p>
         <div className="flex flex-wrap gap-2">
           <Button onClick={()=>document.getElementById('p1-sample-workspace')?.scrollIntoView({behavior:'smooth',block:'start'})} variant="outline" className="gap-2">
-            <BookOpen className="h-4 w-4"/> Try sample workspace
+            <BookOpen className="h-4 w-4"/> <T text="Try sample workspace"/>
           </Button>
           <Button onClick={()=>router.push('/dashboard/processes')} className="gap-2">
-            <Layers3 className="h-4 w-4"/> Browse Process templates <ArrowRight className="h-4 w-4"/>
+            <Layers3 className="h-4 w-4"/> <T text="Browse Process templates"/> <ArrowRight className="h-4 w-4"/>
           </Button>
         </div>
       </div>
@@ -43,13 +43,13 @@ export default function GettingStartedPage(){
       <div className="flex items-start gap-3">
         <Lightbulb className="mt-0.5 h-5 w-5 shrink-0 text-primary"/>
         <div>
-          <h2 className="text-sm font-semibold">Prefer to start from a real project?</h2>
+          <h2 className="text-sm font-semibold"><T text="Prefer to start from a real project?"/></h2>
           <p className="mt-1 max-w-xl text-xs leading-6 text-muted-foreground">
-            Templates only define Process stages. When you create a Process it follows the same permissions and plan limits as any other Process.
+            <T text="Templates only define Process stages. When you create a Process it follows the same permissions and plan limits as any other Process."/>
           </p>
         </div>
       </div>
-      <Button variant="outline" asChild><Link href="/dashboard/processes">Explore all templates <ArrowRight className="ml-2 h-4 w-4"/></Link></Button>
+      <Button variant="outline" asChild><Link href="/dashboard/processes"><T text="Explore all templates"/> <ArrowRight className="ml-2 h-4 w-4"/></Link></Button>
     </div>
   </div>;
 }

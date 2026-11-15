@@ -1,4 +1,5 @@
 'use client';
+import {T,useAppLocale} from '@/components/i18n/AppLocaleProvider';
 
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,6 +11,7 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 
 export default function SettingsWorkspacePage() {
+  const {t}=useAppLocale();
   const { refreshData } = useTaskContext();
   const router = useRouter();
   const { update } = useSession();
@@ -26,14 +28,14 @@ export default function SettingsWorkspacePage() {
     try {
       const res = await fetch('/api/onboarding/reset-solo-workspace', { method: 'POST' });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Request failed');
-      toast.success(data.message || 'You left the workspace');
+      if (!res.ok) throw new Error(data.error || t('Request failed'));
+      toast.success(data.message || t('You left the workspace'));
       await update?.();
       router.refresh();
       await refreshData();
       router.push('/onboarding');
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : 'Request failed');
+      toast.error(e instanceof Error ? e.message : t('Request failed'));
     } finally {
       setLoading(false);
     }
@@ -42,9 +44,9 @@ export default function SettingsWorkspacePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold">Workspace</h1>
+        <h1 className="text-xl font-semibold"><T text="Workspace"/></h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Manage your workspace membership.
+          <T text="Manage your workspace membership."/>
         </p>
       </div>
 
@@ -57,9 +59,7 @@ export default function SettingsWorkspacePage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            If you accidentally created your own organization and want to accept another team&apos;s
-            invite, you can leave from here. This only works when you&apos;re the{' '}
-            <strong>only member</strong> in the organization.
+            <T text="If you accidentally created your own organization and want to accept another team's invite, you can leave from here. This only works when you're the only member in the organization."/>
           </p>
           <Button
             variant="outline"
@@ -67,7 +67,7 @@ export default function SettingsWorkspacePage() {
             disabled={loading}
             onClick={handleLeave}
           >
-            {loading ? 'Working…' : 'Leave my solo workspace'}
+            {t(loading ? 'Working…' : 'Leave my solo workspace')}
           </Button>
         </CardContent>
       </Card>

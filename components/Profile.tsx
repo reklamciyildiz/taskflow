@@ -1,4 +1,5 @@
 'use client';
+import {T as AppT} from '@/components/i18n/AppLocaleProvider';
 
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -58,9 +59,9 @@ export function Profile() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold">Profile</h1>
+        <h1 className="text-xl font-semibold"><AppT text="Profile"/></h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          View and update your profile information.
+          <AppT text="View and update your profile information."/>
         </p>
       </div>
 
@@ -68,7 +69,7 @@ export function Profile() {
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
             <User className="h-4 w-4" />
-            Profile Information
+            <AppT text="Profile Information"/>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -77,12 +78,12 @@ export function Profile() {
               <AvatarImage src={currentUser.avatar} alt={currentUser.name} />
               <AvatarFallback className="text-lg">{currentUser.name.charAt(0)}</AvatarFallback>
             </Avatar>
-            <Button variant="outline" size="sm">Change Avatar</Button>
+            <Button variant="outline" size="sm"><AppT text="Change Avatar"/></Button>
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="name">Full Name</Label>
+              <Label htmlFor="name"><AppT text="Full Name"/></Label>
               <Input
                 id="name"
                 value={name}
@@ -90,18 +91,18 @@ export function Profile() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email"><AppT text="Email"/></Label>
               <Input id="email" defaultValue={currentUser.email} disabled />
             </div>
           </div>
 
           <Button onClick={handleSaveProfile} disabled={saving} size="sm">
             {saving ? (
-              <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving…</>
+              <><Loader2 className="h-4 w-4 mr-2 animate-spin" /><AppT text="Saving…"/></>
             ) : saved ? (
-              <><Check className="h-4 w-4 mr-2" />Saved!</>
+              <><Check className="h-4 w-4 mr-2" /><AppT text="Saved!"/></>
             ) : (
-              'Save Changes'
+              <AppT text="Save Changes"/>
             )}
           </Button>
         </CardContent>
@@ -109,21 +110,21 @@ export function Profile() {
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Task Statistics</CardTitle>
+          <CardTitle className="text-base"><AppT text="Task Statistics"/></CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-3 gap-4">
             <div className="rounded-lg border p-4 text-center">
               <p className="text-2xl font-bold tabular-nums">{userTasks.length}</p>
-              <p className="mt-1 text-xs text-muted-foreground">Total Tasks</p>
+              <p className="mt-1 text-xs text-muted-foreground"><AppT text="Total Tasks"/></p>
             </div>
             <div className="rounded-lg border p-4 text-center">
               <p className="text-2xl font-bold tabular-nums text-amber-600">{inProgressTasks.length}</p>
-              <p className="mt-1 text-xs text-muted-foreground">In Progress</p>
+              <p className="mt-1 text-xs text-muted-foreground"><AppT text="In Progress"/></p>
             </div>
             <div className="rounded-lg border p-4 text-center">
               <p className="text-2xl font-bold tabular-nums text-emerald-600">{completedTasks.length}</p>
-              <p className="mt-1 text-xs text-muted-foreground">Completed</p>
+              <p className="mt-1 text-xs text-muted-foreground"><AppT text="Completed"/></p>
             </div>
           </div>
         </CardContent>

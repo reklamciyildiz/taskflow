@@ -1,4 +1,5 @@
 'use client';
+import {T as AppT} from '@/components/i18n/AppLocaleProvider';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, Clock, Bell, X } from 'lucide-react';
@@ -228,7 +229,7 @@ export function DueFlowPicker({
         >
           <span className="flex items-center gap-2">
             <Clock className="h-4 w-4 text-muted-foreground" aria-hidden />
-            <span>Time</span>
+            <span><AppT text="Time"/></span>
           </span>
           <span className="text-muted-foreground">{formatTimeLabel(timeKey)}</span>
         </button>
@@ -379,9 +380,7 @@ export function DueFlowPicker({
             onRemindersChange([]);
             toast.message('Due date and reminders cleared', { duration: 3500 });
           }}
-        >
-          Clear
-        </Button>
+        ><AppT text="Clear"/></Button>
         <Button
           type="button"
           variant="default"
@@ -393,9 +392,7 @@ export function DueFlowPicker({
             }
             onRequestClose?.();
           }}
-        >
-          Done
-        </Button>
+        ><AppT text="Done"/></Button>
       </div>
     </div>
   );

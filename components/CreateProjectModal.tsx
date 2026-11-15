@@ -1,4 +1,6 @@
 'use client';
+import {T as AppT,useAppLocale} from '@/components/i18n/AppLocaleProvider';
+
 
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
@@ -36,6 +38,7 @@ const COLUMN_COLOR_OPTIONS: { id: string; label: string; className: string }[] =
 ];
 
 export function CreateProjectModal({ open, onClose, mode = 'create', projectId, initialTemplateId }: CreateProjectModalProps) {
+  const {t,locale}=useAppLocale();
   const router = useRouter();
   const pathname = usePathname();
   const { organizationId, teams, currentTeam, refreshData, projects, tasks } = useTaskContext();
@@ -74,7 +77,7 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId, 
     if (!open || mode !== 'create') return;
     const chosen = initialTemplateId ?? 'simple';
     setPresetId(chosen);
-    setColumnsDraft(instantiateProcessTemplate(chosen));
+    setColumnsDraft(instantiateProcessTemplate(chosen,locale));
     setName(initialTemplateId ? (getProcessTemplate(chosen)?.title ?? '') : '');
   }, [open, mode, initialTemplateId]);
 
@@ -127,7 +130,7 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId, 
     }
     const template = getProcessTemplate(value);
     if (!template) return;
-    setColumnsDraft(instantiateProcessTemplate(template.id));
+    setColumnsDraft(instantiateProcessTemplate(template.id,locale));
     if (!name.trim()) setName(template.title);
   };
 
@@ -296,25 +299,25 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId, 
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="project-name">Process name</Label>
+            <Label htmlFor="project-name"><AppT text="Process name"/></Label>
             <Input
               id="project-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Job search, Actiproc development…"
+              placeholder={t("e.g. Job search, Actiproc development…")}
               required
             />
           </div>
 
           <div className="space-y-2">
-            <Label>Team (optional)</Label>
+            <Label><AppT text="Team (optional)"/></Label>
             <Select value={teamId} onValueChange={setTeamId}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__current__">Current team ({currentTeam?.name ?? 'none selected'})</SelectItem>
-                <SelectItem value="__none__">Not tied to a team</SelectItem>
+                <SelectItem value="__none__"><AppT text="Not tied to a team"/></SelectItem>
                 {teams.map((t) => (
                   <SelectItem key={t.id} value={t.id}>
                     {t.name}
@@ -325,15 +328,15 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId, 
           </div>
 
           <div className="space-y-2">
-            <Label>Visibility</Label>
+            <Label><AppT text="Visibility"/></Label>
             <Select value={visibility} onValueChange={(v) => setVisibility(v as any)}>
               <SelectTrigger>
-                <SelectValue placeholder="Choose visibility" />
+                <SelectValue placeholder={t("Choose visibility")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="team">Team — everyone in the team can see it</SelectItem>
-                <SelectItem value="restricted">Restricted — only selected members</SelectItem>
-                <SelectItem value="private">Private — only you (and admins)</SelectItem>
+                <SelectItem value="team"><AppT text="Team — everyone in the team can see it"/></SelectItem>
+                <SelectItem value="restricted"><AppT text="Restricted — only selected members"/></SelectItem>
+                <SelectItem value="private"><AppT text="Private — only you (and admins)"/></SelectItem>
               </SelectContent>
             </Select>
             {(visibility === 'restricted' || visibility === 'private') && (
@@ -376,11 +379,11 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId, 
               <Label>{mode === 'edit' ? 'Template' : 'Starter template'}</Label>
               <Select value={presetId} onValueChange={handlePresetChange} disabled={mode === "edit"}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select a template" />
+                  <SelectValue placeholder={t("Select a template")} />
                 </SelectTrigger>
                 <SelectContent>
-                  {mode === "edit" && <SelectItem value="custom">Existing stage configuration</SelectItem>}
-                  <SelectItem value="blank">Start from scratch (blank)</SelectItem>
+                  {mode === "edit" && <SelectItem value="custom"><AppT text="Existing stage configuration"/></SelectItem>}
+                  <SelectItem value="blank"><AppT text="Start from scratch (blank)"/></SelectItem>
                   {PROCESS_TEMPLATES.map(p => (
                     <SelectItem key={p.id} value={p.id}>{p.title} · {p.category}</SelectItem>
                   ))}
@@ -395,7 +398,7 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId, 
 
             <div className="rounded-md border bg-muted/40">
               <div className="flex items-center justify-between px-3 py-2 border-b bg-muted/60">
-                <span className="text-xs font-medium text-muted-foreground">Column editor</span>
+                <span className="text-xs font-medium text-muted-foreground"><AppT text="Column editor"/></span>
                 <Button type="button" size="sm" variant="outline" onClick={handleAddColumn} className="h-7 px-2 text-xs">
                   + Add column
                 </Button>
@@ -478,7 +481,7 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId, 
                                       onClick={() => handleToggleTerminal(index)}
                                     >
                                       <CheckCircle2 className="h-4 w-4" />
-                                      <span className="text-xs">Done</span>
+                                      <span className="text-xs"><AppT text="Done"/></span>
                                     </Button>
                                     <Button
                                       type="button"
@@ -487,7 +490,7 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId, 
                                       className="h-8 w-8 text-muted-foreground hover:text-destructive"
                                       onClick={() => handleToggleInclude(index, false)}
                                       disabled={columnsDraft.length <= 1}
-                                      aria-label="Delete column"
+                                      aria-label={t("Delete column")}
                                     >
                                       <Trash2 className="h-4 w-4" />
                                     </Button>
@@ -507,7 +510,7 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId, 
             </div>
 
             <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Board preview</Label>
+              <Label className="text-xs text-muted-foreground"><AppT text="Board preview"/></Label>
               <div className="rounded-md border bg-gradient-to-r from-slate-50 via-muted to-slate-50 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900 p-3">
                 {normalizedColumns.length === 0 ? (
                   <p className="text-xs text-muted-foreground italic">
@@ -526,9 +529,7 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId, 
                         <span className="font-medium truncate max-w-full">{col.title}</span>
                         {col.isTerminal && (
                           <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] text-emerald-700 dark:text-emerald-200">
-                            <CheckCircle2 className="h-3 w-3" />
-                            Done
-                          </span>
+                            <CheckCircle2 className="h-3 w-3" /><AppT text="Done"/></span>
                         )}
                       </div>
                     ))}
@@ -541,13 +542,11 @@ export function CreateProjectModal({ open, onClose, mode = 'create', projectId, 
           {mode === 'edit' && editingProject && (editingProject.teamId || currentTeam?.id) && (
             <ProcessPropertiesManager key={editingProject.id} projectId={editingProject.id} teamId={editingProject.teamId || currentTeam!.id} />
           )}
-          {mode === 'create' && <p className="text-xs text-muted-foreground">After creating this process, open its settings to add single-select properties.</p>}
+          {mode === 'create' && <p className="text-xs text-muted-foreground"><AppT text="After creating this process, open its settings to add single-select properties."/></p>}
           {error && <p className="text-sm text-destructive">{error}</p>}
 
           <div className="flex flex-col-reverse gap-2 justify-end sm:flex-row">
-            <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
-              Cancel
-            </Button>
+            <Button type="button" variant="outline" onClick={onClose} disabled={loading}><AppT text="Cancel"/></Button>
             <Button type="submit" disabled={loading || !name.trim()}>
               {loading ? 'Saving…' : mode === 'edit' ? 'Save process' : 'Create process'}
             </Button>

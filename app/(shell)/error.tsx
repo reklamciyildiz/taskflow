@@ -3,6 +3,7 @@
 import {useEffect} from 'react';
 import {Button} from '@/components/ui/button';
 import {AlertTriangle,RefreshCw} from 'lucide-react';
+import {T} from '@/components/i18n/AppLocaleProvider';
 
 /** Unexpected app-shell render failures. Reports only a bounded digest, not user data. */
 export default function AppShellError({error,reset}:{
@@ -22,10 +23,9 @@ export default function AppShellError({error,reset}:{
     <span className="rounded-2xl border border-amber-300/40 bg-amber-500/10 p-4 text-amber-600">
       <AlertTriangle className="h-7 w-7" aria-hidden="true"/>
     </span>
-    <h1 className="text-xl font-semibold">This page could not be displayed</h1>
+    <h1 className="text-xl font-semibold"><T text="This page could not be displayed"/></h1>
     <p className="text-sm leading-6 text-muted-foreground">
-      Your saved work has not been deleted. Try loading this screen again.
-      If the problem persists, contact Actiproc support.
+      <T text="Your saved work has not been deleted. Try loading this screen again. If the problem persists, contact Actiproc support."/>
     </p>
     <Button type="button" onClick={reset} className="gap-2">
       <RefreshCw className="h-4 w-4"/> Try again

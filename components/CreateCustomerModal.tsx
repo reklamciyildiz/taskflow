@@ -1,4 +1,5 @@
 'use client';
+import {T as AppT} from '@/components/i18n/AppLocaleProvider';
 
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -76,7 +77,7 @@ export function CreateCustomerModal({ open, onClose }: CreateCustomerModalProps)
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email"><AppT text="Email"/></Label>
               <Input
                 id="email"
                 type="email"
@@ -87,7 +88,7 @@ export function CreateCustomerModal({ open, onClose }: CreateCustomerModalProps)
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone</Label>
+              <Label htmlFor="phone"><AppT text="Phone"/></Label>
               <Input
                 id="phone"
                 value={phone}
@@ -98,7 +99,7 @@ export function CreateCustomerModal({ open, onClose }: CreateCustomerModalProps)
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="address">Address</Label>
+            <Label htmlFor="address"><AppT text="Address"/></Label>
             <Input
               id="address"
               value={address}
@@ -108,7 +109,7 @@ export function CreateCustomerModal({ open, onClose }: CreateCustomerModalProps)
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="notes">Notes</Label>
+            <Label htmlFor="notes"><AppT text="Notes"/></Label>
             <Textarea
               id="notes"
               value={notes}
@@ -119,9 +120,7 @@ export function CreateCustomerModal({ open, onClose }: CreateCustomerModalProps)
           </div>
 
           <div className="flex justify-end gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={handleClose}>
-              Cancel
-            </Button>
+            <Button type="button" variant="outline" onClick={handleClose}><AppT text="Cancel"/></Button>
             <Button type="submit" disabled={loading || !name.trim()}>
               {loading ? (
                 <>

@@ -1,4 +1,5 @@
 'use client';
+import {T as AppT} from '@/components/i18n/AppLocaleProvider';
 
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -56,9 +57,7 @@ export function EditTeamModal({ team, open, onClose, onSave }: EditTeamModalProp
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            Edit Team
-          </DialogTitle>
+            <Users className="h-5 w-5" /><AppT text="Edit Team"/></DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -91,15 +90,11 @@ export function EditTeamModal({ team, open, onClose, onSave }: EditTeamModalProp
           )}
 
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={handleClose}>
-              Cancel
-            </Button>
+            <Button type="button" variant="outline" onClick={handleClose}><AppT text="Cancel"/></Button>
             <Button type="submit" disabled={loading || !name.trim()}>
               {loading ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Saving...
-                </>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" /><AppT text="Saving..."/></>
               ) : (
                 'Save Changes'
               )}

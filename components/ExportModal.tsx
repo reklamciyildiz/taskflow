@@ -1,4 +1,5 @@
 'use client';
+import {T as AppT} from '@/components/i18n/AppLocaleProvider';
 
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -167,9 +168,7 @@ export function ExportModal({ open, onClose }: ExportModalProps): JSX.Element {
         </div>
 
         <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
+          <Button variant="outline" onClick={onClose}><AppT text="Cancel"/></Button>
           <Button onClick={handleExport} disabled={loading}>
             {loading ? (
               <>
@@ -178,9 +177,7 @@ export function ExportModal({ open, onClose }: ExportModalProps): JSX.Element {
               </>
             ) : (
               <>
-                <Download className="h-4 w-4 mr-2" />
-                Export
-              </>
+                <Download className="h-4 w-4 mr-2" /><AppT text="Export"/></>
             )}
           </Button>
         </div>

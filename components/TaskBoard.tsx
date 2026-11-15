@@ -1,4 +1,6 @@
 'use client';
+import {T as AppT,useAppLocale} from '@/components/i18n/AppLocaleProvider';
+
 
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
@@ -46,6 +48,7 @@ const STAGE_SKINS = [
 ] as const;
 
 export function TaskBoard() {
+  const {t}=useAppLocale();
   const preferences = useUserPreferences();
   const processOrderSyncAttemptRef = useRef('');
   const [isMobileBoard, setIsMobileBoard] = useState(false);
@@ -299,27 +302,26 @@ export function TaskBoard() {
               <p className="flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
                 <span className="flex h-5 w-5 items-center justify-center rounded-md border border-primary/15 bg-primary/10 text-primary">
                   <LayoutDashboard className="h-3.5 w-3.5" aria-hidden />
-                </span>
-                Workspace <span className="text-border">/</span> Projects &amp; Board
+                </span><AppT text="Workspace"/><span className="text-border">/</span> <AppT text="Projects & Board"/>
               </p>
               <h1 className="max-w-3xl break-words text-[21px] font-semibold leading-tight tracking-[-0.03em] text-foreground sm:text-[25px]">
                 {boardTitle}
               </h1>
               <p className="hidden text-[11px] leading-relaxed text-muted-foreground xl:block">
-                Organize work, follow progress, and move Actions through your workflow.
+                <AppT text="Organize work, follow progress, and move Actions through your workflow."/>
               </p>
             </div>
             <div className="grid min-w-0 grid-cols-3 gap-1.5 sm:gap-2 lg:w-[335px] lg:shrink-0">
               <div className="actiproc-board-metric min-w-0 rounded-xl border border-border/65 bg-background/65 px-2.5 py-1.5 shadow-sm sm:px-3 sm:py-2">
-                <div className="mb-0.5 flex items-center gap-1 text-muted-foreground"><ListChecks className="hidden h-3.5 w-3.5 sm:block" aria-hidden /><span className="text-[10px] font-medium">Actions</span></div>
+                <div className="mb-0.5 flex items-center gap-1 text-muted-foreground"><ListChecks className="hidden h-3.5 w-3.5 sm:block" aria-hidden /><span className="text-[10px] font-medium"><AppT text="Actions"/></span></div>
                 <p className="text-base font-semibold tabular-nums tracking-tight sm:text-lg">{filteredTasks.length}</p>
               </div>
               <div className="actiproc-board-metric min-w-0 rounded-xl border border-border/65 bg-background/65 px-2.5 py-1.5 shadow-sm sm:px-3 sm:py-2">
-                <div className="mb-0.5 flex items-center gap-1 text-muted-foreground"><Layers className="hidden h-3.5 w-3.5 sm:block" aria-hidden /><span className="text-[10px] font-medium">Stages</span></div>
+                <div className="mb-0.5 flex items-center gap-1 text-muted-foreground"><Layers className="hidden h-3.5 w-3.5 sm:block" aria-hidden /><span className="text-[10px] font-medium"><AppT text="Stages"/></span></div>
                 <p className="text-base font-semibold tabular-nums tracking-tight sm:text-lg">{boardColumns.length}</p>
               </div>
               <div className="actiproc-board-metric actiproc-board-metric--complete min-w-0 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.055] px-2.5 py-1.5 shadow-sm sm:px-3 sm:py-2">
-                <div className="mb-0.5 flex items-center gap-1 text-emerald-600 dark:text-emerald-400"><CircleCheck className="hidden h-3.5 w-3.5 sm:block" aria-hidden /><span className="text-[10px] font-medium">Complete</span></div>
+                <div className="mb-0.5 flex items-center gap-1 text-emerald-600 dark:text-emerald-400"><CircleCheck className="hidden h-3.5 w-3.5 sm:block" aria-hidden /><span className="text-[10px] font-medium"><AppT text="Complete"/></span></div>
                 <p className="text-base font-semibold tabular-nums tracking-tight sm:text-lg">{progressPercent}<span className="ml-0.5 text-xs font-medium text-muted-foreground">%</span></p>
               </div>
             </div>
@@ -327,7 +329,7 @@ export function TaskBoard() {
 
           <div className="flex flex-col gap-2.5 border-t border-border/50 pt-2.5 md:flex-row md:flex-wrap md:items-center md:justify-between xl:flex-nowrap">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <p className="hidden shrink-0 text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground 2xl:block">Active process</p>
+              <p className="hidden shrink-0 text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground 2xl:block"><AppT text="Active process"/></p>
               <div className="flex min-w-0 flex-wrap items-center gap-1.5 sm:gap-2">
                 <ProcessSwitcher
                   projects={orderedProjectsForTeam}
@@ -341,12 +343,12 @@ export function TaskBoard() {
                   <>
                     <Button type="button" variant="outline" size="sm"
                       className="h-10 gap-2 rounded-xl border-border/70 bg-background/70 px-3 text-xs font-semibold text-foreground shadow-sm hover:border-primary/35 hover:bg-muted/60 hover:text-foreground focus-visible:text-foreground"
-                      onClick={() => setIsCreateProjectOpen(true)} title="Create a new process (project)" aria-label="Create a new process">
-                      <Layers className="h-4 w-4" aria-hidden /> <span className="hidden sm:inline">New process</span>
+                      onClick={() => setIsCreateProjectOpen(true)} title={t("Create a new process (project)")} aria-label={t("Create a new process")}>
+                      <Layers className="h-4 w-4" aria-hidden /> <span className="hidden sm:inline"><AppT text="New process"/></span>
                     </Button>
                     <Button type="button" variant="outline" size="icon" className="h-10 w-10 rounded-xl border-border/70 bg-background/70 text-foreground shadow-sm hover:border-primary/35 hover:bg-muted/60 hover:text-foreground focus-visible:text-foreground"
                       onClick={() => setEditingProjectId(boardProject?.id ?? null)} disabled={!boardProject}
-                      title="Edit selected process" aria-label="Edit selected process">
+                      title={t("Edit selected process")} aria-label={t("Edit selected process")}>
                       <Settings2 className="h-4 w-4" aria-hidden />
                     </Button>
                   </>
@@ -358,11 +360,11 @@ export function TaskBoard() {
                 <Select value={customerFilter ?? '__all_customers__'}
                   onValueChange={(value) => setCustomerFilter(value === '__all_customers__' ? null : value)}>
                   <SelectTrigger className="h-10 min-w-[150px] flex-1 rounded-xl border-border/70 bg-background/70 shadow-sm sm:w-auto sm:flex-none"
-                    aria-label={`Filter by ${customerSingularLabel.toLowerCase()}`}>
-                    <SelectValue placeholder={`All ${customerDirectoryLabel}`} />
+                    aria-label={t('Filter by {name}',{name:customerSingularLabel.toLowerCase()})}>
+                    <SelectValue placeholder={t('All {name}',{name:customerDirectoryLabel})} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__all_customers__">All {customerDirectoryLabel}</SelectItem>
+                    <SelectItem value="__all_customers__">{t('All {name}',{name:customerDirectoryLabel})}</SelectItem>
                     {customers.map((customer) => <SelectItem key={customer.id} value={customer.id}>{customer.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
@@ -370,7 +372,7 @@ export function TaskBoard() {
               {permissions.canCreateTask && (
                 <Button className="h-10 flex-1 gap-2 rounded-xl px-4 text-sm font-semibold shadow-[0_8px_24px_-12px_hsl(var(--primary)/0.75)] transition-[box-shadow,background-color] hover:shadow-[0_10px_28px_-10px_hsl(var(--primary)/0.7)] sm:flex-none"
                   onClick={handleCreateTask}>
-                  <Plus className="h-4 w-4" aria-hidden /> New Action <ArrowUpRight className="ml-1 h-3.5 w-3.5 opacity-70" aria-hidden />
+                  <Plus className="h-4 w-4" aria-hidden /><AppT text="New Action"/><ArrowUpRight className="ml-1 h-3.5 w-3.5 opacity-70" aria-hidden />
                 </Button>
               )}
             </div>
@@ -378,11 +380,11 @@ export function TaskBoard() {
 
           {(filter || customerFilter) && (
             <div className="flex flex-wrap items-center gap-2 border-t border-border/50 pt-3">
-              <span className="text-[11px] font-medium text-muted-foreground">Active filters</span>
+              <span className="text-[11px] font-medium text-muted-foreground"><AppT text="Active filters"/></span>
               {filter && (
                 <Badge variant="secondary" className="flex items-center gap-1.5 rounded-full border border-primary/15 bg-primary/[0.07] px-2.5 py-1 text-[11px]">
                   {getFilterLabel()}
-                  <button type="button" aria-label="Clear quick filter" onClick={() => setFilter(null)}
+                  <button type="button" aria-label={t("Clear quick filter")} onClick={() => setFilter(null)}
                     className="rounded-full p-0.5 hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                     <X className="h-3 w-3" aria-hidden />
                   </button>
@@ -390,8 +392,8 @@ export function TaskBoard() {
               )}
               {customerFilter && (
                 <Badge variant="outline" className="flex items-center gap-1.5 rounded-full border border-violet-500/20 bg-violet-500/[0.055] px-2.5 py-1 text-[11px] text-foreground">
-                  {customers.find(c => c.id === customerFilter)?.name || 'Customer'}
-                  <button type="button" aria-label="Clear client filter" onClick={() => setCustomerFilter(null)}
+                  {customers.find(c => c.id === customerFilter)?.name || t('Customer')}
+                  <button type="button" aria-label={t("Clear client filter")} onClick={() => setCustomerFilter(null)}
                     className="rounded-full p-0.5 hover:bg-violet-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                     <X className="h-3 w-3" aria-hidden />
                   </button>
@@ -405,19 +407,17 @@ export function TaskBoard() {
       {/* First-run empty state: no processes yet */}
       {loading ? (
         <div className="space-y-3 rounded-[24px] border border-border/65 bg-card/70 p-8 text-center shadow-sm">
-          <p className="text-sm text-muted-foreground animate-pulse">Loading processes...</p>
+          <p className="text-sm text-muted-foreground animate-pulse"><AppT text="Loading processes..."/></p>
         </div>
       ) : !hasProcesses && boardScope.type !== 'general' ? (
         <div className="space-y-3 rounded-[24px] border border-dashed border-border/75 bg-card/75 p-10 text-center shadow-sm">
-          <p className="text-sm font-medium text-foreground">No processes yet</p>
+          <p className="text-sm font-medium text-foreground"><AppT text="No processes yet"/></p>
           <p className="text-sm text-muted-foreground">
             Create your first process, then select it on the board to link actions to that flow.
           </p>
           {currentUserRole === 'admin' ? (
             <Button variant="outline" onClick={() => setIsCreateProjectOpen(true)} className="gap-2">
-              <Layers className="h-4 w-4" />
-              New process
-            </Button>
+              <Layers className="h-4 w-4" /><AppT text="New process"/></Button>
           ) : (
             <Badge variant="outline" className="mx-auto h-9 px-3 text-xs text-muted-foreground">
               Only team admins can create processes
@@ -430,18 +430,18 @@ export function TaskBoard() {
             <Button variant="ghost" className="h-10 w-full justify-between rounded-xl bg-muted/45 px-3 text-xs font-medium text-foreground hover:text-foreground md:hidden" aria-expanded={showControls} aria-controls="board-controls" onClick={() => setShowControls(value => !value)}><span>Group by {groupedProperty?.name ?? 'Stage'}{statusFilter ? ' · filtered' : ''}</span><Settings2 className="h-4 w-4" /></Button>
             <div id="board-controls" className={cn('flex-col gap-2 md:flex md:flex-col md:gap-2 lg:flex-row lg:items-center lg:justify-between lg:gap-3 max-md:[&_button]:min-h-[40px]', showControls ? 'flex' : 'hidden')}>
               <div className="flex min-w-0 shrink-0 flex-wrap items-center gap-2">
-                <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.13em] text-muted-foreground"><SlidersHorizontal className="h-3.5 w-3.5" aria-hidden /> Group by</span>
+                <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.13em] text-muted-foreground"><SlidersHorizontal className="h-3.5 w-3.5" aria-hidden /><AppT text="Group by"/></span>
                 <Select value={groupedProperty ? groupBy : 'stage'} onValueChange={setGroupBy} disabled={!processId || properties.loading || !!properties.error}>
-                  <SelectTrigger aria-label="Group board by" className="h-9 w-36 rounded-xl border-border/70 bg-background/70 text-xs shadow-sm sm:w-40"><SelectValue /></SelectTrigger>
-                  <SelectContent><SelectItem value="stage">Stage</SelectItem>
+                  <SelectTrigger aria-label={t("Group board by")} className="h-9 w-36 rounded-xl border-border/70 bg-background/70 text-xs shadow-sm sm:w-40"><SelectValue /></SelectTrigger>
+                  <SelectContent><SelectItem value="stage"><AppT text="Stage"/></SelectItem>
                     {activeProperties.map(property => <SelectItem key={property.id} value={property.id}>{property.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
                 {activeProperties.length > 0 && (
                   <DropdownMenu>
-                    <DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="h-9 gap-1.5 rounded-xl border-border/70 bg-background/70 px-3 text-xs text-foreground shadow-sm hover:bg-muted/60 hover:text-foreground"><Columns3 className="h-3.5 w-3.5" />Card fields</Button></DropdownMenuTrigger>
+                    <DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="h-9 gap-1.5 rounded-xl border-border/70 bg-background/70 px-3 text-xs text-foreground shadow-sm hover:bg-muted/60 hover:text-foreground"><Columns3 className="h-3.5 w-3.5" /><AppT text="Card fields"/></Button></DropdownMenuTrigger>
                     <DropdownMenuContent align="start" className="w-56">
-                      <DropdownMenuLabel>Show up to 2 properties</DropdownMenuLabel>
+                      <DropdownMenuLabel><AppT text="Show up to 2 properties"/></DropdownMenuLabel>
                       {activeProperties.map(property => {
                         const checked = cardPropertyIds.includes(property.id);
                         return <DropdownMenuCheckboxItem key={property.id} checked={checked} disabled={!checked && cardPropertyIds.length >= 2} onCheckedChange={value => setCardFieldVisible(property.id, value === true)}>{property.name}</DropdownMenuCheckboxItem>;
@@ -449,23 +449,23 @@ export function TaskBoard() {
                     </DropdownMenuContent>
                   </DropdownMenu>
                 )}
-                {properties.error && <button type="button" className="text-xs text-destructive underline" onClick={() => void properties.reload()}>Properties unavailable · Retry</button>}
+                {properties.error && <button type="button" className="text-xs text-destructive underline" onClick={() => void properties.reload()}><AppT text="Properties unavailable · Retry"/></button>}
               </div>
               {isMobileBoard ? <Select value={statusFilter ?? '__all__'} onValueChange={value => setStatusFilter(value === '__all__' ? null : value)}>
-                <SelectTrigger aria-label="Filter by stage" className="h-11 rounded-xl border-border/70 bg-background/70"><SelectValue /></SelectTrigger>
-                <SelectContent><SelectItem value="__all__">All stages</SelectItem>{boardColumns.map(column => <SelectItem key={column.id} value={column.id}>{column.title}</SelectItem>)}</SelectContent>
+                <SelectTrigger aria-label={t("Filter by stage")} className="h-11 rounded-xl border-border/70 bg-background/70"><SelectValue /></SelectTrigger>
+                <SelectContent><SelectItem value="__all__"><AppT text="All stages"/></SelectItem>{boardColumns.map(column => <SelectItem key={column.id} value={column.id}>{column.title}</SelectItem>)}</SelectContent>
               </Select> : <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:thin] md:justify-end">
-                <span className="mr-1 shrink-0 text-[10px] font-semibold uppercase tracking-[0.13em] text-muted-foreground">Stages</span>
-                <Button variant={!statusFilter ? 'default' : 'outline'} onClick={() => setStatusFilter(null)} size="sm" className="h-8 shrink-0 rounded-full px-3 text-xs font-medium">All</Button>
+                <span className="mr-1 shrink-0 text-[10px] font-semibold uppercase tracking-[0.13em] text-muted-foreground"><AppT text="Stages"/></span>
+                <Button variant={!statusFilter ? 'default' : 'outline'} onClick={() => setStatusFilter(null)} size="sm" className="h-8 shrink-0 rounded-full px-3 text-xs font-medium"><AppT text="All"/></Button>
                 {boardColumns.map((column) => <Button key={column.id} variant={statusFilter === column.id ? 'default' : 'outline'} onClick={() => setStatusFilter(column.id)} size="sm" className={cn('h-8 shrink-0 rounded-full px-3 text-xs font-medium', statusFilter === column.id ? 'bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground' : 'border-border/65 bg-background/50 text-foreground hover:bg-muted/60 hover:text-foreground')}>{column.title}</Button>)}
               </div>}
             </div>
           </div>
       
           {boardScope.type === 'general' && inboxBoardStatus === 'unconfigured' && (
-            <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 bg-card/40 p-3 text-sm" aria-label="Inbox synchronization">
+            <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 bg-card/40 p-3 text-sm" aria-label={t("Inbox synchronization")}>
               <div className="min-w-0 flex-1">
-                <p className="font-medium">Inbox stages are not yet synchronized</p>
+                <p className="font-medium"><AppT text="Inbox stages are not yet synchronized"/></p>
                 <p className="mt-1 text-xs leading-5 text-muted-foreground">
                   Existing Action stages remain unchanged. Review saved stage IDs before sharing these stages across web and Android.
                   {tasks.filter(task => task.teamId === currentTeam?.id && task.projectId == null && !boardColumns.some(stage => stage.id === task.status)).length > 0
@@ -474,11 +474,11 @@ export function TaskBoard() {
               </div>
               {inboxCanInitialize && currentUserRole === 'admin'
                 ? <Button type="button" variant="outline" onClick={() => setInboxRecoveryOpen(true)}>Review &amp; sync stages</Button>
-                : <span className="text-xs text-muted-foreground">Ask a team administrator to synchronize stages.</span>}
+                : <span className="text-xs text-muted-foreground"><AppT text="Ask a team administrator to synchronize stages."/></span>}
             </section>
           )}
           {boardScope.type === 'general' && inboxBoardStatus !== 'unconfigured' && unresolvedTasks.length > 0 && (
-            <details className="rounded-lg border border-amber-500/35 p-3 text-sm" aria-label="Actions with unmatched stage IDs">
+            <details className="rounded-lg border border-amber-500/35 p-3 text-sm" aria-label={t("Actions with unmatched stage IDs")}>
               <summary className="cursor-pointer font-medium">{unresolvedTasks.length} Inbox Actions have unrecognized stage IDs</summary>
               <p className="my-2 text-xs leading-5 text-muted-foreground">
                 No Actions were moved or deleted. Review the saved stage IDs on the original browser before making changes.
@@ -489,9 +489,9 @@ export function TaskBoard() {
             </details>
           )}
           {boardScope.type === 'project' && unresolvedTasks.length > 0 && (
-            <section className="mb-4 space-y-3 rounded-lg border border-amber-500/30 p-3 text-sm" aria-label="Process Actions needing stage assignment">
+            <section className="mb-4 space-y-3 rounded-lg border border-amber-500/30 p-3 text-sm" aria-label={t("Process Actions needing stage assignment")}>
               <h3 className="font-medium">Needs stage assignment ({unresolvedTasks.length})</h3>
-              <p className="text-xs text-muted-foreground">These Actions reference a missing Process stage. Saved Actions have not been moved.</p>
+              <p className="text-xs text-muted-foreground"><AppT text="These Actions reference a missing Process stage. Saved Actions have not been moved."/></p>
               <div className="space-y-2">
                 {unresolvedTasks.map(task => {
                   const editable = canEditTask(task.createdBy, task.assigneeId);
@@ -501,7 +501,7 @@ export function TaskBoard() {
                       <Select value={undefined} disabled={!editable || assigningStageFor !== null}
                         onValueChange={stageId => void assignUnresolvedStage(task.id, stageId)}>
                         <SelectTrigger aria-label={`Assign a stage to ${task.title}`} className="h-11 w-full shrink-0 sm:w-44">
-                          <SelectValue placeholder={assigningStageFor === task.id ? 'Saving...' : editable ? 'Assign stage' : 'Read-only'} />
+                          <SelectValue placeholder={t(assigningStageFor === task.id ? 'Saving...' : editable ? 'Assign stage' : 'Read-only')} />
                         </SelectTrigger>
                         <SelectContent>
                           {boardColumns.filter(stage => !stage.isTerminal || canCompleteTask(task.assigneeId))
@@ -515,14 +515,14 @@ export function TaskBoard() {
             </section>
           )}
           {isMobileBoard ? (
-            <section className="min-w-0 space-y-3" aria-label="Board actions">
+            <section className="min-w-0 space-y-3" aria-label={t("Board actions")}>
               {mobileGroup && (
                 <>
                   <div className="flex items-center justify-between gap-3 rounded-2xl border border-border/65 bg-card/85 p-3 shadow-sm">
                     <div className="min-w-0 flex-1 space-y-1.5">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">Viewing group</p>
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground"><AppT text="Viewing group"/></p>
                       <Select value={mobileGroup.id} onValueChange={setMobileGroupId}>
-                        <SelectTrigger aria-label="Active board group" className="h-11 w-full rounded-xl border-border/70 bg-background/80 font-semibold shadow-sm">
+                        <SelectTrigger aria-label={t("Active board group")} className="h-11 w-full rounded-xl border-border/70 bg-background/80 font-semibold shadow-sm">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>{mobileGroups.map(group =>
@@ -540,8 +540,8 @@ export function TaskBoard() {
                     {!mobileGroup.tasks.length && (
                       <div className="flex min-h-[180px] flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border/70 bg-card/65 p-6 text-center">
                         <CircleCheck className="h-6 w-6 text-muted-foreground/55" aria-hidden />
-                        <p className="text-sm font-semibold">Nothing here yet</p>
-                        <p className="text-xs text-muted-foreground">Actions in this group will appear here.</p>
+                        <p className="text-sm font-semibold"><AppT text="Nothing here yet"/></p>
+                        <p className="text-xs text-muted-foreground"><AppT text="Actions in this group will appear here."/></p>
                       </div>
                     )}
                   </div>
@@ -554,7 +554,7 @@ export function TaskBoard() {
           ) : (
             <DragDropContext onDragEnd={onDragEnd}>
               <div className="-mx-1 flex snap-x snap-proximity items-stretch gap-3 overflow-x-auto px-1 pb-5 pt-1 overscroll-x-contain [scrollbar-width:thin] [-webkit-overflow-scrolling:touch] lg:gap-4"
-                aria-label="Process stages — drag Actions between columns">
+                aria-label={t("Process stages — drag Actions between columns")}>
                 {boardColumns.map((column, columnIndex) => {
                   const columnTasks = orderedColumnTasks(filteredTasks, column.id, boardColumns);
                   const shouldScroll = columnTasks.length >= DESKTOP_SCROLL_THRESHOLD;
@@ -570,7 +570,7 @@ export function TaskBoard() {
                         'actiproc-board-lane relative flex min-w-[270px] w-[min(85vw,330px)] shrink-0 snap-start flex-col overflow-hidden rounded-[23px] border shadow-[0_16px_40px_-34px_rgba(15,23,42,0.6)] md:min-w-[292px] md:flex-[1_0_292px] xl:max-w-[440px]',
                         skin.panel,
                       )}
-                      aria-label={`${column.title}: ${columnTasks.length} Actions`}>
+                      aria-label={t('{title}: {count} Actions',{title:column.title,count:columnTasks.length})}>
                       <div aria-hidden="true" className={cn('absolute inset-x-0 top-0 h-1 opacity-85', column.color ?? skin.dot)} />
                       <div className="actiproc-board-lane-header flex items-center justify-between gap-3 border-b border-border/50 bg-card/50 px-4 py-4">
                         <div className="flex min-w-0 items-center gap-2.5">
@@ -580,7 +580,7 @@ export function TaskBoard() {
                           </span>
                           <div className="min-w-0">
                             <p className="mb-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                              {terminal ? 'Completed' : `Stage ${String(columnIndex + 1).padStart(2, '0')}`}
+                              {terminal ? t('Completed') : t('Stage {number}',{number:String(columnIndex + 1).padStart(2, '0')})}
                             </p>
                             <h3 className="truncate text-[13px] font-semibold leading-snug tracking-[-0.01em]" title={column.title}>
                               {column.title}
@@ -618,9 +618,9 @@ export function TaskBoard() {
                                   {terminal ? <CircleCheck className="h-5 w-5 opacity-60" aria-hidden />
                                     : <ListChecks className="h-5 w-5 opacity-60" aria-hidden />}
                                 </span>
-                                <p className="text-xs font-medium text-foreground/80">No Actions in this stage</p>
+                                <p className="text-xs font-medium text-foreground/80"><AppT text="No Actions in this stage"/></p>
                                 <p className="text-[11px] leading-relaxed text-muted-foreground">
-                                  {terminal ? 'Completed work will appear here.' : 'Move an Action here as work progresses.'}
+                                  {t(terminal ? 'Completed work will appear here.' : 'Move an Action here as work progresses.')}
                                 </p>
                               </div>
                             )}

@@ -1,4 +1,5 @@
 'use client';
+import {T as AppT,useAppLocale} from '@/components/i18n/AppLocaleProvider';
 
 import { useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -19,7 +20,7 @@ import {
 } from 'lucide-react';
 import { useTaskContext, type Task } from '@/components/TaskContext';
 import { cn } from '@/lib/utils';
-import { format, isToday, isTomorrow, isPast } from 'date-fns';
+import { isToday, isTomorrow, isPast } from 'date-fns';
 import { 
   DropdownMenu,
   DropdownMenuContent,
@@ -51,6 +52,7 @@ const priorityAccents = {
 };
 
 export function TaskCard({ task, dragHandleProps, onTaskClick, propertyBadges = [] }: TaskCardProps) {
+  const {t,date}=useAppLocale();
   const { currentTeam, updateTask, deleteTask, canEditTask, canDeleteTask, boardColumns, canCompleteTask, suppressTaskEditorOpenFor } = useTaskContext();
   /** After ⋮ → Change status, the menu close can trigger a ghost click on mobile; prevent opening the modal briefly. */
   const blockCardOpenUntilRef = useRef(0);
@@ -67,9 +69,9 @@ export function TaskCard({ task, dragHandleProps, onTaskClick, propertyBadges = 
   const getDueDateDisplay = () => {
     if (!task.dueDate) return null;
     
-    if (isToday(task.dueDate)) return 'Today';
-    if (isTomorrow(task.dueDate)) return 'Tomorrow';
-    return format(task.dueDate, 'MMM d');
+    if (isToday(task.dueDate)) return t('Today');
+    if (isTomorrow(task.dueDate)) return t('Tomorrow');
+    return date(task.dueDate,{month:'short',day:'numeric'});
   };
   
   const isCompleted = isTerminalBoardColumn(task.status, boardColumns);
@@ -104,14 +106,14 @@ export function TaskCard({ task, dragHandleProps, onTaskClick, propertyBadges = 
             <div className="mb-2 flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-[0.15em] text-muted-foreground/85">
               {isCompleted ? <CheckCircle2 className="h-3 w-3 text-emerald-500" aria-hidden />
                 : <ListTodo className="h-3 w-3 text-primary/65" aria-hidden />}
-              {isCompleted ? 'Completed Action' : 'Action'}
+              {t(isCompleted ? 'Completed Action' : 'Action')}
             </div>
             <div className="flex min-w-0 items-start gap-1.5">
             {dragHandleProps ? (
               <div 
                 {...dragHandleProps}
                 data-drag-handle="true"
-                className="mt-0.5 shrink-0 cursor-grab rounded p-0.5 text-muted-foreground/70 opacity-30 transition-opacity hover:bg-muted/70 hover:opacity-100 active:cursor-grabbing group-hover:opacity-100 focus-visible:opacity-100" aria-label="Drag Action to reorder"
+                className="mt-0.5 shrink-0 cursor-grab rounded p-0.5 text-muted-foreground/70 opacity-30 transition-opacity hover:bg-muted/70 hover:opacity-100 active:cursor-grabbing group-hover:opacity-100 focus-visible:opacity-100" aria-label={t("Drag Action to reorder")}
               >
                 <GripVertical className="h-4 w-4 text-muted-foreground/70" />
               </div>
@@ -127,7 +129,7 @@ export function TaskCard({ task, dragHandleProps, onTaskClick, propertyBadges = 
                 <Button 
                   variant="ghost" 
                   size="sm" 
-                  aria-label={`Move or edit ${task.title}`}
+                  aria-label={t('Move or edit {name}',{name:task.title})}
                   disabled={movePending}
                   className={cn(
                     'h-11 shrink-0 gap-1 rounded-xl border border-transparent px-2 text-muted-foreground md:mt-0.5 md:h-8 md:w-8 md:p-0 transition-[opacity,background-color,border-color] hover:border-border/60 hover:bg-muted/65',
@@ -136,16 +138,14 @@ export function TaskCard({ task, dragHandleProps, onTaskClick, propertyBadges = 
                   )}
                 >
                   <MoreVertical className="h-4 w-4" aria-hidden />
-                  <span className="text-xs md:hidden">{canEdit ? 'Move to' : 'Actions'}</span>
+                  <span className="text-xs md:hidden">{t(canEdit ? 'Move to' : 'Actions')}</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
                 {canEdit && (
                   <>
                     <DropdownMenuLabel className="flex items-center gap-2">
-                      <ArrowRightLeft className="h-4 w-4" />
-                      Move to stage
-                    </DropdownMenuLabel>
+                      <ArrowRightLeft className="h-4 w-4" /><AppT text="Move to stage"/></DropdownMenuLabel>
                     {boardColumns.map((col: ProjectColumnConfig) => {
                       const isCurrent = col.id === task.status;
                       const isTerminal = isTerminalBoardColumn(col.id, boardColumns);
@@ -163,13 +163,13 @@ export function TaskCard({ task, dragHandleProps, onTaskClick, propertyBadges = 
                             suppressTaskEditorOpenFor(1000);
                             blockCardOpenUntilRef.current = Date.now() + 550;
                             void updateTask(task.id, { status: col.id }).then(ok => {
-                              if (!ok) toast.error('Stage could not be saved. The previous stage was restored.');
+                              if (!ok) toast.error(t('Stage could not be saved. The previous stage was restored.'));
                             }).finally(() => { movePendingRef.current = false; setMovePending(false); });
                           }}
                         >
                           {col.title}
-                          {isCurrent ? <span className="ml-auto text-xs text-muted-foreground">Current</span> : null}
-                          {blocked ? <span className="ml-auto text-xs text-muted-foreground">Permission</span> : null}
+                          {isCurrent ? <span className="ml-auto text-xs text-muted-foreground"><AppT text="Current"/></span> : null}
+                          {blocked ? <span className="ml-auto text-xs text-muted-foreground"><AppT text="Permission"/></span> : null}
                         </DropdownMenuItem>
                       );
                     })}
@@ -187,7 +187,7 @@ export function TaskCard({ task, dragHandleProps, onTaskClick, propertyBadges = 
                       suppressTaskEditorOpenFor(1000);
                     }}
                   >
-                    Edit action
+                    <AppT text="Edit action"/>
                   </DropdownMenuItem>
                 )}
                 {canDelete && (
@@ -200,9 +200,7 @@ export function TaskCard({ task, dragHandleProps, onTaskClick, propertyBadges = 
                       blockCardOpenUntilRef.current = Date.now() + 700;
                       void deleteTask(task.id);
                     }}
-                  >
-                    Delete
-                  </DropdownMenuItem>
+                  ><AppT text="Delete"/></DropdownMenuItem>
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
@@ -227,7 +225,7 @@ export function TaskCard({ task, dragHandleProps, onTaskClick, propertyBadges = 
             ))}
             {task.attachments.length > 2 && (
               <div className="px-2 py-1 text-[10px] text-muted-foreground">
-                +{task.attachments.length - 2} more
+                +{task.attachments.length - 2} {t('more')}
               </div>
             )}
           </div>
@@ -261,7 +259,7 @@ export function TaskCard({ task, dragHandleProps, onTaskClick, propertyBadges = 
             className={cn("gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-semibold tracking-[0.025em] shadow-none", priorityColors[task.priority])}
           >
             <span aria-hidden="true" className={cn('h-1.5 w-1.5 rounded-full', priorityAccents[task.priority])} />
-              {task.priority.toUpperCase()}
+              {t(task.priority).toLocaleUpperCase('tr-TR')}
           </Badge>
           
           {task.dueDate && (

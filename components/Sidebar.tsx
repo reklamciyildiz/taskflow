@@ -28,6 +28,7 @@ import {
   Lightbulb,
 } from 'lucide-react';
 import { useTaskContext, Team } from '@/components/TaskContext';
+import {useAppLocale} from '@/components/i18n/AppLocaleProvider';
 import { useView, ViewType } from '@/components/ViewContext';
 import { CreateTeamModal } from '@/components/CreateTeamModal';
 import { EditTeamModal } from '@/components/EditTeamModal';
@@ -97,6 +98,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ mobileOpen, onCloseMobile, desktopCollapsed }: SidebarProps) {
+  const {t}=useAppLocale();
   const pathname = usePathname();
   const isDesktop = useMediaQuery('(min-width: 1024px)');
   const narrow = desktopCollapsed && isDesktop;
@@ -226,7 +228,7 @@ export function Sidebar({ mobileOpen, onCloseMobile, desktopCollapsed }: Sidebar
         <button
           type="button"
           className="fixed inset-0 z-40 bg-black/50 lg:hidden"
-          aria-label="Close navigation"
+          aria-label={t("Close navigation")}
           onClick={onCloseMobile}
         />
       )}
@@ -276,7 +278,7 @@ export function Sidebar({ mobileOpen, onCloseMobile, desktopCollapsed }: Sidebar
                 <div className="min-w-0 flex-1">
                   <h2 className="text-sm font-semibold">{currentTeam.name}</h2>
                   <p className="text-xs text-muted-foreground">
-                    {currentTeam.members.filter((m) => m.isOnline).length} online • {currentTeam.members.length} total
+                    {currentTeam.members.filter((m) => m.isOnline).length} {t('online')} • {currentTeam.members.length} {t('total')}
                   </p>
                 </div>
                 <Button variant="ghost" size="sm" className="h-7 w-7 shrink-0 p-0" onClick={() => setEditingTeam(currentTeam)}>
@@ -284,7 +286,7 @@ export function Sidebar({ mobileOpen, onCloseMobile, desktopCollapsed }: Sidebar
                 </Button>
               </div>
               <div className="space-y-1">
-                <p className="mb-2 text-xs font-medium text-muted-foreground">TEAMS</p>
+                <p className="mb-2 text-xs font-medium text-muted-foreground">{t('TEAMS')}</p>
                 {teams
                   .filter((team) => team.id !== currentTeam.id)
                   .map((team) => (
@@ -310,7 +312,7 @@ export function Sidebar({ mobileOpen, onCloseMobile, desktopCollapsed }: Sidebar
                   <div className="flex h-6 w-6 items-center justify-center rounded bg-gradient-to-br from-primary/20 to-primary/10">
                     <Plus className="h-3 w-3 text-primary" />
                   </div>
-                  <span>Create New Team</span>
+                  <span>{t('Create New Team')}</span>
                 </Button>
               </div>
             </div>
@@ -352,7 +354,7 @@ export function Sidebar({ mobileOpen, onCloseMobile, desktopCollapsed }: Sidebar
                       }}
                     >
                       <item.icon className="h-4 w-4 shrink-0" />
-                      <span className={cn('flex-1 text-left', narrow && 'lg:sr-only')}>{item.label}</span>
+                      <span className={cn('flex-1 text-left', narrow && 'lg:sr-only')}>{t(item.label)}</span>
                       {item.count !== undefined && (
                         <Badge variant="secondary" className={cn('h-5 px-2 text-xs', narrow && 'lg:hidden')}>
                           {item.count}
@@ -366,7 +368,7 @@ export function Sidebar({ mobileOpen, onCloseMobile, desktopCollapsed }: Sidebar
 
             {!narrow && (
               <div className="pt-4">
-                <p className="mb-3 px-3 text-xs font-medium text-muted-foreground">QUICK FILTERS</p>
+                <p className="mb-3 px-3 text-xs font-medium text-muted-foreground">{t('QUICK FILTERS')}</p>
                 <div className="space-y-1">
                   <Button
                     asChild
@@ -401,7 +403,7 @@ export function Sidebar({ mobileOpen, onCloseMobile, desktopCollapsed }: Sidebar
 
           {!narrow && (
             <div className="border-t bg-muted/30 p-4">
-              <p className="mb-3 text-xs font-medium text-muted-foreground">TASK STATUS</p>
+              <p className="mb-3 text-xs font-medium text-muted-foreground">{t('TASK STATUS')}</p>
               <div className="grid grid-cols-2 gap-2 text-xs">
                 {boardColumns.map((col) => {
                   const count = dynamicStatusCounts.get(col.id) ?? 0;

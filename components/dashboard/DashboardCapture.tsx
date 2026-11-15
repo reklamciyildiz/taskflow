@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import {T,useAppLocale} from '@/components/i18n/AppLocaleProvider';
 import { FileText, Inbox, Loader2, Plus, StickyNote } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -42,6 +43,7 @@ function plainTextDocument(text: string) {
 }
 
 export function DashboardCapture({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+  const {t}=useAppLocale();
   const {
     addTask,
     currentTeam,
@@ -91,10 +93,10 @@ export function DashboardCapture({ open, onOpenChange }: { open: boolean; onOpen
         assigneeId: null,
         customerId: null,
       });
-      toast.success('Action added to Inbox');
+      toast.success(t('Action added to Inbox'));
       close();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not create Action');
+      toast.error(error instanceof Error ? error.message : t('Could not create Action'));
     } finally {
       setBusy(false);
     }
@@ -110,12 +112,12 @@ export function DashboardCapture({ open, onOpenChange }: { open: boolean; onOpen
         type: 'note',
         content: plainTextDocument(content),
       });
-      if (!response.success || !response.data) throw new Error(response.error || 'Could not create Note');
+      if (!response.success || !response.data) throw new Error(response.error || t('Could not create Note'));
       notifyKnowledgeSourcesChanged(response.data.teamId);
-      toast.success('Note added to Action');
+      toast.success(t('Note added to Action'));
       close();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not create Note');
+      toast.error(error instanceof Error ? error.message : t('Could not create Note'));
     } finally {
       setBusy(false);
     }
@@ -131,20 +133,20 @@ export function DashboardCapture({ open, onOpenChange }: { open: boolean; onOpen
         <DialogHeader className="border-b border-border/60 px-5 pb-4 pt-5 text-left">
           <DialogTitle className="flex items-center gap-2 text-lg">
             <span className="dashboard-v2-icon bg-primary/10 text-primary"><Plus className="h-4 w-4" /></span>
-            Quick Capture
+            <T text="Quick Capture"/>
           </DialogTitle>
-          <DialogDescription>Create an Inbox Action or attach a real Note to an existing Action.</DialogDescription>
+          <DialogDescription><T text="Create an Inbox Action or attach a real Note to an existing Action."/></DialogDescription>
         </DialogHeader>
 
         <Tabs value={mode} onValueChange={(value) => setMode(value as CaptureMode)} className="px-5 py-4">
           <TabsList className="grid h-11 w-full grid-cols-2 rounded-lg bg-muted/55 p-1">
-            <TabsTrigger value="action" className="gap-2"><Inbox className="h-4 w-4" />Action</TabsTrigger>
-            <TabsTrigger value="note" className="gap-2"><StickyNote className="h-4 w-4" />Note</TabsTrigger>
+            <TabsTrigger value="action" className="gap-2"><Inbox className="h-4 w-4" /><T text="Action"/></TabsTrigger>
+            <TabsTrigger value="note" className="gap-2"><StickyNote className="h-4 w-4" /><T text="Note"/></TabsTrigger>
           </TabsList>
 
           <TabsContent value="action" className="mt-5 space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="dashboard-capture-action">Action title</Label>
+              <Label htmlFor="dashboard-capture-action"><T text="Action title"/></Label>
               <Input
                 id="dashboard-capture-action"
                 autoFocus
@@ -156,18 +158,18 @@ export function DashboardCapture({ open, onOpenChange }: { open: boolean; onOpen
                     void createAction();
                   }
                 }}
-                placeholder="What needs to be done?"
+                placeholder={t("What needs to be done?")}
                 className="h-11"
               />
-              <p className="flex items-center gap-1.5 text-xs text-muted-foreground"><Inbox className="h-3.5 w-3.5" />Saved as an unassigned Action in your Inbox.</p>
+              <p className="flex items-center gap-1.5 text-xs text-muted-foreground"><Inbox className="h-3.5 w-3.5" /><T text="Saved as an unassigned Action in your Inbox."/></p>
             </div>
           </TabsContent>
 
           <TabsContent value="note" className="mt-5 space-y-4">
             <div className="space-y-2">
-              <Label>Target Action</Label>
+              <Label><T text="Target Action"/></Label>
               <Select value={targetTaskId} onValueChange={setTargetTaskId}>
-                <SelectTrigger className="h-11"><SelectValue placeholder="Choose the Action that owns this Note" /></SelectTrigger>
+                <SelectTrigger className="h-11"><SelectValue placeholder={t("Choose the Action that owns this Note")} /></SelectTrigger>
                 <SelectContent className="max-h-72">
                   {availableTasks.map((task) => (
                     <SelectItem key={task.id} value={task.id}>
@@ -178,25 +180,25 @@ export function DashboardCapture({ open, onOpenChange }: { open: boolean; onOpen
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="dashboard-note-title">Note title <span className="font-normal text-muted-foreground">(optional)</span></Label>
-              <Input id="dashboard-note-title" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Short title" />
+              <Label htmlFor="dashboard-note-title"><T text="Note title"/> <span className="font-normal text-muted-foreground"><T text="(optional)"/></span></Label>
+              <Input id="dashboard-note-title" value={title} onChange={(event) => setTitle(event.target.value)} placeholder={t("Short title")} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="dashboard-note-content">Note</Label>
+              <Label htmlFor="dashboard-note-content"><T text="Note"/></Label>
               <Textarea
                 id="dashboard-note-content"
                 value={noteContent}
                 onChange={(event) => setNoteContent(event.target.value)}
-                placeholder="Capture the context, decision or idea…"
+                placeholder={t("Capture the context, decision or idea…")}
                 className="min-h-28 resize-y"
               />
-              <p className="text-xs text-muted-foreground">A Note is never attached silently; the selected Action remains visible above.</p>
+              <p className="text-xs text-muted-foreground"><T text="A Note is never attached silently; the selected Action remains visible above."/></p>
             </div>
           </TabsContent>
         </Tabs>
 
         <DialogFooter className="border-t border-border/60 px-5 py-4 sm:justify-between">
-          <Button type="button" variant="ghost" onClick={close} disabled={busy}>Cancel</Button>
+          <Button type="button" variant="ghost" onClick={close} disabled={busy}><T text="Cancel"/></Button>
           <Button
             type="button"
             disabled={!canSubmit || busy}
@@ -204,7 +206,7 @@ export function DashboardCapture({ open, onOpenChange }: { open: boolean; onOpen
             className="min-h-11 gap-2"
           >
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : mode === 'action' ? <Plus className="h-4 w-4" /> : <StickyNote className="h-4 w-4" />}
-            {mode === 'action' ? 'Create Action' : 'Create Note'}
+            {t(mode === 'action' ? 'Create Action' : 'Create Note')}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -1,4 +1,5 @@
 'use client';
+import {T as AppT} from '@/components/i18n/AppLocaleProvider';
 
 import { useEffect, useRef, useState } from 'react';
 import { DragDropContext, Draggable, Droppable, type DropResult } from '@hello-pangea/dnd';
@@ -83,7 +84,7 @@ export function ProcessSwitcher({
           <span className="flex h-4 w-4 shrink-0 items-center justify-center">
             {!value ? <Check className="h-4 w-4" aria-hidden /> : null}
           </span>
-          <span className="flex min-w-0 items-center gap-2 font-semibold"><Inbox className="h-4 w-4 text-muted-foreground" aria-hidden /> Inbox</span>
+          <span className="flex min-w-0 items-center gap-2 font-semibold"><Inbox className="h-4 w-4 text-muted-foreground" aria-hidden /><AppT text="Inbox"/></span>
         </button>
         <div className="mx-1 mb-1 border-b border-border/60" role="separator" />
         <DragDropContext onDragEnd={onDragEnd}>
