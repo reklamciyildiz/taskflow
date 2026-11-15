@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { projectDb } from '@/lib/db';
 import { requireTaskNoteAccess } from '@/lib/note-server';
+import { readInboxBoard } from '@/lib/inbox-board-server';
 import { parseColumnConfigFromJson } from '@/lib/types';
 import { resolveStageLifecycle } from '@/lib/stage-lifecycle';
 import {
@@ -71,11 +72,28 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     }
     const allowedProjects = new Map<string, any>(visibleProjects.map((p: any) => [String(p.id), p]));
     const tasks = new Map((related ?? []).map(task => [String(task.id), task]));
+    const projectIds = [...new Set((related ?? []).map(task => task.project_id).filter((id): id is string => Boolean(id)))];
+    const [allProjectResult, inbox] = await Promise.all([
+      projectIds.length
+        ? supabaseAdmin.from('projects').select('id,column_config')
+          .eq('organization_id', orgId).in('id', projectIds)
+        : Promise.resolve({ data: [], error: null }),
+      readInboxBoard(teamId),
+    ]);
+    if (allProjectResult.error) {
+      console.error('Task dependency stage lookup failed', allProjectResult.error.code);
+      return fail('Action dependencies are temporarily unavailable', 503);
+    }
+    // Server may inspect hidden Process stage flags to calculate a correct
+    // blocked state, but never returns their IDs, titles or configuration.
+    const stageConfig = new Map((allProjectResult.data ?? []).map(p => [String(p.id), p.column_config]));
     const terminal = (task: { project_id: string | null; status: string }) => {
-      if (!task.project_id) return task.status === 'done';
-      const process = allowedProjects.get(String(task.project_id));
-      if (!process) return false;
-      return resolveStageLifecycle(task.status, parseColumnConfigFromJson(process.column_config)).isTerminal;
+      if (!task.project_id) return inbox.configured
+        ? resolveStageLifecycle(task.status, inbox.stages).isTerminal
+        : task.status === 'done';
+      const config = stageConfig.get(String(task.project_id));
+      if (!config) return false;
+      return resolveStageLifecycle(task.status, parseColumnConfigFromJson(config)).isTerminal;
     };
 
     for (const edge of links ?? []) {
