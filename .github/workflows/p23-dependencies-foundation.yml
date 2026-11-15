@@ -13,6 +13,16 @@ on:
       - 'lib/api.ts'
       - 'scripts/test-task-dependencies*'
       - 'docs/P23_SMART_DEPENDENCIES_FOUNDATION.md'
+      - 'components/ActionPanel.tsx'
+      - 'components/TaskBoard.tsx'
+      - 'components/TaskCard.tsx'
+      - 'components/TaskList.tsx'
+      - 'components/PropertyBoard.tsx'
+      - 'components/action/ActionDependencies.tsx'
+      - 'components/action/DependencyStatusBadge.tsx'
+      - 'hooks/useTeamDependencySummary.ts'
+      - 'lib/task-dependency-ui.ts'
+      - 'lib/i18n/catalog.ts'
   workflow_dispatch:
 
 permissions:
@@ -47,6 +57,10 @@ jobs:
         run: npx tsx scripts/test-task-dependencies.ts
       - name: Real API route — ACL, private Process redaction and idempotency
         run: node scripts/test-task-dependencies-api.cjs
+      - name: P2.3.2 dependency UI and bilingual behavior
+        run: npx tsx scripts/test-task-dependencies-ui.ts
+      - name: P2.3.2 actual team summary API / access control
+        run: node scripts/test-task-dependency-summary-api.cjs
       - name: PostgreSQL schema, lifecycle and authorization integrity
         env:
           PGHOST: localhost
