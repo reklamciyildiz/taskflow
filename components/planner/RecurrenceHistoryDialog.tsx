@@ -1,5 +1,5 @@
-import {T as AppT} from '@/components/i18n/AppLocaleProvider';
 "use client";
+import {T as AppT} from '@/components/i18n/AppLocaleProvider';
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CalendarDays, Check, CheckCircle2, Clock3, Loader2, RotateCcw, SkipForward, TrendingUp, X } from "lucide-react";
