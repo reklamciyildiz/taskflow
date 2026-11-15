@@ -39,6 +39,7 @@ const timeZones = [
 ];
 
 function settingRow(title: string, detail: string, checked: boolean, onChange: (checked: boolean) => void, disabled = false) {
+  const {t}=useAppLocale();
   return (
     <label className="mobile-settings-toggle">
       <span><strong>{t(title)}</strong><small>{t(detail)}</small></span>

@@ -11,7 +11,7 @@ const process = read('components/ProcessSwitcher.tsx');
 const browserQA = read('scripts/test-board-table-browser.cjs');
 
 for (const [file, source, required] of [
-  ['TaskBoard', board, ['Workspace', 'Projects &amp; Board', 'filteredTasks.length',
+  ['TaskBoard', board, ['Workspace', 'Projects & Board', 'filteredTasks.length',
     'progressPercent', 'DragDropContext onDragEnd={onDragEnd}', 'Droppable droppableId={column.id}',
     'provided.innerRef', 'drag.innerRef', 'provided.placeholder', 'onDragEnd',
     'isDragDisabled={isMobileBoard}', 'snapshot.isDraggingOver', 'aria-label={t("Board actions")}',
