@@ -35,6 +35,7 @@ for (const text of [
   'p23_tasks_completion_integrity',
   'p23_work_schedule_integrity',
   'p23_org_delete_cleanup',
+  'p23_preflight_blocked_transition',
   'actiproc_is_terminal_task_stage',
   "P23_BLOCKED_COMPLETION",
   'P23_DEPENDENCY_CYCLE',
@@ -60,6 +61,12 @@ assert.ok(route.includes('if (!accessible) continue;'), 'Private Action details 
 assert.ok(route.includes('if (error?.code === \'23505\')'), 'Link creation must be idempotent');
 assert.ok(!route.includes('created_by: request'), 'Actor identity must be session-derived');
 
+const earlyCheck = taskRoute.indexOf("'p23_preflight_blocked_transition'");
+const scheduleWrite = taskRoute.indexOf('syncOneOffScheduleCommand(', earlyCheck);
+assert.ok(earlyCheck > 0 && scheduleWrite > earlyCheck,
+  'Blocked completion must be preflighted before non-transactional schedule side effects');
+assert.ok(taskRoute.includes("code: 'DEPENDENCY_BLOCKED'"), 'Blocked transition must return 409');
+assert.ok(taskRoute.includes("code: 'DEPENDENCY_CHECK_UNAVAILABLE'"), 'Missing migration must fail closed');
 assert.ok(taskRoute.includes('taskDependencyDbError(error)'), 'PATCH must map DB conflict, not return generic 500');
 assert.ok(taskRoute.includes('status: dependencyError.status'), 'Blocked completion must return 409');
 assert.ok(client.includes('export const taskDependencyApi'), 'Typed client required for P2.3.2');
