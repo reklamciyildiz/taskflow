@@ -149,7 +149,7 @@ for (const path of ['/api/users/profile', '/api/users/settings', '/api/billing/s
 }
 assert.doesNotMatch(mobileMoreView, /path: '\/settings'|path: '\/settings\/billing'/);
 assert.match(mobileMoreView, /destination: 'ai'/);
-assert.match(mobileApp, /<Grid2X2 \/><span>More<\/span>/);
+assert.match(mobileApp, /<Grid2X2 \/><span>(?:More|\{t\("More"\)\})<\/span>/);
 assert.doesNotMatch(mobileApp, /mobile-more-shortcut/);
 assert.match(mobileMoreView, /sign in to the web separately/);
 const canonicalTaskList = read('components/TaskList.tsx');

@@ -149,6 +149,7 @@ function CategorySection({
 const CATEGORY_ORDER: Category[] = ['productivity', 'process', 'streak', 'speed', 'team'];
 
 export function Achievements() {
+  const {t}=useAppLocale();
   const { tasks, projects, currentTeam, currentUser, generalBoardColumns } = useTaskContext();
 
   // ── Column resolver (same pattern as Analytics) ────────────────────────────
