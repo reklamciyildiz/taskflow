@@ -77,7 +77,7 @@ assert.match(palette,/Command shouldFilter=\{false\} loop/);
 assert.match(palette,/AbortController/);
 assert.match(palette,/setTimeout\(async/);
 assert.match(palette,/onSelect=\{\(\)=>go\(item\)\}/);
-assert.match(palette,/aria-label="Search team scope"/);
+assert.match(palette,/aria-label=\{t\("Search team scope"\)\}/);
 assert.match(palette,/Search Actions, notes, checklists, Processes/);
 assert.match(src('components/Customers.tsx'),/requestedCustomer===customer\.id/);
 console.log('Global search ACL, Turkish match, rich content, deep links and shortcuts contract passed');

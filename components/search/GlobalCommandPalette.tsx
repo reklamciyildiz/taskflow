@@ -158,7 +158,7 @@ export function GlobalCommandPalette({open,onOpenChange,onCreateAction}:{
                 </span>
                 <span className="flex min-w-0 flex-1 flex-col gap-1">
                   <span className="truncate text-[13px] font-semibold">{item.title}</span>
-                  {item.subtitle?<span className="truncate text-xs text-muted-foreground"{item.subtitle}</span>:null}
+                  {item.subtitle?<span className="truncate text-xs text-muted-foreground">{item.subtitle}</span>:null}
                 </span>
                 <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" aria-hidden="true"/>
               </CommandItem>)}
