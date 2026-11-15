@@ -3,11 +3,23 @@
 import {createContext,useCallback,useContext,useEffect,useMemo,useRef,useState} from 'react';
 import type {ReactNode} from 'react';
 import {toast} from 'sonner';
+import {useSession} from 'next-auth/react';
 import {APP_INTL_LOCALE,APP_LOCALE_LABELS,DEFAULT_APP_LOCALE,formatAppCurrency,formatAppDate,
   formatAppNumber,isAppLocale,type AppLocale,type TranslationVariables} from '@/lib/i18n/app-locale';
 import {translateApp} from '@/lib/i18n/catalog';
 
 const STORAGE_KEY='actiproc:ui-locale';
+const readCachedLocale=(key:string|null):AppLocale|null=>{
+  if(!key)return null;
+  try{
+    const candidate=localStorage.getItem(key);
+    return isAppLocale(candidate)?candidate:null;
+  }catch{return null;}
+};
+const cacheLocale=(key:string|null,value:AppLocale)=>{
+  if(!key)return;
+  try{localStorage.setItem(key,value);}catch{/* Browser storage is optional. */}
+};
 type ContextValue={
   locale:AppLocale;ready:boolean; saving:boolean;
   setLocale:(locale:AppLocale)=>Promise<boolean>;
@@ -26,13 +38,23 @@ const fallback:ContextValue={
 const AppLocaleContext=createContext<ContextValue>(fallback);
 
 export function AppLocaleProvider({children}:{children:ReactNode}){
+  // Scoped to NextAuth identity to prevent a second user on the same browser
+  // from inheriting the previous account's language cache. Native auth sessions
+  // without a NextAuth email use the server preference without a browser cache.
+  const {data:session,status:sessionStatus}=useSession();
+  const accountEmail=session?.user?.email;
+  const cacheKey=accountEmail?STORAGE_KEY+':'+accountEmail.trim().toLowerCase():null;
   const [locale,setCurrentLocale]=useState<AppLocale>(DEFAULT_APP_LOCALE);
   const [ready,setReady]=useState(false);
   const [saving,setSaving]=useState(false);
   const revision=useRef(0);
   useEffect(()=>{
-    const cache=localStorage.getItem(STORAGE_KEY);
-    if(isAppLocale(cache))setCurrentLocale(cache);
+    if(sessionStatus==='loading')return;
+    const requestRevision=++revision.current;
+    setReady(false);
+    setCurrentLocale(DEFAULT_APP_LOCALE);
+    const cached=readCachedLocale(cacheKey);
+    if(cached)setCurrentLocale(cached);
     const controller=new AbortController();
     void fetch('/api/users/settings',{credentials:'same-origin',cache:'no-store',signal:controller.signal})
       .then(async response=>{
@@ -41,24 +63,26 @@ export function AppLocaleProvider({children}:{children:ReactNode}){
         if(!body?.success)throw new Error('locale request failed');
         return body?.data?.locale;
       }).then(value=>{
-        if(controller.signal.aborted||revision.current!==0)return;
+        if(controller.signal.aborted||revision.current!==requestRevision)return;
         if(isAppLocale(value)){
           setCurrentLocale(value);
-          localStorage.setItem(STORAGE_KEY,value);
+          cacheLocale(cacheKey,value);
         }
-      }).catch(()=>undefined).finally(()=>{if(!controller.signal.aborted)setReady(true);});
+      }).catch(()=>undefined).finally(()=>{
+        if(!controller.signal.aborted&&revision.current===requestRevision)setReady(true);
+      });
     return ()=>controller.abort();
-  },[]);
+  },[cacheKey,sessionStatus]);
   useEffect(()=>{
     document.documentElement.lang=locale;
     document.documentElement.dir='ltr';
-  },[locale]);
+  },[locale,cacheKey]);
   const setLocale=useCallback(async(next:AppLocale):Promise<boolean>=>{
     if(!isAppLocale(next))return false;
     const myRevision=++revision.current;
     const previous=locale;
     setCurrentLocale(next);
-    localStorage.setItem(STORAGE_KEY,next);
+    cacheLocale(cacheKey,next);
     setSaving(true);
     try{
       const response=await fetch('/api/users/settings',{
@@ -72,7 +96,7 @@ export function AppLocaleProvider({children}:{children:ReactNode}){
     }catch{
       if(revision.current===myRevision){
         setCurrentLocale(previous);
-        localStorage.setItem(STORAGE_KEY,previous);
+        cacheLocale(cacheKey,previous);
         toast.error(translateApp(previous,'Language preference could not be saved. Please try again.'));
       }
       return false;
