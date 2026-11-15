@@ -34,6 +34,7 @@ for (const text of [
   'WITH RECURSIVE reachable',
   'p23_tasks_completion_integrity',
   'p23_work_schedule_integrity',
+  'p23_org_delete_cleanup',
   'actiproc_is_terminal_task_stage',
   "P23_BLOCKED_COMPLETION",
   'P23_DEPENDENCY_CYCLE',
