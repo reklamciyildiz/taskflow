@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuthedUser } from '@/lib/server-authz';
+import { taskDependencyDbError } from '@/lib/task-dependencies';
 import {
   SchedulingAccessError,
   removeWorkScheduleForSource,
@@ -36,6 +37,11 @@ async function actor(request: NextRequest) {
 }
 
 function errorResponse(error: unknown) {
+  const dependencyError = taskDependencyDbError(error);
+  if (dependencyError) return NextResponse.json<ApiResponse<null>>(
+    { success: false, error: dependencyError.message, code: dependencyError.code },
+    { status: dependencyError.status },
+  );
   if (error instanceof SchedulingValidationError) {
     return NextResponse.json<ApiResponse<null>>({ success: false, error: error.message }, { status: 400 });
   }
