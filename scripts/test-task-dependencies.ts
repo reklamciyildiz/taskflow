@@ -7,6 +7,7 @@ const migration = read('supabase/migrations/20261115220000_task_dependencies_fou
 const route = read('app/api/tasks/[id]/dependencies/route.ts');
 const taskRoute = read('app/api/tasks/[id]/route.ts');
 const client = read('lib/api.ts');
+const scheduleRoute = read('app/api/schedules/route.ts');
 
 for (const code of [
   'P23_BLOCKED_COMPLETION', 'P23_DEPENDENCY_CYCLE', 'P23_DEPENDENCY_RECURRING',
@@ -69,6 +70,7 @@ assert.ok(taskRoute.includes("code: 'DEPENDENCY_BLOCKED'"), 'Blocked transition 
 assert.ok(taskRoute.includes("code: 'DEPENDENCY_CHECK_UNAVAILABLE'"), 'Missing migration must fail closed');
 assert.ok(taskRoute.includes('taskDependencyDbError(error)'), 'PATCH must map DB conflict, not return generic 500');
 assert.ok(taskRoute.includes('status: dependencyError.status'), 'Blocked completion must return 409');
+assert.ok(scheduleRoute.includes('taskDependencyDbError(error)'), 'Recurring schedule conflict needs a meaningful HTTP code');
 assert.ok(client.includes('export const taskDependencyApi'), 'Typed client required for P2.3.2');
 assert.ok(client.includes("method: 'POST'") && client.includes("method: 'DELETE'"));
 
