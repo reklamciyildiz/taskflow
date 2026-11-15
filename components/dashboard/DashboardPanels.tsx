@@ -276,7 +276,7 @@ export function DashboardWorkspaceSummary() {
                 <strong className="tabular-nums">{completionPercent}%</strong>
               </div>
               <div className="dashboard-v2-progress-track mt-2"
-                role="progressbar" aria-label={t('Workspace completion')}"
+                role="progressbar" aria-label={t('Workspace completion')}
                 aria-valuemin={0} aria-valuemax={100} aria-valuenow={completionPercent}>
                 <span style={{ width: `${completionPercent}%` }} />
               </div>
