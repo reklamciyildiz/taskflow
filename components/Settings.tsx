@@ -562,7 +562,7 @@ export function Settings() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <Label className="text-sm font-medium">Organization Name</Label>
+                  <Label className="text-sm font-medium"><AppT text="Organization Name"/></Label>
                   <p className="text-xs text-muted-foreground mt-1 mb-3">
                     Update your organization's display name
                   </p>
@@ -799,7 +799,7 @@ export function Settings() {
               <CardContent className="space-y-4">
                 <div className="rounded-xl border border-dashed p-4 bg-muted/30 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="space-y-1">
-                    <p className="text-sm font-medium text-foreground">Manage processes from a dedicated center</p>
+                    <p className="text-sm font-medium text-foreground"><AppT text="Manage processes from a dedicated center"/></p>
                     <p className="text-xs text-muted-foreground">
                       Use Process Center to create, edit, delete, and configure columns.
                     </p>
@@ -827,7 +827,7 @@ export function Settings() {
             <CardContent className="space-y-6">
               {/* Invite Members */}
               <div>
-                <Label className="text-sm font-medium">Invite Team Member</Label>
+                <Label className="text-sm font-medium"><AppT text="Invite Team Member"/></Label>
                 <p className="text-xs text-muted-foreground mt-1 mb-3">
                   Send an invitation to add new members to your organization
                 </p>
@@ -928,16 +928,16 @@ export function Settings() {
                   </span>
                 ) : pushPermission === 'granted' ? (
                   pushNotifications ? (
-                    <span>Enabled. Scheduled alerts arrive when their reminder or due window is reached.</span>
+                    <span><AppT text="Enabled. Scheduled alerts arrive when their reminder or due window is reached."/></span>
                   ) : (
                     <span>
-                      Browser permission is granted, but push is <strong>disabled</strong> in Actiproc (toggle is OFF).
+                      Browser permission is granted, but push is <strong><AppT text="disabled"/></strong> in Actiproc (toggle is OFF).
                     </span>
                   )
                 ) : pushNotifications ? (
-                  <span>Not allowed yet — turn ON to request permission.</span>
+                  <span><AppT text="Not allowed yet — turn ON to request permission."/></span>
                 ) : (
-                  <span>Off (enable to request permission).</span>
+                  <span><AppT text="Off (enable to request permission)."/></span>
                 )}
               </div>
               <div className="flex items-center justify-between">
@@ -964,7 +964,7 @@ export function Settings() {
               <div className="space-y-2">
                 <div className="flex items-start justify-between gap-4">
                   <div className="space-y-1">
-                    <Label className="text-sm font-medium">Time zone</Label>
+                    <Label className="text-sm font-medium"><AppT text="Time zone"/></Label>
                     <p className="text-xs text-muted-foreground">
                       Date-only due dates are interpreted as calendar days in this time zone.
                     </p>
@@ -1061,7 +1061,7 @@ export function Settings() {
             <CardContent className="space-y-3">
               <p className="text-sm text-muted-foreground">
                 If you accidentally created your own organization and want to accept another team's invite, you can
-                leave from here. This only works when you're the <strong>only member</strong> in the organization.
+                leave from here. This only works when you're the <strong><AppT text="only member"/></strong> in the organization.
               </p>
               <Button
                 type="button"
@@ -1086,7 +1086,7 @@ export function Settings() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="display-name" className="text-xs font-medium">Display Name</Label>
+                <Label htmlFor="display-name" className="text-xs font-medium"><AppT text="Display Name"/></Label>
                 <Input id="display-name" defaultValue={currentUser?.name || ''} className="bg-white dark:bg-gray-800" />
               </div>
               <div className="space-y-2">
@@ -1105,8 +1105,8 @@ export function Settings() {
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <Label className="text-xs font-medium">Dark Mode</Label>
-                  <p className="text-xs text-muted-foreground">Toggle dark theme</p>
+                  <Label className="text-xs font-medium"><AppT text="Dark Mode"/></Label>
+                  <p className="text-xs text-muted-foreground"><AppT text="Toggle dark theme"/></p>
                 </div>
                 {mounted && (
                   <Switch 
@@ -1117,8 +1117,8 @@ export function Settings() {
               </div>
               <div className="flex items-center justify-between">
                 <div>
-                  <Label className="text-xs font-medium">Compact View</Label>
-                  <p className="text-xs text-muted-foreground">Reduce spacing in lists</p>
+                  <Label className="text-xs font-medium"><AppT text="Compact View"/></Label>
+                  <p className="text-xs text-muted-foreground"><AppT text="Reduce spacing in lists"/></p>
                 </div>
                 <Switch 
                   checked={compactView} 

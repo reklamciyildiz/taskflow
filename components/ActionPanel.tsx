@@ -1432,7 +1432,7 @@ function ActionPanelContent({
                                   className="flex max-h-[92dvh] min-h-0 w-[min(92vw,380px)] max-w-[min(92vw,380px)] flex-col gap-0 overflow-hidden p-0"
                                 >
                                   <DialogHeader className="sr-only">
-                                    <DialogTitle>Schedule action</DialogTitle>
+                                    <DialogTitle><AppT text="Schedule action"/></DialogTitle>
                                     <DialogDescription>
                                       Choose a date, recurrence, time, or reminder for this action.
                                     </DialogDescription>

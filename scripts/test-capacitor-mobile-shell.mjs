@@ -163,7 +163,7 @@ assert.match(canonicalTaskList, /filterAndSortOperationalTasks/);
 assert.match(canonicalTaskList, /propertyValuesByTask/);
 assert.match(canonicalTaskList, /InlineSelect/);
 assert.match(canonicalTaskList, /Sort by stage/);
-assert.match(canonicalTaskList, /SelectItem value="__inbox__">Inbox/);
+assert.match(canonicalTaskList, /SelectItem value="__inbox__"><AppT text="Inbox"\s*\/>/);
 assert.match(actionPanel, /data-action-panel-sheet/);
 assert.match(actionPanel, /overflow-x-hidden overflow-y-auto/);
 assert.match(actionNotes, /aria-label="Action notes navigator"/, 'Action notes must retain a mobile-friendly navigation surface');

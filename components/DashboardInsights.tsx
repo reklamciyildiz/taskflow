@@ -1,4 +1,5 @@
 'use client';
+import {T as AppT} from '@/components/i18n/AppLocaleProvider';
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -131,9 +132,7 @@ export function DashboardInsights() {
             <Brain className="h-4 w-4 text-violet-600 dark:text-violet-400" />
             Recent knowledge
           </CardTitle>
-          <Button variant="ghost" size="sm" className="h-8 gap-0.5 text-xs" onClick={openKnowledgeHub}>
-            Knowledge Hub
-            <ChevronRight className="h-3 w-3" />
+          <Button variant="ghost" size="sm" className="h-8 gap-0.5 text-xs" onClick={openKnowledgeHub}><AppT text="Knowledge Hub"/><ChevronRight className="h-3 w-3" />
           </Button>
         </CardHeader>
         <CardContent className="pt-4 flex-1 overflow-auto pr-1 flex flex-col">
@@ -154,16 +153,12 @@ export function DashboardInsights() {
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-violet-500/10 text-violet-600 dark:text-violet-400">
                 <Lightbulb className="h-6 w-6" aria-hidden />
               </div>
-              <p className="text-sm font-medium text-foreground">
-                No knowledge yet
-              </p>
+              <p className="text-sm font-medium text-foreground"><AppT text="No knowledge yet"/></p>
               <p className="text-sm text-muted-foreground max-w-sm mx-auto leading-relaxed">
                 Add a note or checklist to an action—your latest activity will show up here.
               </p>
               <Button variant="outline" size="sm" className="gap-1.5" onClick={() => router.push('/board')}>
-                <LayoutGrid className="h-3.5 w-3.5" />
-                Go to board
-              </Button>
+                <LayoutGrid className="h-3.5 w-3.5" /><AppT text="Go to board"/></Button>
             </div>
           ) : (
             <div className="space-y-4">
@@ -171,12 +166,8 @@ export function DashboardInsights() {
                 <div className="rounded-xl border bg-muted/30 p-3">
                   <div className="flex items-center justify-between gap-2 mb-2">
                     <p className="text-xs font-semibold tracking-wide uppercase text-muted-foreground flex items-center gap-2">
-                      <Star className="h-3.5 w-3.5" />
-                      Pinned
-                    </p>
-                    <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={openKnowledgeHub}>
-                      All
-                      <ChevronRight className="h-3 w-3" />
+                      <Star className="h-3.5 w-3.5" /><AppT text="Pinned"/></p>
+                    <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={openKnowledgeHub}><AppT text="All"/><ChevronRight className="h-3 w-3" />
                     </Button>
                   </div>
                   <ul className="space-y-2">
@@ -277,9 +268,7 @@ export function DashboardInsights() {
                   size="sm"
                   className="w-full justify-between"
                   onClick={openKnowledgeHub}
-                >
-                  Go to Knowledge Hub
-                  <ChevronRight className="h-4 w-4" />
+                ><AppT text="Go to Knowledge Hub"/><ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
             </div>
@@ -293,9 +282,7 @@ export function DashboardInsights() {
             <Layers className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
             Active process summary
           </CardTitle>
-          <Button variant="ghost" size="sm" className="h-8 gap-0.5 text-xs" onClick={openSettings}>
-            Manage
-            <ChevronRight className="h-3 w-3" />
+          <Button variant="ghost" size="sm" className="h-8 gap-0.5 text-xs" onClick={openSettings}><AppT text="Manage"/><ChevronRight className="h-3 w-3" />
           </Button>
         </CardHeader>
         <CardContent className="pt-4 flex-1 overflow-auto pr-1 space-y-5">
@@ -320,7 +307,7 @@ export function DashboardInsights() {
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
                 <Layers className="h-6 w-6" aria-hidden />
               </div>
-              <p className="text-sm font-medium text-foreground">No processes yet</p>
+              <p className="text-sm font-medium text-foreground"><AppT text="No processes yet"/></p>
               <p className="text-sm text-muted-foreground max-w-sm mx-auto leading-relaxed">
                 Once you create a <code className="text-xs bg-muted px-1 rounded">projects</code> record, you’ll see action
                 counts and stage distribution per process. Select a process on the board to link actions to that flow.

@@ -1,4 +1,5 @@
 'use client';
+import {T as AppT} from '@/components/i18n/AppLocaleProvider';
 
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useTaskContext } from '@/components/TaskContext';
@@ -128,7 +129,7 @@ export function InboxStageRecoveryDialog({ open, onClose }: { open: boolean; onC
           </label>
           {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
           <DialogFooter className="gap-2">
-            <Button type="button" variant="outline" disabled={saving} onClick={onClose}>Cancel</Button>
+            <Button type="button" variant="outline" disabled={saving} onClick={onClose}><AppT text="Cancel"/></Button>
             <Button type="submit" disabled={!acknowledged || saving || inboxBoardStatus !== 'unconfigured'}>
               {saving ? 'Synchronizing…' : 'Confirm and sync Inbox'}
             </Button>

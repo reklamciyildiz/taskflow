@@ -1,4 +1,5 @@
 'use client';
+import {T as AppT} from '@/components/i18n/AppLocaleProvider';
 import { toast } from 'sonner';
 import { useProcessProperties } from '@/hooks/useProcessProperties';
 import { PROPERTY_COLOR_CLASSES } from '@/lib/process-properties';
@@ -8,7 +9,7 @@ import { Label } from '@/components/ui/label';
 export function ActionPropertyFields({ taskId, projectId, teamId, canEdit }: { taskId: string; projectId: string; teamId: string; canEdit: boolean }) {
   const { data, error, loading, busy, setValue, isValuePending, reload } = useProcessProperties(projectId, teamId);
   if (loading) return <p className="text-xs text-muted-foreground sm:col-span-2">Loading properties…</p>;
-  if (error) return <p className="text-xs text-destructive sm:col-span-2">{error} <button type="button" className="underline" onClick={() => void reload()}>Retry</button></p>;
+  if (error) return <p className="text-xs text-destructive sm:col-span-2">{error} <button type="button" className="underline" onClick={() => void reload()}><AppT text="Retry"/></button></p>;
   if (!data) return null;
   const selected = new Map(data.values.filter(v => v.task_id === taskId).map(v => [v.property_id, v.option_id]));
   return <>{data.properties.filter(p => !p.archived_at || selected.has(p.id)).map(property => {
@@ -18,7 +19,7 @@ export function ActionPropertyFields({ taskId, projectId, teamId, canEdit }: { t
       <Select value={selected.get(property.id) ?? '__none__'} disabled={!canEdit || busy || isValuePending(taskId, property.id)}
         onValueChange={value => { void setValue(taskId, property.id, value === '__none__' ? null : value).catch(error => toast.error(error.message)); }}>
         <SelectTrigger aria-label={property.name} className="h-9 border-border/60 bg-background/80"><SelectValue placeholder="Unassigned" /></SelectTrigger>
-        <SelectContent><SelectItem value="__none__">Unassigned</SelectItem>
+        <SelectContent><SelectItem value="__none__"><AppT text="Unassigned"/></SelectItem>
           {options.map(option => <SelectItem key={option.id} value={option.id} disabled={!!option.archived_at || !!property.archived_at}>
             <span className="inline-flex items-center gap-2"><span className={`h-2 w-2 shrink-0 rounded-full ${PROPERTY_COLOR_CLASSES[option.color]}`} />{option.label}{option.archived_at ? ' (archived)' : ''}</span>
           </SelectItem>)}
