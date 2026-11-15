@@ -1,5 +1,7 @@
 'use client';
 import {T as AppT,useAppLocale} from '@/components/i18n/AppLocaleProvider';
+import { DependencyStatusBadge } from '@/components/action/DependencyStatusBadge';
+import type { TaskDependencyFlags } from '@/lib/task-dependency-ui';
 
 import { useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -36,6 +38,7 @@ interface TaskCardProps {
   dragHandleProps?: any;
   onTaskClick?: (task: Task) => void;
   propertyBadges?: { id: string; label: string; colorClass: string }[];
+  dependency?: TaskDependencyFlags;
 }
 
 const priorityColors = {
@@ -51,7 +54,7 @@ const priorityAccents = {
   urgent: 'bg-rose-400',
 };
 
-export function TaskCard({ task, dragHandleProps, onTaskClick, propertyBadges = [] }: TaskCardProps) {
+export function TaskCard({ task, dragHandleProps, onTaskClick, propertyBadges = [], dependency }: TaskCardProps) {
   const {t,date}=useAppLocale();
   const { currentTeam, updateTask, deleteTask, canEditTask, canDeleteTask, boardColumns, canCompleteTask, suppressTaskEditorOpenFor } = useTaskContext();
   /** After ⋮ → Change status, the menu close can trigger a ghost click on mobile; prevent opening the modal briefly. */
@@ -249,6 +252,12 @@ export function TaskCard({ task, dragHandleProps, onTaskClick, propertyBadges = 
                 <span className="truncate">{badge.label}</span>
               </Badge>
             ))}
+          </div>
+        )}
+
+        {dependency && (dependency.blocked || dependency.ready || dependency.blocking) && (
+          <div className="flex flex-wrap items-center gap-1.5" aria-label={t('Action dependency status')}>
+            <DependencyStatusBadge flags={dependency} />
           </div>
         )}
 
