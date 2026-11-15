@@ -107,7 +107,7 @@ export function AppLocaleProvider({children}:{children:ReactNode}){
     }finally{
       if(revision.current===myRevision)setSaving(false);
     }
-  },[locale]);
+  },[locale,cacheKey]);
   const value=useMemo<ContextValue>(()=>({
     locale,ready,saving,setLocale,
     t:(text,values)=>translateApp(locale,text,values),
