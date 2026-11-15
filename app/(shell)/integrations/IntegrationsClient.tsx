@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import {T,useAppLocale} from '@/components/i18n/AppLocaleProvider';
 import { Plus, Trash2, Power, PowerOff, ExternalLink, Copy, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -41,6 +42,7 @@ const EVENT_OPTIONS = [
 ];
 
 export default function IntegrationsClient() {
+  const {t,date}=useAppLocale();
   const [webhooks, setWebhooks] = useState<Webhook[]>([]);
   const [selectedWebhook, setSelectedWebhook] = useState<Webhook | null>(null);
   const [logs, setLogs] = useState<WebhookLog[]>([]);
@@ -84,7 +86,7 @@ export default function IntegrationsClient() {
 
   const createWebhook = async () => {
     if (!formData.name || !formData.url || formData.events.length === 0) {
-      alert('Please fill all fields and select at least one event');
+      alert(t('Please fill all fields and select at least one event'));
       return;
     }
 
@@ -109,10 +111,10 @@ export default function IntegrationsClient() {
           setShowUpgrade(true);
           return;
         }
-        alert('Failed to create webhook: ' + data.error);
+        alert(t('Failed to create webhook: {error}',{error:String(data.error??'')}));
       }
     } catch (error) {
-      alert('Failed to create webhook');
+      alert(t('Failed to create webhook'));
     }
     setLoading(false);
   };
@@ -135,7 +137,7 @@ export default function IntegrationsClient() {
   };
 
   const deleteWebhook = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this webhook?')) return;
+    if (!confirm(t('Are you sure you want to delete this webhook?'))) return;
 
     try {
       const res = await fetch(`/api/webhooks/${id}`, { method: 'DELETE' });
@@ -181,9 +183,9 @@ export default function IntegrationsClient() {
     <div className="max-w-7xl mx-auto">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Integrations</h1>
+          <h1 className="text-3xl font-bold text-foreground"><T text="Integrations"/></h1>
           <p className="text-muted-foreground mt-1">
-            Connect Actiproc with external services using webhooks
+            <T text="Connect Actiproc with external services using webhooks"/>
           </p>
         </div>
         <Button
@@ -196,15 +198,14 @@ export default function IntegrationsClient() {
           }}
         >
           <Plus className="w-4 h-4 mr-2" />
-          Create Webhook
+          <T text="Create Webhook"/>
         </Button>
       </div>
 
       <Card className="p-6 mb-6 bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
-        <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">🔗 What are Webhooks?</h3>
+        <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">🔗 <T text="What are Webhooks?"/></h3>
         <p className="text-sm text-blue-800 dark:text-blue-200 mb-3">
-          Webhooks send real-time notifications to your apps when events happen in Actiproc. Perfect for Zapier,
-          n8n, Make.com, or custom integrations!
+          <T text="Webhooks send real-time notifications to your apps when events happen in Actiproc. Perfect for Zapier, n8n, Make.com, or custom integrations!"/>
         </p>
         <div className="flex gap-2 flex-wrap">
           <Badge variant="outline" className="bg-white dark:bg-slate-800">
@@ -217,7 +218,7 @@ export default function IntegrationsClient() {
             ✅ Make.com
           </Badge>
           <Badge variant="outline" className="bg-white dark:bg-slate-800">
-            ✅ Custom Apps
+            ✅ <T text="Custom Apps"/>
           </Badge>
         </div>
       </Card>
@@ -225,22 +226,22 @@ export default function IntegrationsClient() {
       {webhooksPaywalled && (
         <div role="status" className="mb-5 flex flex-col gap-3 rounded-2xl border border-primary/20 bg-primary/[0.045] p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-foreground">Webhooks are included with Team</p>
-            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">Explore integrations without committing to a purchase. Upgrade when you are ready to connect external services.</p>
+            <p className="text-sm font-semibold text-foreground"><T text="Webhooks are included with Team"/></p>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground"><T text="Explore integrations without committing to a purchase. Upgrade when you are ready to connect external services."/></p>
           </div>
           <Button type="button" size="sm" onClick={() => setShowUpgrade(true)} className="h-9 shrink-0 rounded-lg">
-            Review Team plan
+            <T text="Review Team plan"/>
           </Button>
         </div>
       )}
       {webhooks.length === 0 ? (
         <Card className="p-12 text-center">
           <div className="text-6xl mb-4">🔌</div>
-          <h3 className="text-xl font-semibold mb-2">{webhooksPaywalled ? "Webhooks require Team" : "No webhooks yet"}</h3>
+          <h3 className="text-xl font-semibold mb-2">{t(webhooksPaywalled ? 'Webhooks require Team' : 'No webhooks yet')}</h3>
           <p className="text-muted-foreground mb-4">
             {webhooksPaywalled
-              ? 'Upgrade to Team when you are ready to receive real-time notifications.'
-              : 'Create your first webhook to start receiving real-time notifications'}
+              ? t('Upgrade to Team when you are ready to receive real-time notifications.')
+              : t('Create your first webhook to start receiving real-time notifications')}
           </p>
           <Button
             onClick={() => {
@@ -252,7 +253,7 @@ export default function IntegrationsClient() {
             }}
           >
             <Plus className="w-4 h-4 mr-2" />
-            Create Webhook
+            <T text="Create Webhook"/>
           </Button>
         </Card>
       ) : (
@@ -264,7 +265,7 @@ export default function IntegrationsClient() {
                   <div className="flex items-center gap-3 mb-2">
                     <h3 className="text-lg font-semibold">{webhook.name}</h3>
                     <Badge variant={webhook.active ? 'default' : 'secondary'}>
-                      {webhook.active ? 'Active' : 'Inactive'}
+                      {t(webhook.active ? 'Active' : 'Inactive')}
                     </Badge>
                   </div>
 
@@ -282,7 +283,7 @@ export default function IntegrationsClient() {
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">Secret:</span>
+                    <span className="text-xs text-muted-foreground"><T text="Secret:"/></span>
                     <code className="bg-muted px-2 py-1 rounded text-xs font-mono">
                       {webhook.secret.substring(0, 20)}...
                     </code>
@@ -303,7 +304,7 @@ export default function IntegrationsClient() {
 
                 <div className="flex gap-2">
                   <Button size="sm" variant="outline" onClick={() => viewLogs(webhook)}>
-                    View Logs
+                    <T text="View Logs"/>
                   </Button>
                   <Button size="sm" variant="outline" onClick={() => toggleWebhook(webhook)}>
                     {webhook.active ? <PowerOff className="w-4 h-4" /> : <Power className="w-4 h-4" />}
@@ -321,14 +322,14 @@ export default function IntegrationsClient() {
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Create New Webhook</DialogTitle>
+            <DialogTitle><T text="Create New Webhook"/></DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
             <div>
-              <Label>Name</Label>
+              <Label><T text="Name"/></Label>
               <Input
-                placeholder="My Zapier Integration"
+                placeholder={t("My Zapier Integration")}
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               />
@@ -342,12 +343,12 @@ export default function IntegrationsClient() {
                 onChange={(e) => setFormData({ ...formData, url: e.target.value })}
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Get this URL from Zapier, n8n, Make.com, or your custom app
+                <T text="Get this URL from Zapier, n8n, Make.com, or your custom app"/>
               </p>
             </div>
 
             <div>
-              <Label>Events to Subscribe</Label>
+              <Label><T text="Events to Subscribe"/></Label>
               <div className="space-y-2 mt-2">
                 {EVENT_OPTIONS.map((event) => (
                   <label
@@ -361,8 +362,8 @@ export default function IntegrationsClient() {
                       className="mt-1"
                     />
                     <div className="flex-1">
-                      <div className="font-medium text-sm">{event.label}</div>
-                      <div className="text-xs text-muted-foreground">{event.description}</div>
+                      <div className="font-medium text-sm">{t(event.label)}</div>
+                      <div className="text-xs text-muted-foreground">{t(event.description)}</div>
                     </div>
                   </label>
                 ))}
@@ -372,10 +373,10 @@ export default function IntegrationsClient() {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
-              Cancel
+              <T text="Cancel"/>
             </Button>
             <Button onClick={createWebhook} disabled={loading}>
-              {loading ? 'Creating...' : 'Create Webhook'}
+              {t(loading ? 'Creating...' : 'Create Webhook')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -384,12 +385,12 @@ export default function IntegrationsClient() {
       <Dialog open={isLogsOpen} onOpenChange={setIsLogsOpen}>
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Webhook Logs - {selectedWebhook?.name}</DialogTitle>
+            <DialogTitle>{t('Webhook Logs - {name}',{name:selectedWebhook?.name??''})}</DialogTitle>
           </DialogHeader>
 
           {logs.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              No logs yet. Webhook will appear here when triggered.
+              <T text="No logs yet. Webhook will appear here when triggered."/>
             </div>
           ) : (
             <div className="space-y-3">
@@ -398,17 +399,17 @@ export default function IntegrationsClient() {
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <Badge variant={log.success ? 'default' : 'destructive'}>
-                        {log.success ? '✓ Success' : '✗ Failed'}
+                        {t(log.success ? '✓ Success' : '✗ Failed')}
                       </Badge>
                       <Badge variant="outline">{log.event}</Badge>
-                      <span className="text-xs text-muted-foreground">Attempts: {log.attempts}</span>
+                      <span className="text-xs text-muted-foreground">{t('Attempts: {count}',{count:log.attempts})}</span>
                     </div>
                     <span className="text-xs text-muted-foreground">
-                      {new Date(log.created_at).toLocaleString()}
+                      {date(log.created_at,{year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}
                     </span>
                   </div>
                   <div className="text-sm">
-                    <span className="text-muted-foreground">Status:</span>{' '}
+                    <span className="text-muted-foreground"><T text="Status:"/></span>{' '}
                     <code className="bg-muted px-2 py-1 rounded text-xs">{log.response.status}</code>
                   </div>
                 </Card>
@@ -423,7 +424,7 @@ export default function IntegrationsClient() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-green-600 dark:text-green-400">
               <Check className="w-6 h-6" />
-              Webhook Created Successfully!
+              <T text="Webhook Created Successfully!"/>
             </DialogTitle>
           </DialogHeader>
 
@@ -432,16 +433,16 @@ export default function IntegrationsClient() {
               <div className="flex items-start gap-3">
                 <div className="text-2xl">⚠️</div>
                 <div>
-                  <h4 className="font-semibold text-yellow-900 dark:text-yellow-100 mb-1">Save This Secret Key!</h4>
+                  <h4 className="font-semibold text-yellow-900 dark:text-yellow-100 mb-1"><T text="Save This Secret Key!"/></h4>
                   <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                    This is the only time you'll see this secret. You'll need it to verify webhook signatures.
+                    <T text="This is the only time you'll see this secret. You'll need it to verify webhook signatures."/>
                   </p>
                 </div>
               </div>
             </div>
 
             <div>
-              <Label className="text-sm font-medium mb-2 block">Your Webhook Secret</Label>
+              <Label className="text-sm font-medium mb-2 block"><T text="Your Webhook Secret"/></Label>
               <div className="flex gap-2">
                 <Input value={newWebhookSecret} readOnly className="font-mono text-sm bg-muted" />
                 <Button
@@ -455,12 +456,12 @@ export default function IntegrationsClient() {
                   {copiedSecret === newWebhookSecret ? (
                     <>
                       <Check className="w-4 h-4 mr-2 text-green-600" />
-                      Copied!
+                      <T text="Copied!"/>
                     </>
                   ) : (
                     <>
                       <Copy className="w-4 h-4 mr-2" />
-                      Copy
+                      <T text="Copy"/>
                     </>
                   )}
                 </Button>
@@ -468,18 +469,18 @@ export default function IntegrationsClient() {
             </div>
 
             <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-              <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">📚 How to Use This Secret</h4>
+              <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">📚 <T text="How to Use This Secret"/></h4>
               <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
-                <li>• Use it to verify webhook signatures (HMAC-SHA256)</li>
-                <li>• Store it securely in your environment variables</li>
-                <li>• Never commit it to version control</li>
+                <li>• <T text="Use it to verify webhook signatures (HMAC-SHA256)"/></li>
+                <li>• <T text="Store it securely in your environment variables"/></li>
+                <li>• <T text="Never commit it to version control"/></li>
               </ul>
             </div>
           </div>
 
           <DialogFooter>
             <Button onClick={() => setIsSecretOpen(false)} className="w-full">
-              I've Saved the Secret
+              <T text="I've Saved the Secret"/>
             </Button>
           </DialogFooter>
         </DialogContent>
