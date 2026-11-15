@@ -64,18 +64,19 @@ function KpiCard({
   label: string; value: string; sub: string;
   icon: React.ReactNode; accent: Accent; progress?: number;
 }) {
+  const {t}=useAppLocale();
   const s = ACCENT[accent];
   return (
     <Card className={cn('border', s.card)}>
       <CardContent className="p-5">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className={cn('text-xs font-medium', s.label)}>{label}</p>
+            <p className={cn('text-xs font-medium', s.label)}>{t(label)}</p>
             <p className={cn('mt-1 text-2xl font-bold tabular-nums', s.value)}>{value}</p>
           </div>
           {icon}
         </div>
-        <p className={cn('mt-1 text-xs', s.sub)}>{sub}</p>
+        <p className={cn('mt-1 text-xs', s.sub)}>{t(sub)}</p>
         {progress !== undefined && <Progress value={progress} className="mt-3 h-1.5" />}
       </CardContent>
     </Card>
@@ -94,6 +95,7 @@ function ProcessCard({
   bottleneck: ColStat | null;
   overdueCount: number;
 }) {
+  const {t}=useAppLocale();
   const rate = total > 0 ? Math.round((terminalCount / total) * 100) : 0;
   return (
     <Card>
@@ -101,7 +103,7 @@ function ProcessCard({
         <div className="mb-3 flex items-center justify-between gap-2">
           <p className="truncate text-sm font-semibold">{name}</p>
           <Badge variant={rate >= 70 ? 'default' : 'secondary'} className="shrink-0 text-xs">
-            {rate}% done
+            {rate}% {t('done')}
           </Badge>
         </div>
 
@@ -142,17 +144,17 @@ function ProcessCard({
 
             {/* Alert row */}
             <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-              <span>{total} total</span>
+              <span>{total} {t('total')}</span>
               {bottleneck && bottleneck.count >= 2 && (
                 <span className="flex items-center gap-1 font-medium text-orange-600 dark:text-orange-400">
                   <AlertCircle className="h-3 w-3" />
-                  Bottleneck: {bottleneck.title} ({bottleneck.count})
+                  {t('Bottleneck: {name} ({count})',{name:bottleneck.title,count:bottleneck.count})}
                 </span>
               )}
               {overdueCount > 0 && (
                 <span className="flex items-center gap-1 font-medium text-red-600 dark:text-red-400">
                   <AlertTriangle className="h-3 w-3" />
-                  {overdueCount} overdue
+                  {overdueCount} {t('overdue')}
                 </span>
               )}
             </div>
@@ -166,7 +168,7 @@ function ProcessCard({
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function Analytics() {
-  const {date}=useAppLocale();
+  const {date,t}=useAppLocale();
   const { tasks, projects, currentTeam, generalBoardColumns } = useTaskContext();
   const [showExport, setShowExport] = useState(false);
   const [selectedProcessId, setSelectedProcessId] = useState<string>('all');
@@ -384,10 +386,10 @@ export function Analytics() {
         <div>
           <h1 className="text-2xl font-bold text-foreground"><AppT text="Analytics"/></h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {currentTeam?.name ?? 'Team'} · {filteredTasks.length} actions
+            {currentTeam?.name ?? t('Team')} · {filteredTasks.length} {t('actions')}
             {selectedProcessId !== 'all' && (
               <span className="ml-1 text-muted-foreground/60">
-                (filtered)
+                {t('(filtered)')}
               </span>
             )}
           </p>
@@ -417,7 +419,7 @@ export function Analytics() {
         <KpiCard
           label="Completion rate"
           value={`${completionRate}%`}
-          sub={`${completedTasks.length} / ${filteredTasks.length} actions`}
+          sub={t('{completed} / {total} actions',{completed:completedTasks.length,total:filteredTasks.length})}
           icon={<Target className="h-5 w-5 text-blue-500" />}
           accent="blue"
           progress={completionRate}
@@ -452,8 +454,8 @@ export function Analytics() {
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm font-semibold">
               <TrendingUp className="h-4 w-4" />
-              Completion velocity — last 12 weeks
-              {incompleteHistoryCount > 0 && <span className="ml-2 text-xs font-normal text-muted-foreground">({incompleteHistoryCount} historical completions without verified dates excluded)</span>}
+              <AppT text="Completion velocity — last 12 weeks"/>
+              {incompleteHistoryCount > 0 && <span className="ml-2 text-xs font-normal text-muted-foreground">({incompleteHistoryCount} <AppT text="historical completions without verified dates excluded"/>)</span>}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -472,7 +474,7 @@ export function Analytics() {
                 <Area
                   type="monotone"
                   dataKey="completed"
-                  name="Completed"
+                  name={t("Completed")}
                   stroke={VELOCITY_COLOR}
                   strokeWidth={2}
                   fill="url(#vGrad)"
@@ -489,7 +491,7 @@ export function Analytics() {
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm font-semibold">
               <Layers className="h-4 w-4" />
-              Priority mix
+              <AppT text="Priority mix"/>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -510,7 +512,7 @@ export function Analytics() {
                     </Pie>
                     <Tooltip
                       contentStyle={tooltipStyle}
-                      formatter={(v: number, name: string) => [`${v} actions`, name]}
+                      formatter={(v: number, name: string) => [t('{count} actions',{count:v}), t(name)]}
                     />
                   </PieChart>
                 </ResponsiveContainer>
@@ -518,7 +520,7 @@ export function Analytics() {
                   {priorityData.map(d => (
                     <div key={d.name} className="flex items-center gap-1.5 text-xs text-muted-foreground">
                       <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: d.color }} />
-                      <span className="capitalize">{d.name}</span>
+                      <span className="capitalize">{t(d.name)}</span>
                       <span className="ml-auto font-medium text-foreground">{d.value}</span>
                     </div>
                   ))}
