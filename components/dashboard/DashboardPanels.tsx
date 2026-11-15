@@ -1,5 +1,5 @@
 'use client';
-import {T as AppT} from '@/components/i18n/AppLocaleProvider';
+import {T as AppT,useAppLocale} from '@/components/i18n/AppLocaleProvider';
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -20,7 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useTaskContext } from '@/components/TaskContext';
 import { useKnowledgeRetrieval } from '@/hooks/useKnowledgeRetrieval';
-import { formatKnowledgeEntryDate, type KnowledgeHubCard } from '@/lib/knowledge-retrieval';
+import {type KnowledgeHubCard } from '@/lib/knowledge-retrieval';
 import { resolveStageLifecycle } from '@/lib/stage-lifecycle';
 import { AxiomProcessList } from '@/shared/product-ui/AxiomWorkspaceLists';
 
@@ -38,6 +38,7 @@ function safeStringArray(raw: string | null): string[] {
 }
 
 export function DashboardFocusProcesses() {
+  const {t}=useAppLocale();
   const { projects, tasks, currentTeam, loading, openBoardForProject } = useTaskContext();
   const [pinnedIds, setPinnedIds] = useState<string[]>([]);
   const [recentIds, setRecentIds] = useState<string[]>([]);
@@ -147,16 +148,16 @@ export function DashboardFocusProcesses() {
         )}
       </div>
       {!loading && projectsForTeam.length > 0 ? (
-        <div className="dashboard-v2-focus-insight" aria-label="Visible process completion">
+        <div className="dashboard-v2-focus-insight" aria-label={t('Visible process completion')}>
           <div className="dashboard-v2-donut" style={{
             background: `conic-gradient(#a3ef75 ${focusStats.percent}%, rgba(123, 166, 190, .18) 0)`,
-          }} role="img" aria-label={`${focusStats.percent}% of process Actions completed`}>
+          }} role="img" aria-label={t('{percent}% of process Actions completed',{percent:focusStats.percent})}>
             <span>{focusStats.percent}%</span>
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-[0.68rem] font-semibold uppercase tracking-[0.11em] text-muted-foreground"><AppT text="Process progress"/></p>
-            <p className="mt-1 text-sm font-medium">{focusStats.finished} of {focusStats.total} Actions completed</p>
-            <p className="mt-0.5 text-xs text-muted-foreground">{focusStats.active} active Actions · {projectsForTeam.length} Processes</p>
+            <p className="mt-1 text-sm font-medium">{t('{done} of {total} Actions completed',{done:focusStats.finished,total:focusStats.total})}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">{t('{active} active Actions · {processes} Processes',{active:focusStats.active,processes:projectsForTeam.length})}</p>
           </div>
           <ArrowUpRight className="h-4 w-4 shrink-0 text-primary/70" aria-hidden="true" />
         </div>
@@ -172,6 +173,7 @@ function knowledgePreview(card: KnowledgeHubCard): string {
 }
 
 export function DashboardRecentKnowledge() {
+  const {t,date}=useAppLocale();
   const { tasks, projects, teams, currentTeam, loading, openTaskEditor } = useTaskContext();
   const { cards, notesLoading, notesError, retryNotes } = useKnowledgeRetrieval({
     tasks,
@@ -212,7 +214,7 @@ export function DashboardRecentKnowledge() {
             <span className="dashboard-v2-row-icon"><BookOpen className="h-4 w-4" /></span>
             <span className="min-w-0 flex-1">
               <span className="block line-clamp-2 text-[0.84rem] font-medium leading-5 tracking-[-0.006em] sm:line-clamp-1 sm:text-sm">{knowledgePreview(entry)}</span>
-              <span className="mt-1 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[0.68rem] text-muted-foreground"><span className="max-w-full truncate">{entry.projectName || 'General'} · {entry.taskTitle}</span><span className="shrink-0">{formatKnowledgeEntryDate(entry.sortDate)}</span></span>
+              <span className="mt-1 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[0.68rem] text-muted-foreground"><span className="max-w-full truncate">{entry.projectName || t('General')} · {entry.taskTitle}</span><span className="shrink-0">{date(entry.sortDate,{month:'short',day:'numeric',year:'numeric'})}</span></span>
             </span>
             <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/35 transition-all group-hover:translate-x-0.5 group-hover:text-muted-foreground" />
           </button>
@@ -223,6 +225,7 @@ export function DashboardRecentKnowledge() {
 }
 
 export function DashboardWorkspaceSummary() {
+  const {t}=useAppLocale();
   const { projects, tasks, currentTeam, currentUser, loading, generalBoardColumns } = useTaskContext();
   const projectsForTeam = useMemo(
     () => currentTeam ? projects.filter((project) => !project.teamId || project.teamId === currentTeam.id) : projects,
@@ -266,14 +269,14 @@ export function DashboardWorkspaceSummary() {
               </div>
               <div className="mt-3 flex items-end justify-between gap-3">
                 <strong className="text-[2rem] font-semibold leading-none tabular-nums tracking-[-0.045em]">{active.length}</strong>
-                <p className="pb-0.5 text-right text-[0.7rem] leading-4 text-muted-foreground">Across {projectsForTeam.length}<br /><AppT text="visible Processes"/></p>
+                <p className="pb-0.5 text-right text-[0.7rem] leading-4 text-muted-foreground">{t('Across {count}',{count:projectsForTeam.length})}<br /><AppT text="visible Processes"/></p>
               </div>
               <div className="mt-4 flex items-center justify-between gap-3 text-[0.72rem]">
                 <span className="text-muted-foreground"><AppT text="Completion"/></span>
                 <strong className="tabular-nums">{completionPercent}%</strong>
               </div>
               <div className="dashboard-v2-progress-track mt-2"
-                role="progressbar" aria-label="Workspace completion"
+                role="progressbar" aria-label={t('Workspace completion')}"
                 aria-valuemin={0} aria-valuemax={100} aria-valuenow={completionPercent}>
                 <span style={{ width: `${completionPercent}%` }} />
               </div>
@@ -292,7 +295,7 @@ export function DashboardWorkspaceSummary() {
         )}
       </div>
       <div className="border-t border-border/35 px-4 py-3 sm:px-5">
-        <p className="flex items-start gap-2 text-[0.68rem] leading-4 text-muted-foreground"><CircleDot className="mt-0.5 h-3 w-3 shrink-0" /><span>Completion follows each Process&apos;s canonical terminal Stage.</span></p>
+        <p className="flex items-start gap-2 text-[0.68rem] leading-4 text-muted-foreground"><CircleDot className="mt-0.5 h-3 w-3 shrink-0" /><span><AppT text="Completion follows each Process's canonical terminal Stage."/></span></p>
       </div>
     </section>
   );
