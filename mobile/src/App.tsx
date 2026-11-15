@@ -7,7 +7,7 @@ import {
   LockKeyhole,
   ShieldCheck, Sparkles, Wifi,
 } from 'lucide-react';
-import { SessionProvider } from './platform/next-auth-react';
+import { useAppLocale } from '../../components/i18n/AppLocaleProvider';
 import type { MobileActionDetail, MobileSessionTokens } from '../../shared/mobile-contracts';
 import { notificationTargetFromLink, type NotificationTarget } from '../../lib/notification-nav-link';
 import {
@@ -190,6 +190,7 @@ function MobileProductContent({
 }
 
 export function App() {
+  const {t}=useAppLocale();
   const [screen, setScreen] = useState<Screen>('booting');
   const screenRef = useRef<Screen>('booting');
   const [session, setSession] = useState<MobileSessionTokens | null>(null);
@@ -316,38 +317,37 @@ export function App() {
   const authenticated = Boolean(session && screen !== 'signin' && screen !== 'booting');
 
   return (
-    <SessionProvider>
-      <main className={`mobile-shell screen-${screen}`}>
+    <main className={`mobile-shell screen-${screen}`}>
       <header className="app-header">
         {screen === 'process' || screen === 'list' ? (
-          <button className="icon-button" type="button" onClick={goBack} aria-label="Go back"><ArrowLeft /></button>
+          <button className="icon-button" type="button" onClick={goBack} aria-label={t("Go back")}><ArrowLeft /></button>
         ) : <span className="brand-mark" aria-hidden="true"><Sparkles /></span>}
-        <div className="brand-copy"><strong>Actiproc Beta</strong><span>{authenticated ? 'Mobile workspace' : 'Secure workspace'}</span></div>
-        <span className={`network-status ${online ? 'online' : 'offline'}`} aria-label={online ? 'Online' : 'Offline'}>{online ? <Wifi /> : <CloudOff />}</span>
-        {authenticated ? <button type="button" className="avatar mobile-account-shortcut" title={session?.user.email} aria-label="Account settings" onClick={() => selectRoot('settings')}>{session ? initials(session) : ''}</button> : null}
+        <div className="brand-copy"><strong>Actiproc Beta</strong><span>{authenticated ? t('Mobile workspace') : t('Secure workspace')}</span></div>
+        <span className={`network-status ${online ? 'online' : 'offline'}`} aria-label={online ? t('Online') : t('Offline')}>{online ? <Wifi /> : <CloudOff />}</span>
+        {authenticated ? <button type="button" className="avatar mobile-account-shortcut" title={session?.user.email} aria-label={t("Account settings")} onClick={() => selectRoot('settings')}>{session ? initials(session) : ''}</button> : null}
       </header>
 
-      {!online ? <div className="offline-banner" role="status"><CloudOff />You are offline. Reconnect to continue.</div> : null}
+      {!online ? <div className="offline-banner" role="status"><CloudOff />{t("You are offline. Reconnect to continue.")}</div> : null}
 
-      {screen === 'booting' ? <section className="panel centered"><div className="spinner" /><p>Restoring your secure session…</p></section> : null}
+      {screen === 'booting' ? <section className="panel centered"><div className="spinner" /><p>{t("Restoring your secure session…")}</p></section> : null}
 
       {screen === 'signin' ? (
         <section className="panel auth-panel" aria-labelledby="signin-title">
           <span className="hero-icon"><LockKeyhole /></span>
-          <p className="eyebrow">Secure mobile access</p>
-          <h1 id="signin-title">Welcome back</h1>
-          <p className="summary">Sign in with your existing Actiproc account. Your workspace permissions stay unchanged.</p>
-          {!mobileApiConfigured() ? <div className="notice error">Mobile API URL is not configured in this development build.</div> : null}
+          <p className="eyebrow">{t("Secure mobile access")}</p>
+          <h1 id="signin-title">{t("Welcome back")}</h1>
+          <p className="summary">{t("Sign in with your existing Actiproc account. Your workspace permissions stay unchanged.")}</p>
+          {!mobileApiConfigured() ? <div className="notice error">{t("Mobile API URL is not configured in this development build.")}</div> : null}
           <form onSubmit={signIn}>
-            <label>Email<input name="email" type="email" inputMode="email" autoCapitalize="none" autoComplete="email" required disabled={busy || !online} /></label>
-            <label>Password<input name="password" type="password" autoComplete="current-password" required disabled={busy || !online} /></label>
-            <button className="primary" disabled={busy || !online || !mobileApiConfigured()}>{busy ? 'Signing in…' : 'Sign in'}</button>
+            <label>{t("Email")}<input name="email" type="email" inputMode="email" autoCapitalize="none" autoComplete="email" required disabled={busy || !online} /></label>
+            <label>{t("Password")}<input name="password" type="password" autoComplete="current-password" required disabled={busy || !online} /></label>
+            <button className="primary" disabled={busy || !online || !mobileApiConfigured()}>{busy ? t('Signing in…') : t('Sign in')}</button>
           </form>
-          <div className="divider"><span>or</span></div>
-          <button className="secondary" onClick={() => void startGoogleSignIn().catch((cause) => setError(cause instanceof Error ? cause.message : 'Google sign-in failed.'))} disabled={busy || !online || !mobileApiConfigured() || !googleOAuthEnabled}>{googleOAuthEnabled ? 'Continue with Google' : googleOAuthChecked ? 'Google sign-in — setup pending' : 'Checking Google sign-in…'}</button>
-          {!googleOAuthEnabled && googleOAuthChecked ? <p className="security-note">Google sign-in will be enabled after the OAuth callback and Android App Link are verified.</p> : null}
+          <div className="divider"><span>{t("or")}</span></div>
+          <button className="secondary" onClick={() => void startGoogleSignIn().catch((cause) => setError(cause instanceof Error ? cause.message : 'Google sign-in failed.'))} disabled={busy || !online || !mobileApiConfigured() || !googleOAuthEnabled}>{googleOAuthEnabled ? t('Continue with Google') : googleOAuthChecked ? t('Google sign-in — setup pending') : t('Checking Google sign-in…')}</button>
+          {!googleOAuthEnabled && googleOAuthChecked ? <p className="security-note">{t("Google sign-in will be enabled after the OAuth callback and Android App Link are verified.")}</p> : null}
           {error ? <div className="notice error" role="alert">{error}</div> : null}
-          <p className="security-note secure-note"><ShieldCheck />Refresh credentials are protected by Android Keystore and never stored in localStorage.</p>
+          <p className="security-note secure-note"><ShieldCheck />{t("Refresh credentials are protected by Android Keystore and never stored in localStorage.")}</p>
         </section>
       ) : null}
 
@@ -369,19 +369,18 @@ export function App() {
         </MobilePlannerRuntime>
       ) : null}
 
-      {busy && authenticated ? <div className="busy-indicator" role="status"><div className="spinner" /><span>Updating workspace…</span></div> : null}
-      {error && screen !== 'signin' ? <div className="notice error global-error" role="alert">{error}<button type="button" onClick={() => setError(null)}>Dismiss</button></div> : null}
+      {busy && authenticated ? <div className="busy-indicator" role="status"><div className="spinner" /><span>{t("Updating workspace…")}</span></div> : null}
+      {error && screen !== 'signin' ? <div className="notice error global-error" role="alert">{error}<button type="button" onClick={() => setError(null)}>{t("Dismiss")}</button></div> : null}
       <Toaster richColors position="top-center" />
       {authenticated ? (
-        <nav className="mobile-tab-bar" aria-label="Primary navigation">
-          <button type="button" aria-current={screen === 'workspace' ? 'page' : undefined} className={screen === 'workspace' ? 'is-active' : ''} onClick={() => selectRoot('workspace')}><Home /><span>Home</span></button>
-          <button type="button" aria-current={screen === 'planner' ? 'page' : undefined} className={screen === 'planner' ? 'is-active' : ''} onClick={() => selectRoot('planner')}><CalendarDays /><span>Planner</span></button>
-          <button type="button" aria-current={screen === 'process' ? 'page' : undefined} className={screen === 'process' ? 'is-active' : ''} onClick={() => setScreen('process')}><CheckSquare2 /><span>Actions</span></button>
-          <button type="button" aria-current={screen === 'knowledge' ? 'page' : undefined} className={screen === 'knowledge' ? 'is-active' : ''} onClick={() => selectRoot('knowledge')}><BookOpen /><span>Knowledge</span></button>
-          <button type="button" aria-current={['more', 'ai', 'list', 'settings'].includes(screen) ? 'page' : undefined} className={['more', 'ai', 'list', 'settings'].includes(screen) ? 'is-active' : ''} onClick={() => selectRoot('more')}><Grid2X2 /><span>More</span></button>
+        <nav className="mobile-tab-bar" aria-label={t("Primary navigation")}>
+          <button type="button" aria-current={screen === 'workspace' ? 'page' : undefined} className={screen === 'workspace' ? 'is-active' : ''} onClick={() => selectRoot('workspace')}><Home /><span>{t("Home")}</span></button>
+          <button type="button" aria-current={screen === 'planner' ? 'page' : undefined} className={screen === 'planner' ? 'is-active' : ''} onClick={() => selectRoot('planner')}><CalendarDays /><span>{t("Planner")}</span></button>
+          <button type="button" aria-current={screen === 'process' ? 'page' : undefined} className={screen === 'process' ? 'is-active' : ''} onClick={() => setScreen('process')}><CheckSquare2 /><span>{t("Actions")}</span></button>
+          <button type="button" aria-current={screen === 'knowledge' ? 'page' : undefined} className={screen === 'knowledge' ? 'is-active' : ''} onClick={() => selectRoot('knowledge')}><BookOpen /><span>{t("Knowledge")}</span></button>
+          <button type="button" aria-current={['more', 'ai', 'list', 'settings'].includes(screen) ? 'page' : undefined} className={['more', 'ai', 'list', 'settings'].includes(screen) ? 'is-active' : ''} onClick={() => selectRoot('more')}><Grid2X2 /><span>{t("More")}</span></button>
         </nav>
       ) : <footer>{Capacitor.getPlatform()} · local bundle</footer>}
-      </main>
-    </SessionProvider>
+    </main>
   );
 }
