@@ -1432,6 +1432,13 @@ export const trCatalog:Readonly<Record<string,string>> = {
   "Long completion cycles": "Uzun tamamlama süreleri",
   "Actions take ~{days} days on average. Break them into smaller steps.": "Görevler ortalama yaklaşık {days} gün sürüyor. Daha küçük adımlara bölmeyi düşün.",
   "Complete actions to unlock personalised insights about your team's performance.": "Ekibinin performansına ilişkin kişiselleştirilmiş içgörüler için görevleri tamamla.",
+  "low": "düşük",
+  "medium": "orta",
+  "high": "yüksek",
+  "urgent": "acil",
+  "admin": "yönetici",
+  "member": "üye",
+  "viewer": "görüntüleyici",
 };
 const dictionaries:Record<AppLocale,Readonly<Record<string,string>>>={en:{},tr:trCatalog};
 export function hasTurkishAppTranslation(text:string):boolean{
