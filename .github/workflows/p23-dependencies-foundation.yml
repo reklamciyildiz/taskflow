@@ -6,6 +6,8 @@ on:
       - '.github/workflows/p23-dependencies-foundation.yml'
       - 'supabase/migrations/20261115220000_task_dependencies_foundation.sql'
       - 'app/api/tasks/**'
+      - 'app/api/projects/[id]/route.ts'
+      - 'app/api/inbox/board/route.ts'
       - 'lib/task-dependencies.ts'
       - 'lib/api.ts'
       - 'scripts/test-task-dependencies*'
