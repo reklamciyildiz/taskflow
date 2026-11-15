@@ -92,7 +92,8 @@ export function searchAuthorizedRows(
   const add=(kind:SearchKind,id:string,title:string,subtitle:string,teamId:string|null,
     projectId:string|null,taskId:string|null,extra?:{noteId?:string;checklistId?:string})=>{
     if(!id||!title)return;
-    const score=scoreFor(title,subtitle,needle);
+    // Parent Action title is useful context, but must not cause a Checklist false match.
+    const score=scoreFor(title,kind==='checklist'?'':subtitle,needle);
     if(score===0)return;
     results.push({kind,id,title:title.slice(0,170),subtitle:safeSnippet(subtitle,needle),
       teamId,projectId,taskId,score,...extra});
