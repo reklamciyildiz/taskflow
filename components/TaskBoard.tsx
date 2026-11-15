@@ -233,7 +233,7 @@ export function TaskBoard() {
       if (destination.droppableId !== source.droppableId) {
         if (isTerminalBoardColumn(destination.droppableId, boardColumns)) {
           if (!canCompleteTask(task.assigneeId)) return;
-          if (dependencySummary.items[task.id]?.blocked) {
+          if (dependencySummary.items[task.id]?.blocked && !isTerminalBoardColumn(task.status, boardColumns)) {
             toast.error(t('Complete prerequisite Actions before moving this Action to a completed stage.'));
             return;
           }
