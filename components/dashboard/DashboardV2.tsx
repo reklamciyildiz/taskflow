@@ -1,5 +1,6 @@
 'use client';
-import {T as AppT} from '@/components/i18n/AppLocaleProvider';
+import {T as AppT,useAppLocale} from '@/components/i18n/AppLocaleProvider';
+import type {AppLocale} from '@/lib/i18n/app-locale';
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -17,8 +18,8 @@ import {
   DashboardWorkspaceSummary,
 } from '@/components/dashboard/DashboardPanels';
 
-function headingDate(): string {
-  return new Intl.DateTimeFormat('en-US', {
+function headingDate(locale:AppLocale): string {
+  return new Intl.DateTimeFormat(locale==='tr'?'tr-TR':'en-US', {
     weekday: 'long',
     month: 'long',
     day: 'numeric',
@@ -26,6 +27,7 @@ function headingDate(): string {
 }
 
 export function DashboardV2() {
+  const {locale,t}=useAppLocale();
   const { currentTeam, currentUser, projects, tasks, generalBoardColumns, loading } = useTaskContext();
   const [captureOpen, setCaptureOpen] = useState(false);
   const [createActionOpen, setCreateActionOpen] = useState(false);
@@ -37,7 +39,7 @@ export function DashboardV2() {
     setJourneyDismissed(dismissKey?localStorage.getItem(dismissKey)==='1':false);
   },[dismissKey]);
 
-  useEffect(() => setDateLabel(headingDate()), []);
+  useEffect(() => setDateLabel(headingDate(locale)), [locale]);
 
   // Values are derived from the current team's canonical task/stage lifecycle.
   // Never display invented trends or treat a custom stage name as "completed".

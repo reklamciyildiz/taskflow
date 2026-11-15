@@ -1,5 +1,5 @@
 'use client';
-import {T as AppT} from '@/components/i18n/AppLocaleProvider';
+import {T as AppT,useAppLocale} from '@/components/i18n/AppLocaleProvider';
 
 
 import { useMemo, useState, useEffect, useRef, useCallback } from 'react';
@@ -15,6 +15,7 @@ import {
 import { notificationLinkForNavigation } from '@/lib/notification-nav-link';
 
 export function NotificationBell() {
+  const {t,locale}=useAppLocale();
   const [notifications, setNotifications] = useState<InAppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
@@ -60,8 +61,8 @@ export function NotificationBell() {
       // ignore
     }
     try {
-      const title = newestUnreadAssignment.title || 'New assignment';
-      const body = newestUnreadAssignment.message || 'You have a new assigned action.';
+      const title = newestUnreadAssignment.title || t('New assignment');
+      const body = newestUnreadAssignment.message || t('You have a new assigned action.');
       const notif = new Notification(title, { body });
       notif.onclick = () => {
         try {
@@ -75,7 +76,7 @@ export function NotificationBell() {
     } catch {
       // ignore
     }
-  }, [router]);
+  }, [router,t]);
 
   const refresh = useCallback(async () => {
     lastPollMsRef.current = Date.now();
@@ -213,13 +214,14 @@ export function NotificationBell() {
       const diffHours = Math.floor(diffMs / 3600000);
       const diffDays = Math.floor(diffMs / 86400000);
 
-      if (diffMins < 1) return 'Just now';
-      if (diffMins < 60) return `${diffMins}m ago`;
-      if (diffHours < 24) return `${diffHours}h ago`;
-      if (diffDays < 7) return `${diffDays}d ago`;
-      return date.toLocaleDateString();
+      const relative = new Intl.RelativeTimeFormat(locale === 'tr' ? 'tr-TR' : 'en-US',{numeric:'always',style:'short'});
+      if (diffMins < 1) return t('Just now');
+      if (diffMins < 60) return relative.format(-diffMins,'minute');
+      if (diffHours < 24) return relative.format(-diffHours,'hour');
+      if (diffDays < 7) return relative.format(-diffDays,'day');
+      return date.toLocaleDateString(locale === 'tr' ? 'tr-TR' : 'en-US');
     };
-  }, [nowMs]);
+  }, [nowMs,locale,t]);
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -227,7 +229,7 @@ export function NotificationBell() {
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         className="relative rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted"
-        aria-label="Notifications"
+        aria-label={t("Notifications")}
         aria-expanded={isOpen}
         aria-haspopup="true"
       >
@@ -268,7 +270,7 @@ export function NotificationBell() {
                 <Bell className="mx-auto mb-3 h-12 w-12 text-muted-foreground/40" />
                 <p className="text-sm text-muted-foreground"><AppT text="No notifications yet"/></p>
                 <p className="mt-2 text-xs text-muted-foreground/80">
-                  Visit the notification center for history and settings.
+                  {t('Visit the notification center for history and settings.')}
                 </p>
               </div>
             ) : (

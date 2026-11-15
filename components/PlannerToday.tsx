@@ -1,5 +1,6 @@
 'use client';
-import {T as AppT} from '@/components/i18n/AppLocaleProvider';
+import {T as AppT,useAppLocale} from '@/components/i18n/AppLocaleProvider';
+import type {AppLocale} from '@/lib/i18n/app-locale';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -61,9 +62,9 @@ function withProjectionItem(
   return buildPlannerTodayProjection(all, projection.date, timeZone);
 }
 
-function todayHeading(date: string): string {
+function todayHeading(date: string, locale:AppLocale): string {
   const [year, month, day] = date.split('-').map(Number);
-  return new Intl.DateTimeFormat('en-US', {
+  return new Intl.DateTimeFormat(locale==='tr'?'tr-TR':'en-US', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -75,16 +76,16 @@ function compactTime(value: string | null): string | null {
   return value.slice(0, 5);
 }
 
-function compactDate(value: string): string {
+function compactDate(value: string,locale:AppLocale): string {
   const [year, month, day] = value.split('-').map(Number);
-  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' })
+  return new Intl.DateTimeFormat(locale==='tr'?'tr-TR':'en-US', { month: 'short', day: 'numeric' })
     .format(new Date(year, month - 1, day, 12));
 }
 
-function upcomingHeading(value: string, today: string): string {
-  if (value === addCalendarDays(today, 1)) return 'Tomorrow';
+function upcomingHeading(value: string, today: string,locale:AppLocale): string {
+  if (value === addCalendarDays(today, 1)) return locale==='tr'?'Yarın':'Tomorrow';
   const [year, month, day] = value.split('-').map(Number);
-  return new Intl.DateTimeFormat('en-US', {
+  return new Intl.DateTimeFormat(locale==='tr'?'tr-TR':'en-US', {
     weekday: 'long',
     month: 'short',
     day: 'numeric',
@@ -147,6 +148,7 @@ function PlannerRow({
   onSkip: () => void;
   onHistory: () => void;
 }) {
+  const {locale,t}=useAppLocale();
   const [dateOpen, setDateOpen] = useState(false);
   const title = item.source.sourceType === 'checklist_item'
     ? item.checklistItemText || 'Checklist item'
@@ -218,12 +220,12 @@ function PlannerRow({
           {showDate ? (
             <span className="inline-flex items-center gap-1 text-destructive/90">
               <CalendarDays className="h-3 w-3" aria-hidden />
-              {compactDate(item.effectiveDate)}
+              {compactDate(item.effectiveDate,locale)}
             </span>
           ) : null}
           {showDate ? <span aria-hidden>·</span> : null}
           <span className="rounded-md bg-muted/45 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-            {item.source.sourceType === 'checklist_item' ? 'Checklist' : 'Action'}
+            {t(item.source.sourceType === 'checklist_item' ? 'Checklist' : 'Action')}
           </span>
           {item.source.sourceType === 'checklist_item' ? <span className="max-w-[22rem] truncate">{item.taskTitle}</span> : null}
           {item.projectName ? (
@@ -278,6 +280,7 @@ function PlannerRow({
 }
 
 export function PlannerToday({ embedded = false }: { embedded?: boolean }) {
+  const {locale,t}=useAppLocale();
   const {
     tasks,
     projects,
@@ -646,7 +649,7 @@ export function PlannerToday({ embedded = false }: { embedded?: boolean }) {
       toast.error('Could not reschedule this item');
       return;
     }
-    toast.success(`Rescheduled to ${compactDate(nextDate)}`);
+    toast.success(`Rescheduled to ${compactDate(nextDate,locale)}`);
   }, [plannerApi, scheduleApi]);
 
   const skip = useCallback(async (item: PlannerProjectionItem) => {
@@ -735,7 +738,7 @@ export function PlannerToday({ embedded = false }: { embedded?: boolean }) {
             <CalendarDays className="h-4 w-4" aria-hidden /><AppT text="Planner"/></div>
           <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
             {view === 'today' ? (
-              <><AppT text="Today"/><span className="font-normal text-muted-foreground">· {todayHeading(date)}</span></>
+              <><AppT text="Today"/><span className="font-normal text-muted-foreground">· {todayHeading(date,locale)}</span></>
             ) : 'Upcoming'}
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
@@ -825,7 +828,7 @@ export function PlannerToday({ embedded = false }: { embedded?: boolean }) {
           {visibleUpcoming?.groups.map((group) => (
             <section key={group.date} aria-labelledby={`planner-${group.date}`}>
               <h2 id={`planner-${group.date}`} className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                {upcomingHeading(group.date, date)}
+                {upcomingHeading(group.date, date,locale)}
               </h2>
               {renderRows(group.items)}
             </section>

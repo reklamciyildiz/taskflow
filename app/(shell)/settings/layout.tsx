@@ -5,9 +5,11 @@ import { useRouter } from 'next/navigation';
 import { useView } from '@/components/ViewContext';
 import { SettingsNav } from '@/components/settings/SettingsNav';
 import { toast } from 'sonner';
+import {useAppLocale} from '@/components/i18n/AppLocaleProvider';
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
   const { setCurrentView } = useView();
+  const {t}=useAppLocale();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
 
@@ -24,17 +26,17 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
     const flag = url.searchParams.get('google');
     if (!flag) return;
 
-    if (flag === 'connected') toast.success('Google Calendar connected');
-    else if (flag === 'unauthorized') toast.error('Google sign-in failed (unauthorized).');
-    else if (flag === 'invalid_state') toast.error('Google sign-in failed (invalid state).');
-    else if (flag === 'no_refresh_token') toast.error('Google did not return a refresh token. Try disconnect/reconnect with consent.');
-    else if (flag === 'db_error') toast.error('Could not save Google connection (database error).');
-    else if (flag === 'oauth_error') toast.error('Google OAuth failed.');
+    if (flag === 'connected') toast.success(t('Google Calendar connected'));
+    else if (flag === 'unauthorized') toast.error(t("Google sign-in failed (unauthorized)."));
+    else if (flag === 'invalid_state') toast.error(t("Google sign-in failed (invalid state)."));
+    else if (flag === 'no_refresh_token') toast.error(t("Google did not return a refresh token. Try disconnect/reconnect with consent."));
+    else if (flag === 'db_error') toast.error(t("Could not save Google connection (database error)."));
+    else if (flag === 'oauth_error') toast.error(t("Google OAuth failed."));
     else toast.message(`Google: ${flag}`);
 
     url.searchParams.delete('google');
     router.replace(`${url.pathname}${url.search || ''}`);
-  }, [mounted, router]);
+  }, [mounted, router,t]);
 
   return (
     <div className="flex min-h-full flex-col lg:flex-row">

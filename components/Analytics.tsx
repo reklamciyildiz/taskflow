@@ -1,5 +1,5 @@
 'use client';
-import {T as AppT} from '@/components/i18n/AppLocaleProvider';
+import {T as AppT,useAppLocale} from '@/components/i18n/AppLocaleProvider';
 
 
 import {completedWithin,completionDurationDays,verifiedCompletionAt} from '@/lib/metrics/completions';
@@ -9,7 +9,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell,
 } from 'recharts';
-import { format, subDays } from 'date-fns';
+import { subDays } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -166,6 +166,7 @@ function ProcessCard({
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function Analytics() {
+  const {date}=useAppLocale();
   const { tasks, projects, currentTeam, generalBoardColumns } = useTaskContext();
   const [showExport, setShowExport] = useState(false);
   const [selectedProcessId, setSelectedProcessId] = useState<string>('all');
@@ -221,7 +222,7 @@ export function Analytics() {
   const velocityThisWeek = useMemo(() => {
     const weekAgo = subDays(now, 7);
     return completedTasks.filter(t => completedWithin(t,weekAgo,now)).length;
-  }, [completedTasks, now]);
+  }, [completedTasks, now, date]);
 
   const incompleteHistoryCount = useMemo(
     () => completedTasks.filter(t => !verifiedCompletionAt(t)).length,
@@ -248,7 +249,7 @@ export function Analytics() {
       const count = completedTasks.filter(
         t => completedWithin(t,weekStart,weekEnd)
       ).length;
-      return { week: format(weekStart, 'MMM d'), completed: count };
+      return { week: date(weekStart,{month:'short',day:'numeric'}), completed: count };
     }).reverse();
   }, [completedTasks, now]);
 
