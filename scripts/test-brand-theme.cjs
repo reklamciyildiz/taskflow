@@ -6,6 +6,7 @@ const css=read('app/globals.css');
 const marketing=read('app/(marketing)/marketing.css');
 const sidebar=read('components/Sidebar.tsx');
 const header=read('components/Header.tsx');
+const commandPalette=read('components/search/GlobalCommandPalette.tsx');
 const shell=read('components/shell/AppShellLayout.tsx');
 const billing=read('components/billing/BillingClient.tsx');
 const upgrade=read('components/billing/UpgradePlanModal.tsx');
@@ -30,7 +31,8 @@ for(const [name,source] of [['shell',shell],['sidebar',sidebar],['header',header
 }
 assert.match(sidebar,/actiproc-sidebar-active/);checks++;
 assert.match(sidebar,/aria-current=\{isActive \? 'page' : undefined\}/);checks++;
-assert.match(header,/bg-popover text-popover-foreground/);checks++;
+assert.match(header,/GlobalCommandPalette/);checks++;
+assert.match(commandPalette,/bg-popover text-popover-foreground/);checks++;
 assert.match(css,/prefers-reduced-motion: reduce/);checks++;
 assert.match(marketing,/\.marketing-theme \{/);checks++;
 for(const source of [lists,views]){assert.doesNotMatch(source,/#60a5fa/i);assert.match(source,/hsl\(var\(--primary\)\)/);checks+=2;}

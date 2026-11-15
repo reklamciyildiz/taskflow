@@ -1,253 +1,95 @@
 'use client';
 
-import { Menu, PanelLeftClose, PanelLeftOpen, Search, Plus, X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { ThemeToggle } from '@/components/ThemeToggle';
-import { UserMenu } from '@/components/UserMenu';
-import { NotificationBell } from '@/components/NotificationBell';
-import { CreateTaskModal } from '@/components/CreateTaskModal';
-import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { useTaskContext, type Task } from '@/components/TaskContext';
-import { useRouter } from 'next/navigation';
-import { resolveActionLifecycle } from '@/lib/stage-lifecycle';
+import {useEffect,useState} from 'react';
+import {Menu,PanelLeftClose,PanelLeftOpen,Search,Plus,Command as CommandIcon} from 'lucide-react';
+import {Button} from '@/components/ui/button';
+import {ThemeToggle} from '@/components/ThemeToggle';
+import {UserMenu} from '@/components/UserMenu';
+import {NotificationBell} from '@/components/NotificationBell';
+import {CreateTaskModal} from '@/components/CreateTaskModal';
+import {GlobalCommandPalette} from '@/components/search/GlobalCommandPalette';
+import {useTaskContext} from '@/components/TaskContext';
 
 interface HeaderProps {
-  onSidebarToggle: () => void;
+  onSidebarToggle:()=>void;
   /** lg+: is the sidebar expanded (not collapsed) */
-  desktopSidebarExpanded?: boolean;
+  desktopSidebarExpanded?:boolean;
 }
 
-export function Header({ onSidebarToggle, desktopSidebarExpanded = true }: HeaderProps) {
-  const [showCreateTask, setShowCreateTask] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [showResults, setShowResults] = useState(false);
-  const {
-    tasks,
-    teams,
-    currentTeam,
-    openTaskEditor,
-    openBoardForProject,
-    setBoardScope,
-    setCurrentProjectId,
-    setCurrentTeam,
-    projects,
-    generalBoardColumns,
-  } = useTaskContext();
-  const searchRef = useRef<HTMLDivElement>(null);
-  const router = useRouter();
+export function Header({onSidebarToggle,desktopSidebarExpanded=true}:HeaderProps) {
+  const [showCreateTask,setShowCreateTask]=useState(false);
+  const [searchOpen,setSearchOpen]=useState(false);
+  const {currentUserRole}=useTaskContext();
+  const canCreateAction=currentUserRole!=='viewer';
 
-  const tasksInScope = useMemo(() => {
-    if (!currentTeam) return tasks;
-    return tasks.filter((t) => t.teamId === currentTeam.id);
-  }, [tasks, currentTeam]);
-
-  const q = searchQuery.trim().toLowerCase();
-
-  // Filter results based on search query (actions scoped to current team)
-  const searchResults =
-    searchQuery.length >= 2
-      ? {
-          tasks: tasksInScope
-            .filter(
-              (t) =>
-                t.title.toLowerCase().includes(q) || t.description?.toLowerCase().includes(q)
-            )
-            .slice(0, 5),
-          teams: teams
-            .filter((t) => t.name.toLowerCase().includes(q))
-            .slice(0, 3),
-        }
-      : { tasks: [], teams: [] };
-
-  const onSelectTask = useCallback(
-    (task: Task) => {
-      setShowResults(false);
-      setSearchQuery('');
-      openTaskEditor(task.id);
-      if (task.projectId) {
-        openBoardForProject(task.projectId);
-      } else {
-        setBoardScope({ type: 'general' });
-        setCurrentProjectId(null);
-        router.push('/board');
+  // The palette is mounted in the shared authenticated app shell.
+  // Do not hijack browser-native shortcuts on public/auth/marketing pages.
+  useEffect(()=>{
+    const onKey=(event:KeyboardEvent)=>{
+      const modifier=event.ctrlKey||event.metaKey;
+      if(modifier&&!event.altKey&&!event.shiftKey&&event.key.toLowerCase()==='k'){
+        event.preventDefault();
+        setSearchOpen(open=>!open);
+        return;
       }
-    },
-    [
-      openTaskEditor,
-      openBoardForProject,
-      setBoardScope,
-      setCurrentProjectId,
-      router,
-    ]
-  );
-
-  const onSelectTeam = useCallback(
-    (teamId: string) => {
-      setShowResults(false);
-      setSearchQuery('');
-      setCurrentTeam(teamId);
-      router.push('/team');
-    },
-    [setCurrentTeam, router]
-  );
-
-  const hasResults = searchResults.tasks.length > 0 || searchResults.teams.length > 0;
-
-  // Close search results when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
-        setShowResults(false);
+      if(modifier&&event.shiftKey&&!event.altKey&&event.key.toLowerCase()==='a'&&canCreateAction){
+        const target=event.target as HTMLElement|null;
+        const typing=target?.isContentEditable||['INPUT','TEXTAREA','SELECT'].includes(target?.tagName??'');
+        if(typing||searchOpen||showCreateTask)return;
+        event.preventDefault();
+        setShowCreateTask(true);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+    window.addEventListener('keydown',onKey);
+    return ()=>window.removeEventListener('keydown',onKey);
+  },[canCreateAction,searchOpen,showCreateTask]);
 
   return (
     <header className="actiproc-app-header sticky top-0 z-40 border-b bg-card/95 backdrop-blur-xl supports-[backdrop-filter]:bg-card/80">
-      <div className="flex h-16 items-center px-4 sm:px-6 gap-3 sm:gap-4">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="lg:hidden shrink-0"
-          onClick={onSidebarToggle}
-          aria-label="Toggle navigation"
-        >
-          <Menu className="h-5 w-5" />
+      <div className="flex h-16 items-center gap-3 px-4 sm:gap-4 sm:px-6">
+        <Button type="button" variant="ghost" size="sm" className="shrink-0 lg:hidden"
+          onClick={onSidebarToggle} aria-label="Toggle navigation">
+          <Menu className="h-5 w-5"/>
         </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="hidden lg:inline-flex shrink-0 text-muted-foreground hover:text-foreground"
+        <Button type="button" variant="ghost" size="sm"
+          className="hidden shrink-0 text-muted-foreground hover:text-foreground lg:inline-flex"
           onClick={onSidebarToggle}
-          aria-label={desktopSidebarExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
-          title={desktopSidebarExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
-        >
-          {desktopSidebarExpanded ? (
-            <PanelLeftClose className="h-5 w-5" />
-          ) : (
-            <PanelLeftOpen className="h-5 w-5" />
-          )}
+          aria-label={desktopSidebarExpanded?'Collapse sidebar':'Expand sidebar'}
+          title={desktopSidebarExpanded?'Collapse sidebar':'Expand sidebar'}>
+          {desktopSidebarExpanded?<PanelLeftClose className="h-5 w-5"/>:<PanelLeftOpen className="h-5 w-5"/>}
         </Button>
 
-        {/* Search */}
-        <div className="flex-1 max-w-md relative" ref={searchRef}>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search actions, teams..."
-              className="actiproc-header-search h-10 rounded-xl pl-10 pr-10 focus-visible:ring-1 focus-visible:ring-ring/35"
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setShowResults(true);
-              }}
-              onFocus={() => setShowResults(true)}
-            />
-            {searchQuery && (
-              <button
-                onClick={() => { setSearchQuery(''); setShowResults(false); }}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-
-          {/* Search Results Dropdown */}
-          {showResults && searchQuery.length >= 2 && (
-            <div className="absolute top-full left-0 right-0 mt-1 rounded-xl border border-border bg-popover text-popover-foreground shadow-xl overflow-hidden z-50">
-              {!hasResults ? (
-                <div className="p-4 text-center text-sm text-muted-foreground">
-                  No results found for "{searchQuery}"
-                </div>
-              ) : (
-                <div className="max-h-80 overflow-y-auto">
-                  {searchResults.tasks.length > 0 && (
-                    <div>
-                      <div className="px-3 py-2 text-xs font-medium text-muted-foreground bg-muted/55">
-                        Actions
-                      </div>
-                      {searchResults.tasks.map((task) => (
-                        <button
-                          key={task.id}
-                          type="button"
-                          onClick={() => onSelectTask(task)}
-                          className="w-full px-3 py-2 text-left hover:bg-accent/70 flex items-center gap-2"
-                        >
-                          <span className={`w-2 h-2 rounded-full ${
-                            resolveActionLifecycle(task, projects, generalBoardColumns).isTerminal ? 'bg-green-500' :
-                            task.status === 'progress' ? 'bg-blue-500' :
-                            task.status === 'review' ? 'bg-orange-500' : 'bg-gray-400'
-                          }`} />
-                          <span className="text-sm truncate">{task.title}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  {searchResults.teams.length > 0 && (
-                    <div>
-                      <div className="px-3 py-2 text-xs font-medium text-muted-foreground bg-muted/55">
-                        Teams
-                      </div>
-                      {searchResults.teams.map((team) => (
-                        <button
-                          key={team.id}
-                          type="button"
-                          onClick={() => onSelectTeam(team.id)}
-                          className="w-full px-3 py-2 text-left hover:bg-accent/70 text-sm"
-                        >
-                          {team.name}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
+        <div className="max-w-md flex-1">
+          <button type="button" aria-label="Search everything. Shortcut Control K or Command K"
+            aria-keyshortcuts="Control+K Meta+K" onClick={()=>setSearchOpen(true)}
+            className="actiproc-header-search group flex h-10 w-full items-center gap-3 rounded-xl border border-input bg-background/70 px-3 text-left text-sm text-muted-foreground transition-colors hover:border-primary/40 hover:bg-accent/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
+            <Search className="h-4 w-4 shrink-0" aria-hidden="true"/>
+            <span className="min-w-0 flex-1 truncate text-[13px]">Search everything...</span>
+            <span className="hidden items-center gap-1 rounded-md border bg-muted/40 px-1.5 py-1 text-[10px] font-semibold text-muted-foreground sm:inline-flex">
+              <CommandIcon className="h-3 w-3" aria-hidden="true"/> K
+            </span>
+          </button>
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Create task button */}
-          <Button 
-            size="sm" 
-            onClick={() => setShowCreateTask(true)}
-            className="hidden rounded-xl bg-primary font-semibold text-primary-foreground shadow-[0_8px_20px_-14px_hsl(var(--primary)/0.65)] hover:bg-primary/90 sm:flex"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Action
-          </Button>
-          
-          {/* Mobile create task button */}
-          <Button 
-            size="sm" 
-            onClick={() => setShowCreateTask(true)}
-            className="rounded-xl bg-primary p-2 font-semibold text-primary-foreground hover:bg-primary/90 sm:hidden"
-          >
-            <Plus className="h-4 w-4" />
-          </Button>
-
-          {/* Notifications */}
-          <NotificationBell />
-
-          {/* Theme toggle */}
-          <ThemeToggle />
-
-          {/* User menu */}
-          <UserMenu />
+          {canCreateAction&&<>
+            <Button type="button" size="sm" onClick={()=>setShowCreateTask(true)}
+              className="hidden rounded-xl bg-primary font-semibold text-primary-foreground shadow-[0_8px_20px_-14px_hsl(var(--primary)/0.65)] hover:bg-primary/90 sm:flex">
+              <Plus className="mr-2 h-4 w-4"/> Add Action
+            </Button>
+            <Button type="button" size="sm" aria-label="Add Action" onClick={()=>setShowCreateTask(true)}
+              className="rounded-xl bg-primary p-2 font-semibold text-primary-foreground hover:bg-primary/90 sm:hidden">
+              <Plus className="h-4 w-4"/>
+            </Button>
+          </>}
+          <NotificationBell/>
+          <ThemeToggle/>
+          <UserMenu/>
         </div>
       </div>
-
-      {/* Create task modal */}
-      <CreateTaskModal 
-        open={showCreateTask} 
-        onClose={() => setShowCreateTask(false)} 
-      />
+      <GlobalCommandPalette open={searchOpen} onOpenChange={setSearchOpen}
+        onCreateAction={()=>setShowCreateTask(true)}/>
+      <CreateTaskModal open={showCreateTask} onClose={()=>setShowCreateTask(false)}/>
     </header>
   );
 }
