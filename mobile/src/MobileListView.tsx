@@ -1,4 +1,5 @@
 import { TaskList } from '../../components/TaskList';
+import {useAppLocale} from '../../components/i18n/AppLocaleProvider';
 
 /**
  * The native List View reuses the canonical web operational table.
@@ -9,8 +10,9 @@ import { TaskList } from '../../components/TaskList';
  * Process administration is not yet supported by the Capacitor runtime.
  */
 export function MobileListView() {
+  const {t}=useAppLocale();
   return (
-    <section className="workspace mobile-product-view mobile-operational-list" aria-label="Action list">
+    <section className="workspace mobile-product-view mobile-operational-list" aria-label={t("Action list")}>
       <TaskList allowProcessAdministration={false} mobileCompact />
     </section>
   );
