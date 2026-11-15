@@ -135,7 +135,7 @@ async function main() {
   assert.equal(JSON.stringify(response.body).includes(ids.private), false);
   assert.ok(!Object.values(flags).some(value => 'title' in value));
 
-  state.tasks[2].status = 'accepted';
+  state.tasks.find(task => task.id === ids.private).status = 'accepted';
   const unblocked = await route.GET(request(team));
   assert.equal(unblocked.body.data[ids.target].blocked, false,
     'Private Process terminal state must be computed on server');
