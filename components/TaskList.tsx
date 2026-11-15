@@ -127,6 +127,7 @@ function CompletionControl({ task, columns, disabled, onChange }: {
 }
 
 function ScheduleCell({ task, disabled }: { task: Task; disabled: boolean }) {
+  const {t}=useAppLocale();
   const [open, setOpen] = useState(false);
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -138,7 +139,7 @@ function ScheduleCell({ task, disabled }: { task: Task; disabled: boolean }) {
           className="inline-flex h-11 md:h-8 max-w-full md:max-w-[170px] items-center gap-1.5 rounded-md px-2 text-left text-xs text-muted-foreground hover:bg-muted/50 hover:text-foreground disabled:cursor-default"
         >
           <CalendarDays className="h-3.5 w-3.5 shrink-0" />
-          <span className="truncate">{task.schedule ? scheduleChipLabel(task.schedule) : 'Unscheduled'}</span>
+          <span className="truncate">{task.schedule ? t(scheduleChipLabel(task.schedule)) : t('Unscheduled')}</span>
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-[min(92vw,380px)] border-0 bg-transparent p-0 shadow-none">
@@ -300,21 +301,21 @@ export function TaskList({ allowProcessAdministration = true, mobileCompact = fa
   const setSortField = (field: string) => setSort((current) => ({ ...current, field: field as OperationalSortField }));
 
   const headerLabel = (column: ColumnId) => {
-    if (column === 'stage') return 'Stage';
-    if (column === 'priority') return 'Priority';
-    if (column === 'assignee') return 'Assignee';
-    if (column === 'schedule') return 'Schedule';
-    if (column === 'client') return 'Client';
-    return propertyForColumn(column)?.name ?? 'Property';
+    if (column === 'stage') return t('Stage');
+    if (column === 'priority') return t('Priority');
+    if (column === 'assignee') return t('Assignee');
+    if (column === 'schedule') return t('Schedule');
+    if (column === 'client') return t('Client');
+    return propertyForColumn(column)?.name ?? t('Property');
   };
 
   return (
     <div className="h-full min-w-0 max-w-full space-y-3 md:space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-xl md:text-2xl font-bold text-foreground">{mobileCompact ? 'List View' : 'Action table'}</h1>
+          <h1 className="text-xl md:text-2xl font-bold text-foreground">{t(mobileCompact ? 'List View' : 'Action table')}</h1>
           <p className="mt-1 hidden md:block text-sm text-muted-foreground">
-            {boardProject ? `${boardProject.name} · edit operational metadata inline` : 'Inbox · edit operational metadata inline'}
+            {t('Edit operational metadata inline in {name}',{name:boardProject?.name ?? t('Inbox')})}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -348,7 +349,7 @@ export function TaskList({ allowProcessAdministration = true, mobileCompact = fa
             </Select>
             <Select value={filters.priority ?? ALL} onValueChange={(value) => setFilters((current) => ({ ...current, priority: value === ALL ? null : value as TaskPriority }))}>
               <SelectTrigger aria-label={t("Filter by priority")} className="h-8 w-[138px] text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent><SelectItem value={ALL}><AppT text="All priorities"/></SelectItem>{Object.entries(priorityConfig).map(([value, config]) => <SelectItem key={value} value={value}>{config.label}</SelectItem>)}</SelectContent>
+              <SelectContent><SelectItem value={ALL}><AppT text="All priorities"/></SelectItem>{Object.entries(priorityConfig).map(([value, config]) => <SelectItem key={value} value={value}>{t(config.label)}</SelectItem>)}</SelectContent>
             </Select>
             <Select value={filters.assignee ?? ALL} onValueChange={(value) => setFilters((current) => ({ ...current, assignee: value === ALL ? null : value }))}>
               <SelectTrigger aria-label={t("Filter by assignee")} className="h-8 w-[150px] text-xs"><SelectValue /></SelectTrigger>
@@ -368,13 +369,13 @@ export function TaskList({ allowProcessAdministration = true, mobileCompact = fa
           </div>
         </div>
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border/50 pt-3">
-          <p className="text-xs text-muted-foreground">{filteredTasks.length} of {scopedTasks.length} Actions</p>
+          <p className="text-xs text-muted-foreground">{t('{visible} of {total} Actions',{visible:filteredTasks.length,total:scopedTasks.length})}</p>
           <div className="flex min-w-0 flex-wrap items-center gap-2 max-md:[&_button]:min-h-[44px]">
             <Select value={sort.field} onValueChange={setSortField}>
               <SelectTrigger aria-label={t("Sort table")} className="h-8 w-[150px] text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="title"><AppT text="Sort by title"/></SelectItem><SelectItem value="stage"><AppT text="Sort by stage"/></SelectItem><SelectItem value="priority"><AppT text="Sort by priority"/></SelectItem><SelectItem value="assignee"><AppT text="Sort by assignee"/></SelectItem><SelectItem value="schedule"><AppT text="Sort by schedule"/></SelectItem><SelectItem value="client"><AppT text="Sort by client"/></SelectItem><SelectItem value="created"><AppT text="Sort by created"/></SelectItem>
-                {activeProperties.map((property) => <SelectItem key={property.id} value={`property:${property.id}`}>Sort by {property.name}</SelectItem>)}
+                {activeProperties.map((property) => <SelectItem key={property.id} value={`property:${property.id}`}>{t('Sort by {name}',{name:property.name})}</SelectItem>)}
               </SelectContent>
             </Select>
             <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setSort((current) => ({ ...current, direction: current.direction === 'asc' ? 'desc' : 'asc' }))} aria-label={`Sort ${sort.direction === 'asc' ? 'descending' : 'ascending'}`}>
@@ -426,7 +427,7 @@ export function TaskList({ allowProcessAdministration = true, mobileCompact = fa
                       ['stage', 'priority', 'schedule'].includes(column) ? 'block' : 'col-span-2',
                       !['stage', 'priority', 'schedule'].includes(column) && !expandedRows.has(task.id) ? 'hidden' : 'block');
                     if (column === 'stage') return <TableCell key={column} data-label={headerLabel(column)} className={cellClass}><InlineSelect label={`Stage for ${task.title}`} value={task.status} disabled={!canEdit || isPending(task.id, 'status')} onValueChange={(status) => void mutateTaskField(task, 'status', { status })}>{!boardColumns.some((stage) => stage.id === task.status) && <SelectItem value={task.status}>Unresolved ({task.status})</SelectItem>}{boardColumns.map((stage) => <SelectItem key={stage.id} value={stage.id} disabled={isTerminalBoardColumn(stage.id, boardColumns) && !canCompleteTask(task.assigneeId)}>{stage.title}</SelectItem>)}</InlineSelect></TableCell>;
-                    if (column === 'priority') return <TableCell key={column} data-label={headerLabel(column)} className={cellClass}><InlineSelect label={`Priority for ${task.title}`} value={task.priority} disabled={!canEdit || isPending(task.id, 'priority')} onValueChange={(priority) => void mutateTaskField(task, 'priority', { priority: priority as TaskPriority })}>{Object.entries(priorityConfig).map(([value, config]) => <SelectItem key={value} value={value}>{config.label}</SelectItem>)}</InlineSelect></TableCell>;
+                    if (column === 'priority') return <TableCell key={column} data-label={headerLabel(column)} className={cellClass}><InlineSelect label={`Priority for ${task.title}`} value={task.priority} disabled={!canEdit || isPending(task.id, 'priority')} onValueChange={(priority) => void mutateTaskField(task, 'priority', { priority: priority as TaskPriority })}>{Object.entries(priorityConfig).map(([value, config]) => <SelectItem key={value} value={value}>{t(config.label)}</SelectItem>)}</InlineSelect></TableCell>;
                     if (column === 'assignee') return <TableCell key={column} data-label={headerLabel(column)} className={cellClass}><InlineSelect label={`Assignee for ${task.title}`} value={task.assigneeId ?? UNASSIGNED_FILTER} disabled={!canEdit || isPending(task.id, 'assignee')} onValueChange={(assigneeId) => void mutateTaskField(task, 'assignee', { assigneeId: assigneeId === UNASSIGNED_FILTER ? null : assigneeId })}><SelectItem value={UNASSIGNED_FILTER}><AppT text="Unassigned"/></SelectItem>{currentTeam?.members.map((member) => <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>)}</InlineSelect></TableCell>;
                     if (column === 'schedule') return <TableCell key={column} data-label={headerLabel(column)} className={cellClass}><ScheduleCell task={task} disabled={!canEdit} /></TableCell>;
                     if (column === 'client') return <TableCell key={column} data-label={headerLabel(column)} className={cn(cellClass, "text-xs text-muted-foreground break-words")}>{task.customerName ?? '—'}</TableCell>;
@@ -443,7 +444,7 @@ export function TaskList({ allowProcessAdministration = true, mobileCompact = fa
                     </DropdownMenu>
                   </TableCell>
                   {visibleColumns.some(column => !['stage', 'priority', 'schedule'].includes(column)) && <TableCell className="self-end p-0 md:hidden">
-                    <button type="button" className="min-h-[44px] w-full rounded px-2 text-left text-xs text-muted-foreground hover:bg-muted" aria-expanded={expandedRows.has(task.id)} aria-label={`More details for ${task.title}`} onClick={() => setExpandedRows(current => { const next = new Set(current); if (next.has(task.id)) next.delete(task.id); else next.add(task.id); return next; })}>{expandedRows.has(task.id) ? 'Less details' : 'More details'}</button>
+                    <button type="button" className="min-h-[44px] w-full rounded px-2 text-left text-xs text-muted-foreground hover:bg-muted" aria-expanded={expandedRows.has(task.id)} aria-label={`More details for ${task.title}`} onClick={() => setExpandedRows(current => { const next = new Set(current); if (next.has(task.id)) next.delete(task.id); else next.add(task.id); return next; })}>{t(expandedRows.has(task.id) ? 'Less details' : 'More details')}</button>
                   </TableCell>}
                 </TableRow>
               );
@@ -452,7 +453,7 @@ export function TaskList({ allowProcessAdministration = true, mobileCompact = fa
         </Table>
         {filteredTasks.length === 0 && (
           <div className="px-6 py-14 text-center">
-            {loading ? <p className="animate-pulse text-sm text-muted-foreground"><AppT text="Loading actions…"/></p> : <><CheckCircle2 className="mx-auto mb-3 h-9 w-9 text-muted-foreground/60" /><h3 className="text-sm font-medium"><AppT text="No actions found"/></h3><p className="mt-1 text-xs text-muted-foreground">{searchQuery || hasOperationalFilters(filters) ? 'Try adjusting your search or filters.' : 'This process has no Actions yet.'}</p></>}
+            {loading ? <p className="animate-pulse text-sm text-muted-foreground"><AppT text="Loading actions…"/></p> : <><CheckCircle2 className="mx-auto mb-3 h-9 w-9 text-muted-foreground/60" /><h3 className="text-sm font-medium"><AppT text="No actions found"/></h3><p className="mt-1 text-xs text-muted-foreground">{t(searchQuery || hasOperationalFilters(filters) ? 'Try adjusting your search or filters.' : 'This process has no Actions yet.')}</p></>}
           </div>
         )}
       </div>
