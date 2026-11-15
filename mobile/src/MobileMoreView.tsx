@@ -4,6 +4,7 @@ import {
 } from 'lucide-react';
 import { Browser } from '@capacitor/browser';
 import { useState } from 'react';
+import { useAppLocale } from '../../components/i18n/AppLocaleProvider';
 
 type NativeDestination = 'workspace' | 'planner' | 'process' | 'list' | 'knowledge' | 'ai' | 'settings';
 
@@ -22,6 +23,7 @@ const webModules = [
 ] as const;
 
 export function MobileMoreView({ onNavigate }: { onNavigate: (destination: NativeDestination) => void }) {
+  const {t}=useAppLocale();
   const [opening, setOpening] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,46 +35,46 @@ export function MobileMoreView({ onNavigate }: { onNavigate: (destination: Nativ
       // pricing, external-store or upgrade destination is linked from the APK.
       await Browser.open({ url: `https://www.actiproc.com${path}`, presentationStyle: 'popover' });
     } catch {
-      setError('Could not open this web module. Check your connection and try again.');
+      setError(t('Could not open this web module. Check your connection and try again.'));
     } finally {
       setOpening(null);
     }
   }
 
   return (
-    <section className="workspace mobile-more-view mobile-product-view" aria-label="All Actiproc features">
+    <section className="workspace mobile-more-view mobile-product-view" aria-label={t("All Actiproc features")}>
       <div className="mobile-more-intro">
-        <p className="mobile-more-eyebrow">WORKSPACE</p>
-        <h1>More</h1>
-        <p>Tools and settings in one place.</p>
+        <p className="mobile-more-eyebrow">{t("WORKSPACE")}</p>
+        <h1>{t("More")}</h1>
+        <p>{t("Tools and settings in one place.")}</p>
       </div>
 
       <div className="mobile-more-section-heading">
-        <h2>Quick access</h2>
-        <span>In the app</span>
+        <h2>{t("Quick access")}</h2>
+        <span>{t("In the app")}</span>
       </div>
       <div className="mobile-more-shortcuts">
         {shortcuts.map(({ title, detail, destination, Icon }) => (
           <button type="button" key={destination} onClick={() => onNavigate(destination)} className="mobile-more-shortcut-row">
             <span className="mobile-more-shortcut-icon"><Icon aria-hidden="true" /></span>
-            <span className="mobile-more-item-copy"><strong>{title}</strong><small>{detail}</small></span>
+            <span className="mobile-more-item-copy"><strong>{t(title)}</strong><small>{t(detail)}</small></span>
             <ChevronRight aria-hidden="true" className="mobile-more-chevron" />
           </button>
         ))}
       </div>
 
       <div className="mobile-more-section-heading">
-        <h2>Workspace tools</h2>
-        <span>Web</span>
+        <h2>{t("Workspace tools")}</h2>
+        <span>{t("Web")}</span>
       </div>
       <p className="mobile-more-note">
-        These tools currently open the Actiproc website. You might need to sign in to the web separately.
+        {t("These tools currently open the Actiproc website. You might need to sign in to the web separately.")}
       </p>
       <div className="mobile-more-grid">
         {webModules.map(({ title, path, Icon }) => (
           <button type="button" key={path} disabled={opening !== null} onClick={() => void openWeb(path)} className="mobile-more-item">
             <Icon aria-hidden="true" />
-            <span className="mobile-more-item-copy"><strong>{title}</strong><small>Open web</small></span>
+            <span className="mobile-more-item-copy"><strong>{t(title)}</strong><small>{t("Open web")}</small></span>
             <ExternalLink aria-hidden="true" className="mobile-more-link-icon" />
           </button>
         ))}
