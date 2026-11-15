@@ -242,9 +242,27 @@ BEGIN
 END; $$;
 CREATE TRIGGER p23_inbox_terminal_integrity BEFORE UPDATE OF stages OR DELETE
   ON public.team_inbox_boards FOR EACH ROW EXECUTE FUNCTION public.p23_guard_inbox_stages();
+-- Removing a Process normally SET NULLs task.project_id. For linked Actions
+-- this would silently change their terminal-stage interpretation; require
+-- explicit unlinking before deleting such a Process.
+CREATE FUNCTION public.p23_guard_project_delete() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public AS $$
+BEGIN
+  PERFORM public.p23_lock_graph(OLD.organization_id);
+  IF EXISTS (
+    SELECT 1 FROM public.tasks t WHERE t.project_id=OLD.id
+      AND EXISTS (SELECT 1 FROM public.task_dependencies d
+        WHERE d.blocker_task_id=t.id OR d.blocked_task_id=t.id)
+  ) THEN RAISE EXCEPTION 'P23_DEPENDENCY_PROCESS_REQUIRED' USING ERRCODE='23514'; END IF;
+  RETURN OLD;
+END; $$;
+CREATE TRIGGER p23_project_delete_integrity BEFORE DELETE ON public.projects
+  FOR EACH ROW EXECUTE FUNCTION public.p23_guard_project_delete();
+
 REVOKE ALL ON FUNCTION public.p23_is_terminal(uuid,uuid,uuid,text,boolean) FROM PUBLIC,anon,authenticated;
 REVOKE ALL ON FUNCTION public.p23_guard_project_stages() FROM PUBLIC,anon,authenticated;
 REVOKE ALL ON FUNCTION public.p23_guard_inbox_stages() FROM PUBLIC,anon,authenticated;
+REVOKE ALL ON FUNCTION public.p23_guard_project_delete() FROM PUBLIC,anon,authenticated;
 
 REVOKE ALL ON FUNCTION public.p23_guard_dependency() FROM PUBLIC,anon,authenticated;
 REVOKE ALL ON FUNCTION public.p23_guard_task_completion() FROM PUBLIC,anon,authenticated;
