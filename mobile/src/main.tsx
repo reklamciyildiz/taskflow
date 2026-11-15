@@ -1,6 +1,8 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { App } from './App';
+import { SessionProvider } from './platform/next-auth-react';
+import { AppLocaleProvider } from '../../components/i18n/AppLocaleProvider';
 import { installSharedMobileFetchAdapter } from './mobile-api';
 import '../../app/globals.css';
 import './mobile.css';
@@ -27,6 +29,6 @@ installSharedMobileFetchAdapter();
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <App />
+    <SessionProvider><AppLocaleProvider><App /></AppLocaleProvider></SessionProvider>
   </React.StrictMode>,
 );
