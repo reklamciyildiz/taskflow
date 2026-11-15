@@ -137,6 +137,21 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
   try {
     const access = await authorizePair(request, params.id, input.peerId);
     if (access instanceof NextResponse) return access;
+    // Repeated requests for the same valid edge must remain idempotent even
+    // when a finished blocker was later reopened. Database UNIQUE still closes
+    // the concurrent-insert race after this read.
+    const { data: existing, error: lookupError } = await supabaseAdmin.from('task_dependencies')
+      .select('id')
+      .eq('organization_id', String(access.task.organization_id))
+      .eq('team_id', String(access.task.team_id))
+      .eq('blocker_task_id', input.blockerId).eq('blocked_task_id', input.blockedId)
+      .maybeSingle();
+    if (lookupError) {
+      console.error('Task dependency preflight lookup failed', lookupError.code);
+      return fail('Could not connect these Actions', 503);
+    }
+    if (existing) return NextResponse.json({ success: true, data: { linked: true } });
+
     const { error } = await supabaseAdmin.from('task_dependencies').insert({
       blocker_task_id: input.blockerId, blocked_task_id: input.blockedId,
       organization_id: String(access.task.organization_id),
