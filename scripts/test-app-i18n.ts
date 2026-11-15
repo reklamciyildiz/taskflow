@@ -33,6 +33,12 @@ const keyPaths=[
 'components/NotificationBell.tsx','components/search/GlobalCommandPalette.tsx',
 'components/settings/CalendarSettings.tsx','components/settings/NotificationsSettings.tsx',
 'components/onboarding/FirstSuccessJourney.tsx','components/billing/BillingClient.tsx',
+'components/billing/AIUsageBillingCard.tsx','components/TeamMembers.tsx',
+'components/TaskCard.tsx','components/Customers.tsx','components/Profile.tsx',
+'components/knowledge/KnowledgeHubWorkspace.tsx',
+'components/planner/PlannerV2View.tsx','components/planner/PlannerQuickAdd.tsx',
+'components/dashboard/DashboardV2.tsx','components/dashboard/DashboardCapture.tsx',
+'app/(shell)/integrations/IntegrationsClient.tsx','app/(shell)/settings/members/page.tsx',
 'mobile/src/App.tsx','mobile/src/MobileMoreView.tsx','mobile/src/MobileSettingsView.tsx',
 'mobile/src/MobileKnowledgeHub.tsx','mobile/src/MobileListView.tsx',
 'app/(shell)/team/page.tsx','app/(shell)/settings/account/page.tsx',
@@ -54,7 +60,26 @@ for(const path of keyPaths){
   if(code.includes("'use client';"))assert.ok(code.indexOf("'use client';")<code.indexOf("import "),
     path+' client directive must precede imports');
 }
-assert.ok(checkedUiMessages>=70,'Localization audit did not cover enough literal UI messages');
+assert.ok(checkedUiMessages>=250,'Localization audit must cover all critical interface texts');
+// Guard against regressions seen during manual Turkish-language QA.
+// Navigation is not enough: body copy, dashboard headings and action controls
+// must be locale-bound. User-entered names and descriptions are exempt.
+const screenshotRegressions=[
+  ['components/TaskCard.tsx',/>Completed Action</],
+  ['components/TaskCard.tsx',/task\.priority\.toUpperCase\(\)/],
+  ['components/planner/PlannerQuickAdd.tsx',/>Quick capture</],
+  ['components/dashboard/DashboardCapture.tsx',/>Quick Capture</],
+  ['components/knowledge/KnowledgeHubWorkspace.tsx',/>Ask Actiproc AI</],
+  ['app/(shell)/integrations/IntegrationsClient.tsx',/>Create Webhook</],
+  ['components/settings/NotificationsSettings.tsx',/>Notification channels</],
+  ['components/settings/CalendarSettings.tsx',/>Refresh calendars</],
+  ['components/settings/OrganizationSettings.tsx',/>Save labels</],
+  ['components/billing/AIUsageBillingCard.tsx',/>Actiproc AI allowance</],
+] as const;
+for(const [path,legacyLiteral] of screenshotRegressions){
+  assert.doesNotMatch(read(path),legacyLiteral,path+' reintroduced unlocalized UI text');
+}
+
 // The two native menus store labels as data, so t(title) alone cannot
 // prove every visible entry has a Turkish translation.
 for(const path of ['mobile/src/MobileMoreView.tsx','mobile/src/MobileSettingsView.tsx']){
