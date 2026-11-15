@@ -19,8 +19,8 @@ assert.match(shell, /safe-area-inset-bottom/);
 for (const route of ['/', '/planner', '/board', '/dashboard/knowledge-hub', '/ai']) {
   assert.ok(nav.includes("href: '" + route + "'"), 'Missing navigation destination: ' + route);
 }
-assert.match(mobileApp, /<CheckSquare2 \/><span>Actions<\/span>/);
-assert.match(mobileApp, /aria-label="Account settings"/);
+assert.match(mobileApp, /<CheckSquare2 \/><span>(?:Actions|\{t\("Actions"\)\})<\/span>/);
+assert.match(mobileApp, /aria-label=(?:"Account settings"|\{t\("Account settings"\)\})/);
 assert.match(css, /\.screen-workspace, \.screen-process/);
 assert.match(nativeAuth, /!secureEqual\(expectedState, returnedState\)/, 'Native handler must ignore JS-owned OAuth callback state');
 assert.match(nativeAuth, /bridge\.executeOnMainThread\(\(\) -> \{/);
@@ -120,7 +120,7 @@ assert.match(attachmentListRoute, /attachmentTargetAccess\(target, false, reques
 assert.match(attachmentItemRoute, /attachmentAccess\(params.id, false, request\)/);
 assert.match(mobileApp, /<MobileMoreView/);
 assert.match(mobileApp, /<MobileListView/);
-assert.match(mobileMoreView, /aria-label="All Actiproc features"/);
+assert.match(mobileMoreView, /aria-label=(?:"All Actiproc features"|\{t\("All Actiproc features"\)\})/);
 assert.match(mobileMoreView, /Customers/);
 const mobileSettings = read('mobile/src/MobileSettingsView.tsx');
 const profileRoute = read('app/api/users/profile/route.ts');
