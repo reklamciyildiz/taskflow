@@ -302,13 +302,13 @@ export function TaskBoard() {
               <p className="flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
                 <span className="flex h-5 w-5 items-center justify-center rounded-md border border-primary/15 bg-primary/10 text-primary">
                   <LayoutDashboard className="h-3.5 w-3.5" aria-hidden />
-                </span><AppT text="Workspace"/><span className="text-border">/</span> Projects &amp; Board
+                </span><AppT text="Workspace"/><span className="text-border">/</span> <AppT text="Projects & Board"/>
               </p>
               <h1 className="max-w-3xl break-words text-[21px] font-semibold leading-tight tracking-[-0.03em] text-foreground sm:text-[25px]">
                 {boardTitle}
               </h1>
               <p className="hidden text-[11px] leading-relaxed text-muted-foreground xl:block">
-                Organize work, follow progress, and move Actions through your workflow.
+                <AppT text="Organize work, follow progress, and move Actions through your workflow."/>
               </p>
             </div>
             <div className="grid min-w-0 grid-cols-3 gap-1.5 sm:gap-2 lg:w-[335px] lg:shrink-0">
@@ -360,11 +360,11 @@ export function TaskBoard() {
                 <Select value={customerFilter ?? '__all_customers__'}
                   onValueChange={(value) => setCustomerFilter(value === '__all_customers__' ? null : value)}>
                   <SelectTrigger className="h-10 min-w-[150px] flex-1 rounded-xl border-border/70 bg-background/70 shadow-sm sm:w-auto sm:flex-none"
-                    aria-label={`Filter by ${customerSingularLabel.toLowerCase()}`}>
-                    <SelectValue placeholder={`All ${customerDirectoryLabel}`} />
+                    aria-label={t('Filter by {name}',{name:customerSingularLabel.toLowerCase()})}>
+                    <SelectValue placeholder={t('All {name}',{name:customerDirectoryLabel})} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__all_customers__">All {customerDirectoryLabel}</SelectItem>
+                    <SelectItem value="__all_customers__">{t('All {name}',{name:customerDirectoryLabel})}</SelectItem>
                     {customers.map((customer) => <SelectItem key={customer.id} value={customer.id}>{customer.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
@@ -392,7 +392,7 @@ export function TaskBoard() {
               )}
               {customerFilter && (
                 <Badge variant="outline" className="flex items-center gap-1.5 rounded-full border border-violet-500/20 bg-violet-500/[0.055] px-2.5 py-1 text-[11px] text-foreground">
-                  {customers.find(c => c.id === customerFilter)?.name || 'Customer'}
+                  {customers.find(c => c.id === customerFilter)?.name || t('Customer')}
                   <button type="button" aria-label={t("Clear client filter")} onClick={() => setCustomerFilter(null)}
                     className="rounded-full p-0.5 hover:bg-violet-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                     <X className="h-3 w-3" aria-hidden />
@@ -570,7 +570,7 @@ export function TaskBoard() {
                         'actiproc-board-lane relative flex min-w-[270px] w-[min(85vw,330px)] shrink-0 snap-start flex-col overflow-hidden rounded-[23px] border shadow-[0_16px_40px_-34px_rgba(15,23,42,0.6)] md:min-w-[292px] md:flex-[1_0_292px] xl:max-w-[440px]',
                         skin.panel,
                       )}
-                      aria-label={`${column.title}: ${columnTasks.length} Actions`}>
+                      aria-label={t('{title}: {count} Actions',{title:column.title,count:columnTasks.length})}>
                       <div aria-hidden="true" className={cn('absolute inset-x-0 top-0 h-1 opacity-85', column.color ?? skin.dot)} />
                       <div className="actiproc-board-lane-header flex items-center justify-between gap-3 border-b border-border/50 bg-card/50 px-4 py-4">
                         <div className="flex min-w-0 items-center gap-2.5">
@@ -580,7 +580,7 @@ export function TaskBoard() {
                           </span>
                           <div className="min-w-0">
                             <p className="mb-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                              {terminal ? 'Completed' : `Stage ${String(columnIndex + 1).padStart(2, '0')}`}
+                              {terminal ? t('Completed') : t('Stage {number}',{number:String(columnIndex + 1).padStart(2, '0')})}
                             </p>
                             <h3 className="truncate text-[13px] font-semibold leading-snug tracking-[-0.01em]" title={column.title}>
                               {column.title}
@@ -620,7 +620,7 @@ export function TaskBoard() {
                                 </span>
                                 <p className="text-xs font-medium text-foreground/80"><AppT text="No Actions in this stage"/></p>
                                 <p className="text-[11px] leading-relaxed text-muted-foreground">
-                                  {terminal ? 'Completed work will appear here.' : 'Move an Action here as work progresses.'}
+                                  {t(terminal ? 'Completed work will appear here.' : 'Move an Action here as work progresses.')}
                                 </p>
                               </div>
                             )}
