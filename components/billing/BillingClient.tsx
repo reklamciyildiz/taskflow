@@ -83,9 +83,9 @@ const PLAN_FEATURES = {
 export function BillingClient({ organizationId, showBackLink = true }: Props) {
   const {t,number}=useAppLocale();
   const localizePlanFeature=(label:string)=>{
-    const qty=label.match(/^(\\d+) (process|processes|workspace|workspaces|seat included)$/);
+    const qty=label.match(/^(\d+) (process|processes|workspace|workspaces|seat included)$/);
     if(qty)return t('{count} {type}',{count:Number(qty[1]),type:t(qty[2])});
-    const upTo=label.match(/^Up to (\\d+) workspaces$/);
+    const upTo=label.match(/^Up to (\d+) workspaces$/);
     if(upTo)return t('Up to {count} workspaces',{count:Number(upTo[1])});
     return t(label);
   };
