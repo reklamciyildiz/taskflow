@@ -1,5 +1,5 @@
 'use client';
-import {T as AppT} from '@/components/i18n/AppLocaleProvider';
+import {T as AppT,useAppLocale} from '@/components/i18n/AppLocaleProvider';
 
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -36,7 +36,7 @@ import { useOrganizationBilling } from '@/hooks/useOrganizationBilling';
 import { isCapacitorNative } from '@/lib/client/is-capacitor-native';
 import { ACTIPROC_PLANS, actiprocPriceUsd, type BillingInterval } from '@/lib/billing-plans';
 import { PLAN_MARKETING_FEATURES } from '@/lib/plan-entitlement-matrix';
-import { aiPlanMonthlyDescription, aiPlanDailyDescription } from '@/lib/ai/ai-plan-catalog';
+import { AI_PLAN_LIMITS } from '@/lib/ai/ai-plan-catalog';
 import { AIUsageBillingCard } from '@/components/billing/AIUsageBillingCard';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
@@ -81,6 +81,14 @@ const PLAN_FEATURES = {
 } as const;
 
 export function BillingClient({ organizationId, showBackLink = true }: Props) {
+  const {t,number}=useAppLocale();
+  const localizePlanFeature=(label:string)=>{
+    const qty=label.match(/^(\\d+) (process|processes|workspace|workspaces|seat included)$/);
+    if(qty)return t('{count} {type}',{count:Number(qty[1]),type:t(qty[2])});
+    const upTo=label.match(/^Up to (\\d+) workspaces$/);
+    if(upTo)return t('Up to {count} workspaces',{count:Number(upTo[1])});
+    return t(label);
+  };
   const searchParams = useSearchParams();
   const {
     billingPlan,
@@ -368,7 +376,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
               <div className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#C8FF93]">
                 <span className="h-1.5 w-1.5 rounded-full bg-[#C8FF93]" aria-hidden /> Workspace subscription
               </div>
-              <h1 className="mt-2.5 text-[26px] font-semibold tracking-tight sm:text-[32px]">Billing &amp; plans</h1>
+              <h1 className="mt-2.5 text-[26px] font-semibold tracking-tight sm:text-[32px]"><AppT text="Billing & plans"/></h1>
               <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-300"><AppT text="One clear view of your subscription, seats, and upcoming billing dates."/></p>
             </div>
             <div className="flex items-center gap-2">
@@ -577,7 +585,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                   }}
                 >
                   <Users className="mr-1.5 h-3.5 w-3.5" aria-hidden />
-                  Manage seats
+                  <AppT text="Manage seats"/>
                 </Button>
               ) : null}
               {canResume && hasPaidSubscription ? (
@@ -870,17 +878,17 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
       {/* Plan matrix */}
       <div id="billing-plans" className="scroll-mt-20">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div><p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary"><AppT text="Flexible plans"/></p><h2 className="mt-1 text-xl font-semibold tracking-tight sm:text-2xl"><AppT text="Choose how your team grows"/></h2><p className="mt-1 text-sm text-muted-foreground">Individual renews annually; choose monthly or annual per-seat billing for Pro and Team.</p></div>
+          <div><p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary"><AppT text="Flexible plans"/></p><h2 className="mt-1 text-xl font-semibold tracking-tight sm:text-2xl"><AppT text="Choose how your team grows"/></h2><p className="mt-1 text-sm text-muted-foreground"><AppT text="Individual renews annually; choose monthly or annual per-seat billing for Pro and Team."/></p></div>
 
         </div>
-        <div role="group" aria-label="Billing period" className="mb-4 flex flex-wrap items-center justify-center gap-1.5 rounded-xl border border-border/70 bg-card p-1.5 sm:justify-start">
+        <div role="group" aria-label={t("Billing period")} className="mb-4 flex flex-wrap items-center justify-center gap-1.5 rounded-xl border border-border/70 bg-card p-1.5 sm:justify-start">
           {(['monthly','yearly'] as const).map(period=>
             <button key={period} type="button" aria-pressed={selectedBillingInterval===period}
               disabled={hasPaidSubscription}
               onClick={()=>setSelectedBillingInterval(period)}
               className={cn('rounded-lg px-4 py-2.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
                 selectedBillingInterval===period?'bg-primary text-primary-foreground':'text-muted-foreground hover:bg-primary/[0.06]')}
-            >{period==='yearly'?'Yearly · save 16.7%':'Monthly'}</button>
+            >{t(period==='yearly'?'Yearly · save 16.7%':'Monthly')}</button>
           )}
           {hasPaidSubscription && <span className="px-2 text-[11px] text-muted-foreground"><AppT text="Existing subscription cadence is fixed for upgrades. Change it through Creem support."/></span>}
         </div>
@@ -925,23 +933,23 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                   <CardTitle className="flex items-center gap-2 text-lg font-semibold tracking-tight">
                     {key === 'pro' ? <Sparkles className="h-4 w-4 text-amber-500" aria-hidden /> : null}
                     {key === 'team' ? <Users className="h-4 w-4 text-primary" aria-hidden /> : null}
-                    {title}
+                    {t(title)}
                   </CardTitle>
-                  <CardDescription className="text-xs">{blurb}</CardDescription>
+                  <CardDescription className="text-xs">{t(blurb)}</CardDescription>
                 </CardHeader>
                 <CardContent className="flex flex-1 flex-col gap-5 pb-5">
                   <div className="rounded-[15px] border border-primary/15 bg-primary/[0.045] p-3">
                     <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
-                      <Sparkles className="h-3.5 w-3.5" aria-hidden /> Included Actiproc AI
+                      <Sparkles className="h-3.5 w-3.5" aria-hidden /> <AppT text="Included Actiproc AI"/>
                     </div>
-                    <p className="mt-2 text-sm font-semibold text-foreground">{aiPlanMonthlyDescription(key)}</p>
-                    <p className="mt-1 text-[11px] text-muted-foreground">{aiPlanDailyDescription(key)}</p>
+                    <p className="mt-2 text-sm font-semibold text-foreground">{t('{count} AI requests/month{seat}',{count:number(AI_PLAN_LIMITS[key].monthlyBase),seat:AI_PLAN_LIMITS[key].perSeat?t(' per paid seat'):''})}</p>
+                    <p className="mt-1 text-[11px] text-muted-foreground">{t('Up to {count} requests/day per user',{count:AI_PLAN_LIMITS[key].dailyPerUser})}</p>
                   </div>
                   <ul className="flex-1 space-y-3 border-t border-border/70 pt-4 text-xs text-muted-foreground">
                     {PLAN_FEATURES[key].map((f) => (
                       <li key={f} className="flex gap-2">
                         <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
-                        <span>{f}</span>
+                        <span>{localizePlanFeature(f)}</span>
                       </li>
                     ))}
                   </ul>
@@ -951,7 +959,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                     <>
                       <p className="border-t border-border/70 pt-4 text-xs text-muted-foreground">
                          <strong className="text-3xl font-semibold tracking-tight tabular-nums text-foreground">${actiprocPriceUsd(key, key==='individual'?'yearly':selectedBillingInterval)}</strong>
-                        {key === 'individual' ? '/year' : '/seat/'+(selectedBillingInterval==='yearly'?'year':'month')}
+                        {key === 'individual' ? t('/year') : t('/seat')+t(selectedBillingInterval==='yearly'?'/year':'/month')}
                       </p>
                       <Button type="button" size="sm" variant={current ? 'secondary' : 'default'}
                          className={cn('h-11 w-full rounded-xl font-semibold transition-all', !current && 'bg-primary text-primary-foreground shadow-[0_12px_24px_-14px_rgba(40,122,82,0.8)] hover:bg-primary/90')}
@@ -962,7 +970,7 @@ export function BillingClient({ organizationId, showBackLink = true }: Props) {
                           : billingPlan === 'free'
                             ? void openCheckout(key, {billingInterval:key === 'individual' ? 'yearly' : 'monthly'})
                             : void requestPlanReview(key)}>
-                        {canResubscribe ? 'Subscribe to ' + title : current ? 'Current plan' : !canUpgrade ? billingStatus === 'cancelled' ? 'Not available after cancellation' : 'Unavailable for this subscription' : 'Choose ' + title}
+                        {canResubscribe ? t('Subscribe to {plan}',{plan:t(title)}) : current ? t('Current plan') : !canUpgrade ? t(billingStatus === 'cancelled' ? 'Not available after cancellation' : 'Unavailable for this subscription') : t('Choose {plan}',{plan:t(title)})}
                       </Button>
                     </>
                   )}
