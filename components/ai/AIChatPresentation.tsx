@@ -128,7 +128,7 @@ export function AIHistoryPanel({
         )}
         {historyLoading && conversations.length===0 ? (
           <div role="status" className="flex items-center justify-center gap-2 px-4 py-10 text-xs text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true"/> Loading conversations…
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true"/> <AppT text="Loading conversations…"/>
           </div>
         ) : grouped.length ? grouped.map(({ period, items }) => (
           <section key={period} aria-label={period + ' conversations'}>
@@ -275,11 +275,11 @@ export function AIWelcome({ onPrompt, loading }: { onPrompt: (prompt: string) =>
       </div>
       <p className="mb-2.5 text-[10px] font-bold uppercase tracking-[0.22em] text-primary"><AppT text="Your workspace assistant"/></p>
       <h2 className="text-balance text-[28px] font-semibold leading-[1.13] tracking-[-0.045em] text-foreground sm:text-[39px]">
-        Work, clarified.
+        <AppT text="Work, clarified."/>
       </h2>
       <p className="mx-auto mt-3 max-w-[490px] text-pretty text-[13px] leading-6 text-muted-foreground sm:text-sm">
-        Make sense of your Actions, notes, checklists and decisions in one place.
-        Responses use information you are allowed to access, when available.
+        <AppT text="Make sense of your Actions, notes, checklists and decisions in one place." />{' '}
+        <AppT text="Responses use information you are allowed to access, when available." />
       </p>
       <div className="mt-8 grid w-full grid-cols-1 gap-2.5 text-left sm:mt-10 sm:grid-cols-2 sm:gap-3">
         {starterActions.map(({ title, description, prompt, icon: Icon }) => (
@@ -289,8 +289,8 @@ export function AIWelcome({ onPrompt, loading }: { onPrompt: (prompt: string) =>
               <Icon className="h-[18px] w-[18px]" strokeWidth={1.7} aria-hidden="true"/>
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-[13px] font-semibold text-foreground">{title}</span>
-              <span className="mt-1 block text-[11.5px] leading-[1.55] text-muted-foreground">{description}</span>
+              <span className="block text-[13px] font-semibold text-foreground"><AppT text={title}/></span>
+              <span className="mt-1 block text-[11.5px] leading-[1.55] text-muted-foreground"><AppT text={description}/></span>
             </span>
             <ArrowRight className="mt-2 h-3.5 w-3.5 shrink-0 text-muted-foreground/60 transition-transform group-hover:translate-x-0.5 group-hover:text-primary motion-reduce:transform-none" aria-hidden="true"/>
           </button>
@@ -298,7 +298,7 @@ export function AIWelcome({ onPrompt, loading }: { onPrompt: (prompt: string) =>
       </div>
       <p className="mt-6 inline-flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground/85">
         <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" aria-hidden="true"/>
-        Workspace permissions are respected
+        <AppT text="Workspace permissions are respected"/>
       </p>
     </div>
   );

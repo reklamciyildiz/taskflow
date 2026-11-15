@@ -102,14 +102,19 @@ function InlineSelect({
 function CompletionControl({ task, columns, disabled, onChange }: {
   task: Task; columns: ProjectColumnConfig[]; disabled: boolean; onChange: (status: string) => void;
 }) {
+  const {t}=useAppLocale();
   const [open, setOpen] = useState(false);
   const lifecycle = resolveStageLifecycle(task.status, columns);
   const targets = columns.filter(column => isTerminalBoardColumn(column.id, columns) !== lifecycle.isTerminal);
   const recurring = task.schedule?.scheduleType === 'recurring';
   const unavailable = disabled || !lifecycle.resolved || !targets.length || recurring;
-  const label = recurring ? `Complete occurrences of ${task.title} in Planner`
-    : !targets.length ? `No ${lifecycle.isTerminal ? 'open' : 'terminal'} stage configured for ${task.title}`
-      : `Mark ${task.title} ${lifecycle.isTerminal ? 'open' : 'complete'}`;
+  const label = recurring ? t('Complete occurrences of {title} in Planner',{title:task.title})
+    : !targets.length ? (lifecycle.isTerminal
+      ? t('No open stage configured for {title}',{title:task.title})
+      : t('No terminal stage configured for {title}',{title:task.title}))
+    : lifecycle.isTerminal
+      ? t('Mark {title} open',{title:task.title})
+      : t('Mark {title} complete',{title:task.title});
   return <Popover open={open} onOpenChange={next => setOpen(next && !unavailable && targets.length > 1)}>
     <label className="flex h-11 w-11 items-center justify-center md:h-8 md:w-6" title={label}>
       <PopoverTrigger asChild>
@@ -120,7 +125,7 @@ function CompletionControl({ task, columns, disabled, onChange }: {
       </PopoverTrigger>
     </label>
     <PopoverContent align="start" className="w-64 p-2">
-      <p className="px-2 py-1 text-xs text-muted-foreground">Choose {lifecycle.isTerminal ? 'an open' : 'a terminal'} stage</p>
+      <p className="px-2 py-1 text-xs text-muted-foreground">{t(lifecycle.isTerminal ? 'Choose an open stage' : 'Choose a terminal stage')}</p>
       {targets.map(stage => <button key={stage.id} type="button" className="block min-h-[44px] w-full rounded px-2 text-left text-sm hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring" onClick={() => { onChange(stage.id); setOpen(false); }}>{stage.title}</button>)}
     </PopoverContent>
   </Popover>;
@@ -135,7 +140,7 @@ function ScheduleCell({ task, disabled }: { task: Task; disabled: boolean }) {
         <button
           type="button"
           disabled={disabled}
-          aria-label={`Schedule for ${task.title}`}
+          aria-label={t("Schedule for {title}",{title:task.title})}
           className="inline-flex h-11 md:h-8 max-w-full md:max-w-[170px] items-center gap-1.5 rounded-md px-2 text-left text-xs text-muted-foreground hover:bg-muted/50 hover:text-foreground disabled:cursor-default"
         >
           <CalendarDays className="h-3.5 w-3.5 shrink-0" />
@@ -427,7 +432,7 @@ export function TaskList({ allowProcessAdministration = true, mobileCompact = fa
                       ['stage', 'priority', 'schedule'].includes(column) ? 'block' : 'col-span-2',
                       !['stage', 'priority', 'schedule'].includes(column) && !expandedRows.has(task.id) ? 'hidden' : 'block');
                     if (column === 'stage') return <TableCell key={column} data-label={headerLabel(column)} className={cellClass}><InlineSelect label={`Stage for ${task.title}`} value={task.status} disabled={!canEdit || isPending(task.id, 'status')} onValueChange={(status) => void mutateTaskField(task, 'status', { status })}>{!boardColumns.some((stage) => stage.id === task.status) && <SelectItem value={task.status}>Unresolved ({task.status})</SelectItem>}{boardColumns.map((stage) => <SelectItem key={stage.id} value={stage.id} disabled={isTerminalBoardColumn(stage.id, boardColumns) && !canCompleteTask(task.assigneeId)}>{stage.title}</SelectItem>)}</InlineSelect></TableCell>;
-                    if (column === 'priority') return <TableCell key={column} data-label={headerLabel(column)} className={cellClass}><InlineSelect label={`Priority for ${task.title}`} value={task.priority} disabled={!canEdit || isPending(task.id, 'priority')} onValueChange={(priority) => void mutateTaskField(task, 'priority', { priority: priority as TaskPriority })}>{Object.entries(priorityConfig).map(([value, config]) => <SelectItem key={value} value={value}>{t(config.label)}</SelectItem>)}</InlineSelect></TableCell>;
+                    if (column === 'priority') return <TableCell key={column} data-label={headerLabel(column)} className={cellClass}><InlineSelect label={t("Priority for {title}",{title:task.title})} value={task.priority} disabled={!canEdit || isPending(task.id, 'priority')} onValueChange={(priority) => void mutateTaskField(task, 'priority', { priority: priority as TaskPriority })}>{Object.entries(priorityConfig).map(([value, config]) => <SelectItem key={value} value={value}>{t(config.label)}</SelectItem>)}</InlineSelect></TableCell>;
                     if (column === 'assignee') return <TableCell key={column} data-label={headerLabel(column)} className={cellClass}><InlineSelect label={`Assignee for ${task.title}`} value={task.assigneeId ?? UNASSIGNED_FILTER} disabled={!canEdit || isPending(task.id, 'assignee')} onValueChange={(assigneeId) => void mutateTaskField(task, 'assignee', { assigneeId: assigneeId === UNASSIGNED_FILTER ? null : assigneeId })}><SelectItem value={UNASSIGNED_FILTER}><AppT text="Unassigned"/></SelectItem>{currentTeam?.members.map((member) => <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>)}</InlineSelect></TableCell>;
                     if (column === 'schedule') return <TableCell key={column} data-label={headerLabel(column)} className={cellClass}><ScheduleCell task={task} disabled={!canEdit} /></TableCell>;
                     if (column === 'client') return <TableCell key={column} data-label={headerLabel(column)} className={cn(cellClass, "text-xs text-muted-foreground break-words")}>{task.customerName ?? '—'}</TableCell>;
@@ -439,12 +444,12 @@ export function TaskList({ allowProcessAdministration = true, mobileCompact = fa
                   })}
                   <TableCell className="absolute right-2 top-2 p-0 md:static md:px-2 md:py-1.5">
                     <DropdownMenu>
-                      <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-11 w-11 md:h-8 md:w-8 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100" aria-label={`Actions for ${task.title}`}><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                      <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-11 w-11 md:h-8 md:w-8 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100" aria-label={t("Actions for {title}",{title:task.title})}><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                       <DropdownMenuContent align="end"><DropdownMenuItem onSelect={() => openTaskEditor(task.id)}><AppT text="Open Action"/></DropdownMenuItem>{canDeleteTask(task.createdBy) && <DropdownMenuItem className="text-destructive" onSelect={() => void deleteTask(task.id)}><AppT text="Delete"/></DropdownMenuItem>}</DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
                   {visibleColumns.some(column => !['stage', 'priority', 'schedule'].includes(column)) && <TableCell className="self-end p-0 md:hidden">
-                    <button type="button" className="min-h-[44px] w-full rounded px-2 text-left text-xs text-muted-foreground hover:bg-muted" aria-expanded={expandedRows.has(task.id)} aria-label={`More details for ${task.title}`} onClick={() => setExpandedRows(current => { const next = new Set(current); if (next.has(task.id)) next.delete(task.id); else next.add(task.id); return next; })}>{t(expandedRows.has(task.id) ? 'Less details' : 'More details')}</button>
+                    <button type="button" className="min-h-[44px] w-full rounded px-2 text-left text-xs text-muted-foreground hover:bg-muted" aria-expanded={expandedRows.has(task.id)} aria-label={t("More details for {title}",{title:task.title})} onClick={() => setExpandedRows(current => { const next = new Set(current); if (next.has(task.id)) next.delete(task.id); else next.add(task.id); return next; })}>{t(expandedRows.has(task.id) ? 'Less details' : 'More details')}</button>
                   </TableCell>}
                 </TableRow>
               );

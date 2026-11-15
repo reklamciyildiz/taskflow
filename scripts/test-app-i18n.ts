@@ -29,7 +29,7 @@ const keyPaths=[
 'components/settings/SettingsNav.tsx','app/(shell)/settings/appearance/page.tsx',
 'components/CreateTaskModal.tsx','components/CreateProjectModal.tsx',
 'components/TaskBoard.tsx','components/TaskList.tsx',
-'components/Analytics.tsx','components/Achievements.tsx',
+'components/Analytics.tsx','components/Achievements.tsx','components/ai/AIChatPresentation.tsx',
 'components/NotificationBell.tsx','components/search/GlobalCommandPalette.tsx',
 'components/settings/CalendarSettings.tsx','components/settings/NotificationsSettings.tsx',
 'components/onboarding/FirstSuccessJourney.tsx','components/billing/BillingClient.tsx',
@@ -51,7 +51,7 @@ for(const path of keyPaths){
   // Both aliases exist: <T/> and <AppT/>. Audit t('literal') as well.
   const literalUiMessages=[
     ...Array.from(code.matchAll(/<(?:AppT|T)\b[^>]*?\btext=(["'])(.*?)\1/g),match=>match[2]),
-    ...Array.from(code.matchAll(/\bt\(\s*(["'])(.*?)\1/g),match=>match[2]),
+    ...Array.from(code.matchAll(/\bt\(\s*(["'])((?:\\.|(?!\1)[^\\])*)\1/g),match=>match[2].replace(/\\(['"\\])/g,'$1')),
   ];
   for(const message of literalUiMessages){
     assert.equal(hasTurkishAppTranslation(message),true,path+': missing Turkish UI translation: '+message);
@@ -65,6 +65,7 @@ assert.ok(checkedUiMessages>=250,'Localization audit must cover all critical int
 // Navigation is not enough: body copy, dashboard headings and action controls
 // must be locale-bound. User-entered names and descriptions are exempt.
 const screenshotRegressions=[
+  ['components/ai/AIChatPresentation.tsx',/>Work, clarified\.</],
   ['components/TaskCard.tsx',/>Completed Action</],
   ['components/TaskCard.tsx',/task\.priority\.toUpperCase\(\)/],
   ['components/planner/PlannerQuickAdd.tsx',/>Quick capture</],
@@ -87,6 +88,12 @@ for(const path of ['mobile/src/MobileMoreView.tsx','mobile/src/MobileSettingsVie
   for(const match of source.matchAll(/(?:title|detail):\s*'([^']+)'/g)){
     assert.ok(hasTurkishAppTranslation(match[1]),path+': missing native menu localization: '+match[1]);
   }
+}
+for(const message of ['Work, clarified.','Make sense of your Actions, notes, checklists and decisions in one place.',
+  'Responses use information you are allowed to access, when available.', 'Summarize my work','Find a decision',
+  'Review checklists','Plan the next step','Workspace permissions are respected',
+  'Mark {title} complete','Mark {title} open','Complete occurrences of {title} in Planner']){
+  assert.equal(hasTurkishAppTranslation(message),true,'Missing tested localized text: '+message);
 }
 const provider=read('components/i18n/AppLocaleProvider.tsx');
 assert.match(provider,/fetch\('\/api\/users\/settings'/);

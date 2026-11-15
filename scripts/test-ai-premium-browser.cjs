@@ -58,6 +58,7 @@ async function main() {
     for (const width of [320, 390, 768, 1024, 1440]) {
       const page = await browser.newPage({ viewport: { width, height: 900 }, hasTouch: width < 768 });
       page.on('pageerror', error => errors.push(error.stack || error.message));
+      page.on('console', message => { if(message.type()==='error') errors.push(message.text()); });
       const now = new Date().toISOString();
       const conversations = [
         { id: 'old-1', title: 'Planning decisions', context: { origin: 'global' }, createdAt: now, updatedAt: now, lastMessageAt: now },
@@ -138,7 +139,9 @@ async function main() {
         assert.ok(bounds && bounds.width <= width + 1, width + 'px ' + label + ': shell overflow');
         checks += 2;
       };
-      await page.getByRole('heading', { name: 'Work, clarified.' }).waitFor();
+      await page.getByRole('heading', { name: 'Work, clarified.' }).waitFor().catch(async error => {
+        throw new Error('AI welcome fixture did not render. Browser errors: '+JSON.stringify(errors)+'; page text: '+(await page.locator('body').innerText()).slice(0,600),{cause:error});
+      });
       await checkLayout('welcome');
       await page.getByRole('button', { name: 'AI usage and access' }).click();
       await page.getByText('Monthly requests').waitFor();

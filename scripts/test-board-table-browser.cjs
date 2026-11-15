@@ -35,6 +35,7 @@ async function main() {
     for (const width of [320, 375, 430, 768, 1440]) {
       const page = await browser.newPage({ viewport: { width, height: 900 }, hasTouch: width < 768 });
       page.on('pageerror', error => errors.push(error.stack || error.message));
+      page.on('console', message => { if(message.type()==='error') errors.push(message.text()); });
       let failNext = false;
       let failProperty = false;
       let readDelay = 0;
@@ -78,7 +79,9 @@ async function main() {
       };
       await page.goto(`http://127.0.0.1:${server.address().port}`);
       const checkbox = page.getByRole('checkbox', { name: 'Mark Open Action complete', exact: true });
-      await checkbox.waitFor();
+      await checkbox.waitFor().catch(async error => {
+        throw new Error('Board fixture did not render the completion control. Browser errors: '+JSON.stringify(errors)+'; page text: '+(await page.locator('body').innerText()).slice(0,600),{cause:error});
+      });
       await noOverflow('Table');
       assert.equal(await checkbox.isChecked(), false);
       assert.equal(await page.getByRole('checkbox', { name: 'Mark Closed Action open', exact: true }).isChecked(), true);
