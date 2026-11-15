@@ -278,6 +278,34 @@ CREATE TRIGGER p23_org_delete_cleanup BEFORE DELETE ON public.organizations
   FOR EACH ROW EXECUTE FUNCTION public.p23_cleanup_organization_dependencies();
 REVOKE ALL ON FUNCTION public.p23_cleanup_organization_dependencies() FROM PUBLIC,anon,authenticated;
 
+-- UX preflight before the existing Action PATCH route performs schedule writes.
+-- It is advisory only: the transactional BEFORE UPDATE trigger above is the
+-- final protection against a new dependency racing the preflight.
+CREATE FUNCTION public.p23_preflight_blocked_transition(
+  p_task uuid, p_new_project uuid, p_new_status text
+) RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path=pg_catalog,public AS $$
+DECLARE original record;
+BEGIN
+  SELECT organization_id,team_id,project_id,status INTO original
+    FROM public.tasks WHERE id=p_task;
+  IF NOT FOUND THEN RETURN FALSE; END IF;
+  IF NOT public.p23_is_terminal(original.organization_id,original.team_id,
+                                p_new_project,p_new_status)
+     OR public.p23_is_terminal(original.organization_id,original.team_id,
+                              original.project_id,original.status)
+  THEN RETURN FALSE; END IF;
+  RETURN EXISTS (
+    SELECT 1 FROM public.task_dependencies d JOIN public.tasks blocker
+      ON blocker.id=d.blocker_task_id WHERE d.blocked_task_id=p_task
+      AND NOT public.p23_is_terminal(blocker.organization_id,blocker.team_id,
+                                     blocker.project_id,blocker.status)
+  );
+END; $$;
+REVOKE ALL ON FUNCTION public.p23_preflight_blocked_transition(uuid,uuid,text)
+  FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.p23_preflight_blocked_transition(uuid,uuid,text) TO service_role;
+
 REVOKE ALL ON FUNCTION public.p23_guard_dependency() FROM PUBLIC,anon,authenticated;
 REVOKE ALL ON FUNCTION public.p23_guard_task_completion() FROM PUBLIC,anon,authenticated;
 REVOKE ALL ON FUNCTION public.p23_guard_recurring_schedule() FROM PUBLIC,anon,authenticated;
