@@ -931,7 +931,16 @@ export const trCatalog:Readonly<Record<string,string>> = {
   "Filter by priority": "Önceliğe göre filtrele",
   "Filter by assignee": "Sorumluya göre filtrele",
   "Sort table": "Tabloyu sırala",
-  "Number of missed occurrences": "Kaçırılan tekrar sayısı"
+  "Number of missed occurrences": "Kaçırılan tekrar sayısı",
+  "Selected process": "Seçili süreç",
+  "Could not create Action": "Görev oluşturulamadı",
+  "Fill in the title and any optional fields, then save. The status list follows the selected Process columns.": "Başlığı ve varsa ek alanları doldurup kaydet. Durum listesi seçili sürecin sütunlarına göre belirlenir.",
+  "Create a new action item in your workspace.": "Çalışma alanında yeni bir görev oluştur.",
+  "Select date": "Tarih seç",
+  "Links to the selected board Process. On the General board, stages follow the general board columns.": "Panoda seçili sürece bağlanır. Genel panoda aşamalar genel pano sütunlarını izler.",
+  "Automatic (board selection: {name})": "Otomatik (pano seçimi: {name})",
+  "Select {customer}": "{customer} seç",
+  "No {customer}": "{customer} yok"
 };
 const dictionaries:Record<AppLocale,Readonly<Record<string,string>>>={en:{},tr:trCatalog};
 export function hasTurkishAppTranslation(text:string):boolean{

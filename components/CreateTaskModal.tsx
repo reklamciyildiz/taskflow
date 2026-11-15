@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { format } from 'date-fns';
+import {tr as dateFnsTr} from 'date-fns/locale';
 import { CalendarIcon, InfoIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTaskContext, TaskStatus, TaskPriority } from '@/components/TaskContext';
@@ -33,7 +33,7 @@ interface CreateTaskModalProps {
 }
 
 export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModalProps) {
-  const {t}=useAppLocale();
+  const {t,date,locale}=useAppLocale();
   const {
     addTask,
     currentTeam,
@@ -98,11 +98,11 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
       return (
         boardProject?.name ??
         projectsForTeam.find((p) => p.id === boardScope.projectId)?.name ??
-        'Selected process'
+        t('Selected process')
       );
     }
-    return currentProject?.name ?? 'none';
-  }, [boardScope, boardProject, projectsForTeam, currentProject]);
+    return currentProject?.name ?? t('None');
+  }, [boardScope, boardProject, projectsForTeam, currentProject, t]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -137,7 +137,7 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
     setProjectId('__auto__');
     onClose();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not create Action');
+      toast.error(error instanceof Error ? error.message : t('Could not create Action'));
     } finally {
       setSaving(false);
     }
@@ -160,13 +160,12 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
                 </button>
               </PopoverTrigger>
               <PopoverContent className="w-80 text-sm" align="start">
-                Fill in the title and any optional fields, then save. As the selected process (or the board’s process)
-                changes, the status list is mapped to that workflow’s columns so your action starts in the right stage.
+                <AppT text="Fill in the title and any optional fields, then save. The status list follows the selected Process columns."/>
               </PopoverContent>
             </Popover>
           </div>
           <DialogDescription className="sr-only">
-            Create a new action item in your workspace.
+            <AppT text="Create a new action item in your workspace."/>
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -248,7 +247,7 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
                     )}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {dueDate ? format(dueDate, "PPP") : "Select date"}
+                    {dueDate ? date(dueDate,{dateStyle:"long"}) : t("Select date")}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
@@ -257,6 +256,7 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
                     selected={dueDate}
                     onSelect={setDueDate}
                     initialFocus
+                    locale={locale==='tr'?dateFnsTr:undefined}
                   />
                 </PopoverContent>
               </Popover>
@@ -295,7 +295,7 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
                 </PopoverTrigger>
                 <PopoverContent className="w-80 text-sm" align="end">
                   <span className="font-semibold block mb-1"><AppT text="Automatic:"/></span>
-                  Links to the process selected on the board. In General board, no process is assigned and statuses follow the general board columns.
+                  <AppT text="Links to the selected board Process. On the General board, stages follow the general board columns."/>
                 </PopoverContent>
               </Popover>
             </div>
@@ -305,7 +305,7 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__auto__">
-                  Automatic (board selection: {autoContextLabel})
+                  {t('Automatic (board selection: {name})',{name:autoContextLabel})}
                 </SelectItem>
                 <SelectItem value="__none__"><AppT text="No process"/></SelectItem>
                 {projectsForTeam.map((p) => (
@@ -323,10 +323,10 @@ export function CreateTaskModal({ open, onClose, defaultStatus }: CreateTaskModa
             </Label>
             <Select value={customerId} onValueChange={setCustomerId}>
               <SelectTrigger>
-                <SelectValue placeholder={`Select ${customerSingularLabel.toLowerCase()}`} />
+                <SelectValue placeholder={t("Select {customer}",{customer:customerSingularLabel.toLowerCase()})} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">No {customerSingularLabel}</SelectItem>
+                <SelectItem value="none">{t("No {customer}",{customer:customerSingularLabel})}</SelectItem>
                 {customers.map((customer) => (
                   <SelectItem key={customer.id} value={customer.id}>
                     {customer.name}
