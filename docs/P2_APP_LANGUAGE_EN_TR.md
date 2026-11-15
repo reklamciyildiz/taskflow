@@ -56,3 +56,31 @@ server error, third-party page and infrequently used editor dialog is translated
 - Unknown server-provided, third-party, AI-generated and user-authored strings remain unchanged; source-key lookup deliberately falls back to English for unknown static copy. Do not treat catalog size as a percent translated.
 - Root server HTML initially renders `lang=en` even for users preferring Turkish; app updates `document.documentElement.lang` on hydration. Full SSR user-specific language requires a deliberate server-side refactor.
 - The migration must be deployed to staging before cross-device locale tests, and to production only after explicit release approval. Git automatic deploy remains disabled.
+
+## 15-November screenshot QA — mixed EN/TR regression matrix
+
+The provided authenticated Turkish-language QA screenshots exposed previously hardcoded English text. These areas are now explicitly part of localization coverage:
+
+| Flow | Required Turkish behavior | Preserved user-controlled content |
+|---|---|---|
+| Dashboard / My Day | Hero, capture, headings, date labels, dynamic totals and overdue labels | Team and action titles |
+| Projects / Board | Breadcrumb, intro, stage counters, Action cards, priority and UI actions | Process and custom column names |
+| Planner | Main title, tab descriptions, Quick Capture controls, empty states, dates, schedule toasts | Action and checklist content |
+| List view | Table title, field names, sort/filter options, priorities and counts | Custom properties, values and task titles |
+| Knowledge Hub | Intro, buttons, tabs, search, empty states, results, dates and descriptions | Notes and checklist content |
+| Customers | Page description, search, empty states and counts | Configurable customer directory labels and client names |
+| Integrations | Webhook description, event labels, alerts, forms, dialogs, logs, secrets and success messages | Webhook names, event codes, URLs and secrets |
+| Analytics | KPI descriptions, metric headings, priority names and dynamic insights | Process names |
+| Achievements | Achievement names, descriptions, categories and progress text | None |
+| Settings | Profile, notifications, calendar, members, organization and AI usage card | Account, organization and user names |
+| Billing | Plan cards, included features, quotas, intervals and subscription actions | Plan IDs, verified amounts and provider responses |
+
+The string contract `scripts/test-app-i18n.ts` now covers these feature components and includes screenshot-specific regression assertions. Static-string coverage is **not** equivalent to full translated-screen coverage, and live app testing with real accounts remains required.
+
+### Manual acceptance before marking P2.1 complete
+- Check **EN** and **TR** after reload and after switching between two accounts on the same browser. The previous account's cached preference must not leak.
+- On desktop and mobile widths, open Dashboard, Board, Planner (Today / Calendar / Routines), List, Knowledge Hub, Customers, Integrations, Analytics, Achievements and every Settings section. Confirm all *product-owned* visible strings, tooltips, alerts, placeholders, menus and dates use the selected locale.
+- Create a process, Action, checklist, Note, customer and reminder while Turkish is active. Confirm user-entered text and stored IDs remain unchanged and no feature gate or API request semantics are altered.
+- Verify pending states, permissions, empty states, API/network failures, notifications, webhook dialogs, plan selection and subscription details in both locales. Keep payment-provider-hosted pages out of the app translation guarantee.
+- Android native entry requires a fresh Vite build and on-device smoke testing; passing the web Next.js build alone is insufficient.
+- Staging database migration is mandatory for persistence testing. The already-applied production migration must **not** be run twice unnecessarily. This PR must not be merged or deployed while CI is red.
