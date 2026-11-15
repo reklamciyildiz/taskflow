@@ -1415,6 +1415,23 @@ export const trCatalog:Readonly<Record<string,string>> = {
   "Refreshing…": "Yenileniyor…",
   "Subscribe first": "Önce abone ol",
   "Invoices & payment method": "Faturalar ve ödeme yöntemi",
+  "Excellent progress": "Çok iyi ilerleme",
+  "{percent}% of all actions complete — team is firing on all cylinders.": "Görevlerin %{percent} kadarı tamamlandı — ekip yüksek tempoda çalışıyor.",
+  "Low completion rate": "Düşük tamamlanma oranı",
+  "Only {percent}% done. Review priorities and unblock stuck items.": "Yalnızca %{percent} tamamlandı. Öncelikleri gözden geçirip takılan görevlerin önünü aç.",
+  "{count} overdue actions": "{count} gecikmiş görev",
+  "These are past their due date and still open — address them first.": "Bu görevlerin son tarihi geçmiş ve hâlâ açık. Önce bunlara odaklan.",
+  "Process bottleneck": "Süreç darboğazı",
+  "{name} — items piling up in one stage. Consider WIP limits or unblocking.": "{name} — görevler tek aşamada birikiyor. Devam eden iş sınırını düşürmeyi veya engelleri kaldırmayı değerlendir.",
+  "High-velocity week": "Yüksek tempolu hafta",
+  "{count} actions closed this week. Momentum is strong.": "Bu hafta {count} görev tamamlandı. İlerleme temposu yüksek.",
+  "{count} unassigned actions": "{count} atanmamış görev",
+  "Assign owners to improve accountability and velocity tracking.": "Sorumluluk ve ilerleme takibini iyileştirmek için görevleri sorumlulara ata.",
+  "Fast turnaround": "Hızlı tamamlama",
+  "Average {days} days per action — excellent execution speed.": "Görev başına ortalama {days} gün — tamamlama süresi oldukça kısa.",
+  "Long completion cycles": "Uzun tamamlama süreleri",
+  "Actions take ~{days} days on average. Break them into smaller steps.": "Görevler ortalama yaklaşık {days} gün sürüyor. Daha küçük adımlara bölmeyi düşün.",
+  "Complete actions to unlock personalised insights about your team's performance.": "Ekibinin performansına ilişkin kişiselleştirilmiş içgörüler için görevleri tamamla.",
 };
 const dictionaries:Record<AppLocale,Readonly<Record<string,string>>>={en:{},tr:trCatalog};
 export function hasTurkishAppTranslation(text:string):boolean{
