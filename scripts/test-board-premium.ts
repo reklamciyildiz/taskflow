@@ -26,7 +26,7 @@ for (const [file, source, required] of [
   ['PropertyBoard', grouped, ['groupActionsByProperty', 'selectedPropertyOptionsForTask',
     'onTaskClick={item => onOpen(item.id)}', 'overflow-x-auto', 'group.tasks.map',
     'No Actions in this group']],
-  ['ProcessSwitcher', process, ['aria-label={t("Active process / project")}', 'onReorder(',
+  ['ProcessSwitcher', process, ['aria-label="Active process / project"', 'onReorder(',
     'onDragEnd', 'moveItem(projects, from, to)', 'disableInteractiveElementBlocking',
     'onValueChange(project.id)', 'getContainerForClone={() => document.body}']],
 ] as const) {
