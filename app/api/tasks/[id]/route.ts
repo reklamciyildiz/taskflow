@@ -1,4 +1,5 @@
 import { taskDependencyDbError } from '@/lib/task-dependencies';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 import { stageErrorMessage, validateTaskStage } from '@/lib/stage-server';
 import { resolveStageLifecycle } from '@/lib/stage-lifecycle';
 import { FALLBACK_BOARD_COLUMNS, parseColumnConfigFromJson } from '@/lib/types';
@@ -223,6 +224,31 @@ export async function PATCH(
     }
     const stageChanged = (body.status !== undefined && body.status !== originalTask.status)
       || (nextProjectId !== undefined && nextProjectId !== currentProjectId);
+    if (stageChanged) {
+      // Avoid partial schedule/reminder writes when a known unfinished blocker
+      // already forbids this terminal transition. The SQL task trigger still
+      // arbitrates races that happen after this read-only preflight.
+      const { data: blockedTransition, error: dependencyCheckError } = await supabaseAdmin.rpc(
+        'p23_preflight_blocked_transition', {
+          p_task: params.id,
+          p_new_project: nextProjectId === undefined ? currentProjectId : nextProjectId,
+          p_new_status: body.status === undefined ? originalTask.status : body.status,
+        },
+      );
+      if (dependencyCheckError) {
+        const domainError = taskDependencyDbError(dependencyCheckError);
+        if (domainError) {
+          return NextResponse.json({ success: false, code: domainError.code, error: domainError.message }, { status: domainError.status });
+        }
+        console.error('Dependency completion preflight unavailable', dependencyCheckError.code);
+        return NextResponse.json({ success: false, code: 'DEPENDENCY_CHECK_UNAVAILABLE',
+          error: 'Cannot verify Action dependencies. No changes were applied.' }, { status: 503 });
+      }
+      if (blockedTransition) {
+        return NextResponse.json({ success: false, code: 'DEPENDENCY_BLOCKED',
+          error: 'Finish the blocking Actions before completing this Action.' }, { status: 409 });
+      }
+    }
     const previousProject = stageChanged && currentProjectId ? await projectDb.getById(currentProjectId) : null;
     const lifecycleColumns = previousProject ? parseColumnConfigFromJson(previousProject.column_config) : FALLBACK_BOARD_COLUMNS;
     const wasTerminal = resolveStageLifecycle(originalTask.status, lifecycleColumns).isTerminal;
