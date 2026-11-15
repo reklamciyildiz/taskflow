@@ -1,5 +1,5 @@
 'use client';
-import {T as AppT} from '@/components/i18n/AppLocaleProvider';
+import {T as AppT,useAppLocale} from '@/components/i18n/AppLocaleProvider';
 
 
 import { useState, useEffect } from 'react';
@@ -32,6 +32,7 @@ import { DeleteCustomerModal } from '@/components/DeleteCustomerModal';
 import { toast } from 'sonner';
 
 export function Customers() {
+  const {t}=useAppLocale();
   const router=useRouter();
   const searchParams=useSearchParams();
   const requestedCustomer=searchParams.get('customer');
@@ -66,7 +67,7 @@ export function Customers() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-foreground">{customerDirectoryLabel}</h1>
         <p className="text-muted-foreground mt-1">
-          Manage {customerDirectoryLabel.toLowerCase()} and track related actions
+          {t("Manage {entity} and track related actions",{entity:customerDirectoryLabel.toLowerCase()})}
         </p>
       </div>
 
@@ -81,7 +82,7 @@ export function Customers() {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               onFocus={()=>{if(requestedCustomer)router.replace('/customers',{scroll:false});}}
-              placeholder={`Search ${customerDirectoryLabel.toLowerCase()}…`}
+              placeholder={t("Search {entity}…",{entity:customerDirectoryLabel.toLowerCase()})}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10"
@@ -100,19 +101,19 @@ export function Customers() {
           <Building2 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
           <h3 className="text-lg font-medium text-foreground mb-2">
             {searchQuery
-              ? `No ${customerDirectoryLabel.toLowerCase()} found`
-              : `No ${customerDirectoryLabel.toLowerCase()} yet`}
+              ? t('No {entity} found',{entity:customerDirectoryLabel.toLowerCase()})
+              : t('No {entity} yet',{entity:customerDirectoryLabel.toLowerCase()})}
           </h3>
           <p className="text-muted-foreground mb-4">
             {searchQuery 
-              ? 'Try adjusting your search query'
-              : `Add your first ${customerSingularLabel.toLowerCase()} to start tracking related actions`
+              ? t('Try adjusting your search query')
+              : t('Add your first {entity} to start tracking related actions',{entity:customerSingularLabel.toLowerCase()})
             }
           </p>
           {!searchQuery && canManageCustomers && (
             <Button onClick={() => setIsCreateModalOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
-              Add {customerSingularLabel}
+              {t("Add {entity}",{entity:customerSingularLabel})}
             </Button>
           )}
         </div>
@@ -131,12 +132,12 @@ export function Customers() {
                       <div className="flex items-center gap-2 mt-1">
                         <Badge variant="secondary" className="text-xs">
                           <Clock className="h-3 w-3 mr-1" />
-                          {customer.taskStats.total} tasks
+                          {customer.taskStats.total} {t("tasks")}
                         </Badge>
                         {customer.taskStats.completed > 0 && (
                           <Badge variant="secondary" className="text-xs bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400">
                             <CheckCircle2 className="h-3 w-3 mr-1" />
-                            {customer.taskStats.completed} done
+                            {customer.taskStats.completed} {t("done")}
                           </Badge>
                         )}
                       </div>
