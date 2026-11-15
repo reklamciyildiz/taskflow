@@ -23,6 +23,7 @@ const DOMAIN_ERRORS: Record<string, DependencyError> = {
   P23_BLOCKED_COMPLETION: { code: 'DEPENDENCY_BLOCKED', status: 409, message: 'Finish the blocking Actions before completing this Action.' },
   P23_DEPENDENCY_CYCLE: { code: 'DEPENDENCY_CYCLE', status: 409, message: 'This link would create a circular dependency.' },
   P23_DEPENDENCY_INBOX_UNSYNCED: { code: 'DEPENDENCY_INBOX_UNSYNCED', status: 409, message: 'Synchronize this team Inbox board before linking General Actions.' },
+  P23_DEPENDENCY_PROCESS_REQUIRED: { code: 'DEPENDENCY_PROCESS_REQUIRED', status: 409, message: 'Remove dependencies from this Process before deleting it.' },
   P23_DEPENDENCY_INBOX_REQUIRED: { code: 'DEPENDENCY_INBOX_REQUIRED', status: 409, message: 'Remove existing General Action links before deleting the team Inbox stages.' },
   P23_DEPENDENCY_STAGE_CHANGE: { code: 'DEPENDENCY_STAGE_CHANGE', status: 409, message: 'Unlink affected Actions before changing their stage completion semantics.' },
   P23_DEPENDENCY_RECURRING: { code: 'DEPENDENCY_RECURRING', status: 409, message: 'Recurring Actions cannot be connected until occurrence-level dependencies are supported.' },
