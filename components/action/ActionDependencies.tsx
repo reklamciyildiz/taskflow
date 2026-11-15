@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle, ArrowRight, CheckCircle2, ChevronDown, GitBranch, Link2,
   Loader2, LockKeyhole, Plus, Search, X,
@@ -88,11 +88,15 @@ export function ActionDependencies({
   const [picker, setPicker] = useState<Direction | null>(null);
   const [query, setQuery] = useState('');
   const [pending, setPending] = useState<string | null>(null);
+  const activeRef = useRef(true);
+  const requestRevisionRef = useRef(0);
 
   const reload = useCallback(async (isActive: () => boolean) => {
+    const revision = ++requestRevisionRef.current;
     setLoading(true);
     const result = await taskDependencyApi.get(taskId);
-    if (!isActive()) return;
+    // Ignore late responses after an Action switch, unmount or newer refresh.
+    if (!isActive() || revision !== requestRevisionRef.current) return;
     if (result.success && result.data) {
       setOverview(result.data);
       setLoadError(false);
@@ -105,7 +109,8 @@ export function ActionDependencies({
 
   useEffect(() => {
     let active = true;
-    const load = () => { void reload(() => active); };
+    activeRef.current = true;
+    const load = () => { void reload(() => active && activeRef.current); };
     load();
     const changed = (event: Event) => {
       const detail = (event as CustomEvent<{ teamId?: string }>).detail;
@@ -116,6 +121,8 @@ export function ActionDependencies({
     window.addEventListener('focus', onFocus);
     return () => {
       active = false;
+      activeRef.current = false;
+      requestRevisionRef.current += 1;
       window.removeEventListener(TASK_DEPENDENCIES_CHANGED_EVENT, changed);
       window.removeEventListener('focus', onFocus);
     };
@@ -205,7 +212,7 @@ export function ActionDependencies({
                 <span className="flex items-center gap-2 text-xs text-destructive">
                   <AlertCircle className="h-4 w-4 shrink-0" aria-hidden />{t('Could not load dependencies')}
                 </span>
-                <Button size="sm" type="button" variant="outline" onClick={() => void reload(() => true)}>{t('Retry')}</Button>
+                <Button size="sm" type="button" variant="outline" onClick={() => void reload(() => activeRef.current)}>{t('Retry')}</Button>
               </div>
             ) : loading && !overview ? (
               <div className="col-span-full flex items-center gap-2 text-xs text-muted-foreground">
@@ -233,7 +240,7 @@ export function ActionDependencies({
                       <div className="max-h-40 space-y-1.5 overflow-y-auto [scrollbar-width:thin]">
                         {group.items.map(item =>
                           <RelatedAction key={item.id} item={item} direction={group.direction}
-                            editable={canEdit} busy={pending === item.taskId}
+                            editable={canEdit} busy={pending !== null}
                             onOpen={onNavigate} onRemove={(id, direction) => void mutate(direction, id, true)} />
                         )}
                       </div>
@@ -279,7 +286,7 @@ export function ActionDependencies({
                 <button type="button" key={candidate.id} disabled={!!pending}
                   className="group flex min-h-12 w-full min-w-0 items-center gap-3 rounded-lg px-3 py-2 text-left hover:bg-background/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50"
                   onClick={() => picker && void mutate(picker, candidate.id)}>
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/8 text-primary">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                     {pending === candidate.id ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <GitBranch className="h-4 w-4" aria-hidden />}
                   </span>
                   <span className="min-w-0 flex-1">
