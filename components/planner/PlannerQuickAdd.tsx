@@ -1,5 +1,5 @@
 'use client';
-import {T as AppT} from '@/components/i18n/AppLocaleProvider';
+import {T as AppT,useAppLocale} from '@/components/i18n/AppLocaleProvider';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, CalendarPlus, CheckSquare2, Clock3, FolderKanban, Loader2, Plus, RotateCw, Sparkles, Layers3 } from 'lucide-react';
@@ -30,6 +30,7 @@ type PendingSchedule = {
 
 /** A small everyday step belongs to a canonical Action checklist, not a fake new project. */
 export function PlannerQuickAdd() {
+  const {t}=useAppLocale();
   const { addTask, updateTask, tasks, projects, canEditTask, currentTeam, currentUser,
     generalBoardColumns, scheduleApi } = usePlannerRuntime();
   const today = formatDueDateYmdLocal(new Date());
@@ -112,7 +113,7 @@ export function PlannerQuickAdd() {
       durationMinutes: input.scheduleTime ? input.durationMinutes : null,
       reminderRules: [],
     });
-    if (!response.success || !response.data) throw new Error(response.error || 'Time block could not be saved.');
+    if (!response.success || !response.data) throw new Error(response.error || t('Time block could not be saved.'));
     dispatchScheduleChanged(input.source, response.data);
   }
 
@@ -122,9 +123,9 @@ export function PlannerQuickAdd() {
     try {
       await saveTimeBlock(pendingSchedule);
       setPendingSchedule(null);
-      toast.success('Time block saved.');
+      toast.success(t('Time block saved.'));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Time block could not be saved.');
+      toast.error(error instanceof Error ? error.message : t('Time block could not be saved.'));
     } finally {
       setBusy(false);
     }
@@ -137,11 +138,11 @@ export function PlannerQuickAdd() {
   async function submit() {
     if (!currentTeam || busy || pendingSchedule || !validInput) return;
     if (effectiveDate && effectiveDate < today) {
-      toast.error('Choose today or a future date.');
+      toast.error(t('Choose today or a future date.'));
       return;
     }
     if (effectiveTime && !effectiveDate) {
-      toast.error('Choose a date before setting a time.');
+      toast.error(t('Choose a date before setting a time.'));
       return;
     }
     setBusy(true);
@@ -205,9 +206,9 @@ export function PlannerQuickAdd() {
         }
       }
       resetInput();
-      toast.success(kind === 'checklist' ? 'Checklist item planned' : effectiveDate ? 'Action added to Planner' : 'Action added to Anytime');
+      toast.success(t(kind === 'checklist' ? 'Checklist item planned' : effectiveDate ? 'Action added to Planner' : 'Action added to Anytime'));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not save Planner item.');
+      toast.error(error instanceof Error ? error.message : t('Could not save Planner item.'));
     } finally {
       setBusy(false);
     }
@@ -218,14 +219,14 @@ export function PlannerQuickAdd() {
       className="planner-v2-capture overflow-hidden rounded-[22px] border border-border/60 bg-card/65 p-3 shadow-[0_18px_42px_-34px_hsl(var(--foreground)/0.4)] sm:p-4">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-primary">Quick capture</p>
-          <p className="mt-0.5 text-xs text-muted-foreground">Plan a small step, or create a larger Action.</p>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-primary"><AppT text="Quick capture"/></p>
+          <p className="mt-0.5 text-xs text-muted-foreground"><AppT text="Plan a small step, or create a larger Action."/></p>
         </div>
-        <div className="inline-flex rounded-xl border border-border/70 bg-muted/45 p-1" role="group" aria-label="New Planner entry type">
+        <div className="inline-flex rounded-xl border border-border/70 bg-muted/45 p-1" role="group" aria-label={t("New Planner entry type")}>
           <button type="button" aria-pressed={kind === 'checklist'} disabled={locked}
             onClick={() => { setKind('checklist'); setValue(''); setDate(null); setTime(''); }}
             className={`inline-flex min-h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition ${kind === 'checklist' ? 'bg-background text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
-            <CheckSquare2 className="h-3.5 w-3.5" aria-hidden /> Checklist item
+            <CheckSquare2 className="h-3.5 w-3.5" aria-hidden /> <AppT text="Checklist item"/>
           </button>
           <button type="button" aria-pressed={kind === 'action'} disabled={locked}
             onClick={() => { setKind('action'); setValue(''); setDate(null); setTime(''); }}
@@ -237,23 +238,23 @@ export function PlannerQuickAdd() {
       {kind === 'checklist' && (
         <div className="mb-3 grid gap-2 rounded-xl border border-border/70 bg-muted/30 p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
           <label className="space-y-1.5 text-xs font-semibold" htmlFor="planner-parent">
-            <span className="flex items-center gap-1.5"><FolderKanban className="h-3.5 w-3.5 text-primary" aria-hidden /> Under which Action?</span>
+            <span className="flex items-center gap-1.5"><FolderKanban className="h-3.5 w-3.5 text-primary" aria-hidden /> <AppT text="Under which Action?"/></span>
             <select id="planner-parent" value={selectedParent?.id ?? ''} disabled={locked}
               onChange={(event) => chooseParent(event.target.value)}
               className="h-10 w-full min-w-0 rounded-lg border border-border bg-background px-3 text-xs font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
-              <option value="">Choose an existing Action…</option>
+              <option value="">{t("Choose an existing Action…")}</option>
               {parents.map((task) => <option key={task.id} value={task.id}>{task.title}</option>)}
             </select>
           </label>
           <div className="flex items-center gap-1 rounded-lg bg-background/70 p-1 text-[11px] font-medium">
             <button type="button" disabled={locked} aria-pressed={checklistMode === 'new'}
               onClick={() => { setChecklistMode('new'); setValue(''); }}
-              className={`min-h-8 rounded-md px-2.5 ${checklistMode === 'new' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted'}`}>New item</button>
+              className={`min-h-8 rounded-md px-2.5 ${checklistMode === 'new' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted'}`}>{t('New item')}</button>
             <button type="button" disabled={locked} aria-pressed={checklistMode === 'existing'}
               onClick={() => { setChecklistMode('existing'); setValue(''); }}
-              className={`min-h-8 rounded-md px-2.5 ${checklistMode === 'existing' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted'}`}>Existing item</button>
+              className={`min-h-8 rounded-md px-2.5 ${checklistMode === 'existing' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted'}`}>{t('Existing item')}</button>
           </div>
-          {!parents.length && <p className="text-xs text-amber-600 sm:col-span-2">Create an Action first. It can hold many independently scheduled checklist items.</p>}
+          {!parents.length && <p className="text-xs text-amber-600 sm:col-span-2"><AppT text="Create an Action first. It can hold many independently scheduled checklist items."/></p>}
         </div>
       )}
 
@@ -263,18 +264,18 @@ export function PlannerQuickAdd() {
         </span>
         {kind === 'checklist' && checklistMode === 'existing' ? (
           <select value={selectedItem?.id ?? ''} disabled={locked || !selectedParent}
-            onChange={(event) => setExistingId(event.target.value)} aria-label="Choose checklist item"
+            onChange={(event) => setExistingId(event.target.value)} aria-label={t("Choose checklist item")}
             className="h-11 min-w-0 flex-1 rounded-lg border border-border bg-background px-2 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
-            <option value="">Choose an unchecked checklist item…</option>
+            <option value="">{t("Choose an unchecked checklist item…")}</option>
             {availableItems.map((item) => <option key={item.id} value={item.id}>{item.text}</option>)}
           </select>
         ) : (
           <Input ref={titleRef} value={value} onChange={(event) => setValue(event.target.value)} disabled={locked}
-            placeholder={kind === 'checklist' ? 'e.g. Wash clothes, review invoice…' : 'Create a new Action…'}
-            aria-label={kind === 'checklist' ? 'New checklist item' : 'Quick add Action'}
+            placeholder={t(kind === 'checklist' ? 'e.g. Wash clothes, review invoice…' : 'Create a new Action…')}
+            aria-label={t(kind === 'checklist' ? 'New checklist item' : 'Quick add Action')}
             className="h-11 min-w-0 flex-1 border-0 bg-transparent px-1 text-base shadow-none focus-visible:ring-0" />
         )}
-        <Button type="submit" size="icon" disabled={locked || !validInput} className="h-11 w-11 shrink-0 rounded-xl" aria-label={kind === 'checklist' ? 'Plan checklist item' : 'Add Action'}>
+        <Button type="submit" size="icon" disabled={locked || !validInput} className="h-11 w-11 shrink-0 rounded-xl" aria-label={t(kind === 'checklist' ? 'Plan checklist item' : 'Add Action')}>
           {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Plus className="h-4 w-4" aria-hidden />}
         </Button>
       </div>
@@ -283,35 +284,35 @@ export function PlannerQuickAdd() {
         <label className="planner-v2-chip"><CalendarPlus className="h-3.5 w-3.5" aria-hidden />
           <input type="date" value={effectiveDate ?? ''} min={today} disabled={locked}
             onChange={(event) => setDate(event.target.value || (kind === 'checklist' ? today : null))}
-            aria-label="Planned date" className="w-[7.8rem] bg-transparent text-xs outline-none disabled:opacity-50" />
+            aria-label={t("Planned date")} className="w-[7.8rem] bg-transparent text-xs outline-none disabled:opacity-50" />
         </label>
         <label className="planner-v2-chip"><Clock3 className="h-3.5 w-3.5" aria-hidden />
           <input type="time" value={effectiveTime} disabled={!effectiveDate || locked}
-            onChange={(event) => setTime(event.target.value)} aria-label="Planned time"
+            onChange={(event) => setTime(event.target.value)} aria-label={t("Planned time")}
             className="w-[4.5rem] bg-transparent text-xs outline-none disabled:opacity-45" />
         </label>
         {effectiveTime && (
           <select value={duration} disabled={locked} onChange={(event) => setDuration(Number(event.target.value))}
-            aria-label="Duration" className="planner-v2-chip h-9 bg-transparent text-xs outline-none disabled:opacity-50">
-            {[15, 30, 45, 60, 90, 120].map((minutes) => <option key={minutes} value={minutes}>{minutes} min</option>)}
+            aria-label={t("Duration")} className="planner-v2-chip h-9 bg-transparent text-xs outline-none disabled:opacity-50">
+            {[15, 30, 45, 60, 90, 120].map((minutes) => <option key={minutes} value={minutes}>{minutes} {t('min')}</option>)}
           </select>
         )}
         <span className="text-[11px] text-muted-foreground">
-          {kind === 'checklist' ? (!effectiveTime ? 'All-day checklist · today by default' : 'Calendar time block')
-            : !effectiveDate ? 'No date → Anytime' : effectiveTime ? 'Timed Action' : 'Scheduled Action'}
+          {t(kind === 'checklist' ? (!effectiveTime ? 'All-day checklist · today by default' : 'Calendar time block')
+            : !effectiveDate ? 'No date → Anytime' : effectiveTime ? 'Timed Action' : 'Scheduled Action')}
         </span>
       </div>
       {kind === 'checklist' && (
         <p className="mt-2 px-1 text-[11px] leading-relaxed text-muted-foreground">
-          Checklist items stay inside their parent Action but appear separately in Today and Calendar when scheduled. No extra Process is created.
+          <AppT text="Checklist items stay inside their parent Action but appear separately in Today and Calendar when scheduled. No extra Process is created."/>
         </p>
       )}
       {pendingSchedule && (
         <div className="planner-v2-capture-recovery" role="alert">
           <AlertCircle aria-hidden="true" />
-          <span><strong>{pendingSchedule.title}</strong> was saved, but its calendar block needs a retry.</span>
+          <span>{t('{name} was saved, but its calendar block needs a retry.',{name:pendingSchedule.title})}</span>
           <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => void retrySchedule()}>
-            <RotateCw className="mr-1.5 h-3.5 w-3.5" aria-hidden /> Retry schedule
+            <RotateCw className="mr-1.5 h-3.5 w-3.5" aria-hidden /> <AppT text="Retry schedule"/>
           </Button>
         </div>
       )}

@@ -83,7 +83,7 @@ export function DashboardV2() {
               <Button asChild variant="outline" className="dashboard-v2-action-secondary"><Link href="/get-started"><WandSparkles className="h-4 w-4" aria-hidden="true"/><AppT text="Start here"/><ArrowUpRight className="ml-1 h-3.5 w-3.5"/></Link></Button>
               <Button variant="outline" className="dashboard-v2-action-secondary" onClick={() => setCaptureOpen(true)}>
                 <WandSparkles className="h-4 w-4" aria-hidden="true" />
-                Capture
+                <AppT text="Capture"/>
                 <ArrowUpRight className="ml-1 h-3.5 w-3.5 opacity-60" aria-hidden="true" />
               </Button>
               <Button className="dashboard-v2-action-primary" onClick={() => setCreateActionOpen(true)}>
