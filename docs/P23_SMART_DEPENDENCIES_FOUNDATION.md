@@ -12,7 +12,7 @@ This is the **backend foundation**, not the P2.3.2 user interface. A dependency 
 
 ## Data and consistency
 
-`public.task_dependencies` stores `blocker_task_id → blocked_task_id`; the table is RLS-enabled, direct client roles are denied access, and only trusted server APIs use the service role. Immutable links are unique; both Actions must belong to the **same organization and team**. Foreign keys cascade links when an Action is deleted; they never delete another Action.
+`public.task_dependencies` stores `blocker_task_id → blocked_task_id`; the table is RLS-enabled, direct client roles are denied access, and only trusted server APIs use the service role. Immutable links are unique; both Actions must belong to the **same organization and team**. Foreign keys cascade links when an Action is deleted; they never delete another Action. Full organization deletion clears its edges transactionally before cascading Process and Action deletion.
 
 Database triggers enforce the following even when writes originate from existing Board, List, Planner, mobile, or AI paths:
 
