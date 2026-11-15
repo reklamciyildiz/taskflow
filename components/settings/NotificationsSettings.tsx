@@ -1,5 +1,5 @@
 'use client';
-import {T as AppT} from '@/components/i18n/AppLocaleProvider';
+import {T as AppT,useAppLocale} from '@/components/i18n/AppLocaleProvider';
 
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -25,6 +25,7 @@ async function saveUserSetting(key: string, value: boolean) {
 }
 
 export function NotificationsSettings() {
+  const {t}=useAppLocale();
   const [mounted, setMounted] = useState(false);
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [pushNotifications, setPushNotifications] = useState(false);
@@ -107,11 +108,11 @@ export function NotificationsSettings() {
         response.status===503 ? 'Recurring alerts are not configured in the database yet.' :
         json?.error||'Could not save recurring reminder settings.',
       );
-      toast.success('Recurring reminder preference saved.');
+      toast.success(t('Recurring reminder preference saved.'));
     }catch(cause){
       setRecurrenceAlertsEnabled(previousEnabled);
       setRecurrenceAlertThreshold(previousThreshold);
-      toast.error(cause instanceof Error?cause.message:'Could not save preference.');
+      toast.error(cause instanceof Error?cause.message:t('Could not save preference.'));
     }finally{setRecurrenceAlertsBusy(false);}
   };
 
@@ -139,7 +140,7 @@ export function NotificationsSettings() {
               if (typeof window !== 'undefined' && 'Notification' in window) setPushPermission(Notification.permission);
               else setPushPermission('unsupported');
             } catch { setPushPermission('unsupported'); }
-            toast.error('Push notifications are not enabled. Please allow notifications in your browser settings.');
+            toast.error(t('Push notifications are not enabled. Please allow notifications in your browser settings.'));
             return;
           }
           await fetch('/api/push/subscribe', {
@@ -171,7 +172,7 @@ export function NotificationsSettings() {
       <div>
         <h1 className="text-xl font-semibold"><AppT text="Notifications"/></h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Control how and when you get notified.
+          <AppT text="Control how and when you get notified."/>
         </p>
       </div>
 
@@ -179,7 +180,7 @@ export function NotificationsSettings() {
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
             <Bell className="h-4 w-4" />
-            Notification channels
+            <AppT text="Notification channels"/>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-5">
@@ -201,17 +202,17 @@ export function NotificationsSettings() {
 
           <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
             {pushPermission === 'unsupported' ? (
-              'Not supported on this device/browser. iOS Safari requires installing the app (Add to Home Screen) for push.'
+              t('Not supported on this device/browser. iOS Safari requires installing the app (Add to Home Screen) for push.')
             ) : pushPermission === 'denied' ? (
-              'Blocked in browser settings. Chrome: Site settings → Notifications → Allow.'
+              t('Blocked in browser settings. Chrome: Site settings → Notifications → Allow.')
             ) : pushPermission === 'granted' ? (
               pushNotifications
-                ? 'Enabled. Scheduled alerts arrive when their reminder or due window is reached.'
-                : 'Browser permission is granted, but push is disabled in Actiproc (toggle is OFF).'
+                ? t('Enabled. Scheduled alerts arrive when their reminder or due window is reached.')
+                : t('Browser permission is granted, but push is disabled in Actiproc (toggle is OFF).')
             ) : pushNotifications ? (
-              'Not allowed yet — turn ON to request permission.'
+              t('Not allowed yet — turn ON to request permission.')
             ) : (
-              'Off (enable to request permission).'
+              t('Off (enable to request permission).')
             )}
           </div>
 
@@ -227,7 +228,7 @@ export function NotificationsSettings() {
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
-            <Repeat2 className="h-4 w-4" /> Recurring work check-ins
+            <Repeat2 className="h-4 w-4" /> <AppT text="Recurring work check-ins"/>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -235,8 +236,7 @@ export function NotificationsSettings() {
             <div className="min-w-0 space-y-1">
               <Label htmlFor="recurrence-alerts-toggle" className="text-sm font-medium"><AppT text="Alert me when recurring work is missed"/></Label>
               <p className="text-xs leading-relaxed text-muted-foreground">
-                Covers daily and weekly Actions and checklist items. Off by default.
-                One reminder per calendar week at most, even if several days are missed.
+                <AppT text="Covers daily and weekly Actions and checklist items. Off by default. One reminder per calendar week at most, even if several days are missed."/>
               </p>
             </div>
             <Switch id="recurrence-alerts-toggle" checked={recurrenceAlertsEnabled} disabled={recurrenceAlertsBusy}
@@ -249,7 +249,7 @@ export function NotificationsSettings() {
             </div>
             <Select value={String(recurrenceAlertThreshold)} disabled={!recurrenceAlertsEnabled||recurrenceAlertsBusy}
               onValueChange={value=>void updateRecurrencePreference('recurrence_missed_alert_threshold',Number(value) as 2|3|5)}>
-              <SelectTrigger className="h-9 w-[112px]" aria-label="Number of missed occurrences">
+              <SelectTrigger className="h-9 w-[112px]" aria-label={t("Number of missed occurrences")}>
                 <SelectValue/>
               </SelectTrigger>
               <SelectContent>
@@ -260,8 +260,7 @@ export function NotificationsSettings() {
             </Select>
           </div>
           <p className="text-xs leading-relaxed text-muted-foreground">
-            Check-ins appear in the notification center. Browser push follows your Push Notifications setting.
-            Past dates are never automatically completed or copied into today's workload.
+            <AppT text="Check-ins appear in the notification center. Browser push follows your Push Notifications setting. Past dates are never automatically completed or copied into today's workload."/>
           </p>
         </CardContent>
       </Card>

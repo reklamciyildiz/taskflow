@@ -1,5 +1,5 @@
 'use client';
-import {T as AppT} from '@/components/i18n/AppLocaleProvider';
+import {T as AppT,useAppLocale} from '@/components/i18n/AppLocaleProvider';
 
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,6 +23,7 @@ import { cn } from '@/lib/utils';
 import Link from 'next/link';
 
 export function OrganizationSettings() {
+  const {t}=useAppLocale();
   const {
     currentTeam, currentUser, removeMember,
     organizationName, organizationId, updateOrganization,
@@ -69,11 +70,11 @@ export function OrganizationSettings() {
   };
 
   const handleSaveTerminology = () => {
-    if (!organizationId) { toast.error('Organization not loaded yet'); return; }
+    if (!organizationId) { toast.error(t('Organization not loaded yet')); return; }
     setTerminologySaving(true);
     try {
       updateCustomerTerminology({ directory: customerDirDraft, singular: customerSingDraft });
-      toast.success('Directory labels saved');
+      toast.success(t('Directory labels saved'));
     } finally {
       setTerminologySaving(false);
     }
@@ -92,7 +93,7 @@ export function OrganizationSettings() {
       <div>
         <h1 className="text-xl font-semibold"><AppT text="Organization"/></h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Workspace configuration — visible to admins only.
+          <AppT text="Workspace configuration — visible to admins only."/>
         </p>
       </div>
 
@@ -101,7 +102,7 @@ export function OrganizationSettings() {
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
             <Globe className="h-4 w-4" />
-            Organization name
+            <AppT text="Organization name"/>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -110,7 +111,7 @@ export function OrganizationSettings() {
               <Input
                 value={newOrgName}
                 onChange={(e) => setNewOrgName(e.target.value)}
-                placeholder="Organization name"
+                placeholder={t("Organization name")}
                 disabled={orgUpdateLoading}
               />
               <Button onClick={handleOrgNameSave} disabled={orgUpdateLoading || !newOrgName.trim()}><AppT text="Save"/></Button>
@@ -129,7 +130,7 @@ export function OrganizationSettings() {
           <div>
             <Label className="text-sm font-medium"><AppT text="Customer directory labels"/></Label>
             <p className="mt-1 mb-3 text-xs text-muted-foreground">
-              Rename the sidebar entry and /customers page. Stored on this device per organization.
+              <AppT text="Rename the sidebar entry and /customers page. Stored on this device per organization."/>
             </p>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
@@ -138,7 +139,7 @@ export function OrganizationSettings() {
                   id="cust-dir"
                   value={customerDirDraft}
                   onChange={(e) => setCustomerDirDraft(e.target.value)}
-                  placeholder="e.g. Clients, Accounts"
+                  placeholder={t("e.g. Clients, Accounts")}
                   maxLength={48}
                   disabled={terminologySaving}
                 />
@@ -149,7 +150,7 @@ export function OrganizationSettings() {
                   id="cust-sing"
                   value={customerSingDraft}
                   onChange={(e) => setCustomerSingDraft(e.target.value)}
-                  placeholder="e.g. Client, Account"
+                  placeholder={t("e.g. Client, Account")}
                   maxLength={48}
                   disabled={terminologySaving}
                 />
@@ -165,7 +166,7 @@ export function OrganizationSettings() {
                     customerSingDraft.trim() === customerSingularLabel)
                 }
               >
-                Save labels
+                <AppT text="Save labels"/>
               </Button>
               <Button
                 variant="outline"
@@ -183,7 +184,7 @@ export function OrganizationSettings() {
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
             <Users className="h-4 w-4" />
-            Teams
+            <AppT text="Teams"/>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -255,7 +256,7 @@ export function OrganizationSettings() {
                   </Badge>
                 </CardTitle>
                 <CardDescription className="mt-1 text-xs">
-                  Plans, checkout, invoices, and seats.
+                  <AppT text="Plans, checkout, invoices, and seats."/>
                 </CardDescription>
               </div>
               <Button
@@ -276,25 +277,25 @@ export function OrganizationSettings() {
                   <span className="text-muted-foreground"><AppT text="Status"/></span>
                   <span className="font-medium capitalize">{billingLoading ? '…' : billingStatus.replace('_', ' ')}</span>
                   {billingStatus === 'past_due' && (
-                    <AlertTriangle className="h-3.5 w-3.5 text-amber-500" aria-label="Payment issue" />
+                    <AlertTriangle className="h-3.5 w-3.5 text-amber-500" aria-label={t("Payment issue")} />
                   )}
                 </p>
                 {(billingPlan === 'team' || billingPlan === 'pro') ? (
                   <p className="text-muted-foreground">
-                    Seats: <span className="font-medium text-foreground">{billingLoading ? '…' : `${seatsUsed} / ${Number.isFinite(seatLimit) ? seatLimit : '∞'}`}</span>
+                    <AppT text="Seats:"/> <span className="font-medium text-foreground">{billingLoading ? '…' : `${seatsUsed} / ${Number.isFinite(seatLimit) ? seatLimit : '∞'}`}</span>
                   </p>
                 ) : (
                   <p className="text-xs text-muted-foreground"><AppT text="Open the billing page to compare plans."/></p>
                 )}
                 {billingStatus === 'past_due' && (
                   <p className="text-xs text-amber-600 dark:text-amber-400">
-                    Payment failed — visit Billing & plans to update your card.
+                    <AppT text="Payment failed — visit Billing & plans to update your card."/>
                   </p>
                 )}
               </div>
               <Button asChild className="gap-2 sm:shrink-0">
                 <Link href="/settings/billing">
-                  Billing & plans
+                  <AppT text="Billing & plans"/>
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </Button>
@@ -307,7 +308,7 @@ export function OrganizationSettings() {
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-base">Team members — {currentTeam?.members.length ?? 0}</CardTitle>
+            <CardTitle className="text-base">{t('Team members — {count}',{count:currentTeam?.members.length ?? 0})}</CardTitle>
             <Button size="sm" variant="outline" onClick={() => setIsInviteModalOpen(true)}>
               <Plus className="mr-2 h-3.5 w-3.5" /><AppT text="Invite"/></Button>
           </div>
