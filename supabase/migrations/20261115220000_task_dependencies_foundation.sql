@@ -32,6 +32,33 @@ END; $$;
 REVOKE ALL ON FUNCTION public.p23_lock_graph(uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.p23_lock_graph(uuid) TO service_role;
 
+-- For Process Actions the P0 stage model is canonical. General/Inbox Action
+-- stages must come from the server-owned team_inbox_boards snapshot; old
+-- browser-local stages have no trustworthy completion semantics.
+CREATE FUNCTION public.p23_is_terminal(
+  p_org uuid, p_team uuid, p_project uuid, p_status text,
+  p_require_inbox boolean DEFAULT false
+) RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path=pg_catalog,public AS $
+DECLARE v_stages jsonb;
+BEGIN
+  IF p_project IS NOT NULL THEN
+    RETURN public.actiproc_is_terminal_task_stage(p_project,p_status);
+  END IF;
+  SELECT stages INTO v_stages FROM public.team_inbox_boards
+    WHERE team_id=p_team AND organization_id=p_org;
+  IF NOT FOUND THEN
+    IF p_require_inbox THEN
+      RAISE EXCEPTION 'P23_DEPENDENCY_INBOX_UNSYNCED' USING ERRCODE='23514';
+    END IF;
+    -- Legacy General Actions are not permitted to link until their Inbox
+    -- board is synced. Preserve the existing canonical "done" fallback.
+    RETURN p_status='done';
+  END IF;
+  RETURN EXISTS (SELECT 1 FROM jsonb_array_elements(v_stages) stage
+    WHERE stage->>'id'=p_status AND stage->>'isTerminal'='true');
+END; $;
+
 CREATE FUNCTION public.p23_guard_dependency() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public AS $$
 DECLARE a record; b record;
@@ -66,8 +93,15 @@ BEGIN
       AND ws.checklist_item_id IS NULL AND ws.schedule_type='recurring'
       AND ws.archived_at IS NULL
   ) THEN RAISE EXCEPTION 'P23_DEPENDENCY_RECURRING' USING ERRCODE='23514'; END IF;
-  IF public.actiproc_is_terminal_task_stage(b.project_id,b.status)
-    AND NOT public.actiproc_is_terminal_task_stage(a.project_id,a.status) THEN
+  -- Linked General Actions require explicit canonical Inbox stage adoption.
+  IF a.project_id IS NULL THEN
+    PERFORM public.p23_is_terminal(a.organization_id,a.team_id,a.project_id,a.status,true);
+  END IF;
+  IF b.project_id IS NULL THEN
+    PERFORM public.p23_is_terminal(b.organization_id,b.team_id,b.project_id,b.status,true);
+  END IF;
+  IF public.p23_is_terminal(b.organization_id,b.team_id,b.project_id,b.status)
+    AND NOT public.p23_is_terminal(a.organization_id,a.team_id,a.project_id,a.status) THEN
     RAISE EXCEPTION 'P23_DEPENDENCY_TERMINAL_TARGET' USING ERRCODE='23514';
   END IF;
   IF (SELECT count(*) FROM public.task_dependencies WHERE blocked_task_id=NEW.blocked_task_id)>=200
@@ -96,31 +130,36 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public AS $$
 DECLARE was_terminal boolean;
 BEGIN
   IF TG_OP='UPDATE' THEN
-    IF (OLD.organization_id IS DISTINCT FROM NEW.organization_id
-        OR OLD.team_id IS DISTINCT FROM NEW.team_id)
-      AND EXISTS (SELECT 1 FROM public.task_dependencies d
+    IF OLD.organization_id IS DISTINCT FROM NEW.organization_id
+       OR OLD.team_id IS DISTINCT FROM NEW.team_id THEN
+      -- A new link must not race with a team/tenant reassignment.
+      PERFORM public.p23_lock_graph(OLD.organization_id);
+      IF EXISTS (SELECT 1 FROM public.task_dependencies d
         WHERE d.blocker_task_id=NEW.id OR d.blocked_task_id=NEW.id) THEN
-      RAISE EXCEPTION 'P23_DEPENDENCY_SCOPE_CHANGE' USING ERRCODE='23514';
+        RAISE EXCEPTION 'P23_DEPENDENCY_SCOPE_CHANGE' USING ERRCODE='23514';
+      END IF;
     END IF;
     IF NEW.status IS NOT DISTINCT FROM OLD.status
       AND NEW.project_id IS NOT DISTINCT FROM OLD.project_id THEN RETURN NEW; END IF;
   END IF;
-  IF NOT public.actiproc_is_terminal_task_stage(NEW.project_id,NEW.status) THEN RETURN NEW; END IF;
+  IF NOT public.p23_is_terminal(NEW.organization_id,NEW.team_id,NEW.project_id,NEW.status) THEN RETURN NEW; END IF;
   was_terminal:=FALSE;
   IF TG_OP='UPDATE' THEN
-    was_terminal:=public.actiproc_is_terminal_task_stage(OLD.project_id,OLD.status);
+    was_terminal:=public.p23_is_terminal(OLD.organization_id,OLD.team_id,OLD.project_id,OLD.status);
   END IF;
-  -- Preserve historical completion when moving between terminal stages, even
-  -- if a previously completed blocker has since been reopened.
+  -- Terminal -> terminal is not a new completion; reopening a prerequisite
+  -- later preserves historical completion, without auto-moving downstream work.
   IF was_terminal THEN RETURN NEW; END IF;
+  -- Always take the lock before checking edges, including when there are none:
+  -- otherwise concurrent link creation can race this first completion.
   PERFORM public.p23_lock_graph(NEW.organization_id);
   IF EXISTS (
     SELECT 1 FROM public.task_dependencies d JOIN public.tasks blocker ON blocker.id=d.blocker_task_id
     WHERE d.blocked_task_id=NEW.id
-      AND NOT public.actiproc_is_terminal_task_stage(blocker.project_id,blocker.status)
+      AND NOT public.p23_is_terminal(blocker.organization_id,blocker.team_id,blocker.project_id,blocker.status)
   ) THEN RAISE EXCEPTION 'P23_BLOCKED_COMPLETION' USING ERRCODE='23514'; END IF;
   RETURN NEW;
-END; $$;
+END; $;
 CREATE TRIGGER p23_tasks_completion_integrity
   BEFORE INSERT OR UPDATE OF status,project_id,team_id,organization_id ON public.tasks
   FOR EACH ROW EXECUTE FUNCTION public.p23_guard_task_completion();
@@ -144,6 +183,69 @@ END; $$;
 CREATE TRIGGER p23_work_schedule_integrity
   BEFORE INSERT OR UPDATE OF schedule_type,archived_at,task_id,checklist_item_id
   ON public.work_schedules FOR EACH ROW EXECUTE FUNCTION public.p23_guard_recurring_schedule();
+
+-- Stage metadata is part of dependency integrity: toggling a referenced
+-- isTerminal flag would silently change completion without touching the Action.
+CREATE FUNCTION public.p23_guard_project_stages() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public AS $
+BEGIN
+  IF NEW.column_config IS NOT DISTINCT FROM OLD.column_config THEN RETURN NEW; END IF;
+  PERFORM public.p23_lock_graph(OLD.organization_id);
+  IF EXISTS (
+    SELECT 1 FROM public.tasks t
+    WHERE t.project_id=NEW.id
+      AND EXISTS (SELECT 1 FROM public.task_dependencies d
+        WHERE d.blocker_task_id=t.id OR d.blocked_task_id=t.id)
+      AND (
+        SELECT coalesce((stage->>'isTerminal')::boolean,false)
+        FROM jsonb_array_elements(OLD.column_config) stage WHERE stage->>'id'=t.status
+      ) IS DISTINCT FROM (
+        SELECT coalesce((stage->>'isTerminal')::boolean,false)
+        FROM jsonb_array_elements(NEW.column_config) stage WHERE stage->>'id'=t.status
+      )
+  ) THEN
+    RAISE EXCEPTION 'P23_DEPENDENCY_STAGE_CHANGE' USING ERRCODE='23514';
+  END IF;
+  RETURN NEW;
+END; $;
+CREATE TRIGGER p23_project_terminal_integrity BEFORE UPDATE OF column_config
+  ON public.projects FOR EACH ROW EXECUTE FUNCTION public.p23_guard_project_stages();
+
+CREATE FUNCTION public.p23_guard_inbox_stages() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public AS $
+BEGIN
+  PERFORM public.p23_lock_graph(OLD.organization_id);
+  IF TG_OP='DELETE' THEN
+    IF EXISTS (SELECT 1 FROM public.tasks t
+      WHERE t.team_id=OLD.team_id AND t.project_id IS NULL
+        AND EXISTS (SELECT 1 FROM public.task_dependencies d
+          WHERE d.blocker_task_id=t.id OR d.blocked_task_id=t.id)) THEN
+      RAISE EXCEPTION 'P23_DEPENDENCY_INBOX_REQUIRED' USING ERRCODE='23514';
+    END IF;
+    RETURN OLD;
+  END IF;
+  IF NEW.stages IS NOT DISTINCT FROM OLD.stages THEN RETURN NEW; END IF;
+  IF EXISTS (
+    SELECT 1 FROM public.tasks t
+    WHERE t.team_id=NEW.team_id AND t.project_id IS NULL
+      AND EXISTS (SELECT 1 FROM public.task_dependencies d
+        WHERE d.blocker_task_id=t.id OR d.blocked_task_id=t.id)
+      AND (
+        SELECT coalesce((stage->>'isTerminal')::boolean,false)
+        FROM jsonb_array_elements(OLD.stages) stage WHERE stage->>'id'=t.status
+      ) IS DISTINCT FROM (
+        SELECT coalesce((stage->>'isTerminal')::boolean,false)
+        FROM jsonb_array_elements(NEW.stages) stage WHERE stage->>'id'=t.status
+      )
+  ) THEN RAISE EXCEPTION 'P23_DEPENDENCY_STAGE_CHANGE' USING ERRCODE='23514'; END IF;
+  RETURN NEW;
+END; $;
+CREATE TRIGGER p23_inbox_terminal_integrity BEFORE UPDATE OF stages OR DELETE
+  ON public.team_inbox_boards FOR EACH ROW EXECUTE FUNCTION public.p23_guard_inbox_stages();
+REVOKE ALL ON FUNCTION public.p23_is_terminal(uuid,uuid,uuid,text,boolean) FROM PUBLIC,anon,authenticated;
+REVOKE ALL ON FUNCTION public.p23_guard_project_stages() FROM PUBLIC,anon,authenticated;
+REVOKE ALL ON FUNCTION public.p23_guard_inbox_stages() FROM PUBLIC,anon,authenticated;
+
 REVOKE ALL ON FUNCTION public.p23_guard_dependency() FROM PUBLIC,anon,authenticated;
 REVOKE ALL ON FUNCTION public.p23_guard_task_completion() FROM PUBLIC,anon,authenticated;
 REVOKE ALL ON FUNCTION public.p23_guard_recurring_schedule() FROM PUBLIC,anon,authenticated;
