@@ -20,7 +20,7 @@ Database triggers enforce the following even when writes originate from existing
 2. No attaching an unfinished blocker to an already-completed Action.
 3. No new terminal-stage transition if a prerequisite remains unfinished. The database's canonical Process `isTerminal` flag determines completion, not a hardcoded status name.
 4. General Actions are eligible **only after** the team's Inbox board has been synchronized server-side. In that case the canonical `team_inbox_boards.stages[].isTerminal` flag is used. Legacy browser-local Inbox stage definitions do not qualify.
-5. Existing dependency edges prevent changing the completion semantics of their referenced Process/Inbox stages or removing the canonical Inbox board.
+5. Existing dependency edges prevent changing the completion semantics of their referenced Process/Inbox stages, deleting a linked Process (which would orphan its stage identity), or removing the canonical Inbox board.
 6. Action-level recurring schedules cannot participate yet. Recurring checklist items are separate and remain allowed. Archived recurring Action schedules do not prevent linking.
 7. Dependency graph mutation, completion, and recurrence mutation share a PostgreSQL transaction advisory lock per organization. PostgreSQL READ COMMITTED is assumed (standard PostgREST behavior).
 
