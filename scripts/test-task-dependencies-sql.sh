@@ -125,7 +125,7 @@ SELECT pg_temp.expect_failure($q$INSERT INTO task_dependencies(blocker_task_id,b
 SELECT pg_temp.expect_failure($q$UPDATE tasks SET team_id='44444444-4444-4444-8444-444444444444' WHERE id='00000000-0000-4000-8000-000000000002'$q$, 'P23_DEPENDENCY_SCOPE_CHANGE');
 
 -- Stage flags cannot be changed behind active links in a Process or General Inbox.
-SELECT pg_temp.expect_failure($q$UPDATE projects SET column_config=jsonb_set(column_config,'{1,isTerminal}','false'::jsonb) WHERE id='99999999-9999-4999-8999-999999999999'$q$, 'P23_DEPENDENCY_STAGE_CHANGE');
+SELECT pg_temp.expect_failure($q$UPDATE projects SET column_config=jsonb_set(column_config,'{2,isTerminal}','false'::jsonb) WHERE id='99999999-9999-4999-8999-999999999999'$q$, 'P23_DEPENDENCY_STAGE_CHANGE');
 SELECT pg_temp.expect_failure($q$UPDATE team_inbox_boards SET stages=jsonb_set(stages,'{1,isTerminal}','false'::jsonb) WHERE team_id='33333333-3333-4333-8333-333333333333'$q$, 'P23_DEPENDENCY_STAGE_CHANGE');
 SELECT pg_temp.expect_failure($q$DELETE FROM team_inbox_boards WHERE team_id='33333333-3333-4333-8333-333333333333'$q$, 'P23_DEPENDENCY_INBOX_REQUIRED');
 -- The custom General 'verified' terminal stage is recognized by the DAG guard.
