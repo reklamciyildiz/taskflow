@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { requireAuthedUser, requireTeamAdminOrOrgAdmin, requireTeamScopeAccess } from '@/lib/server-authz';
 import { inboxBoardTableMissing, readInboxBoard } from '@/lib/inbox-board-server';
+import { taskDependencyDbError } from '@/lib/task-dependencies';
 import { validateStageConfig, StageValidationError } from '@/lib/stage-lifecycle';
 
 export const runtime = 'nodejs';
@@ -68,6 +69,10 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ success: false, code: 'INBOX_MIGRATION_REQUIRED', error: 'Inbox migration is not installed' }, { status: 503 });
     }
     if (updated.error) {
+      const dependencyError = taskDependencyDbError(updated.error);
+      if (dependencyError) {
+        return NextResponse.json({ success: false, code: dependencyError.code, error: dependencyError.message }, { status: dependencyError.status });
+      }
       return NextResponse.json({
         success: false, code: 'INBOX_STAGE_CONFLICT',
         error: 'Inbox configuration would orphan a saved Action or violate stage integrity. Nothing was changed.',
