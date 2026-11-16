@@ -208,7 +208,7 @@ export function AdvancedReports() {
           <section className="grid grid-cols-2 gap-2.5 lg:grid-cols-3 xl:grid-cols-6" aria-label={t('Report key metrics')}>
             <Metric label={t('Open Actions')} value={number(s.open)}
               detail={t('Current snapshot')} icon={<ListTodo className="h-4 w-4" />} />
-            <Metric label={t('Completion rate')} value={s.completionRate + '%'}
+            <Metric label={t('Completion rate')} value={s.total ? s.completionRate + '%' : '—'}
               detail={t('Current snapshot')} icon={<CheckCheck className="h-4 w-4" />} tone="good" />
             <Metric label={t('Overdue')} value={number(s.overdue)}
               detail={t('Due date passed by calendar day')} icon={<AlertTriangle className="h-4 w-4" />}
