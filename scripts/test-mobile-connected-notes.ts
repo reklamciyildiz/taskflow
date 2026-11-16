@@ -42,8 +42,10 @@ for(const method of ['GET','POST','DELETE']){
   check(productionGate.includes("checklist-note-links', method: '"+method+"'"),
     'Production APK gate must verify connected Note endpoint: '+method);
 }
-check(productionGate.includes("sharedPreflight.status !== 204"),
-  'APK production beta gate must reject missing CORS preflight');
+check(productionGate.includes("assertPreflightReady({"),
+  'APK production beta gate must validate the full CORS preflight contract');
+check(productionGate.includes("requiredHeaders: ['authorization', 'content-type']"),
+  'APK production beta gate must verify bearer and JSON headers');
 check(productionGate.includes("expectedStatuses.includes(rejected.status"),
   'APK production beta gate must reject endpoints accepting forged Bearer tokens');
 check(mobileAdapter.includes("if (raw.startsWith('/api/')) return authenticatedFetch(raw, init)"),'Mobile adapter must send shared requests with bearer');
