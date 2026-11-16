@@ -27,7 +27,7 @@ check(
 for(const statement of [
   "pathname === '/api/tasks'","/api\\/tasks",
   "pathname === '/api/knowledge'",
-  "/api\\\\/notes",
+  "/api\\/notes",
   "mobileOriginAllowed && request.method === 'OPTIONS'",
   "request.headers.get('authorization')?.startsWith('Bearer ')",
   "'Access-Control-Allow-Headers': 'authorization,content-type'",
