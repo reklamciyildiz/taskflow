@@ -97,7 +97,9 @@ assert.equal(unassigned.summary.total, 2);
 assert.equal(buildAdvancedReport({ ...args, teamId: 'unavailable-team' }).summary.total, 0);
 assert.equal(buildAdvancedReport({ ...args, processId: 'invisible' }).summary.total, 0);
 const previous = buildAdvancedReport({ ...args, now: move(-20), days: 30 });
-assert.equal(previous.summary.completedInPeriod, 0, 'Future completions cannot be in period');
+assert.equal(previous.summary.completedInPeriod, 1, 'Older verified completion is still in this historical period');
+const futureOnly = buildAdvancedReport({ ...args, tasks: [tasks[0]], now: move(-20), days: 30 });
+assert.equal(futureOnly.summary.completedInPeriod, 0, 'Future completion is excluded from a prior report window');
 assert.equal(previous.summary.overdue, 0, 'Overdue uses chosen snapshot day, not current wall clock');
 
 assert.equal(csvCell('   =1+2'), '"\'   =1+2"');
