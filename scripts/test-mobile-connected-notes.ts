@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { NextRequest } from 'next/server';
-import { middleware } from '../middleware';
+import { middleware as runMiddleware } from '../middleware';
 import {
   checklistItemExists, linkedNotesForItem, noteChecklistItemIds,
 } from '../lib/checklist-note-links';
@@ -96,7 +96,7 @@ async function verifyMiddlewareTransport(){
   process.env.MOBILE_AUTH_ALLOWED_ORIGINS = 'https://localhost,capacitor://localhost';
   try {
     const url = 'https://www.actiproc.com/api/tasks/00000000-0000-4000-8000-000000000001/checklist-note-links';
-    const preflight = await middleware(new NextRequest(url,{
+    const preflight = await runMiddleware(new NextRequest(url,{
       method:'OPTIONS',headers:{
         origin:'https://localhost',
         'access-control-request-method':'DELETE',
@@ -109,14 +109,14 @@ async function verifyMiddlewareTransport(){
     check(preflight.headers.get('Access-Control-Allow-Methods')?.includes('DELETE')===true,'Preflight must permit unlink method');
     check(preflight.headers.get('Vary')==='Origin','Preflight must prevent cross-origin cache leakage');
     for(const method of ['GET','POST','DELETE']){
-      const response=await middleware(new NextRequest(url,{
+      const response=await runMiddleware(new NextRequest(url,{
         method,headers:{origin:'https://localhost',authorization:'Bearer test-only-invalid-token'},
       }));
       check(response.status===200,method+' should reach the actual API handler, not NextAuth cookie middleware');
       check(response.headers.get('x-middleware-next')==='1',method+' must proceed to strict route Bearer verification');
       check(response.headers.get('Access-Control-Allow-Origin')==='https://localhost',method+' must expose response to Android origin');
     }
-    const untrusted=await middleware(new NextRequest(url,{
+    const untrusted=await runMiddleware(new NextRequest(url,{
       method:'GET',headers:{origin:'https://untrusted.example',authorization:'Bearer test-only-invalid-token'},
     }));
     check(!untrusted.headers.get('Access-Control-Allow-Origin'),'Untrusted origins must never get a CORS grant');
