@@ -1,0 +1,47 @@
+name: P3.1 advanced operational reporting
+
+on:
+  pull_request:
+    paths:
+      - 'components/Analytics.tsx'
+      - 'components/analytics/**'
+      - 'lib/metrics/**'
+      - 'lib/i18n/**'
+      - 'scripts/test-p31-advanced-reporting.ts'
+      - 'docs/P31_ADVANCED_REPORTING.md'
+      - '.github/workflows/p31-advanced-reporting.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: P3.1 reporting correctness, tenant scopes, CSV injection and translations
+        run: npx tsx scripts/test-p31-advanced-reporting.ts
+      - name: Existing completion timestamp and security contracts
+        run: npx tsx scripts/test-p0-security-metrics.ts
+      - name: Existing scheduling regressions
+        run: npm run test:scheduling
+      - name: TypeScript
+        run: npx tsc --noEmit
+      - name: Next.js production build (inert credentials)
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-not-a-real-key
+          SUPABASE_SERVICE_ROLE_KEY: ci-not-a-real-service-role-key
+          NEXTAUTH_SECRET: ci-only-build-secret
+          NEXTAUTH_URL: http://localhost:3000
+          RESEND_API_KEY: re_ci_build_placeholder_never_valid
+          RESEND_FROM_EMAIL: ci@example.invalid
+        run: npm run build
