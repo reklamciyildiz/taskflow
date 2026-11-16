@@ -158,6 +158,7 @@ assert.match(intelligence, /role="tabpanel"/);
 assert.match(intelligence, /role="tablist"/);
 assert.match(intelligence, /ArrowRight/);
 assert.match(intelligence, /KeyboardEvent<HTMLButtonElement>/);
+assert.match(intelligence, /tickLabel\(bucket.label, index\)/,'Week/day labels must respect Turkish locale');
 assert.match(intelligence, /Invented sample|invented sample/);
 assert.doesNotMatch(intelligence, /fetch\(|localStorage|supabase|api\/tasks|createTask/);
 assert.doesNotMatch(intelligence, /testimonials|customers agree|users served/i);
