@@ -120,7 +120,7 @@ export function buildAdvancedReport(input: ReportingInput): AdvancedReport {
   const processMap = new Map(
     projects.filter(p => p.teamId === teamId || p.teamId === null).map(p => [p.id, p]),
   );
-  const inboxColumns = generalColumns.length ? generalColumns : FALLBACK_BOARD_COLUMNS;
+  const inboxColumns: ProjectColumnConfig[] = generalColumns.length ? [...generalColumns] : FALLBACK_BOARD_COLUMNS;
   const scoped = tasks.filter(task =>
     !!teamId && task.teamId === teamId
     // A missing or inaccessible Process must never appear in reports/exports.
