@@ -12,6 +12,7 @@ import {
   MarketingFAQ,
 } from '@/components/marketing/MarketingExperience';
 import { MarketingPricing } from '@/components/marketing/sections/MarketingPricing';
+import { MarketingWorkflowIntelligence } from '@/components/marketing/MarketingWorkflowIntelligence';
 import { MarketingFooter } from '@/components/marketing/MarketingFooter';
 import { MarketingFeedbackCommunity } from '@/components/marketing/MarketingFeedbackCommunity';
 
@@ -30,13 +31,14 @@ export default function MarketingPage({locale='en'}:{locale?:MarketingLocale}={}
     operatingSystem:'Web',
     inLanguage:locale,
     description:locale==='tr'
-      ? 'Actiproc ile görevleri, süreçleri, planları, notları, bilgileri ve ekip çalışmalarını bir araya getir.'
-      : 'From idea to outcome: connect Processes, Actions, Planner, Knowledge Hub and team workflows.',
+      ? 'Actiproc ile görevleri, süreçleri, akıllı bağımlılıkları, gelişmiş raporlamayı, notları ve ekip çalışmalarını tek yerde birleştir.'
+      : 'Connect Processes, Actions, dependency-aware handoffs, verified reporting, Planner, Knowledge Hub and team workflows.',
     url:locale==='tr'?'https://www.actiproc.com/marketing/tr':'https://www.actiproc.com/marketing',
     featureList:[
       t('Processes & boards'),t('Actions & checklists'),t('Planner & calendar'),
       t('Rich notes'),t('Knowledge Hub'),t('Actiproc AI'),t('Team workspaces'),
       t('Customer workflows'),t('Inbox & notifications'),t('Web & mobile access'),
+      t('Smart Dependencies'),t('Advanced Reporting'),
     ].join('\\n'),
   };
   return (
@@ -49,6 +51,7 @@ export default function MarketingPage({locale='en'}:{locale?:MarketingLocale}={}
         <MarketingHero locale={locale} />
         <MarketingWorkflow locale={locale} />
         <MarketingProductSystem locale={locale} />
+        <MarketingWorkflowIntelligence locale={locale} />
         <MarketingConnectedWorkspace locale={locale} />
         <MarketingIntegrations locale={locale} />
         <MarketingFeedbackCommunity locale={locale} />
