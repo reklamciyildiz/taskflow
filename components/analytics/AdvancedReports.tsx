@@ -89,7 +89,11 @@ export function AdvancedReports() {
     assigneeId: effectiveAssignee, days, now: asOf,
   }), [tasks, visibleProjects, generalBoardColumns, currentTeam?.id, effectiveProcess, effectiveAssignee, days, asOf]);
 
-  const teamHasInboxTasks = tasks.some(task => task.teamId === currentTeam?.id && !task.projectId);
+  const teamTasks = tasks.filter(task => task.teamId === currentTeam?.id);
+  // taskDb.getByTeam currently uses a non-paginated Supabase select. The default
+  // project row limit is commonly 1,000: never export a possibly partial report.
+  const mayBeTruncated = Boolean(currentTeam && teamTasks.length >= 1000);
+  const teamHasInboxTasks = teamTasks.some(task => !task.projectId);
   const processNameById = useMemo(
     () => new Map(visibleProjects.map(project => [project.id, project.name])),
     [visibleProjects],
@@ -109,7 +113,7 @@ export function AdvancedReports() {
   const s = report.summary;
 
   const download = () => {
-    if (!currentTeam) return;
+    if (!currentTeam || mayBeTruncated || loading) return;
     try {
       const csv = buildAdvancedReportCsv(report);
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
@@ -145,7 +149,7 @@ export function AdvancedReports() {
             </div>
           </div>
           <Button type="button" variant="outline" size="sm" onClick={download}
-            disabled={!currentTeam || loading} className="h-10 shrink-0 gap-2 rounded-xl bg-background/70 px-3 text-xs">
+            disabled={!currentTeam || loading || mayBeTruncated} className="h-10 shrink-0 gap-2 rounded-xl bg-background/70 px-3 text-xs">
             <Download className="h-4 w-4" aria-hidden />{t('Export report CSV')}
           </Button>
         </div>
@@ -201,6 +205,12 @@ export function AdvancedReports() {
         </div>
       </section>
 
+      {mayBeTruncated && (
+        <div role="alert" className="flex items-start gap-2.5 rounded-xl border border-amber-500/25 bg-amber-500/[0.06] p-3 text-xs leading-relaxed text-amber-800 dark:text-amber-200">
+          <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+          {t('This team has reached the task loading limit. Report totals may be incomplete; CSV export is disabled until complete paginated reporting is available.')}
+        </div>
+      )}
       {!currentTeam && !loading ? (
         <div className="rounded-2xl border border-dashed border-border/65 p-10 text-center text-sm text-muted-foreground">{t('Select a team to view its reports.')}</div>
       ) : (
