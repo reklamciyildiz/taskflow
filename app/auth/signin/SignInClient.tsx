@@ -27,6 +27,7 @@ export function SignInClient({
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [clientError, setClientError] = useState<string | null>(null);
+  const [dismissedUrlError, setDismissedUrlError] = useState(false);
   const submittingCredentials = useRef(false);
   const safeCallbackUrl = safeAuthCallbackPath(callbackUrl);
 
@@ -36,6 +37,7 @@ export function SignInClient({
     if (submittingCredentials.current || isGoogleLoading) return;
     submittingCredentials.current = true;
     setClientError(null);
+    setDismissedUrlError(true);
     setIsLoading(true);
 
     try {
@@ -65,17 +67,17 @@ export function SignInClient({
   const handleGoogleSignIn = async () => {
     setIsGoogleLoading(true);
     setClientError(null);
+    setDismissedUrlError(true);
     try {
       if (await requestNativeGoogleSignIn(safeCallbackUrl)) {
         // A cancelled Custom Tab returns to this still-mounted page. Do not
         // leave the button permanently disabled while waiting for an App Link.
-        setIsGoogleLoading(false);
         return;
       }
       await signIn('google', { callbackUrl: safeCallbackUrl });
-    } catch (error: any) {
-      console.error('Google sign in error:', error);
+    } catch {
       setClientError('Google sign-in could not be started. Please try again.');
+    } finally {
       setIsGoogleLoading(false);
     }
   };
@@ -99,7 +101,7 @@ export function SignInClient({
         </CardHeader>
 
         <CardContent className="space-y-6">
-          {(clientError || error) && (
+          {(clientError || (!dismissedUrlError && error)) && (
             <div role="alert" aria-live="polite" className="p-3 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-200 dark:border-red-900">
               {clientError || passwordLoginErrorMessage(error)}
             </div>
@@ -160,7 +162,7 @@ export function SignInClient({
                   placeholder="name@example.com"
                   value={email}
                   autoComplete="username"
-                  onChange={(e) => { setEmail(e.target.value); setClientError(null); }}
+                  onChange={(e) => { setEmail(e.target.value); setClientError(null); setDismissedUrlError(true); }}
                   className="pl-10"
                   required
                 />
@@ -177,7 +179,7 @@ export function SignInClient({
                   placeholder="••••••••"
                   value={password}
                   autoComplete="current-password"
-                  onChange={(e) => { setPassword(e.target.value); setClientError(null); }}
+                  onChange={(e) => { setPassword(e.target.value); setClientError(null); setDismissedUrlError(true); }}
                   className="pl-10"
                   required
                 />
