@@ -740,7 +740,7 @@ export function ActionNotes({
             {(()=>{
               const linkedIds=noteChecklistItemIds(persistedId,checklistNoteLinks);
               const linkedItems=checklistItems.filter(item=>linkedIds.includes(item.id));
-              return linkedItems.length?(
+              return !checklistLinksError&&!checklistLinksLoading&&linkedItems.length?(
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {linkedItems.map(item=>(
                     <span key={item.id} className="inline-flex max-w-full items-center rounded-lg border border-border/60 bg-background/80">
