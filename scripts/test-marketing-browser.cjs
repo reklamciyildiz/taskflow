@@ -90,6 +90,36 @@ async function main() {
         await page.getByText('Shared product launch').waitFor();
         assertions+=8;
 
+        // P2.3 / P3.1 public walkthrough: true local state, no authenticated workspace writes.
+        const workflowDemo=page.locator('#smart-workflows');
+        assert.equal(await workflowDemo.count(),1);
+        assert.equal(await workflowDemo.getByRole('tab',{name:'Smart Dependencies'}).getAttribute('aria-selected'),'true');
+        const dependency=workflowDemo.locator('[data-marketing-dependency-demo]');
+        assert.equal(await dependency.getByText('Blocked',{exact:true}).count(),2,
+          'Both downstream Actions must initially be blocked');
+        const complete=dependency.getByRole('button',{name:'Complete the review'});
+        assert.equal(await complete.getAttribute('aria-pressed'),'false');
+        await complete.click();
+        assert.equal(await dependency.getByText('Ready',{exact:true}).count(),1,
+          'Completing a prerequisite makes only its immediate dependent ready');
+        assert.equal(await dependency.getByText('Blocked',{exact:true}).count(),1,
+          'Later dependent remains blocked until its own prerequisite is complete');
+        await dependency.getByRole('button',{name:'Reopen the review'}).click();
+        assert.equal(await dependency.getByText('Blocked',{exact:true}).count(),2);
+        const reportTab=workflowDemo.getByRole('tab',{name:'Advanced Reporting'});
+        await reportTab.click();
+        assert.equal(await reportTab.getAttribute('aria-selected'),'true');
+        const report=workflowDemo.locator('[data-marketing-reporting-demo]');
+        await report.getByText('46',{exact:true}).waitFor();
+        await report.getByRole('button',{name:'7d'}).click();
+        await report.getByText('13',{exact:true}).waitFor();
+        await report.getByRole('button',{name:'90d'}).click();
+        await report.getByText('132',{exact:true}).waitFor();
+        await reportTab.focus();
+        await page.keyboard.press('ArrowLeft');
+        assert.equal(await workflowDemo.getByRole('tab',{name:'Smart Dependencies'}).getAttribute('aria-selected'),'true');
+        assertions+=16;
+
         for (const mode of ['For my team','For an organization','For myself']) {
           await page.getByRole('tab',{name:mode}).click();
           assert.equal(await page.getByRole('tab',{name:mode}).getAttribute('aria-selected'),'true');
@@ -168,6 +198,17 @@ async function main() {
         await page.getByText('HIZLI KAYIT').waitFor();
         await page.getByRole('button',{name:'Önizleme: Panolar'}).click();
         await page.getByText('Ürün lansmanı').first().waitFor();
+        const localShowcase=page.locator('#smart-workflows');
+        await localShowcase.getByRole('heading',{name:/Sonraki adımı bil\./}).waitFor();
+        await localShowcase.getByRole('tab',{name:'Akıllı Bağımlılıklar'}).click();
+        const localDependency=localShowcase.locator('[data-marketing-dependency-demo]');
+        await localDependency.getByRole('button',{name:'İncelemeyi tamamla'}).click();
+        await localDependency.getByText('Sonraki görev hazır. Yayın aşaması hâlâ materyallerin hazırlanmasını bekliyor.').waitFor();
+        await localShowcase.getByRole('tab',{name:'Gelişmiş Raporlama'}).click();
+        await localShowcase.locator('[data-marketing-reporting-demo]').getByText('Operasyonel genel bakış').waitFor();
+        assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1),true,
+          'Turkish demo must remain responsive');
+        assertions+=6;
         await page.getByRole('button',{name:'Yıllık · %16,7 tasarruf'}).click();
         const pro=page.getByRole('article').filter({has:page.getByRole('heading',{name:'Pro',exact:true})});
         await pro.getByText('$40',{exact:true}).waitFor();
