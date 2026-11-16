@@ -1,6 +1,32 @@
 import {interpolateText,type AppLocale,type TranslationVariables} from '@/lib/i18n/app-locale';
 /** Source keys are English UI copy, never user-generated fields. */
 export const trCatalog:Readonly<Record<string,string>> = {
+  // Android/mobile Connected Notes parity — share one catalog with the web app.
+  "Linked notes: {count}": "Bağlı notlar: {count}",
+  "Link note to checklist item": "Kontrol listesi maddesine not bağla",
+  "note": "not",
+  "notes": "not",
+  "Link note": "Not bağla",
+  "Linked notes": "Bağlı notlar",
+  "{count} connected to this checklist item": "Bu kontrol listesi maddesine bağlı {count} not",
+  "Close linked notes": "Bağlı notları kapat",
+  "Unlink {title}": "{title} bağlantısını kaldır",
+  "Unlink (the note is kept)": "Bağlantıyı kaldır (not korunur)",
+  "No notes linked yet. Your checklist stays compact.": "Henüz bağlı not yok. Kontrol listen düzenli kalır.",
+  "Could not load linked notes. Try again.": "Bağlı notlar yüklenemedi. Yeniden dene.",
+  "Loading connections…": "Bağlantılar yükleniyor…",
+  "Search Action notes…": "Görev notlarında ara…",
+  "Search notes to connect": "Bağlanacak notları ara",
+  "No other notes found.": "Başka not bulunamadı.",
+  "New note": "Yeni not",
+  "Connect existing": "Var olanı bağla",
+  "Related checklist items": "İlgili kontrol listesi maddeleri",
+  "+ Link checklist": "+ Kontrol listesi bağla",
+  "Search checklist…": "Kontrol listesinde ara…",
+  "Search checklist to connect": "Bağlanacak kontrol listesi maddesini ara",
+  "Unlink (keep Note)": "Bağlantıyı kaldır (notu koru)",
+  "Unlink checklist item": "Kontrol listesi bağlantısını kaldır",
+  "No linked checklist items.": "Henüz bağlı kontrol listesi maddesi yok.",
   // P3.1 — verified operational reporting and large-team safeguards.
   "This team has reached the task loading limit. Report totals may be incomplete; CSV export is disabled until complete paginated reporting is available.": "Bu ekipte görev yükleme sınırına ulaşıldı. Rapor toplamları eksik olabilir; tam sayfalı raporlama sunulana kadar CSV dışa aktarma kapalıdır.",
   "Analytics views": "Analiz görünümleri",
