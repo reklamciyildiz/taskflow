@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { NextRequest } from 'next/server';
+import { middleware } from '../middleware';
 import {
   checklistItemExists, linkedNotesForItem, noteChecklistItemIds,
 } from '../lib/checklist-note-links';
@@ -87,6 +89,42 @@ for (const key of [
   check(hasTurkishAppTranslation(key),'Missing Turkish localization: '+key);
   check(translateApp('tr',key)!==key,'Translation must differ from English: '+key);
 }
-console.log(JSON.stringify({suite:'mobile-connected-notes-parity',verified,
-  liveDatabaseCalls:false,deviceTested:false,
-  result:'PASS'}));
+// Exercise the actual Next.js middleware response for Android CORS preflights
+// and Bearer requests; the API route authenticates/authorizes the Bearer token.
+async function verifyMiddlewareTransport(){
+  const previous = process.env.MOBILE_AUTH_ALLOWED_ORIGINS;
+  process.env.MOBILE_AUTH_ALLOWED_ORIGINS = 'https://localhost,capacitor://localhost';
+  try {
+    const url = 'https://www.actiproc.com/api/tasks/00000000-0000-4000-8000-000000000001/checklist-note-links';
+    const preflight = await middleware(new NextRequest(url,{
+      method:'OPTIONS',headers:{
+        origin:'https://localhost',
+        'access-control-request-method':'DELETE',
+        'access-control-request-headers':'authorization,content-type',
+      },
+    }));
+    check(preflight.status===204,'Android DELETE/POST preflight must respond 204');
+    check(preflight.headers.get('Access-Control-Allow-Origin')==='https://localhost','Preflight CORS origin must match configured mobile origin');
+    check(preflight.headers.get('Access-Control-Allow-Headers')?.includes('authorization')===true,'Preflight must permit Bearer header');
+    check(preflight.headers.get('Access-Control-Allow-Methods')?.includes('DELETE')===true,'Preflight must permit unlink method');
+    check(preflight.headers.get('Vary')==='Origin','Preflight must prevent cross-origin cache leakage');
+    for(const method of ['GET','POST','DELETE']){
+      const response=await middleware(new NextRequest(url,{
+        method,headers:{origin:'https://localhost',authorization:'Bearer test-only-invalid-token'},
+      }));
+      check(response.status===200,method+' should reach the actual API handler, not NextAuth cookie middleware');
+      check(response.headers.get('x-middleware-next')==='1',method+' must proceed to strict route Bearer verification');
+      check(response.headers.get('Access-Control-Allow-Origin')==='https://localhost',method+' must expose response to Android origin');
+    }
+    const untrusted=await middleware(new NextRequest(url,{
+      method:'GET',headers:{origin:'https://untrusted.example',authorization:'Bearer test-only-invalid-token'},
+    }));
+    check(!untrusted.headers.get('Access-Control-Allow-Origin'),'Untrusted origins must never get a CORS grant');
+    console.log(JSON.stringify({suite:'mobile-connected-notes-parity',verified,
+      liveDatabaseCalls:false,deviceTested:false,result:'PASS'}));
+  }finally{
+    if(previous===undefined)delete process.env.MOBILE_AUTH_ALLOWED_ORIGINS;
+    else process.env.MOBILE_AUTH_ALLOWED_ORIGINS=previous;
+  }
+}
+verifyMiddlewareTransport().catch(error=>{console.error(error);process.exitCode=1;});
