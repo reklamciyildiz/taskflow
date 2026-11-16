@@ -601,15 +601,19 @@ function ActionPanelContent({
   const [noteLinksLoading,setNoteLinksLoading]=useState(true);
   const [noteLinksError,setNoteLinksError]=useState<string|null>(null);
   const noteLinksRequestRef=useRef(0);
-  useEffect(()=>{
+  const reloadNoteLinks=useCallback(()=>{
     const requestId=++noteLinksRequestRef.current;
     setNoteLinksLoading(true);
+    setNoteLinksError(null);
     void checklistNoteApi.getByTask(taskId).then(result=>{
       if(requestId!==noteLinksRequestRef.current)return;
       if(result.success&&result.data){
         setNoteLinks(result.data);
         setNoteLinksError(null);
-      }else setNoteLinksError(result.error||"Connected notes are unavailable.");
+      }else{
+        // A failed mobile request must not masquerade as an empty link set.
+        setNoteLinksError(result.error||"Connected notes are unavailable.");
+      }
       setNoteLinksLoading(false);
     }).catch(()=>{
       if(requestId===noteLinksRequestRef.current){
@@ -617,8 +621,11 @@ function ActionPanelContent({
         setNoteLinksLoading(false);
       }
     });
-    return ()=>{noteLinksRequestRef.current++;};
   },[taskId]);
+  useEffect(()=>{
+    reloadNoteLinks();
+    return ()=>{noteLinksRequestRef.current++;};
+  },[reloadNoteLinks]);
 
 
   /** A deep-linked Note takes precedence over the default Checklist tab.
@@ -962,8 +969,9 @@ function ActionPanelContent({
   const checklistNoteContext=useMemo<ChecklistNotesContextValue>(()=>({
     notes,links:noteLinks,loading:notesLoading||noteLinksLoading,error:noteLinksError,
     canEdit,createLinkedNote,linkNote,unlinkNote,openNote:openLinkedNote,
+    reloadLinks:reloadNoteLinks,
   }),[notes,noteLinks,notesLoading,noteLinksLoading,noteLinksError,canEdit,
-    createLinkedNote,linkNote,unlinkNote,openLinkedNote]);
+    createLinkedNote,linkNote,unlinkNote,openLinkedNote,reloadNoteLinks]);
 
   // Unmount (exit finished, action switched, or task vanished): flush whatever is still pending.
   // `flushAll` only depends on `taskId`, which is fixed for this mount, so this runs exactly once.
@@ -1671,6 +1679,9 @@ function ActionPanelContent({
               focusRevision={noteFocusRevision}
               checklistItems={extractChecklistItemsFromTipTap(checklistBlocksRef.current)}
               checklistNoteLinks={noteLinks}
+              checklistLinksLoading={noteLinksLoading}
+              checklistLinksError={noteLinksError}
+              onRetryChecklistLinks={reloadNoteLinks}
               onLinkChecklistNote={linkNote}
               onUnlinkChecklistNote={unlinkNote}
               onOpenChecklistItem={focusLinkedChecklist}
