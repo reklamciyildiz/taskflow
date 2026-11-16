@@ -11,6 +11,7 @@ const links = [
   { title: 'Product tour', href: '#experience' },
   { title: 'How it works', href: '#workflow' },
   { title: 'Everything inside', href: '#product' },
+  { title: 'Smart workflows', href: '#smart-workflows' },
   { title: 'For teams', href: '#teams' },
   { title: 'Integrations', href: '#integrations' },
   { title: 'Community', href: '#community' },
