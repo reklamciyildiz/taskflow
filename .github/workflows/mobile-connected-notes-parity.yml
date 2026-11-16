@@ -19,6 +19,7 @@ on:
       - 'components/action/ActionNotes.tsx'
       - 'components/action/ChecklistNotesContext.tsx'
       - 'mobile/src/mobile.css'
+      - 'mobile/scripts/verify-android-production-beta.mjs'
       - 'lib/i18n/catalog.ts'
       - 'scripts/test-mobile-connected-notes.ts'
       - '.github/workflows/mobile-connected-notes-parity.yml'
