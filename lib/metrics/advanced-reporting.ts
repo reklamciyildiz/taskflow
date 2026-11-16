@@ -138,7 +138,7 @@ export function buildAdvancedReport(input: ReportingInput): AdvancedReport {
   const completion = (task: Task) => complete(task) ? verifiedCompletionAt(task) : null;
   const dueOrdinal = (task: Task) => isDate(task.dueDate) ? dayOrdinal(task.dueDate) : null;
   const todayOrdinal = dayOrdinal(today);
-  const tomorrowWeekEnd = todayOrdinal + 7;
+  const tomorrowWeekEnd = todayOrdinal + 6;
   const staleCutoff = shiftLocalDay(today, -14);
   const summary = makeSummary(scoped.length);
   const durations: number[] = [];
