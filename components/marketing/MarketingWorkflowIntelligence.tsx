@@ -4,7 +4,7 @@ import { useState, type KeyboardEvent } from 'react';
 import Link from 'next/link';
 import {
   Activity, ArrowRight, ArrowUpRight, BarChart3, CalendarClock, Check,
-  CheckCircle2, ChevronRight, GitBranch, LockKeyhole, RotateCcw, ShieldCheck,
+  CheckCircle2, GitBranch, LockKeyhole, RotateCcw, ShieldCheck,
   Sparkles, Users,
 } from 'lucide-react';
 import { marketingT, type MarketingLocale } from '@/lib/marketing-locale';
@@ -104,7 +104,9 @@ function WorkflowPanel({ locale }: { locale: MarketingLocale }) {
                     ? <CheckCircle2 className="h-4 w-4 shrink-0 text-[#c9ffae]" aria-hidden />
                     : step.id === 'assets' && reviewDone
                       ? <Check className="h-4 w-4 shrink-0 text-[#c9ffae]" aria-hidden />
-                      : <LockKeyhole className="h-4 w-4 shrink-0 text-[#93a8a2]" aria-hidden />}
+                      : step.id === 'brief'
+                        ? <Activity className="h-4 w-4 shrink-0 text-[#c0d7d0]" aria-hidden />
+                        : <LockKeyhole className="h-4 w-4 shrink-0 text-[#93a8a2]" aria-hidden />}
                 </div>
                 <h4 className="mt-5 text-[13px] font-semibold leading-snug text-white">{t(step.name)}</h4>
                 <p className="mt-2 inline-flex items-center gap-1.5 text-[10px] text-[#a0b7af]">
