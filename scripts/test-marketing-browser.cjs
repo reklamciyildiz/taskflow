@@ -205,7 +205,12 @@ async function main() {
         await localDependency.getByRole('button',{name:'İncelemeyi tamamla'}).click();
         await localDependency.getByText('Sonraki görev hazır. Yayın aşaması hâlâ materyallerin hazırlanmasını bekliyor.').waitFor();
         await localShowcase.getByRole('tab',{name:'Gelişmiş Raporlama'}).click();
-        await localShowcase.locator('[data-marketing-reporting-demo]').getByText('Operasyonel genel bakış').waitFor();
+        const localReport=localShowcase.locator('[data-marketing-reporting-demo]');
+        await localReport.getByText('Operasyonel genel bakış').waitFor();
+        await localReport.getByRole('button',{name:'7g'}).click();
+        await localReport.getByText('Pt',{exact:true}).waitFor();
+        await localReport.getByRole('button',{name:'90g'}).click();
+        await localReport.getByText('H1',{exact:true}).waitFor();
         assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1),true,
           'Turkish demo must remain responsive');
         assertions+=6;
