@@ -3,7 +3,7 @@ import Link from 'next/link';
 import {
   ArrowDown, ArrowRight, ArrowUpRight, BarChart3, BellRing, BookOpenText,
   CalendarDays, CheckCircle2, Cloud, Fingerprint, Layers3, ListChecks,
-  Network, NotebookPen, PanelLeft, Search, Sparkles, Users, Webhook,
+  Network, NotebookPen, PanelLeft, Search, Sparkles, Users, Webhook, GitBranch,
   Workflow, Smartphone, CalendarClock, ShieldCheck, Check, Zap,
 } from 'lucide-react';
 import { MarketingWorkspacePreview } from './MarketingWorkspacePreview';
@@ -70,8 +70,8 @@ const features = [
   {
     no: '09', icon: BarChart3, title: 'Analytics & achievements',
     eyebrow: 'SEE THE PROGRESS', className: '',
-    description: 'Get perspective on work completed, activity and the milestones behind meaningful momentum.',
-    tags: ['Activity', 'Progress', 'Achievements'],
+    description: 'Follow progress and milestones with a clear overview of your work and achievements.',
+    tags: ['Activity overview', 'Progress', 'Achievements'],
   },
   {
     no: '10', icon: Network, title: 'Customer workflows',
@@ -90,6 +90,18 @@ const features = [
     eyebrow: 'WORK FROM ANYWHERE', className: '',
     description: 'Stay connected from desktop or smaller screens, including supported installable web experiences.',
     tags: ['Responsive web', 'PWA', 'On the go'],
+  },
+  {
+    no: '13', icon: GitBranch, title: 'Smart Dependencies',
+    eyebrow: 'WORK IN THE RIGHT ORDER', className: '',
+    description: 'Connect prerequisite Actions, see what is blocked and know when the next step becomes ready.',
+    tags: ['Blocked & ready', 'Team handoffs', 'Dependency filters'],
+  },
+  {
+    no: '14', icon: BarChart3, title: 'Advanced Reporting',
+    eyebrow: 'MAKE PROGRESS VISIBLE', className: '',
+    description: 'Explore workload, overdue work, Process health and verified completions without inventing historical data.',
+    tags: ['Period & owner filters', 'Verified history', 'CSV export'],
   },
 ] as const;
 
@@ -113,7 +125,7 @@ export function MarketingHero({locale='en'}:{locale?:MarketingLocale}) {
         <div className="ap-enter flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-6">
           <span className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[.19em] text-[#bdeea9]">
             <span className="h-2 w-2 rounded-full bg-[#c9ff92] shadow-[0_0_18px_#a6ff65]" />
-            WORK, WITHOUT THE FRAGMENTS
+            {t('WORK, WITHOUT THE FRAGMENTS')}
           </span>
           <Link href="#community" className="group inline-flex items-center gap-1.5 text-[10px] font-semibold tracking-[.04em] text-[#bff5af] transition-colors hover:text-white focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8ff93]"><span className="rounded-full border border-[#577f58] bg-[#234530] px-2 py-1 text-[9px] font-bold text-[#d8ffb8]">{t("NEW")}</span> {t("Suggest features & follow updates")} <ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" aria-hidden="true" /></Link>
         </div>
@@ -231,10 +243,10 @@ export function MarketingProductSystem({locale='en'}:{locale?:MarketingLocale}) 
                   <span className="flex h-11 w-11 items-center justify-center rounded-[14px] border border-white/15 bg-white/[.08] text-[#d1ffc1]">
                     <Icon className="h-5 w-5" aria-hidden />
                   </span>
-                  <span className="font-mono text-[11px] text-[#97a8a7]">{feature.no} / 12</span>
+                  <span className="font-mono text-[11px] text-[#97a8a7]">{feature.no} / {features.length}</span>
                 </div>
                 <p className="relative mt-7 text-[10px] font-semibold tracking-[.18em] text-[#abff93]">{t(feature.eyebrow)}</p>
-                <h3 className="relative mt-2 text-[22px] font-semibold tracking-[-.045em] text-white sm:text-[24px]">{feature.title}</h3>
+                <h3 className="relative mt-2 text-[22px] font-semibold tracking-[-.045em] text-white sm:text-[24px]">{t(feature.title)}</h3>
                 <p className="relative mt-3 max-w-[480px] text-[13px] leading-[1.8] text-[#b7c3c7]">{t(feature.description)}</p>
                 <div className="relative mt-auto flex flex-wrap gap-1.5 pt-7">
                   {feature.tags.map(tag => <span key={tag} className="rounded-full border border-white/[.12] bg-white/[.04] px-2.5 py-1 text-[10px] font-medium text-[#d0dcda]">{t(tag)}</span>)}
@@ -243,6 +255,10 @@ export function MarketingProductSystem({locale='en'}:{locale?:MarketingLocale}) 
               </article>
             );
           })}
+        </div>
+        <div className="mt-8 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[#699571]/35 bg-[#1a372a]/55 px-5 py-4">
+          <p className="max-w-[570px] text-[12px] leading-[1.75] text-[#c4d7c9]">{t('Explore how connected Actions and honest reporting work together in our interactive walkthrough.')}</p>
+          <Link href="#smart-workflows" className="inline-flex min-h-11 items-center gap-2 rounded-full border border-[#89bc85]/50 px-4 text-[12px] font-semibold text-[#c8ff93] transition-colors hover:border-[#c8ff93] hover:bg-[#c8ff93]/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8ff93]">{t('Try the workflow demo')} <ArrowUpRight className="h-4 w-4" aria-hidden /></Link>
         </div>
         <p className="mt-6 text-[11px] leading-[1.8] text-[#8ea09b]">{t("Some features, integrations and AI usage allowances depend on plan, access and service readiness. Illustrations are demonstrations, not live customer activity.")}</p>
       </div>
@@ -328,6 +344,8 @@ export function MarketingFAQ({locale='en'}:{locale?:MarketingLocale}) {
     { question: 'Is this interactive preview a real workspace?', answer: 'It is an illustrative, in-browser walkthrough. It does not access customer information, create an account or save changes to your Actiproc workspace.' },
     { question: 'Can I use Actiproc on my phone?', answer: 'Actiproc offers a responsive web experience, including supported installable web options. Platform-specific native app availability may vary.' },
     { question: 'How does Actiproc AI work?', answer: 'AI can help with accessible workspace context and assist with work, subject to access, plan limits and service availability. The pricing cards show the current published allowances.' },
+    { question: 'Can an Action depend on another Action?', answer: 'Yes. Smart Dependencies links prerequisite Actions in a team. Unfinished prerequisites prevent completion, and Board and List views show blocked and ready states. The sample walkthrough does not change your account.' },
+    { question: 'Are advanced reports based on actual history?', answer: 'Reports distinguish current workload from verified last-completion timestamps. Missing or earlier historical events are not estimated. Large workspaces can have reporting completeness limits; exports are guarded when the task loading limit is reached.' },
     { question: 'Do teams need a different product?', answer: 'No. Shared workspaces, assignments, access controls and team-specific integrations build on the same connected Actiproc workflow.' },
     { question: 'Can I suggest a feature or improvement?', answer: 'Yes. Signed-in users on any plan can submit ideas, support suggestions and follow review or release updates in the Fikirler & Öneriler feedback hub. Submissions are moderated, and votes do not guarantee implementation.' },
     { question: 'Where can I check the final subscription price?', answer: 'Plans are listed in USD. Any applicable taxes, seat counts and the final amount are presented during the secure checkout process.' },
