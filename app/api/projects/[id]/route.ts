@@ -1,4 +1,5 @@
 import { stageErrorMessage } from '@/lib/stage-server';
+import { taskDependencyDbError } from '@/lib/task-dependencies';
 import { NextRequest, NextResponse } from 'next/server';
 import { projectDb, teamMemberDb, teamDb } from '@/lib/db';
 import { ApiResponse } from '@/lib/types';
@@ -100,6 +101,8 @@ export async function PATCH(
   } catch (error) {
     const stageError = stageErrorMessage(error);
     if (stageError) return NextResponse.json({ success: false, error: stageError }, { status: 400 });
+    const dependencyError = taskDependencyDbError(error);
+    if (dependencyError) return NextResponse.json({ success: false, error: dependencyError.message, code: dependencyError.code }, { status: dependencyError.status });
     console.error('Error updating project:', error);
     return NextResponse.json<ApiResponse<null>>(
       { success: false, error: 'Internal server error' },
@@ -160,6 +163,8 @@ export async function DELETE(
   } catch (error) {
     const stageError = stageErrorMessage(error);
     if (stageError) return NextResponse.json({ success: false, error: stageError }, { status: 400 });
+    const dependencyError = taskDependencyDbError(error);
+    if (dependencyError) return NextResponse.json({ success: false, error: dependencyError.message, code: dependencyError.code }, { status: dependencyError.status });
     console.error('Error deleting project:', error);
     return NextResponse.json<ApiResponse<null>>(
       { success: false, error: 'Internal server error' },

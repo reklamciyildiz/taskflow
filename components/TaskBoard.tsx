@@ -5,6 +5,8 @@ import {T as AppT,useAppLocale} from '@/components/i18n/AppLocaleProvider';
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
 import { TaskCard } from '@/components/TaskCard';
+import { useTeamDependencySummary } from '@/hooks/useTeamDependencySummary';
+import { matchesDependencyFilter, type DependencyStatusFilter } from '@/lib/task-dependency-ui';
 import { useTaskContext, type TaskStatus } from '@/components/TaskContext';
 import { Badge } from '@/components/ui/badge';
 import { Plus, X, Layers, Settings2, Columns3, LayoutDashboard, ListChecks, CircleCheck, SlidersHorizontal, ArrowUpRight } from 'lucide-react';
@@ -94,6 +96,9 @@ export function TaskBoard() {
   const [assigningStageFor, setAssigningStageFor] = useState<string | null>(null);
   const [inboxRecoveryOpen, setInboxRecoveryOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<TaskStatus | null>(null);
+  const [dependencyFilter, setDependencyFilter] = useState<DependencyStatusFilter>('all');
+  const dependencySummary = useTeamDependencySummary(currentTeam?.id, tasks);
+  const activeDependencyFilter = dependencySummary.loading || dependencySummary.error ? 'all' : dependencyFilter;
   const [groupBy, setGroupBy] = useState('stage');
   const [mobileGroupId, setMobileGroupId] = useState<string | null>(null);
   const [showControls, setShowControls] = useState(false);
@@ -108,7 +113,7 @@ export function TaskBoard() {
   const cardFieldsKey = organizationId && currentUser?.id && currentTeam?.id && processId
     ? `axiom:board-card-properties:${organizationId}:${currentUser.id}:${currentTeam.id}:${processId}`
     : '';
-  useEffect(() => { setGroupBy('stage'); setStatusFilter(null); setMobileGroupId(null); }, [processId, currentTeam?.id]);
+  useEffect(() => { setGroupBy('stage'); setStatusFilter(null); setDependencyFilter('all'); setMobileGroupId(null); }, [processId, currentTeam?.id]);
   useEffect(() => { setMobileGroupId(null); }, [groupBy]);
   useEffect(() => {
     if (properties.data && groupBy !== 'stage' && !groupedProperty) setGroupBy('stage');
@@ -207,9 +212,12 @@ export function TaskBoard() {
     if (statusFilter) {
       result = result.filter(task => task.status === statusFilter);
     }
-    
+    if (activeDependencyFilter !== 'all') {
+      result = result.filter(task => matchesDependencyFilter(dependencySummary.items[task.id], activeDependencyFilter));
+    }
+
     return result;
-  }, [tasks, statusFilter, filter, customerFilter, currentUser?.id, currentTeam?.id, boardScope, boardColumns]);
+  }, [tasks, statusFilter, filter, customerFilter, currentUser?.id, currentTeam?.id, boardScope, boardColumns, activeDependencyFilter, dependencySummary.items]);
 
   const onDragEnd = useCallback(
     (result: DropResult) => {
@@ -225,6 +233,10 @@ export function TaskBoard() {
       if (destination.droppableId !== source.droppableId) {
         if (isTerminalBoardColumn(destination.droppableId, boardColumns)) {
           if (!canCompleteTask(task.assigneeId)) return;
+          if (dependencySummary.items[task.id]?.blocked && !isTerminalBoardColumn(task.status, boardColumns)) {
+            toast.error(t('Complete prerequisite Actions before moving this Action to a completed stage.'));
+            return;
+          }
         }
       }
 
@@ -233,7 +245,7 @@ export function TaskBoard() {
 
       void applyTaskUpdates(patches).then(ok => { if (!ok) toast.error('Some moves could not be saved. Failed changes were restored.'); });
     },
-    [filteredTasks, boardColumns, canEditTask, canCompleteTask, applyTaskUpdates]
+    [filteredTasks, boardColumns, canEditTask, canCompleteTask, applyTaskUpdates, dependencySummary.items, t]
   );
 
   const getFilterLabel = () => {
@@ -449,6 +461,20 @@ export function TaskBoard() {
                     </DropdownMenuContent>
                   </DropdownMenu>
                 )}
+                <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.13em] text-muted-foreground"><AppT text="Dependencies"/></span>
+                <Select value={activeDependencyFilter} onValueChange={value => setDependencyFilter(value as DependencyStatusFilter)}
+                  disabled={dependencySummary.loading || dependencySummary.error}>
+                  <SelectTrigger aria-label={t('Filter by dependency status')} className="h-9 w-full min-w-[145px] rounded-xl border-border/70 bg-background/70 text-xs shadow-sm sm:w-[170px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">{t('All dependencies')}</SelectItem>
+                    <SelectItem value="blocked">{t('Blocked')}</SelectItem>
+                    <SelectItem value="ready">{t('Ready to proceed')}</SelectItem>
+                    <SelectItem value="blocking">{t('Blocking')}</SelectItem>
+                  </SelectContent>
+                </Select>
+                {dependencySummary.error && <span className="text-[11px] text-destructive" role="status">{t('Dependency filters unavailable')}</span>}
                 {properties.error && <button type="button" className="text-xs text-destructive underline" onClick={() => void properties.reload()}><AppT text="Properties unavailable · Retry"/></button>}
               </div>
               {isMobileBoard ? <Select value={statusFilter ?? '__all__'} onValueChange={value => setStatusFilter(value === '__all__' ? null : value)}>
@@ -535,7 +561,8 @@ export function TaskBoard() {
                   <div className="space-y-2.5 rounded-[22px] border border-border/60 bg-muted/15 p-3" aria-label={mobileGroup.label}>
                     {mobileGroup.tasks.map(task =>
                       <TaskCard key={task.id} task={task} onTaskClick={item => openTaskEditor(item.id)}
-                        propertyBadges={propertyBadgesForTask(task.id)} />
+                        propertyBadges={propertyBadgesForTask(task.id)}
+                        dependency={dependencySummary.items[task.id]} />
                     )}
                     {!mobileGroup.tasks.length && (
                       <div className="flex min-h-[180px] flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border/70 bg-card/65 p-6 text-center">
@@ -550,7 +577,8 @@ export function TaskBoard() {
             </section>
           ) : groupedProperty && properties.data ? (
             <PropertyBoard tasks={filteredTasks} property={groupedProperty} data={properties.data}
-              onOpen={openTaskEditor} cardPropertyIds={cardPropertyIds} />
+              onOpen={openTaskEditor} cardPropertyIds={cardPropertyIds}
+              dependencySummary={dependencySummary.items} />
           ) : (
             <DragDropContext onDragEnd={onDragEnd}>
               <div className="-mx-1 flex snap-x snap-proximity items-stretch gap-3 overflow-x-auto px-1 pb-5 pt-1 overscroll-x-contain [scrollbar-width:thin] [-webkit-overflow-scrolling:touch] lg:gap-4"
@@ -607,7 +635,8 @@ export function TaskBoard() {
                                     <TaskCard task={task}
                                       dragHandleProps={isMobileBoard ? undefined : drag.dragHandleProps}
                                       onTaskClick={(item) => openTaskEditor(item.id)}
-                                      propertyBadges={propertyBadgesForTask(task.id)} />
+                                      propertyBadges={propertyBadgesForTask(task.id)}
+                                      dependency={dependencySummary.items[task.id]} />
                                   </div>
                                 )}
                               </Draggable>

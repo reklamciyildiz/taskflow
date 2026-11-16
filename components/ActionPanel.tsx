@@ -1,5 +1,6 @@
 "use client";
-import {T as AppT} from '@/components/i18n/AppLocaleProvider';
+import {T as AppT, useAppLocale} from '@/components/i18n/AppLocaleProvider';
+import { ActionDependencies } from '@/components/action/ActionDependencies';
 import { ActionPropertyFields } from '@/components/ActionPropertyFields';
 
 import {
@@ -487,8 +488,10 @@ function ActionPanelContent({
   onClose,
   flushRef,
 }: ActionPanelContentProps) {
+  const { t } = useAppLocale();
   const {
     updateTask,
+    openTaskEditor,
     currentTeam,
     canEditTask,
     customers,
@@ -1193,11 +1196,16 @@ function ActionPanelContent({
                             <Select
                               value={status}
                               onValueChange={(v) => {
+                                const previous = status;
                                 setStatus(v as TaskStatus);
-                                if (task && canEdit)
-                                  void updateTask(task.id, {
-                                    status: v as TaskStatus,
+                                if (task && canEdit) {
+                                  void updateTask(task.id, { status: v as TaskStatus }).then(ok => {
+                                    if (!ok) {
+                                      setStatus(previous);
+                                      toast.error(t('Could not change Action stage. Check its dependencies.'));
+                                    }
                                   });
+                                }
                               }}
                               disabled={!canEdit}
                             >
@@ -1513,6 +1521,15 @@ function ActionPanelContent({
 
       {/* ── Work area: one document at a time, full remaining height ── */}
       <ActionAttachments />
+      <ActionDependencies
+        taskId={taskId}
+        teamId={task.teamId}
+        canEdit={canEdit}
+        onNavigate={id => {
+          flushAll();
+          openTaskEditor(id);
+        }}
+      />
       <Tabs
         value={tab}
         onValueChange={switchTab}

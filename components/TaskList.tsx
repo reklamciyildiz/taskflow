@@ -18,6 +18,9 @@ import {
   Settings2,
 } from 'lucide-react';
 import { useTaskContext, type Task, type TaskPriority } from '@/components/TaskContext';
+import { DependencyStatusBadge } from '@/components/action/DependencyStatusBadge';
+import { useTeamDependencySummary } from '@/hooks/useTeamDependencySummary';
+import { matchesDependencyFilter, type DependencyStatusFilter } from '@/lib/task-dependency-ui';
 import { CreateProjectModal } from '@/components/CreateProjectModal';
 import { WorkSchedulePicker } from '@/components/schedule/WorkSchedulePicker';
 import { Button } from '@/components/ui/button';
@@ -99,16 +102,16 @@ function InlineSelect({
   );
 }
 
-function CompletionControl({ task, columns, disabled, onChange }: {
-  task: Task; columns: ProjectColumnConfig[]; disabled: boolean; onChange: (status: string) => void;
+function CompletionControl({ task, columns, disabled, blocked = false, onChange }: {
+  task: Task; columns: ProjectColumnConfig[]; disabled: boolean; blocked?: boolean; onChange: (status: string) => void;
 }) {
   const {t}=useAppLocale();
   const [open, setOpen] = useState(false);
   const lifecycle = resolveStageLifecycle(task.status, columns);
   const targets = columns.filter(column => isTerminalBoardColumn(column.id, columns) !== lifecycle.isTerminal);
   const recurring = task.schedule?.scheduleType === 'recurring';
-  const unavailable = disabled || !lifecycle.resolved || !targets.length || recurring;
-  const label = recurring ? t('Complete occurrences of {title} in Planner',{title:task.title})
+  const unavailable = disabled || (blocked && !lifecycle.isTerminal) || !lifecycle.resolved || !targets.length || recurring;
+  const label = blocked && !lifecycle.isTerminal ? t('Complete prerequisites before finishing {title}',{title:task.title}) : recurring ? t('Complete occurrences of {title} in Planner',{title:task.title})
     : !targets.length ? (lifecycle.isTerminal
       ? t('No open stage configured for {title}',{title:task.title})
       : t('No terminal stage configured for {title}',{title:task.title}))
@@ -180,6 +183,9 @@ export function TaskList({ allowProcessAdministration = true, mobileCompact = fa
     boardColumns,
     loading,
   } = useTaskContext();
+  const dependencySummary = useTeamDependencySummary(currentTeam?.id, tasks);
+  const [dependencyFilter, setDependencyFilter] = useState<DependencyStatusFilter>('all');
+  const activeDependencyFilter = dependencySummary.loading || dependencySummary.error ? 'all' : dependencyFilter;
   const processId = boardScope.type === 'project' ? boardScope.projectId : null;
   const properties = useProcessProperties(processId, currentTeam?.id);
   const [searchQuery, setSearchQuery] = useState('');
@@ -208,6 +214,7 @@ export function TaskList({ allowProcessAdministration = true, mobileCompact = fa
     setSearchQuery('');
     setFilters(emptyFilters());
     setSort({ field: 'schedule', direction: 'asc' });
+    setDependencyFilter('all');
     setExpandedRows(new Set());
   }, [processId, currentTeam?.id]);
 
@@ -251,16 +258,21 @@ export function TaskList({ allowProcessAdministration = true, mobileCompact = fa
     () => new Map((currentTeam?.members ?? []).map((member) => [member.id, member.name])),
     [currentTeam?.members],
   );
-  const filteredTasks = useMemo(() => filterAndSortOperationalTasks({
-    tasks: scopedTasks,
-    search: searchQuery,
-    filters,
-    sort,
-    values: properties.data?.values ?? [],
-    options: properties.data?.options ?? [],
-    stageLabels,
-    assigneeLabels,
-  }), [scopedTasks, searchQuery, filters, sort, properties.data?.values, properties.data?.options, stageLabels, assigneeLabels]);
+  const filteredTasks = useMemo(() => {
+    const sorted = filterAndSortOperationalTasks({
+      tasks: scopedTasks,
+      search: searchQuery,
+      filters,
+      sort,
+      values: properties.data?.values ?? [],
+      options: properties.data?.options ?? [],
+      stageLabels,
+      assigneeLabels,
+    });
+    return activeDependencyFilter === 'all' ? sorted : sorted.filter(task =>
+      matchesDependencyFilter(dependencySummary.items[task.id], activeDependencyFilter));
+  }, [scopedTasks, searchQuery, filters, sort, properties.data?.values, properties.data?.options,
+    stageLabels, assigneeLabels, activeDependencyFilter, dependencySummary.items]);
 
   const persistVisibleColumns = (next: ColumnId[]) => {
     setVisibleColumns(next);
@@ -360,6 +372,17 @@ export function TaskList({ allowProcessAdministration = true, mobileCompact = fa
               <SelectTrigger aria-label={t("Filter by assignee")} className="h-8 w-[150px] text-xs"><SelectValue /></SelectTrigger>
               <SelectContent><SelectItem value={ALL}><AppT text="All assignees"/></SelectItem><SelectItem value={UNASSIGNED_FILTER}><AppT text="Unassigned"/></SelectItem>{currentTeam?.members.map((member) => <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>)}</SelectContent>
             </Select>
+            <Select value={activeDependencyFilter}
+              disabled={dependencySummary.loading || dependencySummary.error}
+              onValueChange={value => setDependencyFilter(value as DependencyStatusFilter)}>
+              <SelectTrigger aria-label={t('Filter by dependency status')} className="h-9 w-[165px] text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t('All dependencies')}</SelectItem>
+                <SelectItem value="blocked">{t('Blocked')}</SelectItem>
+                <SelectItem value="ready">{t('Ready to proceed')}</SelectItem>
+                <SelectItem value="blocking">{t('Blocking')}</SelectItem>
+              </SelectContent>
+            </Select>
             {activeProperties.map((property) => (
               <Select key={property.id} value={filters.properties[property.id] ?? ALL} onValueChange={(value) => setPropertyFilter(property.id, value)}>
                 <SelectTrigger aria-label={t('Filter by {name}',{name:property.name})} className="h-8 w-[150px] text-xs"><SelectValue placeholder={property.name} /></SelectTrigger>
@@ -370,7 +393,7 @@ export function TaskList({ allowProcessAdministration = true, mobileCompact = fa
                 </SelectContent>
               </Select>
             ))}
-            {(hasOperationalFilters(filters) || searchQuery) && <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => { setFilters(emptyFilters()); setSearchQuery(''); }}><RotateCcw className="h-3.5 w-3.5" /><AppT text="Clear"/></Button>}
+            {(hasOperationalFilters(filters) || searchQuery || dependencyFilter !== 'all') && <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => { setFilters(emptyFilters()); setSearchQuery(''); setDependencyFilter('all'); }}><RotateCcw className="h-3.5 w-3.5" /><AppT text="Clear"/></Button>}
           </div>
         </div>
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border/50 pt-3">
@@ -401,6 +424,7 @@ export function TaskList({ allowProcessAdministration = true, mobileCompact = fa
             </DropdownMenu>
           </div>
         </div>
+        {dependencySummary.error && <p className="mt-2 text-xs text-destructive" role="status">{t('Dependency filters unavailable. Showing all Actions.')}</p>}
         {properties.error && <p className="mt-2 text-xs text-destructive"><AppT text="Properties could not be loaded."/><button className="underline" onClick={() => void properties.reload()}><AppT text="Retry"/></button></p>}
       </div>
 
@@ -422,16 +446,20 @@ export function TaskList({ allowProcessAdministration = true, mobileCompact = fa
               return (
                 <TableRow key={task.id} className="group relative grid grid-cols-2 gap-x-1 p-2 md:table-row md:p-0">
                   <TableCell className="absolute left-2 top-2 flex h-11 w-9 items-center justify-center p-0 md:static md:table-cell md:h-auto md:w-auto md:px-3 md:py-2">
-                    <CompletionControl task={task} columns={boardColumns} disabled={!canCompleteTask(task.assigneeId) || isPending(task.id, 'status')} onChange={status => void mutateTaskField(task, 'status', { status })} />
+                    <CompletionControl task={task} columns={boardColumns}
+                      blocked={dependencySummary.items[task.id]?.blocked}
+                      disabled={!canCompleteTask(task.assigneeId) || isPending(task.id, 'status')}
+                      onChange={status => void mutateTaskField(task, 'status', { status })} />
                   </TableCell>
                   <TableCell className="col-span-2 min-w-0 py-2 pl-10 pr-11 md:px-3">
                     <button type="button" className={cn('min-h-[28px] w-full break-words text-left text-sm font-medium line-clamp-3 hover:text-primary hover:underline md:line-clamp-none md:max-w-[360px] md:truncate', terminal && 'line-through text-muted-foreground')} onClick={() => openTaskEditor(task.id)} title={task.title}>{task.title}</button>
+                    <div className="mt-1.5"><DependencyStatusBadge flags={dependencySummary.items[task.id]} compact /></div>
                   </TableCell>
                   {visibleColumns.map((column) => {
                     const cellClass = cn('min-w-0 px-2 py-1 md:table-cell md:py-1.5 before:block before:text-[10px] before:text-muted-foreground before:content-[attr(data-label)] md:before:hidden',
                       ['stage', 'priority', 'schedule'].includes(column) ? 'block' : 'col-span-2',
                       !['stage', 'priority', 'schedule'].includes(column) && !expandedRows.has(task.id) ? 'hidden' : 'block');
-                    if (column === 'stage') return <TableCell key={column} data-label={headerLabel(column)} className={cellClass}><InlineSelect label={`Stage for ${task.title}`} value={task.status} disabled={!canEdit || isPending(task.id, 'status')} onValueChange={(status) => void mutateTaskField(task, 'status', { status })}>{!boardColumns.some((stage) => stage.id === task.status) && <SelectItem value={task.status}>Unresolved ({task.status})</SelectItem>}{boardColumns.map((stage) => <SelectItem key={stage.id} value={stage.id} disabled={isTerminalBoardColumn(stage.id, boardColumns) && !canCompleteTask(task.assigneeId)}>{stage.title}</SelectItem>)}</InlineSelect></TableCell>;
+                    if (column === 'stage') return <TableCell key={column} data-label={headerLabel(column)} className={cellClass}><InlineSelect label={`Stage for ${task.title}`} value={task.status} disabled={!canEdit || isPending(task.id, 'status')} onValueChange={(status) => void mutateTaskField(task, 'status', { status })}>{!boardColumns.some((stage) => stage.id === task.status) && <SelectItem value={task.status}>Unresolved ({task.status})</SelectItem>}{boardColumns.map((stage) => <SelectItem key={stage.id} value={stage.id} disabled={isTerminalBoardColumn(stage.id, boardColumns) && (!canCompleteTask(task.assigneeId) || Boolean(dependencySummary.items[task.id]?.blocked && !terminal))}>{stage.title}</SelectItem>)}</InlineSelect></TableCell>;
                     if (column === 'priority') return <TableCell key={column} data-label={headerLabel(column)} className={cellClass}><InlineSelect label={t("Priority for {title}",{title:task.title})} value={task.priority} disabled={!canEdit || isPending(task.id, 'priority')} onValueChange={(priority) => void mutateTaskField(task, 'priority', { priority: priority as TaskPriority })}>{Object.entries(priorityConfig).map(([value, config]) => <SelectItem key={value} value={value}>{t(config.label)}</SelectItem>)}</InlineSelect></TableCell>;
                     if (column === 'assignee') return <TableCell key={column} data-label={headerLabel(column)} className={cellClass}><InlineSelect label={`Assignee for ${task.title}`} value={task.assigneeId ?? UNASSIGNED_FILTER} disabled={!canEdit || isPending(task.id, 'assignee')} onValueChange={(assigneeId) => void mutateTaskField(task, 'assignee', { assigneeId: assigneeId === UNASSIGNED_FILTER ? null : assigneeId })}><SelectItem value={UNASSIGNED_FILTER}><AppT text="Unassigned"/></SelectItem>{currentTeam?.members.map((member) => <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>)}</InlineSelect></TableCell>;
                     if (column === 'schedule') return <TableCell key={column} data-label={headerLabel(column)} className={cellClass}><ScheduleCell task={task} disabled={!canEdit} /></TableCell>;

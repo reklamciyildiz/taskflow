@@ -1,3 +1,4 @@
+import type { TaskDependencyCommand, TaskDependencyOverview } from './task-dependencies';
 // API Client for frontend-backend communication
 
 import {
@@ -102,6 +103,20 @@ async function fetchApi<T>(
 
   return data;
 }
+
+
+/** Dependency direction is relative to the URL Action; no graph data in task updates. */
+export const taskDependencyApi = {
+  get: (taskId: string) => fetchApi<TaskDependencyOverview>(`/tasks/${encodeURIComponent(taskId)}/dependencies`),
+  link: (taskId: string, command: TaskDependencyCommand) =>
+    fetchApi<{ linked: boolean }>(`/tasks/${encodeURIComponent(taskId)}/dependencies`, {
+      method: 'POST', body: JSON.stringify(command),
+    }),
+  unlink: (taskId: string, command: TaskDependencyCommand) =>
+    fetchApi<{ linked: boolean }>(`/tasks/${encodeURIComponent(taskId)}/dependencies`, {
+      method: 'DELETE', body: JSON.stringify(command),
+    }),
+};
 
 // Task API
 export const taskApi = {
