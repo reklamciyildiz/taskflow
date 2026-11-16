@@ -5,6 +5,7 @@ import {T as AppT,useAppLocale} from '@/components/i18n/AppLocaleProvider';
 import {completedWithin,completionDurationDays,verifiedCompletionAt} from '@/lib/metrics/completions';
 
 import { useMemo, useState } from 'react';
+import { AdvancedReports } from '@/components/analytics/AdvancedReports';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell,
@@ -171,6 +172,7 @@ export function Analytics() {
   const {date,t,number}=useAppLocale();
   const { tasks, projects, currentTeam, generalBoardColumns } = useTaskContext();
   const [showExport, setShowExport] = useState(false);
+  const [analyticsView, setAnalyticsView] = useState<'overview' | 'reports'>('overview');
   const [selectedProcessId, setSelectedProcessId] = useState<string>('all');
 
   // ── Resolve column config for any task ─────────────────────────────────────
@@ -386,15 +388,15 @@ export function Analytics() {
         <div>
           <h1 className="text-2xl font-bold text-foreground"><AppT text="Analytics"/></h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {currentTeam?.name ?? t('Team')} · {filteredTasks.length} {t('actions')}
-            {selectedProcessId !== 'all' && (
+            {currentTeam?.name ?? t('Team')} · {analyticsView === 'overview' ? filteredTasks.length : teamTasks.length} {t('actions')}
+            {analyticsView === 'overview' && selectedProcessId !== 'all' && (
               <span className="ml-1 text-muted-foreground/60">
                 {t('(filtered)')}
               </span>
             )}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        {analyticsView === 'overview' && <div className="flex items-center gap-2">
           <Select value={selectedProcessId} onValueChange={setSelectedProcessId}>
             <SelectTrigger className="h-9 w-48 text-sm">
               <SelectValue />
@@ -411,9 +413,20 @@ export function Analytics() {
           </Select>
           <Button onClick={() => setShowExport(true)} variant="outline" size="sm">
             <Download className="mr-2 h-4 w-4" /><AppT text="Export"/></Button>
-        </div>
+        </div>}
       </div>
-
+      <div role="tablist" aria-label={t('Analytics views')} className="inline-flex flex-wrap items-center gap-1 rounded-2xl border border-border/70 bg-muted/35 p-1">
+        <Button type="button" role="tab" aria-selected={analyticsView === 'overview'}
+          onClick={() => setAnalyticsView('overview')}
+          variant={analyticsView === 'overview' ? 'default' : 'ghost'}
+          className="h-9 rounded-xl px-4 text-xs font-semibold">{t('Overview')}</Button>
+        <Button type="button" role="tab" aria-selected={analyticsView === 'reports'}
+          onClick={() => setAnalyticsView('reports')}
+          variant={analyticsView === 'reports' ? 'default' : 'ghost'}
+          className="h-9 rounded-xl px-4 text-xs font-semibold">{t('Advanced reports')}</Button>
+      </div>
+      {analyticsView === 'reports' ? <AdvancedReports /> : (
+        <>
       {/* ── KPI row ── */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <KpiCard
@@ -627,6 +640,8 @@ export function Analytics() {
 
       {/* ── Export ── */}
       <ExportModal open={showExport} onClose={() => setShowExport(false)} />
+        </>
+      )}
     </div>
   );
 }
