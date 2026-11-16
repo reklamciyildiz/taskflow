@@ -96,7 +96,7 @@ export function ChecklistNoteChip({ itemId, itemText }: {itemId:string;itemText:
               </button>}
             </div>
           ))}
-          {!count&&<p className="px-2 py-4 text-center text-xs text-muted-foreground">
+          {!count&&!context.error&&!context.loading&&<p className="px-2 py-4 text-center text-xs text-muted-foreground">
             {t('No notes linked yet. Your checklist stays compact.')}
           </p>}
         </div>
