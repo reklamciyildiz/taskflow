@@ -47,6 +47,11 @@ const sharedApiPaths = [
   { path: '/api/knowledge?teamId=00000000-0000-0000-0000-000000000000', method: 'GET' },
   { path: '/api/ai/conversations', method: 'GET' },
   { path: '/api/tasks/00000000-0000-0000-0000-000000000000/notes', method: 'GET' },
+  // Bundled Android uses this same Action API for links in both directions.
+  // Abort the APK build if Vercel lacks the endpoint or its mobile CORS guard.
+  { path: '/api/tasks/00000000-0000-0000-0000-000000000000/checklist-note-links', method: 'GET' },
+  { path: '/api/tasks/00000000-0000-0000-0000-000000000000/checklist-note-links', method: 'POST' },
+  { path: '/api/tasks/00000000-0000-0000-0000-000000000000/checklist-note-links', method: 'DELETE' },
   { path: '/api/tasks/00000000-0000-0000-0000-000000000000/comments', method: 'POST' },
   { path: '/api/notes/00000000-0000-0000-0000-000000000000', method: 'PATCH' },
   { path: '/api/attachments?taskId=00000000-0000-0000-0000-000000000000', method: 'GET' },

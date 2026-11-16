@@ -7,6 +7,7 @@ import type { Note } from '@/lib/types';
 import type { ChecklistNoteLink } from '@/lib/checklist-note-links';
 import { linkedNotesForItem } from '@/lib/checklist-note-links';
 import { cn } from '@/lib/utils';
+import { useAppLocale } from '@/components/i18n/AppLocaleProvider';
 
 export type ChecklistNotesContextValue = {
   notes: Note[];
@@ -18,6 +19,7 @@ export type ChecklistNotesContextValue = {
   linkNote: (itemId: string, noteId: string) => Promise<boolean>;
   unlinkNote: (itemId: string, noteId: string) => Promise<boolean>;
   openNote: (noteId: string) => void;
+  reloadLinks: () => void;
 };
 
 export const ChecklistNotesContext = createContext<ChecklistNotesContextValue | null>(null);
@@ -25,6 +27,7 @@ export const ChecklistNotesContext = createContext<ChecklistNotesContextValue | 
 /** One compact control per checklist item. Long notes never render inside rows. */
 export function ChecklistNoteChip({ itemId, itemText }: {itemId:string;itemText:string}) {
   const context=useContext(ChecklistNotesContext);
+  const { t } = useAppLocale();
   const [open,setOpen]=useState(false);
   const [picker,setPicker]=useState(false);
   const [query,setQuery]=useState('');
@@ -52,15 +55,15 @@ export function ChecklistNoteChip({ itemId, itemText }: {itemId:string;itemText:
     <Popover open={open} onOpenChange={(next)=>{setOpen(next);if(!next){setPicker(false);setQuery('');}}}>
       <PopoverTrigger asChild>
         <button type="button" contentEditable={false}
-          aria-label={count?String(count)+' linked notes for checklist item':'Connect a note to this checklist item'}
+          aria-label={count?t('Linked notes: {count}',{count}):t('Link note to checklist item')}
           className={cn(
-            'checklist-note-chip inline-flex h-6 shrink-0 items-center gap-1 rounded-md px-1.5 text-[10px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/70',
+            'checklist-note-chip inline-flex h-9 min-w-9 shrink-0 items-center justify-center gap-1 rounded-lg px-2 text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/70 sm:h-6 sm:min-w-0 sm:rounded-md sm:px-1.5 sm:text-[10px]',
             count?'bg-primary/[0.08] text-primary hover:bg-primary/[0.14]':
               'text-muted-foreground/70 hover:bg-muted hover:text-foreground opacity-0 group-hover/checkitem:opacity-100 focus-visible:opacity-100 max-sm:opacity-100',
           )}
         >
           <StickyNote className="h-3.5 w-3.5" aria-hidden/>
-          {count>0?<span>{count} {count===1?'note':'notes'}</span>:null}
+          {count>0?<span>{count} {count===1?t('note'):t('notes')}</span>:<span className="sm:hidden">{t('Link note')}</span>}
         </button>
       </PopoverTrigger>
       <PopoverContent align="end" sideOffset={8}
@@ -68,10 +71,10 @@ export function ChecklistNoteChip({ itemId, itemText }: {itemId:string;itemText:
         onOpenAutoFocus={event=>event.preventDefault()}>
         <div className="flex items-start justify-between gap-2 border-b border-border/60 px-3.5 py-3">
           <div className="min-w-0">
-            <p className="text-[13px] font-semibold">Linked notes</p>
-            <p className="mt-0.5 text-[11px] text-muted-foreground">{count} connected to this checklist item</p>
+            <p className="text-[13px] font-semibold">{t('Linked notes')}</p>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">{t('{count} connected to this checklist item',{count})}</p>
           </div>
-          <button type="button" aria-label="Close linked notes"
+          <button type="button" aria-label={t('Close linked notes')}
             onClick={()=>setOpen(false)} className="rounded-md p-1 text-muted-foreground hover:bg-muted">
             <X className="h-4 w-4"/>
           </button>
@@ -82,56 +85,62 @@ export function ChecklistNoteChip({ itemId, itemText }: {itemId:string;itemText:
               <button type="button" onClick={()=>{setOpen(false);context.openNote(note.id);}}
                 className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-2 text-left text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 <StickyNote className="h-3.5 w-3.5 shrink-0 text-primary/70"/>
-                <span className="truncate">{note.title.trim()||'Untitled note'}</span>
+                <span className="truncate">{note.title.trim()||t('Untitled note')}</span>
               </button>
               {context.canEdit&&<button type="button" disabled={busy}
-                aria-label={'Unlink '+(note.title||'Untitled note')}
-                title="Unlink (the note is kept)"
+                aria-label={t('Unlink {title}',{title:note.title||t('Untitled note')})}
+                title={t('Unlink (the note is kept)')}
                 onClick={()=>void perform(()=>context.unlinkNote(itemId,note.id))}
-                className="rounded-md p-1.5 text-muted-foreground hover:bg-background hover:text-destructive focus-visible:ring-2 focus-visible:ring-ring">
+                className="flex min-h-9 min-w-9 items-center justify-center rounded-md p-1.5 text-muted-foreground hover:bg-background hover:text-destructive focus-visible:ring-2 focus-visible:ring-ring">
                 <Unlink className="h-3.5 w-3.5"/>
               </button>}
             </div>
           ))}
-          {!count&&<p className="px-2 py-4 text-center text-xs text-muted-foreground">
-            No notes linked yet. Your checklist stays compact.
+          {!count&&!context.error&&!context.loading&&<p className="px-2 py-4 text-center text-xs text-muted-foreground">
+            {t('No notes linked yet. Your checklist stays compact.')}
           </p>}
         </div>
-        {context.error&&<p role="alert" className="border-t border-border/60 px-3 py-2 text-xs text-destructive">{context.error}</p>}
+        {context.error&&<div role="alert" className="flex items-center justify-between gap-2 border-t border-border/60 px-3 py-2">
+          <p className="min-w-0 text-xs text-destructive">{t('Could not load linked notes. Try again.')}</p>
+          <button type="button" disabled={context.loading} onClick={context.reloadLinks}
+            className="min-h-9 shrink-0 rounded-lg border border-border/60 px-3 text-xs font-semibold focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50">
+            {t('Retry')}
+          </button>
+        </div>}
         {context.loading&&<p className="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground">
-          <Loader2 className="h-3.5 w-3.5 animate-spin"/> Loading connections…
+          <Loader2 className="h-3.5 w-3.5 animate-spin"/> {t('Loading connections…')}
         </p>}
         {context.canEdit&&!context.error&&(
           <div className="border-t border-border/60 p-2">
             {picker?(
               <div className="space-y-2">
                 <input type="search" value={query} onChange={e=>setQuery(e.target.value)}
-                  placeholder="Search Action notes…" aria-label="Search notes to connect"
+                  placeholder={t('Search Action notes…')} aria-label={t('Search notes to connect')}
                   className="h-9 w-full rounded-lg border border-border/60 bg-background px-2.5 text-xs outline-none focus:ring-2 focus:ring-ring"/>
                 <div className="max-h-40 overflow-y-auto">
                   {remaining.length?remaining.map(note=>(
                     <button type="button" key={note.id} disabled={busy}
                       onClick={()=>void perform(()=>context.linkNote(itemId,note.id))}
-                      className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring">
+                      className="flex min-h-11 w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring">
                       <Link2 className="h-3.5 w-3.5 shrink-0 text-primary"/>
-                      <span className="min-w-0 truncate">{note.title.trim()||'Untitled note'}</span>
+                      <span className="min-w-0 truncate">{note.title.trim()||t('Untitled note')}</span>
                     </button>
-                  )):<p className="px-2 py-3 text-xs text-muted-foreground">No other notes found.</p>}
+                  )):<p className="px-2 py-3 text-xs text-muted-foreground">{t('No other notes found.')}</p>}
                 </div>
-                <button type="button" onClick={()=>setPicker(false)} className="px-2 py-1 text-xs text-muted-foreground hover:text-foreground">Back</button>
+                <button type="button" onClick={()=>setPicker(false)} className="min-h-9 px-2 py-1 text-xs text-muted-foreground hover:text-foreground">{t('Back')}</button>
               </div>
             ):(
               <div className="grid grid-cols-2 gap-1.5">
                 <button type="button" disabled={busy||context.loading}
                   onClick={()=>void perform(()=>context.createLinkedNote(itemId,itemText),true)}
-                  className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg bg-primary px-2 text-[11px] font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
+                  className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg bg-primary px-2 text-[11px] font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 sm:min-h-9">
                   {busy?<Loader2 className="h-3.5 w-3.5 animate-spin"/>:<Plus className="h-3.5 w-3.5"/>}
-                  New note
+                  {t('New note')}
                 </button>
                 <button type="button" disabled={busy||context.loading}
                   onClick={()=>setPicker(true)}
-                  className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg border border-border/70 px-2 text-[11px] font-medium hover:bg-muted disabled:opacity-50">
-                  <Link2 className="h-3.5 w-3.5"/> Connect existing
+                  className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-border/70 px-2 text-[11px] font-medium hover:bg-muted disabled:opacity-50 sm:min-h-9">
+                  <Link2 className="h-3.5 w-3.5"/> {t('Connect existing')}
                 </button>
               </div>
             )}

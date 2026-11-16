@@ -565,3 +565,30 @@ html:not(.dark) .planner-check.is-complete { color: #fff; }
 .mobile-settings-kv { display: flex; gap: .7rem; align-items: flex-start; justify-content: space-between; font-size: .8rem; }
 .mobile-settings-kv span { color: var(--mobile-muted); }
 .mobile-settings-kv strong { text-align: right; overflow-wrap: anywhere; }
+
+/* Connected Notes in a bundled Android WebView: the link controls were present
+   in the shared Action Panel but were easy to miss and too small to tap.
+   Enlarge only touch targets; keep the same two-way desktop/mobile workflow. */
+@media (pointer: coarse) {
+  .mobile-shell [data-action-panel-sheet] .checklist-note-chip {
+    min-height: 2.75rem;
+    min-width: 2.75rem;
+    touch-action: manipulation;
+    opacity: 1;
+  }
+  .mobile-shell [data-action-panel-sheet] .checklist-item-accessories {
+    gap: .25rem;
+  }
+  .mobile-shell [data-action-panel-sheet] .checklist-item-actions {
+    min-width: 2.5rem;
+    min-height: 2.5rem;
+    opacity: 1;
+    touch-action: manipulation;
+  }
+  .mobile-shell [data-action-panel-sheet] .checklist-item-main {
+    align-items: center;
+  }
+  .mobile-shell [data-action-panel-sheet] .checklist-item-content {
+    overflow-wrap: anywhere;
+  }
+}

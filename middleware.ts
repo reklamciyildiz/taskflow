@@ -20,6 +20,10 @@ export async function middleware(request: NextRequest) {
     pathname === '/api/tasks' ||
     /^\/api\/tasks\/[^/]+$/.test(pathname) ||
     /^\/api\/tasks\/[^/]+\/notes$/.test(pathname) ||
+    // Connected Notes is shared by the web ActionPanel and the bundled Android
+    // shell. Mobile calls require the same verified Bearer identity and task ACL
+    // as /notes; no anonymous access is granted by the middleware bypass.
+    /^\/api\/tasks\/[^/]+\/checklist-note-links$/.test(pathname) ||
     /^\/api\/tasks\/[^/]+\/comments$/.test(pathname) ||
     /^\/api\/notes\/[^/]+$/.test(pathname) ||
     pathname === '/api/attachments' ||
