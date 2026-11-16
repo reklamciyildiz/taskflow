@@ -16,7 +16,7 @@ function getMetadataBase(): URL {
 const base = getMetadataBase();
 const title = 'Actiproc — Everything moves together';
 const description =
-  'From idea to outcome: connect Processes, Actions, checklists, Planner, rich notes, Knowledge Hub and team workflows in one Actiproc workspace.';
+  'From idea to outcome: connect Processes, Actions, Smart Dependencies, Advanced Reporting, Planner, rich notes, Knowledge Hub and team workflows.';
 
 export const metadata: Metadata = {
   metadataBase: base,
@@ -31,6 +31,8 @@ export const metadata: Metadata = {
     'knowledge management',
     'planner',
     'project collaboration',
+    'task dependencies',
+    'advanced operational reporting',
     'Actiproc AI',
     'workflow',
   ],
