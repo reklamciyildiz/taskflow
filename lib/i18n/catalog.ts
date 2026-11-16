@@ -1,6 +1,7 @@
 import {interpolateText,type AppLocale,type TranslationVariables} from '@/lib/i18n/app-locale';
 /** Source keys are English UI copy, never user-generated fields. */
 export const trCatalog:Readonly<Record<string,string>> = {
+  "This team has reached the task loading limit. Report totals may be incomplete; CSV export is disabled until complete paginated reporting is available.": "Bu ekipte görev yükleme sınırına ulaşıldı. Rapor toplamları eksik olabilir; tam sayfalı raporlama sunulana kadar CSV dışa aktarma kapalıdır.",
   // P3.1 — operational reporting; activity and snapshot semantics remain explicit.
   "Analytics views": "Analiz görünümleri",
   "Advanced reports": "Gelişmiş Raporlar",
