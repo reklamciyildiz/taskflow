@@ -19,6 +19,7 @@ const api=source('app/api/tasks/[id]/checklist-note-links/route.ts');
 const noteServer=source('lib/note-server.ts');
 const noteRoute=source('app/api/notes/[id]/route.ts');
 const mobileCss=source('mobile/src/mobile.css');
+const productionGate=source('mobile/scripts/verify-android-production-beta.mjs');
 
 let verified=0;
 function check(value:boolean,message:string){assert.ok(value,message);verified++;}
@@ -37,6 +38,14 @@ for(const statement of [
   check(middleware.includes(statement),'Preserve mobile authentication/CORS mechanism: '+statement);
 }
 check(!middleware.includes("'checklist-note-links',"),'Never widen the public route prefixes');
+for(const method of ['GET','POST','DELETE']){
+  check(productionGate.includes("checklist-note-links', method: '"+method+"'"),
+    'Production APK gate must verify connected Note endpoint: '+method);
+}
+check(productionGate.includes("sharedPreflight.status !== 204"),
+  'APK production beta gate must reject missing CORS preflight');
+check(productionGate.includes("expectedStatuses.includes(rejected.status"),
+  'APK production beta gate must reject endpoints accepting forged Bearer tokens');
 check(mobileAdapter.includes("if (raw.startsWith('/api/')) return authenticatedFetch(raw, init)"),'Mobile adapter must send shared requests with bearer');
 check(mobileAdapter.includes('Authorization: `Bearer ${accessToken}`'),'Mobile API adapter must attach device access token');
 check(mobileAdapter.includes("response.status === 401"),'Mobile API must refresh expired access token');
