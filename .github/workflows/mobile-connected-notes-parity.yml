@@ -8,6 +8,8 @@ on:
       - 'components/action/ChecklistNotesContext.tsx'
       - 'mobile/src/mobile.css'
       - 'mobile/scripts/verify-android-production-beta.mjs'
+      - 'mobile/scripts/preflight-assertions.mjs'
+      - 'mobile/scripts/test-production-preflight.mjs'
       - 'lib/i18n/catalog.ts'
       - 'scripts/test-mobile-connected-notes.ts'
       - '.github/workflows/mobile-connected-notes-parity.yml'
@@ -20,6 +22,8 @@ on:
       - 'components/action/ChecklistNotesContext.tsx'
       - 'mobile/src/mobile.css'
       - 'mobile/scripts/verify-android-production-beta.mjs'
+      - 'mobile/scripts/preflight-assertions.mjs'
+      - 'mobile/scripts/test-production-preflight.mjs'
       - 'lib/i18n/catalog.ts'
       - 'scripts/test-mobile-connected-notes.ts'
       - '.github/workflows/mobile-connected-notes-parity.yml'
@@ -52,6 +56,8 @@ jobs:
         run: |
           npm ci --no-audit --no-fund
           npm ci --prefix mobile --no-audit --no-fund
+      - name: Production Android API preflight fail-closed regression
+        run: node --test mobile/scripts/test-production-preflight.mjs
       - name: Android mobile transport and bidirectional Note-link contract
         run: npx tsx scripts/test-mobile-connected-notes.ts
       - name: Shared server access, permissions and link behavior
