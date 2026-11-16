@@ -116,6 +116,10 @@ assert.ok(exportText.includes('\r\n'));
 
 const analytics = readFileSync('components/Analytics.tsx', 'utf8');
 const ui = readFileSync('components/analytics/AdvancedReports.tsx', 'utf8');
+assert.ok(ui.includes('teamTasks.length >= 1000') && ui.includes('mayBeTruncated'),
+  'Truncated task payloads must warn users and disable misleading report CSVs');
+assert.ok(Object.hasOwn(trCatalog,
+  'This team has reached the task loading limit. Report totals may be incomplete; CSV export is disabled until complete paginated reporting is available.'));
 assert.ok(analytics.includes('<AdvancedReports />'));
 assert.ok(analytics.includes("analyticsView === 'reports'"));
 for (const keyword of [
