@@ -9,6 +9,7 @@ const links = [
   { title: 'Product tour', href: '#experience' },
   { title: 'How it works', href: '#workflow' },
   { title: 'Everything inside', href: '#product' },
+  { title: 'Smart workflows', href: '#smart-workflows' },
   { title: 'For teams', href: '#teams' },
   { title: 'Pricing', href: '#pricing' },
   { title: 'Community', href: '#community' },
@@ -36,7 +37,7 @@ export function MarketingHeader({locale='en'}:{locale?:MarketingLocale}) {
         <div className="flex shrink-0 items-center gap-2">
           <Link href="/auth/signin" className="hidden rounded-full px-3 py-2.5 text-[12px] font-semibold text-[#d5e2d6] transition-colors hover:bg-white/[.09] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8ff93] sm:inline-flex">{t("Sign in")}</Link>
           <Link href="/auth/signup" className="inline-flex min-h-10 items-center gap-1.5 rounded-full bg-[#c8ff93] px-4 text-[12px] font-semibold text-[#0a2313] transition-all hover:-translate-y-0.5 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8ff93] focus-visible:ring-offset-2 focus-visible:ring-offset-[#091512]">
-            Start free <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
+            {t('Start free')} <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
           </Link>
           <div className="hidden xl:block"><MarketingLanguageSwitcher locale={locale}/></div>
           <MarketingMobileMenu locale={locale} />

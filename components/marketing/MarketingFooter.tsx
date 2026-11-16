@@ -7,6 +7,7 @@ const groups = [
   {title:'Explore', items:[
     {label:'How it works',href:'#workflow'},
     {label:'Product',href:'#product'},
+    {label:'Smart workflows',href:'#smart-workflows'},
     {label:'Teams',href:'#teams'},
     {label:'Community & feedback',href:'#community'},
     {label:'Pricing',href:'#pricing'},
