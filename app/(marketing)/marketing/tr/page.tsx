@@ -2,10 +2,10 @@ import type {Metadata} from 'next';
 import MarketingPage from '../page';
 
 const title='Actiproc — Her şey birlikte ilerler';
-const description='Fikirlerini, görevlerini, süreçlerini, planlarını, notlarını ve ekip çalışmalarını Actiproc ile tek bir çalışma alanında birleştir.';
+const description='Actiproc ile görevleri, akıllı görev bağımlılıklarını, gelişmiş raporlamayı, planlarını, notlarını ve ekip çalışmalarını tek yerde yönet.';
 export const metadata:Metadata={
   title,description,
-  keywords:['görev yönetimi','proje yönetimi','ekip iş birliği','planlayıcı','bilgi merkezi','Actiproc','iş akışı'],
+  keywords:['görev yönetimi','proje yönetimi','ekip iş birliği','görev bağımlılıkları','gelişmiş raporlama','planlayıcı','bilgi merkezi','Actiproc','iş akışı'],
   alternates:{canonical:'/marketing/tr',languages:{en:'/marketing',tr:'/marketing/tr','x-default':'/marketing'}},
   openGraph:{locale:'tr_TR',url:'/marketing/tr',title,description,siteName:'Actiproc',type:'website',
     images:[{url:'/icon-512x512.png',width:512,height:512,alt:'Actiproc'}]},
