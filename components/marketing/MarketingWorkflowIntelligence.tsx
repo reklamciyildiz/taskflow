@@ -12,7 +12,7 @@ import { marketingT, type MarketingLocale } from '@/lib/marketing-locale';
 type ShowcaseMode = 'dependencies' | 'reporting';
 type Period = 7 | 30 | 90;
 
-/** Intentional, static SAMPLE data. No customer records, fake testimonials or live metrics. */
+/** Intentional SAMPLE data. Does not use real customers, accounts, or live metrics. */
 const reportingSamples: Record<Period, {
   created: number;
   completed: number;
