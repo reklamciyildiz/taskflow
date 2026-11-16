@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import bcrypt from 'bcryptjs';
 import {
   normalizedLoginEmail,
@@ -9,6 +10,7 @@ import {
   safeAuthCallbackPath,
 } from '../lib/password-login';
 
+async function run() {
 const hash = await bcrypt.hash('ValidPass-2026!', 4);
 const stored = {id:'u-1',email:'user@example.com',name:'Test User',avatar_url:null,password_hash:hash};
 
@@ -18,7 +20,7 @@ assert.equal(normalizedLoginEmail({}),'');
 assert.equal(passwordLoginErrorMessage('CredentialsSignin').includes('Google'),true);
 assert.match(passwordLoginErrorMessage(PASSWORD_LOGIN_UNAVAILABLE_CODE),/temporarily unavailable/);
 assert.doesNotMatch(passwordLoginErrorMessage('Unexpected: database credentials x'),/database credentials/);
-assert.equal(safeAuthCallbackPath('/dashboard?tab=today'),' /dashboard?tab=today'.trimStart());
+assert.equal(safeAuthCallbackPath('/dashboard?tab=today'),'/dashboard?tab=today');
 assert.equal(safeAuthCallbackPath('/invite/team?token=abc#join'),'/invite/team?token=abc#join');
 for(const unsafe of ['https://evil.example','//evil.example','/\\evil.example','javascript:alert(1)','/dash\nboard',null]){
   assert.equal(safeAuthCallbackPath(unsafe),'/',String(unsafe));
@@ -63,4 +65,15 @@ for(const [operation,broken] of [
   );
 }
 
-console.log('Password login: normalization, valid/invalid, Google-only, transient failures, multiple sign-ins, safe redirect and messaging PASS');
+const authAdapter = readFileSync('lib/auth.ts','utf8');
+const signInForm = readFileSync('app/auth/signin/SignInClient.tsx','utf8');
+assert.match(authAdapter, /return await validatePasswordLogin/);
+assert.match(authAdapter, /throw new Error\(PASSWORD_LOGIN_UNAVAILABLE_CODE\)/);
+assert.doesNotMatch(authAdapter, /console\.error\('Auth error:', error\)/);
+assert.match(signInForm, /setClientError\(passwordLoginErrorMessage\(result\?\.error\)\)/);
+assert.match(signInForm, /role="alert"/);
+assert.match(signInForm, /router\.replace\(safeCallbackUrl\)/);
+assert.doesNotMatch(signInForm, /console\.error\('Sign in error:'/);
+console.log('Password login: normalization, valid/invalid, Google-only, transient failures, multiple sign-ins, safe redirect, UI adapter and messaging PASS');
+}
+run().catch(error=>{console.error(error);process.exitCode=1;});
