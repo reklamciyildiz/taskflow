@@ -56,6 +56,7 @@ import { previewTextFromTipTap, type ChecklistItemData } from "@/lib/tiptap-pars
 import { indexActionNotes, selectActionNotes, type ActionNoteSort, type ActionNoteTypeFilter } from "@/lib/action-note-collection";
 import type { Note, NoteType, UpdateNoteRequest } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { useAppLocale } from '@/components/i18n/AppLocaleProvider';
 
 const EMPTY_NOTE_DOCUMENT = {
   type: "doc",
@@ -136,6 +137,9 @@ interface ActionNotesProps {
   focusRevision?: number;
   checklistItems?: ChecklistItemData[];
   checklistNoteLinks?: ChecklistNoteLink[];
+  checklistLinksLoading?: boolean;
+  checklistLinksError?: string | null;
+  onRetryChecklistLinks?: () => void;
   onLinkChecklistNote?: (itemId:string,noteId:string)=>Promise<boolean>;
   onUnlinkChecklistNote?: (itemId:string,noteId:string)=>Promise<boolean>;
   onOpenChecklistItem?: (itemId:string)=>void;
@@ -157,11 +161,15 @@ export function ActionNotes({
   focusRevision = 0,
   checklistItems = [],
   checklistNoteLinks = [],
+  checklistLinksLoading = false,
+  checklistLinksError = null,
+  onRetryChecklistLinks,
   onLinkChecklistNote,
   onUnlinkChecklistNote,
   onOpenChecklistItem,
   onNoteDeleted,
 }: ActionNotesProps) {
+  const { t } = useAppLocale();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [checklistPickerOpen,setChecklistPickerOpen]=useState(false);
   const [checklistPickerQuery,setChecklistPickerQuery]=useState("");
@@ -691,26 +699,26 @@ export function ActionNotes({
           <div className="rounded-xl border border-border/60 bg-muted/20 px-3 py-2.5">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground">
-                <Link2 className="h-3.5 w-3.5"/> Related checklist items
+                <Link2 className="h-3.5 w-3.5"/> {t('Related checklist items')}
               </span>
-              {canEdit && onLinkChecklistNote && (
+              {canEdit && !checklistLinksError && !checklistLinksLoading && onLinkChecklistNote && (
                 <Popover open={checklistPickerOpen} onOpenChange={setChecklistPickerOpen}>
                   <PopoverTrigger asChild>
-                    <button type="button" className="text-[11px] font-medium text-primary hover:underline">
-                      + Link checklist
+                    <button type="button" className="inline-flex min-h-10 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 px-3 text-xs font-semibold text-primary transition-colors hover:bg-primary/15 focus-visible:ring-2 focus-visible:ring-primary sm:min-h-8">
+                      {t('+ Link checklist')}
                     </button>
                   </PopoverTrigger>
                   <PopoverContent align="end" className="z-[80] w-[min(320px,calc(100vw-1.5rem))] space-y-2 p-2.5">
                     <input type="search" value={checklistPickerQuery}
                       onChange={event=>setChecklistPickerQuery(event.target.value)}
-                      placeholder="Search checklist…" aria-label="Search checklist to connect"
+                      placeholder={t('Search checklist…')} aria-label={t('Search checklist to connect')}
                       className="h-9 w-full rounded-lg border border-border/60 bg-background px-2.5 text-xs outline-none focus:ring-2 focus:ring-ring"/>
                     <div className="max-h-44 space-y-1 overflow-y-auto">
                       {checklistItems.filter(item=>!noteChecklistItemIds(persistedId,checklistNoteLinks).includes(item.id)
                         &&item.text.toLocaleLowerCase('tr-TR').includes(checklistPickerQuery.toLocaleLowerCase('tr-TR')))
                         .map(item=>(
                           <button type="button" key={item.id} disabled={checklistLinkBusy}
-                            className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-xs hover:bg-muted"
+                            className="flex min-h-11 w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-xs hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
                             onClick={async()=>{
                               if(!onLinkChecklistNote)return;
                               setChecklistLinkBusy(true);
@@ -737,11 +745,11 @@ export function ActionNotes({
                   {linkedItems.map(item=>(
                     <span key={item.id} className="inline-flex max-w-full items-center rounded-lg border border-border/60 bg-background/80">
                       <button type="button" onClick={()=>onOpenChecklistItem(item.id)}
-                        className="max-w-[220px] truncate px-2.5 py-1.5 text-[11px] font-medium hover:text-primary focus-visible:ring-2 focus-visible:ring-ring"
+                        className="min-h-10 max-w-[220px] truncate px-2.5 py-1.5 text-xs font-medium hover:text-primary focus-visible:ring-2 focus-visible:ring-ring"
                         title={item.text}>{item.text}</button>
                       {canEdit&&onUnlinkChecklistNote&&(
-                        <button type="button" title="Unlink (keep Note)" aria-label="Unlink checklist item"
-                          className="rounded-r-lg p-1.5 text-muted-foreground hover:text-destructive"
+                        <button type="button" disabled={checklistLinkBusy} title={t('Unlink (keep Note)')} aria-label={t('Unlink checklist item')}
+                          className="flex min-h-10 min-w-10 items-center justify-center rounded-r-lg p-1.5 text-muted-foreground hover:text-destructive disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-ring"
                           onClick={()=>void onUnlinkChecklistNote(item.id,persistedId)}>
                           <Unlink className="h-3 w-3"/>
                         </button>
@@ -749,7 +757,19 @@ export function ActionNotes({
                     </span>
                   ))}
                 </div>
-              ):<p className="mt-1.5 text-[11px] text-muted-foreground">No linked checklist items.</p>;
+              ):checklistLinksError?(
+                <div role="alert" className="mt-2 flex items-center justify-between gap-2 rounded-lg border border-destructive/20 bg-destructive/5 p-2">
+                  <span className="text-xs text-destructive">{t('Could not load linked notes. Try again.')}</span>
+                  {onRetryChecklistLinks&&<button type="button" onClick={onRetryChecklistLinks}
+                    className="min-h-10 shrink-0 rounded-lg border border-border/60 px-3 text-xs font-semibold focus-visible:ring-2 focus-visible:ring-ring">
+                    {t('Retry')}
+                  </button>}
+                </div>
+              ):checklistLinksLoading?(
+                <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground" aria-live="polite">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin"/>{t('Loading connections…')}
+                </p>
+              ):<p className="mt-1.5 text-xs text-muted-foreground">{t('No linked checklist items.')}</p>;
             })()}
           </div>
         ):null}
