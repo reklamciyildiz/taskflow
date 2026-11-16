@@ -23,6 +23,12 @@ Adds a separate **Advanced reports** view within the existing Analytics page, le
 - Custom Process terminal stages are evaluated using `columnConfig[].isTerminal`, never the default `done` string. Unrecognized stage IDs are counted as unresolved, never silently reclassified.
 - The current task projection contains **only surviving Actions and their latest completion transition**. It cannot reconstruct deleted Actions or earlier completion/reopen cycles; this is not an immutable event ledger, audit log or historical backlog snapshot.
 
+## Large-team data completeness (known release limitation)
+
+The existing `taskApi.getAll(teamId)` calls `taskDb.getByTeam`, which currently performs an unpaginated Supabase `select`. The default row limit is commonly 1,000. Until an ACL-controlled server-side paginated reporting read model is introduced, **this P3.1 slice is not a guaranteed complete report for large teams**.
+
+For a current-team task projection containing 1,000 or more Actions, the UI shows an explicit warning and disables CSV export to avoid misleading spreadsheet totals. It does not claim a full organizational or historical export. P3.1 hardening should replace this limitation before advertising enterprise-grade reporting.
+
 ## Security and access contract
 
 The view uses the existing authenticated `useTaskContext()` dataset, scoped again by the active team and the visible Process IDs before calculations/CSV. It does not query private Process rows through the service role or introduce new grants, RLS, export API or cross-team aggregation.
