@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,7 @@ import { Separator } from '@/components/ui/separator';
 import { CheckSquare, Mail, Lock, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { requestNativeGoogleSignIn } from '@/lib/client/native-shell';
+import { passwordLoginErrorMessage, safeAuthCallbackPath } from '@/lib/password-login';
 
 export function SignInClient({
   callbackUrl,
@@ -26,28 +27,39 @@ export function SignInClient({
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [clientError, setClientError] = useState<string | null>(null);
+  const [dismissedUrlError, setDismissedUrlError] = useState(false);
+  const submittingCredentials = useRef(false);
+  const safeCallbackUrl = safeAuthCallbackPath(callbackUrl);
 
   const handleCredentialsSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Block duplicate submissions even before React commits the loading state.
+    if (submittingCredentials.current || isGoogleLoading) return;
+    submittingCredentials.current = true;
+    setClientError(null);
+    setDismissedUrlError(true);
     setIsLoading(true);
 
     try {
       const result = await signIn('credentials', {
-        email,
+        email: email.trim().toLowerCase(),
         password,
         redirect: false,
-        callbackUrl,
+        callbackUrl: safeCallbackUrl,
       });
 
-      if (result?.error) {
-        console.error('Sign in error:', result.error);
-      } else if (result?.ok) {
-        router.push(callbackUrl);
+      if (result?.ok && !result.error) {
+        router.replace(safeCallbackUrl);
         router.refresh();
+        return;
       }
-    } catch (error) {
-      console.error('Sign in error:', error);
+      // An expected 401 should be displayed in the form, not logged as a
+      // JavaScript exception. Never expose raw provider/server messages.
+      setClientError(passwordLoginErrorMessage(result?.error));
+    } catch {
+      setClientError(passwordLoginErrorMessage(null));
     } finally {
+      submittingCredentials.current = false;
       setIsLoading(false);
     }
   };
@@ -55,17 +67,17 @@ export function SignInClient({
   const handleGoogleSignIn = async () => {
     setIsGoogleLoading(true);
     setClientError(null);
+    setDismissedUrlError(true);
     try {
-      if (await requestNativeGoogleSignIn(callbackUrl)) {
+      if (await requestNativeGoogleSignIn(safeCallbackUrl)) {
         // A cancelled Custom Tab returns to this still-mounted page. Do not
         // leave the button permanently disabled while waiting for an App Link.
-        setIsGoogleLoading(false);
         return;
       }
-      await signIn('google', { callbackUrl });
-    } catch (error: any) {
-      console.error('Google sign in error:', error);
-      setClientError(error?.message || 'Google sign in could not be started.');
+      await signIn('google', { callbackUrl: safeCallbackUrl });
+    } catch {
+      setClientError('Google sign-in could not be started. Please try again.');
+    } finally {
       setIsGoogleLoading(false);
     }
   };
@@ -89,11 +101,9 @@ export function SignInClient({
         </CardHeader>
 
         <CardContent className="space-y-6">
-          {(clientError || error) && (
-            <div className="p-3 text-sm text-red-500 bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-200 dark:border-red-900">
-              {clientError || (error === 'OAuthAccountNotLinked'
-                ? 'This email is already associated with another account.'
-                : 'An error occurred during sign in. Please try again.')}
+          {(clientError || (!dismissedUrlError && error)) && (
+            <div role="alert" aria-live="polite" className="p-3 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-200 dark:border-red-900">
+              {clientError || passwordLoginErrorMessage(error)}
             </div>
           )}
 
@@ -102,7 +112,7 @@ export function SignInClient({
             variant="outline"
             className="w-full h-11 gap-3"
             onClick={handleGoogleSignIn}
-            disabled={isGoogleLoading}
+            disabled={isGoogleLoading || isLoading}
           >
             {isGoogleLoading ? (
               <Loader2 className="h-5 w-5 animate-spin" />
@@ -151,7 +161,8 @@ export function SignInClient({
                   type="email"
                   placeholder="name@example.com"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  autoComplete="username"
+                  onChange={(e) => { setEmail(e.target.value); setClientError(null); setDismissedUrlError(true); }}
                   className="pl-10"
                   required
                 />
@@ -167,14 +178,15 @@ export function SignInClient({
                   type="password"
                   placeholder="••••••••"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="current-password"
+                  onChange={(e) => { setPassword(e.target.value); setClientError(null); setDismissedUrlError(true); }}
                   className="pl-10"
                   required
                 />
               </div>
             </div>
 
-            <Button type="submit" className="w-full h-11" disabled={isLoading}>
+            <Button type="submit" className="w-full h-11" disabled={isLoading || isGoogleLoading}>
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

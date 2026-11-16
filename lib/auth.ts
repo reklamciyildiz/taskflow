@@ -3,6 +3,7 @@ import GoogleProvider from 'next-auth/providers/google';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import { syncUserToSupabaseAuth } from '@/lib/supabase-auth';
 import bcrypt from 'bcryptjs';
+import { validatePasswordLogin, PasswordLoginBackendError, PASSWORD_LOGIN_UNAVAILABLE_CODE } from '@/lib/password-login';
 import { bindVerifiedGoogleIdentity } from '@/lib/mobile-auth/identity';
 
 // Lazy import - only load at runtime
@@ -67,29 +68,18 @@ export const authOptions: NextAuthOptions = {
         password: { label: 'Password', type: 'password' },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          return null;
-        }
-
         try {
-          const userDb = getUserDb();
-          const user: any = await userDb.getByEmail(credentials.email);
-          
-          if (user && typeof user.password_hash === 'string' && user.password_hash.length > 0) {
-            const ok = await bcrypt.compare(credentials.password, user.password_hash);
-            if (!ok) return null;
-            return {
-              id: user.id,
-              email: user.email,
-              name: user.name,
-              image: user.avatar_url,
-            };
-          }
-
-          return null;
+          return await validatePasswordLogin(credentials, {
+            findUserByEmail: (email) => getUserDb().getByEmail(email),
+            verifyPassword: (plain, hash) => bcrypt.compare(plain, hash),
+          });
         } catch (error) {
-          console.error('Auth error:', error);
-          return null;
+          // A DB outage or unexpected verifier failure is not a wrong password.
+          // Do not leak account identifiers, passwords or low-level errors to the browser.
+          console.error('[auth][credentials] backend unavailable', {
+            operation: error instanceof PasswordLoginBackendError ? error.operation : 'unexpected',
+          });
+          throw new Error(PASSWORD_LOGIN_UNAVAILABLE_CODE);
         }
       },
     }),
