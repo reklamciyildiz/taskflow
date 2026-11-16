@@ -173,6 +173,9 @@ function ReportingPanel({ locale }: { locale: MarketingLocale }) {
   const [period, setPeriod] = useState<Period>(30);
   const sample = reportingSamples[period];
   const max = Math.max(...sample.buckets.flatMap(bucket => [bucket.created, bucket.completed]), 1);
+  const tickLabel = (label: string, index: number) => locale === 'tr' && period === 7
+    ? (['Pt', 'Sa', 'Ça', 'Pe', 'Cu', 'Ct', 'Pz'][index] ?? label)
+    : locale === 'tr' && period === 90 ? 'H' + label.slice(1) : label;
 
   return (
     <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(230px,.32fr)] lg:gap-7" data-marketing-reporting-demo>
@@ -225,7 +228,7 @@ function ReportingPanel({ locale }: { locale: MarketingLocale }) {
                   <div className="w-[30%] min-w-[4px] max-w-7 rounded-t-[4px] bg-[#999ff2] transition-[height] duration-300" style={{height: (bucket.created / max * 100) + '%'}} />
                   <div className="w-[30%] min-w-[4px] max-w-7 rounded-t-[4px] bg-[#b9ff91] transition-[height] duration-300" style={{height: (bucket.completed / max * 100) + '%'}} />
                 </div>
-                <span className="mt-2 text-[9px] text-[#9cafaa]">{bucket.label}</span>
+                <span className="mt-2 text-[9px] text-[#9cafaa]">{tickLabel(bucket.label, index)}</span>
               </div>
             ))}
           </div>
