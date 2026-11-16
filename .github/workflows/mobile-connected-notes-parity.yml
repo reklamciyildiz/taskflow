@@ -1,0 +1,68 @@
+name: Android Connected Notes parity
+on:
+  pull_request:
+    paths:
+      - 'middleware.ts'
+      - 'components/ActionPanel.tsx'
+      - 'components/action/ActionNotes.tsx'
+      - 'components/action/ChecklistNotesContext.tsx'
+      - 'mobile/src/mobile.css'
+      - 'lib/i18n/catalog.ts'
+      - 'scripts/test-mobile-connected-notes.ts'
+      - '.github/workflows/mobile-connected-notes-parity.yml'
+  push:
+    branches: ['fix/mobile-connected-notes-20261116', main]
+    paths:
+      - 'middleware.ts'
+      - 'components/ActionPanel.tsx'
+      - 'components/action/ActionNotes.tsx'
+      - 'components/action/ChecklistNotesContext.tsx'
+      - 'mobile/src/mobile.css'
+      - 'lib/i18n/catalog.ts'
+      - 'scripts/test-mobile-connected-notes.ts'
+      - '.github/workflows/mobile-connected-notes-parity.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-linked-notes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+      NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-not-a-real-key
+      SUPABASE_SERVICE_ROLE_KEY: ci-not-a-real-service-role-key
+      NEXTAUTH_SECRET: ci-only-build-secret
+      NEXTAUTH_URL: http://localhost:3000
+      RESEND_API_KEY: re_ci_build_placeholder_never_valid
+      RESEND_FROM_EMAIL: ci@example.invalid
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            mobile/package-lock.json
+      - name: Install web and mobile dependencies
+        run: |
+          npm ci --no-audit --no-fund
+          npm ci --prefix mobile --no-audit --no-fund
+      - name: Android mobile transport and bidirectional Note-link contract
+        run: npx tsx scripts/test-mobile-connected-notes.ts
+      - name: Shared server access, permissions and link behavior
+        run: npx tsx scripts/test-connected-notes.ts
+      - name: Regression - Action Notes workspace
+        run: npm run test:action-notes
+      - name: Regression - mobile shell
+        run: |
+          npm run test:mobile-web
+          node scripts/test-capacitor-mobile-shell.mjs
+      - name: TypeScript (web)
+        run: npx tsc --noEmit
+      - name: Bundled Android WebView UI production build
+        run: npm --prefix mobile run build
+      - name: Next.js API production build
+        run: npm run build
