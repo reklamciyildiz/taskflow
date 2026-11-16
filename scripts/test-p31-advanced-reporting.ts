@@ -38,7 +38,7 @@ const tasks = [
   task('due-today', { dueDate: move(0, 0) }),
   task('legacy-done', { status: 'approved', createdAt: move(-50), completedAt: null }),
   task('done-old', { status: 'approved', createdAt: move(-55), completedAt: move(-40) }),
-  task('inbox-due', { projectId: null, dueDate: move(2), assigneeId: null, createdAt: move(-1) }),
+  task('inbox-due', { projectId: null, status: 'todo', dueDate: move(2), assigneeId: null, createdAt: move(-1) }),
   task('unknown-stage', { status: 'missing-custom-stage', updatedAt: move(-1) }),
   task('different-team', { teamId: otherTeam, projectId: p2, dueDate: move(-8) }),
   task('invisible-process', { projectId: 'not-visible', title: 'TOP SECRET', dueDate: move(-90) }),
