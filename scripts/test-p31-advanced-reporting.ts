@@ -84,6 +84,12 @@ const filtered = buildAdvancedReport({ ...args, processId: p1, assigneeId: 'alic
 assert.equal(filtered.summary.total, 5);
 assert.equal(filtered.summary.overdue, 0);
 assert.equal(filtered.processRows.length, 1);
+const boundaryDue = buildAdvancedReport({
+  ...args,
+  tasks: [task('due-day-seven', { dueDate: move(7), createdAt: move(-1) }),
+          task('due-day-six', { dueDate: move(6), createdAt: move(-1) })],
+});
+assert.equal(boundaryDue.summary.dueSoon, 1, 'Seven calendar dates include today through day six only');
 const inboxOnly = buildAdvancedReport({ ...args, processId: 'general' });
 assert.equal(inboxOnly.summary.total, 1);
 const unassigned = buildAdvancedReport({ ...args, assigneeId: 'unassigned' });
