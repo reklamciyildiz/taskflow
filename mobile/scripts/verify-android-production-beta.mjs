@@ -1,4 +1,5 @@
 import https from 'node:https';
+import { assertPreflightReady } from './preflight-assertions.mjs';
 import { readFileSync } from 'node:fs';
 
 const envFile = new URL('../.env.android-production-beta', import.meta.url);
@@ -33,9 +34,13 @@ const preflight = await request('/api/mobile/auth/credentials', {
     'Access-Control-Request-Headers': 'content-type',
   },
 });
-if (preflight.status !== 204 || preflight.headers['access-control-allow-origin'] !== 'https://localhost') {
-  throw new Error(`Production credentials preflight is not ready (HTTP ${preflight.status ?? 'unknown'}).`);
-}
+assertPreflightReady({
+  response: preflight,
+  apiOrigin: origin.origin,
+  path: '/api/mobile/auth/credentials',
+  method: 'POST',
+  requiredHeaders: ['content-type'],
+});
 
 const sharedApiPaths = [
   { path: '/api/users/profile', method: 'GET' },
@@ -66,12 +71,13 @@ for (const { path, method } of sharedApiPaths) {
       'Access-Control-Request-Headers': 'authorization, content-type',
     },
   });
-  if (
-    sharedPreflight.status !== 204
-    || sharedPreflight.headers['access-control-allow-origin'] !== 'https://localhost'
-  ) {
-    throw new Error(`Shared mobile API preflight is not ready for ${method} ${path} (HTTP ${sharedPreflight.status ?? 'unknown'}).`);
-  }
+  assertPreflightReady({
+    response: sharedPreflight,
+    apiOrigin: origin.origin,
+    path,
+    method,
+    requiredHeaders: ['authorization', 'content-type'],
+  });
 
   const rejected = await request(path, {
     method,
