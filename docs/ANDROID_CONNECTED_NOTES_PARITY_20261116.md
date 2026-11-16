@@ -96,3 +96,63 @@ roll back the APK to the preceding build if touch UI regressions occur, and
 restore a previous Vercel deployment if the authorized endpoint misbehaves.
 
 Do not claim complete device parity without the manual acceptance matrix.
+
+## Troubleshooting: production-beta build stops at OPTIONS HTTP 401
+
+The `android:debug:production-beta` command intentionally checks the *live*
+`https://www.actiproc.com` API **before** bundling the APK. A 401 from
+`OPTIONS /api/tasks/:id/checklist-note-links` means the mobile CORS
+preflight is being rejected. The deployed Production middleware may still be
+old or `MOBILE_AUTH_ALLOWED_ORIGINS` may omit `https://localhost`. A
+successful `git pull` does not deploy the Next.js API to Vercel.
+
+Check the Production domain's preflight from PowerShell (no token needed):
+
+```powershell
+curl.exe -i -X OPTIONS "https://www.actiproc.com/api/tasks/00000000-0000-0000-0000-000000000000/checklist-note-links" -H "Origin: https://localhost" -H "Access-Control-Request-Method: GET" -H "Access-Control-Request-Headers: authorization,content-type"
+```
+
+Expected: `HTTP 204`, exact `Access-Control-Allow-Origin: https://localhost`,
+`Access-Control-Allow-Methods` including `GET`,
+`Access-Control-Allow-Headers` including `authorization` and `content-type`,
+and `Vary: Origin`. Repeat with `POST` and `DELETE`. The API must
+still reject a made-up Bearer token with `401`.
+
+**Rollout order**:
+1. Verify required database migrations in the selected Supabase Production
+   project, including `20261109190000_connected_checklist_notes.sql`.
+   Other changes in the chosen main commit may need migrations too, such as
+   `20261115220000_task_dependencies_foundation.sql`.
+2. Deploy a **new build of current main** to Vercel **Production**, not
+   the Redeploy action for an older deployment. The repository currently
+   specifies `git.deploymentEnabled=false` in `vercel.json`; a push or
+   `git pull` alone will not publish the backend. Use the Vercel project
+   deployment flow, or authenticated `vercel deploy --prod` from the updated
+   and correctly linked project directory. Confirm the domain points to
+   this new deployment.
+3. Verify Vercel Production `MOBILE_AUTH_ALLOWED_ORIGINS` contains
+   `https://localhost` (preserve other deliberately authorized origins).
+   An env change requires a fresh deployment.
+4. Run `npm --prefix mobile run verify:android-production-beta` and
+   only if it passes, run
+   `npm --prefix mobile run android:debug:production-beta`.
+5. Install the new APK and perform the physical-device acceptance matrix
+   above. A successful build alone is not evidence of device parity.
+
+The production gate now rejects missing CORS methods, required headers,
+wildcard origins and missing `Vary: Origin` in addition to wrong HTTP
+statuses. Failure diagnostics never suppress or override the security gate.
+`npm --prefix mobile run build` is a local UI-only build, **not** a verified
+Production APK.
+
+### Local regression test (no live backend)
+```powershell
+node --test mobile/scripts/test-production-preflight.mjs
+npx tsx scripts/test-mobile-connected-notes.ts
+```
+
+The `npm ci --prefix mobile` audit warning is a separate dependency
+maintenance concern. Do not blindly run `npm audit fix --force`; this can
+introduce incompatible major-version changes. Triage actual dependency
+paths with `npm audit --prefix mobile --omit=dev` and
+`npm audit --prefix mobile`.
