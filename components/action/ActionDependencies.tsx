@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  AlertCircle, ArrowLeft, ArrowRight, CheckCircle2, ChevronRight, GitBranch, Link2,
+  AlertCircle, ArrowLeft, ArrowRight, CheckCircle2, GitBranch, Link2,
   Loader2, LockKeyhole, Plus, Search, X,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -194,57 +194,33 @@ export function ActionDependencies({
 
 
   return (
-    <section className="shrink-0 border-b border-border/45 bg-background/70" data-action-dependencies>
-      {/* Fixed-height status dock: zero layout growth on open, even on small Android screens. */}
-      <button
-        type="button"
-        aria-label={t('Show Action dependencies')}
-        aria-haspopup="dialog"
-        aria-expanded={expanded}
+    <div className="relative inline-flex shrink-0" data-action-dependencies>
+      {/* Zero extra editor rows: available beside the Action title on every viewport. */}
+      <button type="button" aria-label={t('Show Action dependencies')} aria-haspopup="dialog"
+        aria-expanded={expanded} title={t('Dependencies') + ' · ' + (loading ? t('Loading dependencies…') : loadError ? t('Dependencies unavailable') : label)}
         onClick={() => setExpanded(true)}
-        className="group flex min-h-11 w-full min-w-0 items-center gap-2 px-4 py-1.5 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/60 md:px-6"
-      >
-        <span className={cn(
-          'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg',
-          overview?.blocked ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300' : 'bg-primary/10 text-primary',
+        className={cn(
+          'group relative inline-flex h-11 min-w-11 shrink-0 items-center justify-center gap-1 rounded-xl border px-2 transition-colors',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60',
+          overview?.blocked
+            ? 'border-amber-500/25 bg-amber-500/10 text-amber-700 hover:bg-amber-500/15 dark:text-amber-300'
+            : 'border-border/55 bg-background/65 text-muted-foreground hover:border-primary/25 hover:bg-primary/5 hover:text-primary',
         )}>
-          {overview?.blocked ? <LockKeyhole className="h-3.5 w-3.5" aria-hidden /> : <GitBranch className="h-3.5 w-3.5" aria-hidden />}
-        </span>
-        <span className="min-w-0 flex-1 truncate text-xs font-semibold text-foreground">{t('Dependencies')}</span>
+        {overview?.blocked ? <LockKeyhole className="h-4 w-4 shrink-0" aria-hidden /> : <GitBranch className="h-4 w-4 shrink-0" aria-hidden />}
         <span className="sr-only" role="status" aria-live="polite">
           {loading ? t('Loading dependencies…') : loadError ? t('Dependencies unavailable') : label}
         </span>
         {loading && !overview ? (
-          <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" aria-hidden />
+          <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
         ) : loadError ? (
-          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-destructive">
-            <AlertCircle className="h-3.5 w-3.5" aria-hidden />{t('Dependencies unavailable')}
+          <AlertCircle className="h-3.5 w-3.5 text-destructive" aria-hidden />
+        ) : hasLinks ? (
+          <span className="inline-flex min-w-4 justify-center rounded-md bg-background/75 px-1 py-0.5 text-[10px] font-semibold leading-none tabular-nums"
+            data-dependency-summary aria-label={t('Waiting for') + ': ' + (overview?.blockedBy.length ?? 0) + ', ' + t('Blocks') + ': ' + (overview?.blocking.length ?? 0)}>
+            {Math.min(99, (overview?.blockedBy.length ?? 0) + (overview?.blocking.length ?? 0))}{(overview?.blockedBy.length ?? 0) + (overview?.blocking.length ?? 0) > 99 ? '+' : ''}
           </span>
-        ) : (
-          <span className="flex min-w-0 shrink-0 items-center gap-1.5" data-dependency-summary>
-            {overview?.blocked && (
-              <span className="rounded-full border border-amber-500/25 bg-amber-500/10 px-2 py-1 text-[10px] font-semibold leading-none text-amber-700 dark:text-amber-300">
-                {t('Blocked')}
-              </span>
-            )}
-            {overview?.blockedBy.length ? (
-              <span className="inline-flex h-6 min-w-7 items-center justify-center gap-1 rounded-full border border-border/60 bg-muted/35 px-1.5 text-[10px] font-semibold tabular-nums text-muted-foreground"
-                aria-label={t('Waiting for') + ': ' + overview.blockedBy.length} title={t('Waiting for')}>
-                <LockKeyhole className="h-3 w-3" aria-hidden />{overview.blockedBy.length}
-              </span>
-            ) : null}
-            {overview?.blocking.length ? (
-              <span className="inline-flex h-6 min-w-7 items-center justify-center gap-1 rounded-full border border-border/60 bg-muted/35 px-1.5 text-[10px] font-semibold tabular-nums text-muted-foreground"
-                aria-label={t('Blocks') + ': ' + overview.blocking.length} title={t('Blocks')}>
-                <ArrowRight className="h-3 w-3" aria-hidden />{overview.blocking.length}
-              </span>
-            ) : null}
-            {!hasLinks && !overview?.blocked && (
-              <span className="max-w-[38vw] truncate text-[11px] text-muted-foreground">{t('No dependencies')}</span>
-            )}
-          </span>
-        )}
-        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/65 transition-colors group-hover:text-foreground" aria-hidden />
+        ) : null}
+        {overview?.blocked && <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-amber-500 ring-2 ring-background" aria-hidden />}
       </button>
 
       <Dialog open={expanded} onOpenChange={open => {
@@ -382,6 +358,6 @@ export function ActionDependencies({
           <div className="h-[max(0px,env(safe-area-inset-bottom))] shrink-0 sm:hidden" aria-hidden />
         </DialogContent>
       </Dialog>
-    </section>
+    </div>
   );
 }
