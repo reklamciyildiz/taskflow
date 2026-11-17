@@ -52,13 +52,13 @@ function CommunityPreview({locale}:{locale:MarketingLocale}) {
               {t("COMMUNITY & PRODUCT DEVELOPMENT")}
             </span>
             <h3 className="mt-4 max-w-[450px] text-[24px] font-semibold leading-[1.15] tracking-[-.055em] text-white sm:text-[30px]">
-              Your ideas help shape what&apos;s next.
+              {t("Your ideas help shape what's next.")}
             </h3>
             <p className="mt-3 max-w-[400px] text-[12px] leading-[1.8] text-[#bdccc3]">
               {t("Suggest a feature, find similar requests and follow updates in one place.")}
             </p>
             <span className="mt-5 inline-flex items-center gap-1.5 rounded-lg bg-[#c8ff93] px-3.5 py-2 text-[11px] font-semibold text-[#153121]">
-              <Lightbulb className="h-3.5 w-3.5" aria-hidden="true" /> Share an idea
+              <Lightbulb className="h-3.5 w-3.5" aria-hidden="true" /> {t("Share an idea")}
             </span>
           </div>
           <div className="space-y-3 p-3 sm:p-4">
@@ -117,8 +117,7 @@ export function MarketingFeedbackCommunity({locale='en'}:{locale?:MarketingLocal
             {t("Better work starts with")} <em className="ap-serif-accent text-[#b9ff91]">{t("better feedback.")}</em>
           </h2>
           <p className="mt-6 max-w-[540px] text-[14px] leading-[1.95] text-[#adc4b7] sm:text-[15px]">
-            Actiproc now has a dedicated place for feature requests and improvements.
-            Tell us what slows you down, support ideas you care about, and follow the decisions that shape the product.
+            {t("Actiproc now has a dedicated place for feature requests and improvements. Tell us what slows you down, support ideas you care about, and follow the decisions that shape the product.")}
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <Link href="/feedback"

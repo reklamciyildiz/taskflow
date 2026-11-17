@@ -32,7 +32,7 @@ export function MarketingPricing({locale='en'}:{locale?:MarketingLocale}) {
           </div>
           <p className="max-w-[435px] text-[14px] leading-[1.85] text-[#657a6a]">{t("Choose the capacity you need today. Move to another plan as your processes and team grow.")}</p>
         </div>
-        <div role="group" aria-label="Compare billing periods" className="mt-9 inline-flex gap-1.5 rounded-xl border border-[#d1e2ce] bg-white p-1.5 shadow-sm">
+        <div role="group" aria-label={t("Compare billing periods")} className="mt-9 inline-flex gap-1.5 rounded-xl border border-[#d1e2ce] bg-white p-1.5 shadow-sm">
           {(['monthly','yearly'] as const).map(period=><button type="button" key={period}
             aria-pressed={billingInterval===period} onClick={()=>setBillingInterval(period)}
             className={'rounded-lg px-4 py-2.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#387a53] '+

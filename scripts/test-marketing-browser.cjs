@@ -128,6 +128,10 @@ async function main() {
         await page.getByText('A clearer day starts here.').waitFor();
         await page.getByText('Good questions.').waitFor();
         assert.equal(await page.locator('#community').count(),1);
+        const englishCommunity=page.locator('#community');
+        await englishCommunity.getByText("Your ideas help shape what's next.").waitFor();
+        await englishCommunity.getByText('Share an idea',{exact:true}).waitFor();
+        assertions+=2;
         assert.equal(await page.locator('#community').getByRole('link',{name:'Share your idea'}).getAttribute('href'),'/feedback');
         assert.equal(await page.locator('#community').getByRole('link',{name:'Join for free'}).getAttribute('href'),'/auth/signup?callbackUrl=%2Ffeedback');
         assertions+=3;
@@ -193,7 +197,16 @@ async function main() {
         assert.equal(structuredData.inLanguage,'tr');
         assert.ok(structuredData.url.endsWith('/marketing/tr'));
         assert.equal(await page.locator('#community').count(),1);
+        const turkishCommunity=page.locator('#community');
+        await turkishCommunity.getByText('Fikirlerin sıradaki yenilikleri şekillendiriyor.').waitFor();
+        await turkishCommunity.getByText('Fikir paylaş',{exact:true}).waitFor();
+        await turkishCommunity.getByText(/Actiproc'ta özellik ve iyileştirme önerileri için özel bir alan var/).waitFor();
+        assert.doesNotMatch(await turkishCommunity.innerText(),/Your ideas help shape|Share an idea|Actiproc now has a dedicated place/);
+        // The interactive, server-locale-provided preview must also localize dynamic counts.
+        await page.locator('.ap-real-sidebar').getByRole('button').nth(2).click();
+        await page.getByText(/\d+ eşleşen kayıt/).waitFor();
         assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1),true);
+        assertions+=5;
         await page.getByRole('button',{name:'Önizleme: Planlayıcı'}).click();
         await page.getByText('HIZLI KAYIT').waitFor();
         await page.getByRole('button',{name:'Önizleme: Panolar'}).click();

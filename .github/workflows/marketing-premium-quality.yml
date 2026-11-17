@@ -6,6 +6,8 @@ on:
       - 'app/(marketing)/**'
       - 'components/marketing/**'
       - 'scripts/test-marketing-premium.ts'
+      - 'scripts/test-marketing-locale-coverage.ts'
+      - 'lib/marketing-locale.ts'
       - 'scripts/test-marketing-browser.cjs'
       - '.github/workflows/marketing-premium-quality.yml'
   push:
@@ -14,6 +16,8 @@ on:
       - 'app/(marketing)/**'
       - 'components/marketing/**'
       - 'scripts/test-marketing-premium.ts'
+      - 'scripts/test-marketing-locale-coverage.ts'
+      - 'lib/marketing-locale.ts'
       - 'scripts/test-marketing-browser.cjs'
       - '.github/workflows/marketing-premium-quality.yml'
   workflow_dispatch:
@@ -39,6 +43,8 @@ jobs:
         run: npm ci --no-audit --no-fund
       - name: Marketing source and product truth
         run: npx tsx scripts/test-marketing-premium.ts
+      - name: Turkish and English landing copy coverage (JSX, demo, a11y, catalog)
+        run: npx tsx scripts/test-marketing-locale-coverage.ts
       - name: AI plan/allowance fidelity
         run: npm run test:ai:commercial-ui
       - name: Creem billing and paid plan regression

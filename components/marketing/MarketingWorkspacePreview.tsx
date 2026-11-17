@@ -95,7 +95,7 @@ function BoardPanel({ moved, setMoved, created, query }: {
           <LayersIcon/> {t("Product launch")} <ChevronDown className="ml-1 inline h-3 w-3" aria-hidden/>
         </span>
       </div>
-      <div className="flex items-center gap-1.5 text-[10px] text-[#b4c5c6]"><ListChecks className="h-3.5 w-3.5" aria-hidden/>{cards.length} visible Actions</div>
+      <div className="flex items-center gap-1.5 text-[10px] text-[#b4c5c6]"><ListChecks className="h-3.5 w-3.5" aria-hidden/>{cards.length} {t("visible Actions")}</div>
     </div>
     <div className="ap-real-pills flex items-center gap-1.5 overflow-x-auto border-b border-[#2b3a42] bg-[#111c22] px-3 py-2.5 sm:px-5" aria-label={t("Filter demo board by stage")}>
       <span className={'mr-1 shrink-0 '+smallLabel}>{t("STAGES")}</span>
@@ -171,7 +171,7 @@ function PlannerPanel(){
         className={'rounded-lg px-3 py-2 text-[11px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8ff93] '+(item===view?'bg-[#25353f] text-white':'text-[#a4b5bd] hover:text-white')}>{t(item)}</button>)}
     </div>
     {view==='Today'&&<div className="mx-3 mb-4 space-y-2 sm:mx-4">
-      <p className={'mb-1 '+smallLabel}>TODAY · {items.length} PLANNED</p>
+      <p className={'mb-1 '+smallLabel}>{t("TODAY ·")} {items.length} {t("PLANNED")}</p>
       {items.map(item=><button key={item.id} type="button" aria-pressed={done.includes(item.id)}
         onClick={()=>setDone(curr=>curr.includes(item.id)?curr.filter(id=>id!==item.id):[...curr,item.id])}
         className="flex w-full items-center gap-3 rounded-xl border border-[#303f49] bg-[#19242b] px-3.5 py-3 text-left transition hover:border-[#5e8671] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8ff93]">
@@ -224,7 +224,7 @@ function KnowledgePanel({query}:{query:string}){
           <button type="button" role="tab" aria-selected={view===label} onClick={()=>setView(label)} key={t(label)}
             className={'rounded-lg px-2.5 py-2 text-[10px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8ff93] '+(view===label?'bg-[#c8ff93] text-[#13261b]':'text-[#b2c8c8] hover:bg-[#2d3d44] hover:text-white')}>{t(label)}</button>)}
       </div>
-      <span className="text-[9px] text-[#8fa6b1]">{filtered.length} matching entries</span>
+      <span className="text-[9px] text-[#8fa6b1]">{filtered.length} {t("matching entries")}</span>
     </div>
     <div className="grid gap-2.5 p-3 sm:grid-cols-2 sm:p-4 xl:grid-cols-3">
       {filtered.map(note=><article key={note.id} className="relative min-w-0 rounded-[13px] border border-[#38474f] bg-[#202b31] p-3.5 transition hover:border-[#68836c]">
