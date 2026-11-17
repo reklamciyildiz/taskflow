@@ -44,20 +44,20 @@ function RelatedAction({
 }) {
   const { t } = useAppLocale();
   return (
-    <div className="group flex min-w-0 items-center gap-2 rounded-xl border border-border/55 bg-background/70 px-2.5 py-2 transition-colors hover:border-primary/20">
-      <span className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
+    <div className="group flex min-h-12 min-w-0 items-center gap-2 px-3 py-1.5 transition-colors hover:bg-muted/30">
+      <span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-lg',
         item.isTerminal ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-amber-500/10 text-amber-600 dark:text-amber-400')}>
         {item.isTerminal ? <CheckCircle2 className="h-4 w-4" aria-hidden /> : <LockKeyhole className="h-4 w-4" aria-hidden />}
       </span>
       <button type="button" onClick={() => onOpen(item.taskId)}
-        className="min-w-0 flex-1 text-left focus-visible:rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        className="flex min-h-10 min-w-0 flex-1 flex-col justify-center text-left focus-visible:rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         title={item.title} aria-label={t('Open Action: {title}', { title: item.title } as any)}>
         <span className="block truncate text-xs font-semibold text-foreground hover:text-primary">{item.title}</span>
         <span className="block text-[10px] text-muted-foreground">{t(item.isTerminal ? 'Completed' : 'Not completed')}</span>
       </button>
       {editable && (
         <Button type="button" variant="ghost" size="icon" disabled={busy}
-          className="h-9 w-9 shrink-0 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+          className="h-10 w-10 shrink-0 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
           aria-label={t('Remove connection with {title}', { title: item.title } as any)}
           title={t('Remove dependency')}
           onClick={() => onRemove(item.taskId, direction)}>
