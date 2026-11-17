@@ -265,7 +265,6 @@ const turkish: Record<string,string> = {
   "COMMUNITY & PRODUCT DEVELOPMENT": "TOPLULUK VE ÜRÜN GELİŞİMİ",
   "Your ideas help shape what's next.": "Fikirlerin sıradaki yenilikleri şekillendiriyor.",
   "Share an idea": "Fikir paylaş",
-  "matching entries": "eşleşen kayıt",
   "Compare billing periods": "Faturalandırma dönemlerini karşılaştır",
   "Suggest a feature, find similar requests and follow updates in one place.": "Özellik öner, benzer talepleri bul ve gelişmeleri tek yerden takip et.",
   "All ideas": "Tüm fikirler",
