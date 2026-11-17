@@ -224,7 +224,7 @@ function KnowledgePanel({query}:{query:string}){
           <button type="button" role="tab" aria-selected={view===label} onClick={()=>setView(label)} key={t(label)}
             className={'rounded-lg px-2.5 py-2 text-[10px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8ff93] '+(view===label?'bg-[#c8ff93] text-[#13261b]':'text-[#b2c8c8] hover:bg-[#2d3d44] hover:text-white')}>{t(label)}</button>)}
       </div>
-      <span className="text-[9px] text-[#8fa6b1]">{filtered.length} matching entries</span>
+      <span className="text-[9px] text-[#8fa6b1]">{filtered.length} {t("matching entries")}</span>
     </div>
     <div className="grid gap-2.5 p-3 sm:grid-cols-2 sm:p-4 xl:grid-cols-3">
       {filtered.map(note=><article key={note.id} className="relative min-w-0 rounded-[13px] border border-[#38474f] bg-[#202b31] p-3.5 transition hover:border-[#68836c]">
