@@ -4,7 +4,7 @@
 
 The P2.3.2 interface sits on top of the P2.3.1 relational DAG and its database-owned integrity triggers. **It does not change the completion invariant.**
 
-- **Action Panel (updated 17 Nov 2026):** always-visible single-line Dependencies status dock with compact counts and Blocked alert. Opening it launches an independently scrolling responsive management dialog (bottom sheet on phones) rather than expanding two large cards inside the editor. The two directions, per-Action completion state, navigation, unlink and searchable Add picker are preserved.
+- **Action Panel (updated 17 Nov 2026):** always-visible compact Dependencies control in the Action title toolbar, with a count badge and Blocked alert. Opening it launches an independently scrolling responsive management dialog (bottom sheet on phones) rather than expanding two large cards inside the editor. The two directions, per-Action completion state, navigation, unlink and searchable Add picker are preserved.
 - **Link picker:** searches only current-team Action data already visible to the authenticated user, excluding the Action itself, existing links, non-editable Actions and Action-level recurring schedules. Both Actions are re-authorized **again** by the backend.
 - **Board:** compact **Blocked**, **Ready** and **Blocking** chips with a dependency filter. Mobile cards and property-grouped Board retain the same indicators; dragging an unfinished blocked Action into a terminal stage gives immediate feedback. SQL still prevents all bypasses.
 - **List:** dependency chips, status filters, and disabled completion/terminal controls when a known prerequisite is unfinished. Unblocked editing is unchanged.
@@ -51,8 +51,8 @@ After deploying the branch to **staging** against a database with the P2.3.1 mig
 
 The first accordion design permanently occupied a multi-line strip and then
 expanded inside the fixed-height Action Panel, reducing room for Notes and
-Checklist. The replacement keeps only one discoverable 44px status row in the
-panel. When linked, tiny counters identify prerequisite and dependent counts;
+Checklist. The replacement adds no new row: an accessible 44px icon/count control lives
+in the existing Action title toolbar. When linked, a total relationship count is shown with a tooltip explaining both directions;
 when blocked, the warning remains explicit even if the blocker is in a
 restricted Process.
 
