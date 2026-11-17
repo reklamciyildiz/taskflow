@@ -53,7 +53,7 @@ for (const text of [
   'candidate.id !== taskId',
   "candidate.schedule?.scheduleType !== 'recurring'",
   'canEditTask(candidate.createdBy, candidate.assigneeId)',
-  'DialogContent className=',
+  'data-dependency-dialog',
   'onOpen={onNavigate}',
   'aria-busy={loading}',
   'aria-label={t(',
