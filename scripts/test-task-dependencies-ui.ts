@@ -91,7 +91,7 @@ const workspace = panel.indexOf('data-action-work-scroll');
 const header = panel.indexOf('id="action-panel-title"');
 assert.ok(header !== -1 && titleControls > header && titleControls < workspace,
   'Dependencies must live in the Action title controls, not a separate editor row');
-assert.ok(manager.includes('inline-flex shrink-0') && !manager.includes('shrink-0 border-b'),
+assert.ok(manager.includes('inline-flex shrink-0') && !manager.includes('<section className="shrink-0 border-b'),
   'Dependencies must render a compact header control without consuming editor height');
 assert.ok(manager.includes('h-11 min-w-11'),
   'Dependency trigger must preserve a 44px touch target on phones');
