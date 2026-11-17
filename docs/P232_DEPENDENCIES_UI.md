@@ -4,7 +4,7 @@
 
 The P2.3.2 interface sits on top of the P2.3.1 relational DAG and its database-owned integrity triggers. **It does not change the completion invariant.**
 
-- **Action Panel:** always-discoverable collapsible Dependencies strip. Expand to see two directions: **Waiting for** (prerequisites) and **Blocks** (dependents), with per-Action completion state, accessible navigation, unlink and a dedicated responsive search dialog.
+- **Action Panel (updated 17 Nov 2026):** always-visible single-line Dependencies status dock with compact counts and Blocked alert. Opening it launches an independently scrolling responsive management dialog (bottom sheet on phones) rather than expanding two large cards inside the editor. The two directions, per-Action completion state, navigation, unlink and searchable Add picker are preserved.
 - **Link picker:** searches only current-team Action data already visible to the authenticated user, excluding the Action itself, existing links, non-editable Actions and Action-level recurring schedules. Both Actions are re-authorized **again** by the backend.
 - **Board:** compact **Blocked**, **Ready** and **Blocking** chips with a dependency filter. Mobile cards and property-grouped Board retain the same indicators; dragging an unfinished blocked Action into a terminal stage gives immediate feedback. SQL still prevents all bypasses.
 - **List:** dependency chips, status filters, and disabled completion/terminal controls when a known prerequisite is unfinished. Unblocked editing is unchanged.
@@ -46,3 +46,34 @@ After deploying the branch to **staging** against a database with the P2.3.1 mig
 **Not in P2.3.2:** no automatic stage changes, no automatically shifted dates, no unblock push notifications, no recurring occurrence-level dependencies and no dependency graph visualization. Those belong to later roadmap steps.
 
 **Deployment caution:** A SQL success response only proves the migration completed; verify the branch in staging and obtain explicit deployment approval before merging the draft PR into `main`. The production SQL migration may already have been run manually by the project owner; do not rerun it blindly.
+
+## 17 November 2026 — compact Dependencies UI refinement
+
+The first accordion design permanently occupied a multi-line strip and then
+expanded inside the fixed-height Action Panel, reducing room for Notes and
+Checklist. The replacement keeps only one discoverable 44px status row in the
+panel. When linked, tiny counters identify prerequisite and dependent counts;
+when blocked, the warning remains explicit even if the blocker is in a
+restricted Process.
+
+Opening the row does **not** expand or scroll the Action Panel. A responsive
+dialog manages both relation directions using compact, divided rows and
+44px-or-larger touch controls. On mobile the dialog anchors to the bottom
+of the viewport and keeps its content independently scrollable. The searchable
+Add picker is a second state inside the **same dialog**, so Back returns to
+the relation overview without nested modal focus traps. Esc and the close
+control exit the dialog. All new affordances reuse the existing translated
+EN/TR catalog labels.
+
+The client picker now excludes existing relations in *either* direction,
+preventing users from offering an immediately invalid reverse edge.
+Server-side ACL, cycle detection, completion enforcement, tenant isolation
+and the hidden-blocker privacy guarantee are unchanged; the design is not
+a permissions change.
+
+Acceptance: 320px/360px/412px Android viewports, desktop and tablet;
+empty/blocked/ready/mixed relations, restricted hidden blockers, read-only
+accounts, network errors/retry, fast Action switching, keyboard Escape and
+focus return, Add/Back/Remove navigation. Automated gates include the
+dependency UI contract, Next.js build and bundled Android UI build; real
+device verification remains separate.
