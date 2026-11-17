@@ -1114,6 +1114,15 @@ function ActionPanelContent({
             <span className="mr-1.5 hidden sm:inline-flex">
               <SaveStatus state={saveState} />
             </span>
+            <ActionDependencies
+              taskId={taskId}
+              teamId={task.teamId}
+              canEdit={canEdit}
+              onNavigate={id => {
+                flushAll();
+                openTaskEditor(id);
+              }}
+            />
             <Button
               type="button"
               variant="ghost"
@@ -1529,15 +1538,6 @@ function ActionPanelContent({
 
       {/* ── Work area: one document at a time, full remaining height ── */}
       <ActionAttachments />
-      <ActionDependencies
-        taskId={taskId}
-        teamId={task.teamId}
-        canEdit={canEdit}
-        onNavigate={id => {
-          flushAll();
-          openTaskEditor(id);
-        }}
-      />
       <Tabs
         value={tab}
         onValueChange={switchTab}
