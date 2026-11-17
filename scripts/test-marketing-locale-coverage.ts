@@ -123,7 +123,7 @@ for (const file of visibleFiles) {
     }
 
     if (ts.isJsxAttribute(node)) {
-      const name = node.name.text;
+      const name = ts.isIdentifier(node.name) ? node.name.text : node.name.getText(source);
       const value = node.initializer;
       if (value && ts.isStringLiteral(value)) {
         if (userFacingAttributes.has(name) && containsLetters(value.text)
