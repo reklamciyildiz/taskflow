@@ -51,7 +51,7 @@ const marketingDataFields: Record<string, Record<string, readonly string[]>> = {
 
 // Product and plan proper nouns are deliberately not translated.
 // Localized service descriptions, actions, labels and sample data still are.
-const preservedProperNouns = new Set(['Actiproc', 'actiproc', 'NS', 'Free', 'Individual', 'Pro', 'Team']);
+const preservedProperNouns = new Set(['Actiproc', 'Actiproc.', 'actiproc', 'NS', 'Free', 'Individual', 'Pro', 'Team']);
 const preservedDecorativeText = new Set(['actiproc.com / northstar-studio /']);
 const userFacingAttributes = new Set(['aria-label', 'aria-description', 'aria-placeholder', 'placeholder', 'alt', 'title']);
 
@@ -69,14 +69,16 @@ function fail(file: string, node: ts.Node, source: ts.SourceFile, message: strin
   issues.push(file + ':' + line + ' ' + message);
 }
 function checkTranslation(file: string, node: ts.Node, source: ts.SourceFile, raw: string) {
-  const value = lexicalText(raw);
-  if (!value || !containsLetters(value) || preservedProperNouns.has(value)) return;
+  const normalized = lexicalText(raw);
+  if (!normalized || !containsLetters(normalized) || preservedProperNouns.has(normalized)) return;
+  // Some valid translation keys carry intentional trailing spaces (e.g. "Preview " -> "Önizleme: ").
+  const key = hasTurkishMarketingCopy(raw) ? raw : normalized;
   translationsChecked++;
-  if (!hasTurkishMarketingCopy(value)) {
-    fail(file, node, source, 'Missing TR dictionary key: ' + JSON.stringify(value));
+  if (!hasTurkishMarketingCopy(key)) {
+    fail(file, node, source, 'Missing TR dictionary key: ' + JSON.stringify(key));
   } else {
-    const translated = translateMarketing('tr', value);
-    if (!translated.trim()) fail(file, node, source, 'Empty TR translation for ' + JSON.stringify(value));
+    const translated = translateMarketing('tr', key);
+    if (!translated.trim()) fail(file, node, source, 'Empty TR translation for ' + JSON.stringify(key));
   }
 }
 
