@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  AlertCircle, ArrowRight, CheckCircle2, ChevronDown, GitBranch, Link2,
+  AlertCircle, ArrowLeft, ArrowRight, CheckCircle2, GitBranch, Link2,
   Loader2, LockKeyhole, Plus, Search, X,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -9,8 +9,6 @@ import { useTaskContext } from '@/components/TaskContext';
 import { useAppLocale } from '@/components/i18n/AppLocaleProvider';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { taskDependencyApi } from '@/lib/api';
 import type { TaskDependencyOverview, TaskDependencyReference, TaskDependencyCommand } from '@/lib/task-dependencies';
@@ -46,20 +44,20 @@ function RelatedAction({
 }) {
   const { t } = useAppLocale();
   return (
-    <div className="group flex min-w-0 items-center gap-2 rounded-xl border border-border/55 bg-background/70 px-2.5 py-2 transition-colors hover:border-primary/20">
-      <span className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
+    <div className="group flex min-h-12 min-w-0 items-center gap-2 px-3 py-1.5 transition-colors hover:bg-muted/30">
+      <span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-lg',
         item.isTerminal ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-amber-500/10 text-amber-600 dark:text-amber-400')}>
         {item.isTerminal ? <CheckCircle2 className="h-4 w-4" aria-hidden /> : <LockKeyhole className="h-4 w-4" aria-hidden />}
       </span>
       <button type="button" onClick={() => onOpen(item.taskId)}
-        className="min-w-0 flex-1 text-left focus-visible:rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        className="flex min-h-10 min-w-0 flex-1 flex-col justify-center text-left focus-visible:rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         title={item.title} aria-label={t('Open Action: {title}', { title: item.title } as any)}>
         <span className="block truncate text-xs font-semibold text-foreground hover:text-primary">{item.title}</span>
         <span className="block text-[10px] text-muted-foreground">{t(item.isTerminal ? 'Completed' : 'Not completed')}</span>
       </button>
       {editable && (
         <Button type="button" variant="ghost" size="icon" disabled={busy}
-          className="h-9 w-9 shrink-0 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+          className="h-10 w-10 shrink-0 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
           aria-label={t('Remove connection with {title}', { title: item.title } as any)}
           title={t('Remove dependency')}
           onClick={() => onRemove(item.taskId, direction)}>
@@ -70,7 +68,7 @@ function RelatedAction({
   );
 }
 
-/** Compact, always discoverable section with a responsive searchable picker. */
+/** One-line status dock; management opens outside the Action Panel layout. */
 export function ActionDependencies({
   taskId, teamId, canEdit, onNavigate,
 }: {
@@ -137,10 +135,13 @@ export function ActionDependencies({
     () => new Map(projects.map(project => [project.id, project.name])),
     [projects],
   );
-  const linkedIds = useMemo(() => new Set(
-    (picker === 'blockedBy' ? overview?.blockedBy : overview?.blocking)?.map(item => item.taskId) ?? [],
-  ), [overview, picker]);
+  // Do not offer a reverse edge for an already-connected Action: it would form a cycle.
+  const linkedIds = useMemo(() => new Set([
+    ...(overview?.blockedBy ?? []), ...(overview?.blocking ?? []),
+  ].map(item => item.taskId)), [overview]);
   const eligible = useMemo(() => {
+    // The full team picker index is unnecessary until a user requests a link.
+    if (!picker || !overview) return [];
     const search = query.trim().toLocaleLowerCase();
     return tasks.filter(candidate =>
       candidate.teamId === teamId
@@ -151,7 +152,7 @@ export function ActionDependencies({
       && (!search || [candidate.title, projectNames.get(candidate.projectId ?? '') ?? '']
         .some(text => text.toLocaleLowerCase().includes(search)))
     ).sort((a, b) => a.title.localeCompare(b.title)).slice(0, 75);
-  }, [tasks, query, linkedIds, teamId, taskId, canEditTask, projectNames]);
+  }, [tasks, query, linkedIds, teamId, taskId, canEditTask, projectNames, picker, overview]);
 
   const mutate = async (direction: Direction, peerId: string, remove = false) => {
     if (!canEdit || pending) return;
@@ -167,7 +168,7 @@ export function ActionDependencies({
         return;
       }
       toast.success(t(remove ? 'Dependency removed' : 'Dependency connected'));
-      if (!remove) { setPicker(null); setQuery(''); }
+      if (!remove) { setPicker(null); setQuery(''); } // Return to dependency overview.
       notifyTaskDependenciesChanged(teamId);
     } catch {
       toast.error(t('Could not update dependency'));
@@ -191,128 +192,172 @@ export function ActionDependencies({
     setPicker(direction);
   };
 
+
   return (
-    <section className="shrink-0 border-b border-border/50 bg-background/60" data-action-dependencies>
-      <Collapsible open={expanded} onOpenChange={setExpanded}>
-        <CollapsibleTrigger asChild>
-          <button type="button" aria-label={t('Show Action dependencies')} aria-expanded={expanded}
-            className="flex min-h-[48px] w-full items-center gap-2.5 px-4 py-2 text-left transition-colors hover:bg-muted/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 md:px-6">
-            <span className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-xl',
-              overview?.blocked ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300' : 'bg-primary/10 text-primary')}>
-              {overview?.blocked ? <LockKeyhole className="h-4 w-4" aria-hidden /> : <GitBranch className="h-4 w-4" aria-hidden />}
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-xs font-semibold text-foreground">{t('Dependencies')}</span>
-              <span className="block truncate text-[11px] text-muted-foreground" aria-live="polite">
-                {loading ? t('Loading dependencies…') : loadError ? t('Dependencies unavailable') : label}
-              </span>
-            </span>
-            {overview?.blocked && <Badge className="shrink-0 border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-300"
-              variant="outline">{t('Blocked')}</Badge>}
-            <ChevronDown className={cn('h-4 w-4 shrink-0 text-muted-foreground transition-transform', expanded && 'rotate-180')} aria-hidden />
-          </button>
-        </CollapsibleTrigger>
-        <CollapsibleContent className="max-h-[min(40dvh,360px)] overflow-y-auto overscroll-contain [scrollbar-width:thin]">
-          <div className="grid min-w-0 gap-3 px-4 pb-4 md:grid-cols-2 md:px-6" aria-busy={loading}>
-            {loadError ? (
-              <div className="col-span-full flex items-center justify-between gap-3 rounded-xl border border-destructive/25 bg-destructive/5 p-3">
-                <span className="flex items-center gap-2 text-xs text-destructive">
-                  <AlertCircle className="h-4 w-4 shrink-0" aria-hidden />{t('Could not load dependencies')}
+    <div className="relative inline-flex shrink-0" data-action-dependencies>
+      {/* Zero extra editor rows: available beside the Action title on every viewport. */}
+      <button type="button" aria-label={t('Show Action dependencies')} aria-haspopup="dialog"
+        aria-expanded={expanded} title={t('Dependencies') + ' · ' + (loading ? t('Loading dependencies…') : loadError ? t('Dependencies unavailable') : label)}
+        onClick={() => setExpanded(true)}
+        className={cn(
+          'group relative inline-flex h-11 min-w-11 shrink-0 items-center justify-center gap-1 rounded-xl border px-2 transition-colors',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60',
+          overview?.blocked
+            ? 'border-amber-500/25 bg-amber-500/10 text-amber-700 hover:bg-amber-500/15 dark:text-amber-300'
+            : 'border-border/55 bg-background/65 text-muted-foreground hover:border-primary/25 hover:bg-primary/5 hover:text-primary',
+        )}>
+        {overview?.blocked ? <LockKeyhole className="h-4 w-4 shrink-0" aria-hidden /> : <GitBranch className="h-4 w-4 shrink-0" aria-hidden />}
+        <span className="sr-only" role="status" aria-live="polite">
+          {loading ? t('Loading dependencies…') : loadError ? t('Dependencies unavailable') : label}
+        </span>
+        {loading && !overview ? (
+          <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+        ) : loadError ? (
+          <AlertCircle className="h-3.5 w-3.5 text-destructive" aria-hidden />
+        ) : hasLinks ? (
+          <span className="inline-flex min-w-4 justify-center rounded-md bg-background/75 px-1 py-0.5 text-[10px] font-semibold leading-none tabular-nums"
+            data-dependency-summary aria-label={t('Waiting for') + ': ' + (overview?.blockedBy.length ?? 0) + ', ' + t('Blocks') + ': ' + (overview?.blocking.length ?? 0)}>
+            {Math.min(99, (overview?.blockedBy.length ?? 0) + (overview?.blocking.length ?? 0))}{(overview?.blockedBy.length ?? 0) + (overview?.blocking.length ?? 0) > 99 ? '+' : ''}
+          </span>
+        ) : null}
+        {overview?.blocked && <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-amber-500 ring-2 ring-background" aria-hidden />}
+      </button>
+
+      <Dialog open={expanded} onOpenChange={open => {
+        if (!open && !pending) { setExpanded(false); setPicker(null); setQuery(''); }
+      }}>
+        <DialogContent hideClose
+          className="flex max-h-[min(88dvh,680px)] w-[min(94vw,560px)] min-w-0 flex-col gap-0 overflow-hidden rounded-[24px] border-border/65 p-0 shadow-2xl max-sm:!bottom-0 max-sm:!left-0 max-sm:!top-auto max-sm:!w-full max-sm:!max-w-none max-sm:!translate-x-0 max-sm:!translate-y-0 max-sm:!rounded-b-none max-sm:!rounded-t-[24px]"
+          data-dependency-dialog>
+          <DialogHeader className="shrink-0 border-b border-border/50 bg-gradient-to-b from-muted/40 to-background px-4 py-4 text-left sm:px-5">
+            <div className="flex min-w-0 items-center gap-3">
+              {picker ? (
+                <Button type="button" variant="ghost" size="icon" disabled={!!pending}
+                  className="h-10 w-10 shrink-0 rounded-xl" aria-label={t('Back')}
+                  onClick={() => { setPicker(null); setQuery(''); }}>
+                  <ArrowLeft className="h-4 w-4" aria-hidden />
+                </Button>
+              ) : (
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/10 bg-primary/10 text-primary">
+                  <GitBranch className="h-4 w-4" aria-hidden />
                 </span>
-                <Button size="sm" type="button" variant="outline" onClick={() => void reload(() => activeRef.current)}>{t('Retry')}</Button>
+              )}
+              <div className="min-w-0 flex-1 space-y-1">
+                <DialogTitle className="truncate text-sm font-semibold tracking-tight sm:text-base">
+                  {picker ? t(picker === 'blockedBy' ? 'Add prerequisite Action' : 'Add dependent Action') : t('Dependencies')}
+                </DialogTitle>
+                <DialogDescription className="text-[11px] leading-relaxed sm:text-xs">
+                  {picker
+                    ? t(picker === 'blockedBy'
+                      ? 'This Action will wait for the selected Action to finish.'
+                      : 'The selected Action will wait for this Action to finish.')
+                    : loading ? t('Loading dependencies…') : loadError ? t('Dependencies unavailable') : label}
+                </DialogDescription>
               </div>
-            ) : loading && !overview ? (
-              <div className="col-span-full flex items-center gap-2 text-xs text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />{t('Loading dependencies…')}
+              <Button type="button" variant="ghost" size="icon" disabled={!!pending}
+                className="h-10 w-10 shrink-0 rounded-xl text-muted-foreground hover:text-foreground"
+                aria-label={t('Close')} onClick={() => { setExpanded(false); setPicker(null); setQuery(''); }}>
+                <X className="h-4 w-4" aria-hidden />
+              </Button>
+            </div>
+          </DialogHeader>
+
+          {picker ? (
+            <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden px-4 py-4 sm:px-5" data-dependency-picker>
+              <div className="relative shrink-0">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+                <Input autoFocus aria-label={t('Search team Actions')} value={query}
+                  onChange={event => setQuery(event.target.value)}
+                  placeholder={t('Search team Actions…')} className="h-11 rounded-xl pl-10" />
               </div>
-            ) : (
-              <>
-                {([
-                  { direction: 'blockedBy' as const, title: t('Waiting for'), items: overview?.blockedBy ?? [] },
-                  { direction: 'blocking' as const, title: t('Blocks'), items: overview?.blocking ?? [] },
-                ]).map(group => (
-                  <div key={group.direction} className="min-w-0 space-y-2 rounded-2xl border border-border/55 bg-muted/20 p-2.5">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="flex items-center gap-1.5 text-[11px] font-semibold text-foreground">
-                        {group.direction === 'blockedBy' ? <LockKeyhole className="h-3.5 w-3.5 text-amber-600" aria-hidden /> : <ArrowRight className="h-3.5 w-3.5 text-primary" aria-hidden />}
-                        {group.title} <span className="tabular-nums text-muted-foreground">({group.items.length})</span>
+              <p className="shrink-0 text-[11px] leading-relaxed text-muted-foreground">
+                {t('Only accessible Actions in the same team can be connected.')}
+              </p>
+              <div className="min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain rounded-xl border border-border/50 bg-muted/15 p-1.5 [scrollbar-width:thin]" aria-busy={!!pending}>
+                {eligible.map(candidate => (
+                  <button type="button" key={candidate.id} disabled={!!pending}
+                    className="group flex min-h-12 w-full min-w-0 items-center gap-3 rounded-lg px-3 py-2 text-left hover:bg-background/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50"
+                    onClick={() => picker && void mutate(picker, candidate.id)}>
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      {pending === candidate.id ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <GitBranch className="h-4 w-4" aria-hidden />}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-xs font-semibold">{candidate.title}</span>
+                      <span className="block truncate text-[10px] text-muted-foreground">
+                        {candidate.projectId ? projectNames.get(candidate.projectId) ?? t('Process') : t('Inbox')}
                       </span>
-                      {canEdit && <Button type="button" size="sm" variant="outline" disabled={!!pending}
-                        className="h-8 gap-1 rounded-lg px-2 text-[11px]"
-                        onClick={() => openPicker(group.direction)}>
-                        <Plus className="h-3 w-3" aria-hidden />{t('Add')}
-                      </Button>}
-                    </div>
-                    {group.items.length ? (
-                      <div className="max-h-40 space-y-1.5 overflow-y-auto [scrollbar-width:thin]">
-                        {group.items.map(item =>
-                          <RelatedAction key={item.id} item={item} direction={group.direction}
-                            editable={canEdit} busy={pending !== null}
-                            onOpen={onNavigate} onRemove={(id, direction) => void mutate(direction, id, true)} />
+                    </span>
+                    <Plus className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-primary" aria-hidden />
+                  </button>
+                ))}
+                {!eligible.length && <div className="px-4 py-10 text-center text-xs text-muted-foreground">{t('No eligible Actions found')}</div>}
+              </div>
+            </div>
+          ) : (
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-3 sm:p-4 [scrollbar-width:thin]" aria-busy={loading} data-dependency-manager>
+              {loadError ? (
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-destructive/25 bg-destructive/5 p-3" role="alert">
+                  <span className="flex min-w-0 items-center gap-2 text-xs text-destructive">
+                    <AlertCircle className="h-4 w-4 shrink-0" aria-hidden />{t('Could not load dependencies')}
+                  </span>
+                  <Button size="sm" type="button" variant="outline" disabled={loading}
+                    className="h-10 shrink-0 rounded-lg" onClick={() => void reload(() => activeRef.current)}>{t('Retry')}</Button>
+                </div>
+              ) : loading && !overview ? (
+                <div className="flex items-center gap-2 px-2 py-8 text-xs text-muted-foreground" role="status">
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />{t('Loading dependencies…')}
+                </div>
+              ) : (
+                <>
+                  {([
+                    { direction: 'blockedBy' as const, title: t('Waiting for'), items: overview?.blockedBy ?? [] },
+                    { direction: 'blocking' as const, title: t('Blocks'), items: overview?.blocking ?? [] },
+                  ]).map(group => (
+                    <div key={group.direction} className="min-w-0 overflow-hidden rounded-2xl border border-border/55 bg-background" data-dependency-group={group.direction}>
+                      <div className="flex min-h-12 items-center gap-2 border-b border-border/45 bg-muted/25 px-3 py-1.5">
+                        <span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-lg',
+                          group.direction === 'blockedBy' ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' : 'bg-primary/10 text-primary')}>
+                          {group.direction === 'blockedBy' ? <LockKeyhole className="h-3.5 w-3.5" aria-hidden /> : <ArrowRight className="h-3.5 w-3.5" aria-hidden />}
+                        </span>
+                        <span className="min-w-0 flex-1 truncate text-xs font-semibold">{group.title}</span>
+                        <span className="rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-muted-foreground">{group.items.length}</span>
+                        {canEdit && (
+                          <Button type="button" variant="ghost" disabled={!!pending}
+                            className="h-10 gap-1.5 rounded-lg px-2.5 text-xs font-medium text-primary hover:bg-primary/10 hover:text-primary"
+                            onClick={() => openPicker(group.direction)}>
+                            <Plus className="h-3.5 w-3.5" aria-hidden />{t('Add')}
+                          </Button>
                         )}
                       </div>
-                    ) : <p className="rounded-xl border border-dashed border-border/55 px-3 py-4 text-center text-[11px] text-muted-foreground">
-                      {t(group.direction === 'blockedBy' ? 'No prerequisites yet' : 'Does not block another Action')}
-                    </p>}
-                  </div>
-                ))}
-                {hiddenBlocker && <p className="col-span-full flex items-start gap-2 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-[11px] text-amber-700 dark:text-amber-300">
-                  <LockKeyhole className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-                  {t('An unfinished prerequisite is in a restricted Process. Contact a teammate with access.')}
-                </p>}
-                {!canEdit && <p className="col-span-full text-[11px] text-muted-foreground">{t('Read-only: you cannot change dependencies.')}</p>}
-              </>
-            )}
-          </div>
-        </CollapsibleContent>
-      </Collapsible>
-
-      <Dialog open={picker !== null} onOpenChange={open => { if (!open) setPicker(null); }}>
-        <DialogContent className="flex max-h-[min(88dvh,680px)] w-[min(94vw,540px)] flex-col gap-0 overflow-hidden rounded-[22px] border-border/65 p-0 sm:rounded-[24px]">
-          <DialogHeader className="shrink-0 border-b border-border/55 bg-muted/25 px-5 py-5">
-            <DialogTitle className="flex items-center gap-2 text-base">
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary"><Link2 className="h-4 w-4" aria-hidden /></span>
-              {t(picker === 'blockedBy' ? 'Add prerequisite Action' : 'Add dependent Action')}
-            </DialogTitle>
-            <DialogDescription className="text-xs leading-relaxed">
-              {t(picker === 'blockedBy'
-                ? 'This Action will wait for the selected Action to finish.'
-                : 'The selected Action will wait for this Action to finish.')}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="min-h-0 flex-1 space-y-3 overflow-hidden px-5 py-4">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
-              <Input autoFocus aria-label={t('Search team Actions')} value={query}
-                onChange={event => setQuery(event.target.value)}
-                placeholder={t('Search team Actions…')} className="h-11 rounded-xl pl-10" />
+                      {group.items.length ? (
+                        <div className="divide-y divide-border/45">
+                          {group.items.map(item => (
+                            <RelatedAction key={item.id} item={item} direction={group.direction}
+                              editable={canEdit} busy={pending !== null}
+                              onOpen={onNavigate} onRemove={(id, direction) => void mutate(direction, id, true)} />
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="px-3 py-3 text-[11px] text-muted-foreground">
+                          {t(group.direction === 'blockedBy' ? 'No prerequisites yet' : 'Does not block another Action')}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                  {hiddenBlocker && (
+                    <p className="flex items-start gap-2 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-[11px] leading-relaxed text-amber-700 dark:text-amber-300">
+                      <LockKeyhole className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+                      {t('An unfinished prerequisite is in a restricted Process. Contact a teammate with access.')}
+                    </p>
+                  )}
+                  {!canEdit && <p className="px-1 text-[11px] text-muted-foreground">{t('Read-only: you cannot change dependencies.')}</p>}
+                </>
+              )}
             </div>
-            <p className="text-[11px] leading-relaxed text-muted-foreground">{t('Only accessible Actions in the same team can be connected.')}</p>
-            <div className="max-h-[min(49dvh,360px)] space-y-1 overflow-y-auto overscroll-contain rounded-xl border border-border/55 bg-muted/15 p-1.5 [scrollbar-width:thin]" aria-busy={!!pending}>
-              {eligible.map(candidate => (
-                <button type="button" key={candidate.id} disabled={!!pending}
-                  className="group flex min-h-12 w-full min-w-0 items-center gap-3 rounded-lg px-3 py-2 text-left hover:bg-background/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50"
-                  onClick={() => picker && void mutate(picker, candidate.id)}>
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                    {pending === candidate.id ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <GitBranch className="h-4 w-4" aria-hidden />}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-xs font-semibold">{candidate.title}</span>
-                    <span className="block truncate text-[10px] text-muted-foreground">
-                      {candidate.projectId ? projectNames.get(candidate.projectId) ?? t('Process') : t('Inbox')}
-                    </span>
-                  </span>
-                  <Plus className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-primary" aria-hidden />
-                </button>
-              ))}
-              {!eligible.length && <div className="px-4 py-10 text-center text-xs text-muted-foreground">{t('No eligible Actions found')}</div>}
-            </div>
-          </div>
-          <div className="flex shrink-0 justify-end border-t border-border/55 px-5 py-3">
-            <Button type="button" variant="outline" className="h-10 rounded-xl" onClick={() => setPicker(null)}>{t('Cancel')}</Button>
-          </div>
+          )}
+          <div className="h-[max(0px,env(safe-area-inset-bottom))] shrink-0 sm:hidden" aria-hidden />
         </DialogContent>
       </Dialog>
-    </section>
+    </div>
   );
 }

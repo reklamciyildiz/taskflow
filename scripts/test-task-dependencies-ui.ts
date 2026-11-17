@@ -53,11 +53,49 @@ for (const text of [
   'candidate.id !== taskId',
   "candidate.schedule?.scheduleType !== 'recurring'",
   'canEditTask(candidate.createdBy, candidate.assigneeId)',
-  'DialogContent className=',
+  'data-dependency-dialog',
   'onOpen={onNavigate}',
   'aria-busy={loading}',
   'aria-label={t(',
 ]) assert.ok(manager.includes(text), 'Missing manager behavior: ' + text);
+// A Dependencies panel must not consume Action editor height when opened.
+for (const marker of [
+  'data-action-dependencies',
+  'data-dependency-summary',
+  'data-dependency-manager',
+  'data-dependency-picker',
+  'data-dependency-group={group.direction}',
+  'aria-haspopup="dialog"',
+  'aria-expanded={expanded}',
+  'max-sm:!bottom-0',
+  'data-dependency-summary',
+  'aria-label={t(\'Back\')}',
+  'aria-label={t(\'Close\')}',
+  "if (!picker || !overview) return []",
+]) assert.ok(manager.includes(marker), 'Missing compact dependencies behavior: ' + marker);
+assert.ok(!manager.includes('CollapsibleContent') && !manager.includes('CollapsibleTrigger'),
+  'Dependency manager must not expand within Action content');
+assert.ok(manager.includes("setExpanded(true)") && manager.includes("setExpanded(false)"),
+  'Dependency manager must be independently openable and closable');
+assert.ok(manager.includes("...(overview?.blockedBy ?? []), ...(overview?.blocking ?? [])"),
+  'Reverse edges should be omitted from the picker to prevent obvious cycles');
+assert.ok(manager.includes('onClick={() => openPicker(group.direction)}'),
+  'Both directions must remain editable from the dialog');
+assert.ok(manager.includes('onOpen={onNavigate}') && manager.includes('onRemove={(id, direction) => void mutate(direction, id, true)}'),
+  'Action navigation and unlink must remain present in the compact view');
+assert.ok(manager.includes('role="alert"') && manager.includes("t('Retry')"),
+  'Failed dependency reads require an actionable retry state');
+
+const titleControls = panel.indexOf('<ActionDependencies');
+const workspace = panel.indexOf('data-action-work-scroll');
+const header = panel.indexOf('id="action-panel-title"');
+assert.ok(header !== -1 && titleControls > header && titleControls < workspace,
+  'Dependencies must live in the Action title controls, not a separate editor row');
+assert.ok(manager.includes('inline-flex shrink-0') && !manager.includes('<section className="shrink-0 border-b'),
+  'Dependencies must render a compact header control without consuming editor height');
+assert.ok(manager.includes('h-11 min-w-11'),
+  'Dependency trigger must preserve a 44px touch target on phones');
+
 assert.ok(manager.includes("overview?.blocked") && manager.includes('hiddenBlocker'),
   'Restricted unfinished blockers must be presented without exposing IDs');
 
