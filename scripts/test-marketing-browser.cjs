@@ -204,7 +204,7 @@ async function main() {
         assert.doesNotMatch(await turkishCommunity.innerText(),/Your ideas help shape|Share an idea|Actiproc now has a dedicated place/);
         // The interactive, server-locale-provided preview must also localize dynamic counts.
         await page.locator('.ap-real-sidebar').getByRole('button').nth(2).click();
-        await page.getByText(/\\d+ eşleşen kayıt/).waitFor();
+        await page.getByText(/\d+ eşleşen kayıt/).waitFor();
         assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1),true);
         assertions+=5;
         await page.getByRole('button',{name:'Önizleme: Planlayıcı'}).click();
