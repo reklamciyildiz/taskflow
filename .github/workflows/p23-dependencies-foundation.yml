@@ -83,6 +83,10 @@ jobs:
         run: npm run test:board:premium
       - name: Existing scheduling regressions
         run: npm run test:scheduling
+      - name: Bundled Android UI parity for dependency manager
+        run: |
+          npm ci --prefix mobile --no-audit --no-fund
+          npm --prefix mobile run build
       - name: TypeScript
         run: npx tsc --noEmit
       - name: Production build (inert CI credentials)
