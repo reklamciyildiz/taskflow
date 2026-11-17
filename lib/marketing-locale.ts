@@ -266,7 +266,7 @@ const turkish: Record<string,string> = {
   "Your ideas help shape what's next.": "Fikirlerin sıradaki yenilikleri şekillendiriyor.",
   "Share an idea": "Fikir paylaş",
   "Organize work, track progress, and move Actions through your workflow.": "İşleri düzenle, ilerlemeyi takip et ve görevleri iş akışının aşamalarında ilerlet.",
-  "Your workspace intelligence, connected to real context when authorized.": "İzin verilen çalışma alanı bilgileriyle bağlantılı akıllı asistanın."
+  "Your workspace intelligence, connected to real context when authorized.": "İzin verilen çalışma alanı bilgileriyle bağlantılı akıllı asistanın.",
   "Compare billing periods": "Faturalandırma dönemlerini karşılaştır",
   "Suggest a feature, find similar requests and follow updates in one place.": "Özellik öner, benzer talepleri bul ve gelişmeleri tek yerden takip et.",
   "All ideas": "Tüm fikirler",
