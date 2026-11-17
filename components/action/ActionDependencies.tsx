@@ -140,6 +140,8 @@ export function ActionDependencies({
     ...(overview?.blockedBy ?? []), ...(overview?.blocking ?? []),
   ].map(item => item.taskId)), [overview]);
   const eligible = useMemo(() => {
+    // The full team picker index is unnecessary until a user requests a link.
+    if (!picker || !overview) return [];
     const search = query.trim().toLocaleLowerCase();
     return tasks.filter(candidate =>
       candidate.teamId === teamId
@@ -150,7 +152,7 @@ export function ActionDependencies({
       && (!search || [candidate.title, projectNames.get(candidate.projectId ?? '') ?? '']
         .some(text => text.toLocaleLowerCase().includes(search)))
     ).sort((a, b) => a.title.localeCompare(b.title)).slice(0, 75);
-  }, [tasks, query, linkedIds, teamId, taskId, canEditTask, projectNames]);
+  }, [tasks, query, linkedIds, teamId, taskId, canEditTask, projectNames, picker, overview]);
 
   const mutate = async (direction: Direction, peerId: string, remove = false) => {
     if (!canEdit || pending) return;
