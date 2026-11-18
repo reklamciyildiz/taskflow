@@ -1,250 +1,194 @@
-# Axiom - Premium Team Productivity App
+<div align="center">
 
-A sophisticated task management application built with Next.js, featuring advanced team collaboration, analytics, and modern UI design.
+# Actiproc
 
-## Documentation
+**From the first idea to finished work — one connected workspace.**
 
-Ek rehberler (Supabase, auth, webhook, RLS, yol haritaları vb.) [`docs/`](./docs/) klasöründe; indeks: [`docs/README.md`](./docs/README.md).
+Organize Processes, move Actions forward, plan your time, preserve context, and collaborate without switching between disconnected tools.
 
-## 🚀 Features Implemented
+[**Product website**](https://www.actiproc.com/marketing) · [**Türkçe tanıtım**](https://www.actiproc.com/marketing/tr) · [**Documentation**](./docs/README.md)
 
-### ✅ Core Task Management
-- **Multi-Status Workflow**: To Do → In Progress → Review → Done
-- **Drag & Drop Kanban Board**: Intuitive task organization with @hello-pangea/dnd
-- **Advanced Task List View**: Comprehensive filtering, sorting, and search
-- **Task Creation Modal**: Rich task creation with priorities, due dates, and assignments
-- **Task Cards**: Detailed cards with attachments, comments, and metadata
-
-### ✅ Team Collaboration
-- **Multi-Team Support**: Switch between different teams (Product Team, Design Team)
-- **Team Member Management**: Add/remove members, role assignments (Admin/Member/Viewer)
-- **User Profiles**: Realistic user data with avatars and online status
-- **Team Analytics**: Performance tracking and productivity metrics
-
-### ✅ Advanced UI/UX
-- **Dark/Light Theme**: Seamless theme switching with next-themes
-- **Responsive Design**: Mobile-first approach with Tailwind CSS
-- **Modern Components**: Built with shadcn/ui component library
-- **Smooth Animations**: Hover states, transitions, and micro-interactions
-- **Professional Design**: Apple-level aesthetics with proper spacing and typography
-
-### ✅ Analytics & Insights
-- **Team Performance Dashboard**: Completion rates, productivity metrics
-- **Task Distribution Charts**: Status and priority breakdowns
-- **AI-Powered Insights**: Smart recommendations and productivity tips
-- **Member Performance Tracking**: Individual contribution metrics
-
-### ✅ Notifications & Communication
-- **Notification Panel**: Real-time updates and team activity
-- **Task Comments**: Collaboration through task-specific discussions
-- **File Attachments**: Support for task-related documents
-- **Activity Tracking**: Comprehensive audit trail
-
-## 🛠 Technical Stack
-
-### Frontend
-- **Next.js 13+**: App Router with TypeScript
-- **React 18**: Modern React with hooks and context
-- **Tailwind CSS**: Utility-first styling with custom design system
-- **shadcn/ui**: High-quality component library
-- **Lucide React**: Beautiful icon system
-- **next-themes**: Theme management
-
-### State Management
-- **React Context**: Custom TaskContext for global state
-- **Local Storage**: Persistent theme preferences
-
-### Drag & Drop
-- **@hello-pangea/dnd**: Beautiful drag and drop for kanban board
-
-### Date Handling
-- **date-fns**: Modern date utility library
-
-## 📁 Project Structure
-
-```
-├── app/
-│   ├── layout.tsx          # Root layout with metadata
-│   ├── page.tsx            # Main application entry
-│   └── globals.css         # Global styles and CSS variables
-├── components/
-│   ├── ui/                 # shadcn/ui components
-│   ├── Dashboard.tsx       # Main dashboard container
-│   ├── Header.tsx          # Top navigation bar
-│   ├── Sidebar.tsx         # Left navigation panel
-│   ├── TaskBoard.tsx       # Kanban board view
-│   ├── TaskList.tsx        # List view with filtering
-│   ├── TaskCard.tsx        # Individual task cards
-│   ├── Analytics.tsx       # Analytics dashboard
-│   ├── Settings.tsx        # Team and user settings
-│   ├── CreateTaskModal.tsx # Task creation dialog
-│   ├── NotificationBell.tsx  # In-app notifications (header)
-│   ├── TaskContext.tsx     # Global state management
-│   ├── ThemeProvider.tsx   # Theme context provider
-│   ├── ThemeToggle.tsx     # Dark/light mode toggle
-│   └── UserMenu.tsx        # User profile dropdown
-├── lib/
-│   └── utils.ts            # Utility functions (cn, etc.)
-├── docs/                   # Kurulum, güvenlik, webhook, RLS, roadmap belgeleri
-├── README.md               # Ana proje özeti
-```
-
-## 🎨 Design System
-
-### Colors
-- **Primary**: Blue (#3B82F6) - Main actions and highlights
-- **Secondary**: Emerald (#10B981) - Success states and positive actions
-- **Accent**: Orange (#F97316) - Warnings and attention-grabbing elements
-- **Muted**: Gray variants for backgrounds and secondary text
-
-### Typography
-- **Font**: Inter (Google Fonts)
-- **Hierarchy**: Clear heading levels with proper line heights
-- **Spacing**: 8px grid system for consistent layouts
-
-### Components
-- **Cards**: Subtle shadows with rounded corners
-- **Buttons**: Multiple variants (default, outline, ghost, destructive)
-- **Badges**: Status indicators with semantic colors
-- **Avatars**: User profile images with fallbacks
-
-## 🚧 Current Status
-
-### What's Working
-✅ Complete UI/UX with responsive design  
-✅ Task management (CRUD operations)  
-✅ Team switching and member management  
-✅ Drag & drop kanban functionality  
-✅ Advanced filtering and search  
-✅ Analytics dashboard with metrics  
-✅ Theme switching (dark/light)  
-✅ Notification system  
-✅ Settings management  
-
-### Mock Data
-- **Teams**: Product Team (5 members), Design Team (3 members)
-- **Tasks**: 7 realistic tasks with various statuses and priorities
-- **Users**: Authentic profiles with real-looking data
-- **Notifications**: 6 different notification types
-- **Analytics**: Simulated productivity metrics
-
-## 🎯 Next Steps (Phase 2)
-
-### 🔐 Authentication & Backend
-- [ ] **Google OAuth Integration**: Seamless social login
-- [ ] **User Registration**: Email/password signup flow
-- [ ] **JWT Token Management**: Secure authentication
-- [ ] **Protected Routes**: Route guards for authenticated users
-
-### 🗄️ Database Integration
-- [ ] **MongoDB Setup**: Document-based data storage
-- [ ] **User Collections**: Profile and preference storage
-- [ ] **Team Collections**: Team data and member relationships
-- [ ] **Task Collections**: Persistent task management
-- [ ] **Real-time Sync**: Database-driven state updates
-
-### 🔄 Real-time Features
-- [ ] **WebSocket Integration**: Live collaboration
-- [ ] **Socket.IO Implementation**: Real-time updates
-- [ ] **Typing Indicators**: Show when users are active
-- [ ] **Live Cursors**: See team member activity
-- [ ] **Push Notifications**: Browser and mobile alerts
-
-### 🤖 AI Integration
-- [ ] **OpenAI API**: Smart task suggestions
-- [ ] **Deadline Predictions**: AI-powered time estimates
-- [ ] **Productivity Insights**: Intelligent analytics
-- [ ] **Auto-categorization**: Smart task organization
-- [ ] **Meeting Summaries**: AI-generated task extraction
-
-### 📱 Mobile Optimization
-- [ ] **PWA Setup**: Progressive Web App capabilities
-- [ ] **Offline Support**: Service worker implementation
-- [ ] **Mobile Gestures**: Touch-friendly interactions
-- [ ] **App Install Prompt**: Native app experience
-
-### 🔧 Advanced Features
-- [ ] **File Upload**: Real attachment handling
-- [ ] **Calendar Integration**: Due date synchronization
-- [ ] **Time Tracking**: Built-in productivity timer
-- [ ] **Custom Fields**: Flexible task metadata
-- [ ] **Automation Rules**: Workflow automation
-- [ ] **API Endpoints**: Third-party integrations
-
-### 🧪 Testing & Quality
-- [ ] **Unit Tests**: Component testing with Jest
-- [ ] **Integration Tests**: End-to-end testing
-- [ ] **Performance Optimization**: Bundle analysis and optimization
-- [ ] **Accessibility**: WCAG compliance
-- [ ] **Error Handling**: Comprehensive error boundaries
-
-### 🚀 Deployment & DevOps
-- [ ] **Production Build**: Optimized deployment
-- [ ] **Environment Variables**: Secure configuration
-- [ ] **CI/CD Pipeline**: Automated deployment
-- [ ] **Monitoring**: Error tracking and analytics
-- [ ] **Performance Monitoring**: Real user metrics
-
-## 🎨 UI Improvements Needed
-- [ ] **Loading States**: Skeleton screens and spinners
-- [ ] **Empty States**: Better empty state illustrations
-- [ ] **Error States**: User-friendly error messages
-- [ ] **Confirmation Dialogs**: Delete confirmations
-- [ ] **Toast Notifications**: Success/error feedback
-- [ ] **Keyboard Shortcuts**: Power user features
-
-## 📊 Analytics Enhancements
-- [ ] **Real Metrics**: Connect to actual data
-- [ ] **Custom Date Ranges**: Flexible reporting periods
-- [ ] **Export Features**: PDF/CSV report generation
-- [ ] **Goal Setting**: Team and individual targets
-- [ ] **Burndown Charts**: Sprint progress visualization
-
-## 🔒 Security Considerations
-- [ ] **Input Validation**: Prevent XSS and injection attacks
-- [ ] **Rate Limiting**: API abuse prevention
-- [ ] **Data Encryption**: Sensitive data protection
-- [ ] **Audit Logging**: Security event tracking
-- [ ] **Permission System**: Granular access control
-
-## 🌟 Premium Features (Future)
-- [ ] **Custom Themes**: Brand customization
-- [ ] **Advanced Reporting**: Business intelligence
-- [ ] **Integrations**: Slack, Microsoft Teams, etc.
-- [ ] **White-label**: Custom branding options
-- [ ] **Enterprise SSO**: SAML/LDAP integration
-
-## 🚀 Getting Started
-
-1. **Install Dependencies**:
-   ```bash
-   npm install
-   ```
-
-2. **Run Development Server**:
-   ```bash
-   npm run dev
-   ```
-
-3. **Open Browser**:
-   Navigate to `http://localhost:3000`
-
-4. **Explore Features**:
-   - Switch between Board and List views
-   - Create new tasks with the "Add Task" button
-   - Drag tasks between columns in Board view
-   - Check Analytics for team insights
-   - Toggle dark/light theme
-   - Explore Settings for team management
-
-## 📝 Development Notes
-
-- **State Management**: Currently using React Context - consider Redux Toolkit for complex state
-- **Performance**: Implement virtualization for large task lists
-- **Accessibility**: Add ARIA labels and keyboard navigation
-- **Testing**: Set up comprehensive test suite
-- **Documentation**: API documentation for backend integration
+</div>
 
 ---
 
-**Built with ❤️ using Next.js, TypeScript, and Tailwind CSS**
+> [!IMPORTANT]
+> **Actively developed product.** This repository contains both released functionality and features behind environment, entitlement, or rollout gates. A successful GitHub merge does **not** mean the same code is deployed to Production. Do not treat sample dashboards, AI previews, or historical reporting as proof of live customer activity.
+
+## Overview
+
+Actiproc brings the work lifecycle into one place:
+
+```text
+Idea / incoming request
+          ↓
+     Inbox or Process
+          ↓
+   Action + checklist ───── Notes / Knowledge Hub
+          ↓                        │
+   Planner / reminders ←───────────┘
+          ↓
+   Team execution + reporting
+```
+
+**Processes** are configurable workflows with Board and List views. **Actions** are the units of work, with ownership, priority, schedule, checklist items, notes, and dependencies. **Inbox** collects Actions that do not yet belong to a Process; it is not an additional billable Process.
+
+### Product areas
+
+| Area | What the repository implements |
+| --- | --- |
+| **Processes & Actions** | Configurable workflow stages; Kanban and List views; filtering, search, assignments, checklists, and Action details. |
+| **Planner & Inbox** | Scheduled and recurring work, personal planning, team-scoped uncategorized Actions, and reminders. |
+| **Notes & Knowledge** | Rich-text notes with TipTap, searchable Knowledge Hub, and explicit links between Action checklist items and their Notes. |
+| **Smart Dependencies** | Prerequisite relationships, blocked/ready indicators, and database-backed cycle and completion guards. |
+| **Collaboration** | Organizations, teams, roles, Process visibility, invitations, and customer-related work. |
+| **Insights & Reporting** | Overview metrics and operational reporting with Process, assignee, and period filters and a scoped CSV export. |
+| **AI assistance** | Workspace-aware assistance and configurable read/write tools with permission, quota, and rollout controls. |
+| **Feedback & integrations** | An idea/feedback hub, notifications, and integration paths for calendar, webhooks, email, and attachments. |
+| **Web & mobile** | Responsive Next.js/PWA experience and a locally bundled Capacitor Android client; iOS work is maintained separately. |
+
+Availability depends on **plan entitlements**, the configured services, and deployment flags. For example, an AI write tool present in source may be disabled in Production. Reporting uses verified completion timestamps where available; it is **not** a complete historical event ledger, and large-team data may be capped. Android feature parity and iOS distribution are not implied by the existence of client code.
+
+## Technology
+
+| Layer | Current implementation |
+| --- | --- |
+| Web | **Next.js 13.5** (App Router), **React 18**, TypeScript, Tailwind CSS, Radix/shadcn-style UI |
+| Identity | **NextAuth v4** with Google OAuth and credentials; scoped server APIs |
+| Persistence | **Supabase PostgreSQL**, RLS, SQL migrations and database integrity checks |
+| Rich content | **TipTap** editor, checklists and related Notes |
+| Mobile | **Capacitor 8**, React/Vite Android bundle, native session and link adapters |
+| Services | Vercel, Creem billing, Cloudflare R2 attachments, email/push, and configurable AI providers |
+
+This repository retains some internal `Axiom` identifiers and package names from earlier development. **Actiproc** is the product name; do not infer a separate product or a newer framework version from those legacy identifiers.
+
+## Repository map
+
+```text
+app/
+  (marketing)/        Public EN/TR landing pages
+  (shell)/            Authenticated product routes
+  api/                Server-side routes and integration endpoints
+components/           Product and marketing React components
+lib/                  Authentication, data, policies, billing, AI, i18n
+shared/               Cross-platform contracts and reusable product UI
+mobile/               Capacitor Android client and gated build targets
+ios/                  iOS work (not a claim of release availability)
+supabase/migrations/  Reviewed incremental PostgreSQL changes
+scripts/              Tests, verification, diagnostics, staging utilities
+.github/workflows/    Domain-specific CI and regression checks
+docs/                 Technical decisions, operations, QA and rollout notes
+```
+
+## Local development
+
+**Prerequisites:** Node.js **22** (used by repository CI), npm, access to an appropriately configured **development/staging Supabase** project, and Google OAuth credentials for Google sign-in. Native Android builds additionally need an Android SDK and configured Java/Gradle toolchain.
+
+From a clone of the repository:
+
+```powershell
+cd taskflow
+npm ci
+Copy-Item .env.example .env.local
+```
+
+On macOS/Linux, use `cp .env.example .env.local` instead of `Copy-Item`.
+
+Edit `.env.local` with **development-only** values. The [tracked variable template](./.env.example) documents feature-specific settings. The most relevant starting points are:
+
+| Environment variable | Purpose |
+| --- | --- |
+| `NEXTAUTH_URL`, `NEXTAUTH_SECRET` | Local NextAuth origin and signing secret |
+| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase project and browser-safe key |
+| `SUPABASE_SERVICE_ROLE_KEY` | **Server only:** trusted database operations |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google OAuth sign-in and related integrations |
+| `NEXT_PUBLIC_APP_URL` | Public application origin |
+
+Additional variables are required **only for the services you configure** (AI providers, email, R2, push, Creem, mobile OAuth, cron). Keep credentials in local environment files and the deployment provider's secret settings, not in Git or a mobile `VITE_*` variable. The sample configuration intentionally leaves several production features disabled.
+
+```powershell
+npm run dev
+```
+
+Open **http://localhost:3000**. Public landing routes are `/marketing` (English) and `/marketing/tr` (Türkçe). Signed-in workspace flows require a working database and authentication configuration; installing packages does **not** provision Supabase.
+
+> [!CAUTION]
+> **Database changes are not automatic.** `supabase/migrations/` contains incremental migrations with ordering and prerequisites. Validate the target environment, apply missing migrations in staging first, and review Production migrations separately. Do not rerun historical SQL merely because its file appears in GitHub.
+
+## Verification
+
+The project uses focused regression suites rather than a single command that proves every feature works in Production.
+
+```powershell
+# Web type checking and production build
+npx tsc --noEmit
+npm run build
+
+# Representative product and commercial regressions
+npm run test:entitlements
+npm run test:creem
+
+# EN/TR landing and Action dependency UI contracts
+npx tsx scripts/test-marketing-locale-coverage.ts
+npx tsx scripts/test-task-dependencies-ui.ts
+```
+
+The [GitHub Actions workflows](./.github/workflows/) also cover domain-specific security, Postgres behavior, Android parity, AI, billing, and browser scenarios. Some checks require containers, test accounts, approved credentials, or a deployed staging environment. Green CI is **necessary but not equivalent to** real-device or live payment acceptance.
+
+### Android (controlled production beta)
+
+The Android client is a **bundled** Vite/React application, not a production `server.url` wrapper around Next.js. Its backend is still the deployed Actiproc API. Build targets are deliberately explicit:
+
+```powershell
+npm ci --prefix mobile
+npm --prefix mobile run verify:android-production-beta
+npm --prefix mobile run android:debug:production-beta
+```
+
+The production-beta preflight must validate the actual deployed API/CORS/auth endpoints **before** an APK is built. Do not bypass a failing guard or place server secrets in client bundle settings. See [mobile/README.md](./mobile/README.md) and the [Android Connected Notes rollout](./docs/ANDROID_CONNECTED_NOTES_PARITY_20261116.md) for detailed environments and device acceptance.
+
+## Release process
+
+1. Implement changes through a reviewed **pull request**; run the relevant GitHub Actions tests.
+2. Merge validated code into **`main`**. Local developers update with `git pull --ff-only origin main`.
+3. If the release requires SQL, verify which migrations are **actually installed** in the target Supabase database; apply only approved changes **before** dependent backend code.
+4. Create a **new Vercel Production deployment from the latest intended GitHub commit**, using the Vercel dashboard. Confirm the deployed source SHA.
+5. Smoke-test authentication, tenant access, affected user flows, external services, and (when applicable) the Android API preflight.
+
+**Git-driven automatic deployments are disabled by design** in [`vercel.json`](./vercel.json) (`git.deploymentEnabled=false`). Pushing to GitHub and pulling locally do **not** publish the site. Redeploying an older Vercel build is not a substitute for selecting the latest commit. **No local Vercel CLI command is required** in this project's normal release workflow.
+
+## Security and operational boundaries
+
+- NextAuth sessions and mobile bearer authentication use different client transports; authorization remains a **server responsibility**.
+- Data access is scoped by organization, team, role, and Process visibility. PostgreSQL **RLS and integrity rules** complement — not replace — API permission checks.
+- **Supabase service-role keys, billing/webhook secrets, AI provider tokens, and attachment credentials** are server-only.
+- AI tools, payment acceptance, and production mobile capabilities remain subject to explicit enablement and acceptance checks.
+- Public product walkthroughs use **illustrative sample data**, not real users' private workspaces.
+- Do not treat a local build, migration existence check, or green CI job as independent evidence of a successful Production rollout.
+
+## Documentation
+
+Start at the [documentation index](./docs/README.md). Particularly useful references:
+
+- [Mobile development & build safety](./mobile/README.md)
+- [Authentication and credentials reliability](./docs/AUTH_CREDENTIALS_401_QA_20261116.md)
+- [Dependencies: database guarantees](./docs/P23_SMART_DEPENDENCIES_FOUNDATION.md) and [UI contract](./docs/P232_DEPENDENCIES_UI.md)
+- [Connected checklist Notes](./docs/CONNECTED_NOTES_V1_RELEASE.md)
+- [Operational reporting limitations](./docs/P31_ADVANCED_REPORTING.md)
+- [Marketing English/Türkçe](./docs/MARKETING_LOCALES_EN_TR.md)
+- [Plans and feature entitlements](./docs/ACTIPROC_PLAN_ENTITLEMENT_MATRIX.md)
+
+Some documents record **historical rollout plans**, not current Production state. Where a document conflicts with tracked code or verified deployment configuration, investigate rather than assuming the document is current.
+
+<details>
+<summary><strong>Türkçe kısa özet</strong></summary>
+
+**Actiproc**, bireylerin ve ekiplerin süreçlerini, görevlerini, planlarını, kontrol listelerini ve notlarını tek çalışma alanında yönetmeleri için geliştiriliyor. Web uygulaması Next.js/React; veritabanı Supabase PostgreSQL; Android uygulaması Capacitor tabanlıdır.
+
+**Yerel başlangıç (PowerShell):** `npm ci`, ardından `Copy-Item .env.example .env.local`; geliştirme ortamı değerlerini doldurduktan sonra `npm run dev` çalıştır.
+
+**Yayın akışı:** Geliştirmeler GitHub PR üzerinden test edilerek `main` dalına alınır. Yerelde `git pull --ff-only origin main` ile güncellenir. Production yayını **Vercel panelinden**, ilgili güncel commit seçilerek **manuel** yapılır. Supabase migration dosyaları ayrıca incelenir; GitHub'a kod göndermek SQL çalıştırmaz.
+
+Ürünün Türkçe tanıtımı: [actiproc.com/marketing/tr](https://www.actiproc.com/marketing/tr). Teknik belgeler: [docs/](./docs/README.md).
+
+</details>
