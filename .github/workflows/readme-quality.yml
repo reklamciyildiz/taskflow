@@ -1,0 +1,35 @@
+name: Actiproc README integrity
+
+on:
+  pull_request:
+    paths:
+      - 'README.md'
+      - 'docs/README.md'
+      - 'scripts/test-readme-contract.cjs'
+      - '.github/workflows/readme-quality.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'README.md'
+      - 'docs/README.md'
+      - 'scripts/test-readme-contract.cjs'
+      - '.github/workflows/readme-quality.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-docs:
+    name: Source-of-truth and links
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate product, architecture and release assertions
+        run: node scripts/test-readme-contract.cjs
+      - name: Detect whitespace and patch errors
+        run: git diff --check HEAD^ HEAD || git diff --check
